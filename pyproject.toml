@@ -1,0 +1,121 @@
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.pytest_cache
+  | \.tox
+  | \.venv
+  | ~build
+  | build
+  | ops
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+default_section = "THIRDPARTY"
+known_first_party = []
+known_django = "django"
+sections = ["FUTURE","STDLIB","DJANGO","THIRDPARTY","FIRSTPARTY","LOCALFOLDER"]
+include_trailing_comma = true
+skip = ["migrations", "snapshots", ".venv"]
+
+
+[tool.django-stubs]
+django_settings_module = "hope_dedup_engine.config.settings"
+
+
+[tool.pdm.build]
+includes = []
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "argh",
+    "black",
+    "django-webtest",
+    "faker",
+    "flake8",
+    "flake8-bugbear",
+    "flake8-formatter-junit-xml",
+    "flake8-html",
+    "freezegun",
+    "graphene-stubs",
+    "ipdb",
+    "isort",
+    "openpyxl-stubs",
+    "parameterized",
+    "parso",
+    "pytest",
+    "pytest-cov",
+    "pytest-django",
+    "pytest-echo",
+    "pytest-xdist",
+    "requests-mock",
+    "responses",
+    "snapshottest",
+    "types-freezegun",
+    "types-requests",
+    "types-python-dateutil",
+    "types-pytz",
+    "types-redis",
+    "unittest-xml-reporting",
+    "watchdog",
+]
+[project]
+authors = [
+    {name = "ddinicola"},
+    {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
+]
+requires-python = ">=3.11"
+dependencies = [
+    "Django",
+    "celery[redis]",
+    "djangorestframework",
+    "djangorestframework-xml",
+    "django-admin-extra-buttons",
+    "django-admin-sync",
+    "django-adminactions",
+    "django-adminfilters",
+    "django-advanced-filters",
+    "django-celery-beat",
+    "django-celery-results",
+    "django-concurrency",
+    "django-constance",
+    "django-cors-headers",
+    "django-csp",
+    "django-debug-toolbar",
+    "django-environ",
+    "django-extensions",
+    "django-filter",
+    "django-fsm",
+    "django-import-export",
+    "django-model-utils",
+    "django-mptt",
+    "django-smart-admin",
+    "django-storages[azure]",
+    "dj-static",
+    "drf-spectacular[sidecar]",
+    "factory-boy",
+    "gunicorn",
+    "newrelic",
+    "natural-keys",
+    "pre-commit",
+    "psycopg[binary]",
+    "sentry-sdk",
+    "social-auth-app-django",
+    "social-auth-core",
+    "swapper",
+    "tablib",
+    "unicef-power-query",
+    "unicef-security",
+    "wheel",
+    "uwsgi",
+]
+name = "hope_dedup_engine"
+version = "0.1"
+description = "HOPE integration with FSPs"
+readme = "README.md"

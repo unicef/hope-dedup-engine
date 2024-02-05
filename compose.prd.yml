@@ -1,0 +1,106 @@
+version: '3.8'
+
+x-django-env: &django-env
+  - SECRET_KEY=secret-key
+  - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
+  - CACHE_URL=redis://redis:6379/0
+  - CELERY_BROKER_URL=redis://redis:6379/0
+  - AZURE_CLIENT_SECRET=
+  - AZURE_TENANT_ID=
+  - AZURE_CLIENT_KEY=
+
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prd
+    command: |
+      sh -c "
+        entrypoint.sh ./wait-for-it.sh db:5432
+        python3 manage.py upgrade
+        entrypoint.sh prd
+      "
+    environment: *django-env
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://backend:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - 5432:5432
+    restart: always
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 5s
+      timeout: 4s
+      retries: 5
+
+  redis:
+    image: redis:7.2
+    ports:
+      - 6379:6379
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 5s
+      timeout: 4s
+      retries: 5
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prd
+    command: |
+      sh -c "
+        entrypoint.sh ./wait-for-it.sh db:5432
+        entrypoint.sh celery_worker
+      "
+    environment: *django-env
+    volumes:
+      - .:/code
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prd
+    command: |
+      sh -c "
+        entrypoint.sh ./wait-for-it.sh db:5432
+        entrypoint.sh celery_beat
+      "
+    environment: *django-env
+    volumes:
+      - .:/code
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
