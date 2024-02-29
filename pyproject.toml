@@ -114,7 +114,6 @@ dependencies = [
     "unicef-security",
     "wheel",
     "uwsgi",
-    "opencv-python>=4.9.0.80",
     "psutil>=5.9.8",
     "redis>=5.0.2",
 ]
