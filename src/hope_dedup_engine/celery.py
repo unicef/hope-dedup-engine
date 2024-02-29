@@ -9,6 +9,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hope_dedup_engine.config.settin
 
 logger = logging.getLogger(__name__)
 
-app = Celery("hpg")
+app = Celery("hde")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)

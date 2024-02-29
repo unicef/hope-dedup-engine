@@ -81,7 +81,7 @@ dependencies = [
     "django-adminactions",
     "django-adminfilters",
     "django-advanced-filters",
-    "django-celery-beat",
+    "django-celery-beat>=2.5.0",
     "django-celery-results",
     "django-concurrency",
     "django-constance",
@@ -96,7 +96,7 @@ dependencies = [
     "django-model-utils",
     "django-mptt",
     "django-smart-admin",
-    "django-storages[azure]",
+    "django-storages[azure]>=1.14.2",
     "dj-static",
     "drf-spectacular[sidecar]",
     "factory-boy",
@@ -114,6 +114,9 @@ dependencies = [
     "unicef-security",
     "wheel",
     "uwsgi",
+    "opencv-python>=4.9.0.80",
+    "psutil>=5.9.8",
+    "redis>=5.0.2",
 ]
 name = "hope_dedup_engine"
 version = "0.1"

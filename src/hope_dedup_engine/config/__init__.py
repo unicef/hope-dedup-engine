@@ -41,7 +41,7 @@ OPTIONAL = {
     "SENTRY_DSN": (str, ""),
     "SENTRY_URL": (str, "https://excubo.unicef.org/"),
     "SESSION_COOKIE_DOMAIN": (str, "unicef.org"),
-    "SESSION_COOKIE_NAME": (str, "hpg_session"),
+    "SESSION_COOKIE_NAME": (str, "hde_session"),
     "SESSION_COOKIE_PATH": (str, "/"),
     "SESSION_COOKIE_SECURE": (bool, True),
     "STATIC_URL": (str, "/static/"),
