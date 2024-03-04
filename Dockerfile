@@ -1,11 +1,15 @@
 # Base image with NVIDIA CUDA
 FROM nvidia/cuda:12.3.1-runtime-ubuntu22.04 as base
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies
+RUN apt-get update && apt-get install software-properties-common -y
+RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip gcc-9 g++-9 git build-essential cmake curl \
+    python3.11 python3-pip gcc-9 g++-9 git build-essential cmake curl \
     libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev \
-    python3-dev python3-numpy nvidia-cuda-toolkit \
+    python3-dev python3-numpy libpq-dev nvidia-cuda-toolkit \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 82 hde \
     && useradd --system --uid 82 --gid 82 --create-home --shell /sbin/nologin --no-log-init hde \
