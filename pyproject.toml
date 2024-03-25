@@ -70,7 +70,7 @@ authors = [
     {name = "ddinicola"},
     {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
 ]
-requires-python = ">=3.11"
+requires-python = "<3.12,>=3.8"
 dependencies = [
     "Django",
     "celery[redis]",
@@ -114,6 +114,7 @@ dependencies = [
     "unicef-security",
     "wheel",
     "uwsgi",
+    "django-regex>=0.5.0",
 ]
 name = "hope_dedup_engine"
 version = "0.1"
