@@ -1,4 +1,3 @@
-import os
 from typing import Any, Optional, Type
 
 from django.conf import settings
@@ -19,8 +18,6 @@ class DbRouter:
         return DbRouter.select_db(model)
 
     def allow_migrate(self, db: str, app_label: str, model_name: Optional[str] = None, **hints: Any) -> bool:
-        if bool(os.getenv("TESTING")):
-            return True
         if db == "hope":
             return False
         if db == "default" and app_label not in settings.DATABASE_APPS_MAPPING:
