@@ -4,13 +4,13 @@ RUN apt-get update \
     && apt-get install -y \
         gcc curl libgdal-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && addgroup --system --gid 82 hpg \
+    && addgroup --system --gid 82 dde \
     && adduser \
         --system --uid 82 \
-        --disabled-password --home /home/hpg \
-        --shell /sbin.nologin --group hpg --gecos hpg \
+        --disabled-password --home /home/dde \
+        --shell /sbin.nologin --group dde --gecos dde \
     && mkdir -p /code /tmp /data /static \
-    && chown -R hpg:hpg /code /tmp /data /static
+    && chown -R dde:dde /code /tmp /data /static
 
 ENV PACKAGES_DIR=/packages
 ENV PYPACKAGES=$PACKAGES_DIR/__pypackages__/3.11
@@ -44,9 +44,9 @@ FROM base AS prd
 
 ENV PATH=$PATH:/code/.venv/bin/
 
-COPY --chown=hpg:hpg ./ ./
-COPY --chown=hpg:hpg --from=builder $PACKAGES_DIR $PACKAGES_DIR
-USER hpg
+COPY --chown=dde:dde ./ ./
+COPY --chown=dde:dde --from=builder $PACKAGES_DIR $PACKAGES_DIR
+USER dde
 
 ADD docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
