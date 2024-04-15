@@ -17,7 +17,7 @@ variables:
   Docker.url: "uniappsakshopedev.azurecr.io"
   tag: $(Build.SourceVersion)
   additionalTag: $(Build.SourceBranchName)
-  pipelineId: 1143
+  pipelineId: todo
 
 
 stages:
@@ -90,11 +90,11 @@ stages:
           - script: |
               docker buildx create --use
               docker buildx build \
-              --cache-from=$(Docker.url)/$(Docker.backend.repository)-cache:trn-$(additionalTag) \
-              --cache-from=$(Docker.url)/$(Docker.backend.repository)-cache:trn-latest \
-              --cache-to=$(Docker.url)/$(Docker.backend.repository)-cache:trn-$(additionalTag) \
-              --cache-to=$(Docker.url)/$(Docker.backend.repository)-cache:trn-latest \
-              -t $(Docker.url)/$(Docker.backend.repository):trn-$(tag) \
+              --cache-from=$(Docker.url)/$(Docker.backend.repository)-cache:prd-$(additionalTag) \
+              --cache-from=$(Docker.url)/$(Docker.backend.repository)-cache:prd-latest \
+              --cache-to=$(Docker.url)/$(Docker.backend.repository)-cache:prd-$(additionalTag) \
+              --cache-to=$(Docker.url)/$(Docker.backend.repository)-cache:prd-latest \
+              -t $(Docker.url)/$(Docker.backend.repository):prd-$(tag) \
               --target prd \
               --push \
               ./
