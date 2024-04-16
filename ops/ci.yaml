@@ -12,7 +12,7 @@ variables:
   # ========================================================================
   #                          Mandatory variables 
   # ========================================================================
-  Docker.backend.repository: "hope-dedup-engien"
+  Docker.backend.repository: "hope-dedup-engine"
   Docker.registryConnection: "ICTD-HOPE-DEV-ACR"
   Docker.url: "uniappsakshopedev.azurecr.io"
   tag: $(Build.SourceVersion)
