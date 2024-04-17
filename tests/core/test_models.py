@@ -4,6 +4,6 @@ from ..factories import UserFactory
 
 
 @pytest.mark.django_db
-def test_system():
-    system = UserFactory(name="Hope")
-    assert str(system) == "Hope"
+def test_user():
+    user = UserFactory(username="User")
+    assert str(user) == "User"

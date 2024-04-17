@@ -1,9 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import signals
-from django.utils import timezone
 
 import factory
-from factory import fuzzy
 
 
 @factory.django.mute_signals(signals.post_save)

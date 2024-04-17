@@ -3,14 +3,7 @@ import tempfile
 
 import pytest
 
-from .factories import (
-    APITokenFactory,
-    CorridorFactory,
-    FinancialServiceProviderFactory,
-    PaymentInstructionFactory,
-    PaymentRecordFactory,
-    UserFactory,
-)
+from .factories import UserFactory
 
 
 def pytest_configure(config):
