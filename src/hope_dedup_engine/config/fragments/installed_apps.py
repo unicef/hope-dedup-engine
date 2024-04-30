@@ -1,9 +1,12 @@
-INSTALLED_APPS = (
+PROJECT_APPS = [
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.AppConfig",
     "unicef_security",
-    "django.contrib.contenttypes",
+]
+
+DJANGO_APPS = [
     "advanced_filters",
+    "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.humanize",
     "django.contrib.messages",
@@ -15,6 +18,9 @@ INSTALLED_APPS = (
     "django.contrib.admin",
     "django_extensions",
     "django_filters",
+]
+
+OTHER_APPS = [
     "corsheaders",
     "django_fsm",
     "social_django",
@@ -28,4 +34,6 @@ INSTALLED_APPS = (
     "django_celery_beat",
     "django_celery_results",
     "power_query",
-)
+]
+
+INSTALLED_APPS = DJANGO_APPS + OTHER_APPS + PROJECT_APPS
