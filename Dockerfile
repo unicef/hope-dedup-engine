@@ -24,9 +24,9 @@ FROM base as builder
 
 WORKDIR $PACKAGES_DIR
 RUN pip install pdm==2.9.3
-ADD ../pyproject.toml ./
+ADD pyproject.toml ./
 ADD ../pdm.toml.template ./pdm.toml
-ADD ../pdm.lock ./
+ADD pdm.lock ./
 RUN pdm sync --prod --no-editable --no-self
 
 FROM builder AS dev
@@ -36,7 +36,7 @@ RUN pdm sync --no-editable --no-self
 WORKDIR /code
 COPY .. ./
 
-ADD entrypoint.sh /usr/local/bin/entrypoint.sh
+ADD docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
 
 
@@ -48,5 +48,5 @@ COPY --chown=dde:dde .. ./
 COPY --chown=dde:dde --from=builder $PACKAGES_DIR $PACKAGES_DIR
 USER dde
 
-ADD entrypoint.sh /usr/local/bin/entrypoint.sh
+ADD docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
