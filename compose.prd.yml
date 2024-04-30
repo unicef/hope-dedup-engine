@@ -14,7 +14,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: prd
     command: |
       sh -c "
@@ -68,7 +68,7 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: prd
     command: |
       sh -c "
@@ -88,7 +88,7 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: prd
     command: |
       sh -c "
