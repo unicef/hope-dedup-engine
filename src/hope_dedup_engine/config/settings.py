@@ -18,6 +18,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
+    "hope_dedup_engine.apps.faces.apps.Config",
     # "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
@@ -157,11 +158,17 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "level": "INFO"},
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+        },
     },
-    "root": {
-        "handlers": ["console"],
-        "level": "WARNING",
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
     },
 }
 
