@@ -90,4 +90,4 @@ services:
 
 volumes:
   postgres_data:
-  # hope_postgres_data:
+  hope_postgres_data:
