@@ -13,12 +13,12 @@ def task_lifecycle(name: str):
             logger = logging.getLogger(func.__module__)
             logger.info(f"{name} task started")
             task: TaskModel = None
+            result = None
             try:
                 task = TaskModel.objects.create(
                     name=name,
                     celery_task_id=self.request.id,
                 )
-
                 result = func(self, *args, **kwargs)
 
                 task.status = TaskModel.StatusChoices.COMPLETED_SUCCESS
