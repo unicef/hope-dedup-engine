@@ -17,7 +17,7 @@ variables:
   Docker.url: "uniappsakshopedev.azurecr.io"
   tag: $(Build.SourceVersion)
   additionalTag: $(Build.SourceBranchName)
-  pipelineId: todo
+  pipelineId: 1309
 
 
 stages:
