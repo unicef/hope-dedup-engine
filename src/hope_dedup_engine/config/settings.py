@@ -75,6 +75,7 @@ STATICFILES_FINDERS = [
     # "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
+DATASET_PATH = env("DATASET_PATH", default=DEVELOPMENT_DIR / "dataset")
 
 STORAGES = {
     "default": env.storage("FILE_STORAGE_DEFAULT"),
