@@ -61,16 +61,16 @@ stages:
             inputs:
               command: login
               containerRegistry: $(Docker.registryConnection)
-          # - task: DockerCompose@0
-          #   displayName: "Run tests"
-          #   inputs:
-          #     containerregistrytype: 'Azure Container Registry'
-          #     azureContainerRegistry: $(Docker.registryConnection)
-          #     dockerComposeFile: 'ops/compose.test.yml'
-          #     action: 'Run a Docker Compose command'
-          #     dockerComposeCommand: 'up --exit-code-from backend'
-          #     dockerComposeFileArgs: |
-          #       backend_image=$(Docker.url)/$(Docker.backend.repository):dev-$(tag)
+          - task: DockerCompose@0
+            displayName: "Run tests"
+            inputs:
+              containerregistrytype: 'Azure Container Registry'
+              azureContainerRegistry: $(Docker.registryConnection)
+              dockerComposeFile: 'ops/compose.test.yml'
+              action: 'Run a Docker Compose command'
+              dockerComposeCommand: 'up --exit-code-from backend'
+              dockerComposeFileArgs: |
+                backend_image=$(Docker.url)/$(Docker.backend.repository):dev-$(tag)
 
 
   - stage: build_and_push_prd
