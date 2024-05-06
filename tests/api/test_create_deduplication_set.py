@@ -14,6 +14,7 @@ from testutils.factories.api import DeduplicationSetFactory
 def test_can_create_deduplication_set(authenticated_api_client: APIClient) -> None:
     previous_amount = DeduplicationSet.objects.count()
     data = DeduplicationSetSerializer(DeduplicationSetFactory.build()).data
+
     response = authenticated_api_client.post(reverse(DEDUPLICATION_SET_LIST), data=data, format="json")
     assert response.status_code == status.HTTP_201_CREATED
     assert DeduplicationSet.objects.count() == previous_amount + 1

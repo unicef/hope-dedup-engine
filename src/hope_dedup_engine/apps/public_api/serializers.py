@@ -4,6 +4,8 @@ from hope_dedup_engine.apps.public_api.models import DeduplicationSet
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
+    state = serializers.CharField(source="get_state_display", read_only=True)
+
     class Meta:
         model = DeduplicationSet
         fields = "__all__"
