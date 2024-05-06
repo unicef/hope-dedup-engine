@@ -1,6 +1,7 @@
 import logging
+import os
 import pickle
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from django.conf import settings
 
@@ -8,30 +9,41 @@ import cv2
 import face_recognition
 import numpy as np
 
+from hope_dedup_engine.apps.core.storage import DataSetStorage
+
 
 class DuplicationDetector:
     def __init__(self, filename: str) -> None:
         self.logger = logging.getLogger(__name__)
-        self.net = cv2.dnn.readNetFromCaffe(
-            str(settings.PROTOTXT_FILE),
-            str(settings.CAFFEMODEL_FILE),
-        )
+
+        self.net = cv2.dnn.readNetFromCaffe(str(settings.PROTOTXT_FILE), str(settings.CAFFEMODEL_FILE))
         self.net.setPreferableBackend(settings.DNN_BACKEND)
         self.net.setPreferableTarget(settings.DNN_TARGET)
-        self.threshold: float = settings.DISTANCE_THRESHOLD
+
+        self.storages = {
+            "default": DataSetStorage(location=settings.DATASET_PATH),
+            "images": DataSetStorage(location=settings.IMAGES_PATH),
+            "encoded": DataSetStorage(location=settings.ENCODED_PATH),
+        }
         self.filename: str = filename
-        self.encodings_file = settings.ENCODED_PATH / f"{self.filename}.pkl"
+        self.encodings_filename = f"{self.filename}.pkl"
+
+        self.threshold: float = settings.DISTANCE_THRESHOLD
 
     @property
     def has_encodings(self) -> bool:
-        return bool(self.encodings_file.exists())
+        return self.storages["encoded"].exists(self.encodings_filename)
 
     def _get_face_detections_dnn(self) -> List[Tuple[int, int, int, int]]:
         # TODO: Implement case if face regions for image are not detected
         try:
-            image: np.ndarray = cv2.imread(str(settings.IMAGES_PATH / f"{self.filename}"))
+            with self.storages["images"].open(self.filename, "rb") as img_file:
+                img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
+                image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             (h, w) = image.shape[:2]
-            blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+            blob = cv2.dnn.blobFromImage(
+                image=cv2.resize(image, dsize=(300, 300)), scalefactor=1.0, size=(300, 300), mean=(104.0, 177.0, 123.0)
+            )
             self.net.setInput(blob)
             detections = self.net.forward()
             face_regions: List[Tuple[int, int, int, int]] = []
@@ -44,20 +56,22 @@ class DuplicationDetector:
         except Exception as e:
             self.logger.exception(f"Error processing face detection for image {self.filename}", exc_info=e)
 
-    def _load_encodings(self):
-        data: dict = {}
+    def _load_encodings_all(self) -> Dict[str, List[np.ndarray]]:
+        data: Dict[str, List[np.ndarray]] = {}
         try:
-            for file in settings.ENCODED_PATH.iterdir():
-                if file.is_file() and file.suffix == ".pkl":
-                    with file.open("rb") as f:
-                        data[file.stem] = pickle.load(f)
-            return data
+            _, files = self.storages["encoded"].listdir("")
+            for file in files:
+                if file.endswith(".pkl"):
+                    with self.storages["encoded"].open(file, "rb") as f:
+                        data[os.path.splitext(file)[0]] = pickle.load(f)
         except Exception as e:
-            self.logger.exception(f"Error loading encodings for image {self.filename}", exc_info=e)
+            self.logger.exception(f"Error loading encodings: {e}", exc_info=True)
+        return data
 
-    def encode_faces(self) -> None:
+    def _encode_face(self) -> None:
         try:
-            image = face_recognition.load_image_file(settings.IMAGES_PATH / self.filename)
+            with self.storages["images"].open(self.filename, "rb") as img_file:
+                image = face_recognition.load_image_file(img_file)
             encodings: list = []
             face_regions = self._get_face_detections_dnn()
             for region in face_regions:
@@ -67,28 +81,26 @@ class DuplicationDetector:
                     encodings.extend(face_encodings)
                 else:
                     self.logger.error(f"Invalid face region {region}")
-            with open(self.encodings_file, "wb") as f:
+            with self.storages["encoded"].open(self.encodings_filename, "wb") as f:
                 pickle.dump(encodings, f)
-            return
         except Exception as e:
             self.logger.exception(f"Error processing face encodings for image {self.filename}", exc_info=e)
 
     def find_duplicates(self) -> Tuple[str]:
         duplicated_images = set()
         try:
-            encodings_all = self._load_encodings()
+            if not self.has_encodings:
+                self._encode_face()
+            encodings_all = self._load_encodings_all()
             path1 = self.filename
-            if path1 not in encodings_all:
-                self.logger.error(f"Encodings for {path1} not found.")
-                return tuple(duplicated_images)
-
             encodings1 = encodings_all[path1]
+
             for path2, encodings2 in encodings_all.items():
                 if path1 != path2:
                     for encoding1 in encodings1:
                         for encoding2 in encodings2:
                             distance = face_recognition.face_distance([encoding1], encoding2)
-                            self.logger.info(f"{distance.item():10.8f}\t{path1} vs {path2}")
+                            print(f"{distance.item():10.8f}\t{path1} vs {path2}")
                             if distance < settings.DISTANCE_THRESHOLD:
                                 duplicated_images.update([path1, path2])
                                 break
@@ -103,7 +115,7 @@ class DuplicationDetector:
         duplicated_images = set()
         checked_images = set()
         try:
-            encodings_all = self._load_encodings()
+            encodings_all = self._load_encodings_all()
             for path1, encodings1 in encodings_all.items():
                 if path1 in checked_images:
                     continue
@@ -112,7 +124,7 @@ class DuplicationDetector:
                         for encoding1 in encodings1:
                             for encoding2 in encodings2:
                                 distance = face_recognition.face_distance([encoding1], encoding2)
-                                logging.info(f"{distance.item():10.8f}\t{path1} vs {path2}")
+                                self.logger.debug(f"{distance.item():10.8f}\t{path1} vs {path2}")
                                 if distance < settings.DISTANCE_THRESHOLD:
                                     duplicated_images.update([path1, path2])
                                     break
