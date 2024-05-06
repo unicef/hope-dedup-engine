@@ -7,6 +7,7 @@ services:
     environment:
       - SECRET_KEY=secret-key
       - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
+      - DATABASE_HOPE_URL=postgres://postgres:postgres@db:5432/postgres
       - CACHE_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - AZURE_CLIENT_SECRET=
