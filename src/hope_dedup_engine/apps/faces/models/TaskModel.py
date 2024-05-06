@@ -1,13 +1,12 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
-from model_utils.models import UUIDModel
 
-
-class TaskModel(UUIDModel):
+class TaskModel(models.Model):
     class StatusChoices(models.TextChoices):
-        PROCESSING = "PROCESSING", "Processing"
-        COMPLETED_SUCCESS = "COMPLETED_SUCCESS", "Completed Successfully"
-        FAILED = "FAILED", "Failed"
+        PROCESSING = "PROCESSING", _("Processing")
+        COMPLETED_SUCCESS = "COMPLETED_SUCCESS", _("Completed Successfully")
+        FAILED = "FAILED", _("Failed")
 
     name = models.CharField(max_length=100)
     celery_task_id = models.UUIDField(null=True, blank=True)
