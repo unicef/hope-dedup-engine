@@ -7,3 +7,4 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeduplicationSet
         fields = "__all__"
+        read_only_fields = "external_system", "created_at", "created_by"

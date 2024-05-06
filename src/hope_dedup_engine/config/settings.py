@@ -42,7 +42,6 @@ INSTALLED_APPS = (
     "django_celery_beat",
     "drf_spectacular",
     "drf_spectacular_sidecar",
-    "rest_framework.authtoken",
     "hope_dedup_engine.apps.public_api",
 )
 
