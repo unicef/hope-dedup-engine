@@ -1,16 +1,12 @@
-from factory import SubFactory, fuzzy
+from factory import fuzzy
 from factory.django import DjangoModelFactory
-from rest_framework.authtoken.models import Token
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
-from testutils.factories import UserFactory
+from hope_dedup_engine.apps.public_api.models import DeduplicationSet, HDEToken
 
 
 class TokenFactory(DjangoModelFactory):
-    user = SubFactory(UserFactory)
-
     class Meta:
-        model = Token
+        model = HDEToken
 
 
 class DeduplicationSetFactory(DjangoModelFactory):

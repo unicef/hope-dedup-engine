@@ -1,22 +1,21 @@
 from enum import StrEnum, auto
 from typing import Any
 
+from const import DEDUPLICATION_SET_LIST
+from conftest import get_auth_headers
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer
-from hope_dedup_engine.apps.public_api.urls import DEDUPLICATION_SET
-from testutils.factories.api import DeduplicationSetFactory
+from hope_dedup_engine.apps.security.models import User
+from testutils.factories.api import DeduplicationSetFactory, TokenFactory
 
 
 class Methods(StrEnum):
     GET = auto()
     POST = auto()
-
-
-DEDUPLICATION_SET_LIST = f"{DEDUPLICATION_SET}-list"
 
 
 @mark.parametrize(
@@ -43,3 +42,11 @@ def test_authenticated_can_access(
 ) -> None:
     response = getattr(authenticated_api_client, method)(reverse("deduplication_set-list"), data=data, format="json")
     assert response.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
+
+
+def test_multiple_tokens_can_be_used(authenticated_api_client: APIClient, user: User) -> None:
+    tokens = [TokenFactory(user=user) for _ in range(5)]
+    for token in tokens:
+        authenticated_api_client.credentials(**get_auth_headers(token))
+        response = authenticated_api_client.get(reverse(DEDUPLICATION_SET_LIST))
+        assert response.status_code == status.HTTP_200_OK
