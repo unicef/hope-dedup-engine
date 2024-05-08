@@ -1,5 +1,12 @@
 from environ import Env
 
+DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.0/ref/settings"
+
+
+def setting(anchor):
+    return f"@see {DJANGO_HELP_BASE}#{anchor}"
+
+
 MANDATORY = {
     "DATABASE_URL": (str, "", "Database connection url"),
     "SECRET_KEY": (str, ""),
@@ -28,6 +35,11 @@ OPTIONAL = {
     "CELERY_TASK_EAGER_PROPAGATES": (bool, True),
     "CSRF_COOKIE_SECURE": (bool, True),
     "DEBUG": (bool, False, "Django DEBUG"),
+    "DEFAULT_FILE_STORAGE": (
+        str,
+        "hope_country_report.apps.power_query.storage.MediaStorage",
+        setting("storages"),
+    ),
     "EMAIL_HOST_PASSWORD": (str, ""),
     "EMAIL_HOST_USER": (str, ""),
     "SECURE_HSTS_SECONDS": (int, 60),
@@ -35,7 +47,11 @@ OPTIONAL = {
     "SECURE_SSL_REDIRECT": (bool, True),
     "SECURE_HSTS_PRELOAD": (bool, True),
     "SIGNING_BACKEND": (str, "django.core.signing.TimestampSigner"),
-    "STATIC_FILE_STORAGE": (str, "django.contrib.staticfiles.storage.StaticFilesStorage"),
+    "STATIC_FILE_STORAGE": (
+        str,
+        "hope_country_report.apps.power_query.storage.StaticStorage",
+        setting("storages"),
+    ),
     "MEDIA_URL": (str, "/media/"),
     "MEDIA_ROOT": (str, "/tmp/media/"),
     "SENTRY_DSN": (str, ""),

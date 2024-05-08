@@ -108,19 +108,15 @@ STATICFILES_FINDERS = [
 
 STORAGES = {
     "default": {
-        "BACKEND": env.str("DEFAULT_FILE_STORAGE", default="hope_dedup_engine.apps.core.storage.MediaStorage"),
+        "BACKEND": env("DEFAULT_FILE_STORAGE"),
     },
     "staticfiles": {
-        "BACKEND": env.str("STATIC_FILE_STORAGE", default="django.contrib.staticfiles.storage.StaticFilesStorage"),
+        "BACKEND": env("STATIC_FILE_STORAGE"),
     },
 }
+
 SECRET_KEY = env("SECRET_KEY")
-ALLOWED_HOSTS = (
-    # env("ALLOWED_HOST", default="localhost"),
-    # "0.0.0.0",
-    # TODO
-    "*",
-)
+ALLOWED_HOSTS = (env("ALLOWED_HOST", default="localhost"),)
 
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
