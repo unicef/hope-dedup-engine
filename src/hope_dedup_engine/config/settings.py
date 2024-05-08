@@ -116,6 +116,9 @@ STORAGES = {
     "media": {
         "BACKEND": env("MEDIA_FILE_STORAGE"),
     },
+    "hope": {
+        "BACKEND": env("HOPE_FILE_STORAGE"),
+    },
 }
 
 SECRET_KEY = env("SECRET_KEY")

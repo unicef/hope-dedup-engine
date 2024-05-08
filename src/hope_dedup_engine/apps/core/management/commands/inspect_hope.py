@@ -200,8 +200,8 @@ class Command(BaseCommand):
             yield "import django.contrib.postgres.fields"
             yield "from django.contrib.gis.db import models"
 
-            yield "from hope_country_report.apps.hope.models._base import HopeModel"
-            yield "from hope_country_report.apps.power_query.storage import HopeStorage"
+            yield "from hope_dedup_engine.apps.hope.models._base import HopeModel"
+            yield "from hope_dedup_engine.apps.core.storage import HopeStorage"
             basemodel = "HopeModel"
 
             known_models = []

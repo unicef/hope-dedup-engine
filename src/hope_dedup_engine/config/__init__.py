@@ -37,14 +37,19 @@ OPTIONAL = {
     "DEBUG": (bool, False, "Django DEBUG"),
     "DEFAULT_FILE_STORAGE": (
         str,
-        "hope_country_report.apps.power_query.storage.MediaStorage",
+        "hope_dedup_engine.apps.core.storage.MediaStorage",
         setting("storages"),
     ),
     "EMAIL_HOST_PASSWORD": (str, ""),
     "EMAIL_HOST_USER": (str, ""),
+    "HOPE_FILE_STORAGE": (
+        str,
+        "hope_dedup_engine.apps.core.storage.HopeStorage",
+        setting("storages"),
+    ),
     "MEDIA_FILE_STORAGE": (
         str,
-        "hope_country_report.apps.power_query.storage.MediaStorage",
+        "hope_dedup_engine.apps.core.storage.MediaStorage",
         setting("storages"),
     ),
     "SECURE_HSTS_SECONDS": (int, 60),
@@ -54,7 +59,7 @@ OPTIONAL = {
     "SIGNING_BACKEND": (str, "django.core.signing.TimestampSigner"),
     "STATIC_FILE_STORAGE": (
         str,
-        "hope_country_report.apps.power_query.storage.StaticStorage",
+        "hope_dedup_engine.apps.core.storage.StaticStorage",
         setting("storages"),
     ),
     "MEDIA_URL": (str, "/media/"),

@@ -36,3 +36,7 @@ class MediaStorage(UniqueStorageMixin, SettingsStorage):
 
 class StaticStorage(UniqueStorageMixin, SettingsStorage):
     prefix = "STATIC"
+
+
+class HopeStorage(UniqueStorageMixin, SettingsStorage):
+    prefix = "HOPE"
