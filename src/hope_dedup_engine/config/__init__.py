@@ -42,6 +42,11 @@ OPTIONAL = {
     ),
     "EMAIL_HOST_PASSWORD": (str, ""),
     "EMAIL_HOST_USER": (str, ""),
+    "MEDIA_FILE_STORAGE": (
+        str,
+        "hope_country_report.apps.power_query.storage.MediaStorage",
+        setting("storages"),
+    ),
     "SECURE_HSTS_SECONDS": (int, 60),
     "SESSION_COOKIE_HTTPONLY": (bool, True),
     "SECURE_SSL_REDIRECT": (bool, True),

@@ -113,6 +113,9 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": env("STATIC_FILE_STORAGE"),
     },
+    "media": {
+        "BACKEND": env("MEDIA_FILE_STORAGE"),
+    },
 }
 
 SECRET_KEY = env("SECRET_KEY")
