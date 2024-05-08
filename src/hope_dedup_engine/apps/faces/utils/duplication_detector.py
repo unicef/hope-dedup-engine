@@ -110,27 +110,3 @@ class DuplicationDetector:
         except Exception as e:
             self.logger.exception(f"Error finding duplicates for image {path1}", exc_info=e)
             return tuple(duplicated_images)
-
-    def find_all_duplicates(self) -> Tuple[str]:
-        duplicated_images = set()
-        checked_images = set()
-        try:
-            encodings_all = self._load_encodings_all()
-            for path1, encodings1 in encodings_all.items():
-                if path1 in checked_images:
-                    continue
-                for path2, encodings2 in encodings_all.items():
-                    if path1 != path2 and path2 not in checked_images:
-                        for encoding1 in encodings1:
-                            for encoding2 in encodings2:
-                                distance = face_recognition.face_distance([encoding1], encoding2)
-                                self.logger.debug(f"{distance.item():10.8f}\t{path1} vs {path2}")
-                                if distance < settings.DISTANCE_THRESHOLD:
-                                    duplicated_images.update([path1, path2])
-                                    break
-                            if path2 in duplicated_images:
-                                break
-                checked_images.add(path1)
-            return tuple(duplicated_images)
-        except Exception as e:
-            self.logger.exception("Error finding duplicates", exc_info=e)

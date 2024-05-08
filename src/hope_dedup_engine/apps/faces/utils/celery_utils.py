@@ -17,13 +17,14 @@ def task_lifecycle(name: str, ttl: int):
         def wrapper(self, *args, **kwargs):
             logger = logging.getLogger(func.__module__)
             logger.info(f"{name} task started")
-            task: TaskModel = None
-            result = None
 
             lock_name: str = f"{name}_{kwargs.get('filename')}"
             if not _acquire_lock(lock_name, ttl):
                 logger.info(f"Task {name} with brocker lock {lock_name} is already running.")
                 return None
+
+            task: TaskModel = None
+            result = None
 
             try:
                 task = TaskModel.objects.create(name=name, celery_task_id=self.request.id)
