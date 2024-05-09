@@ -42,6 +42,7 @@ OPTIONAL = {
     ),
     "EMAIL_HOST_PASSWORD": (str, ""),
     "EMAIL_HOST_USER": (str, ""),
+<<<<<<< Updated upstream
     "HOPE_FILE_STORAGE": (
         str,
         "hope_dedup_engine.apps.core.storage.HopeStorage",
@@ -50,6 +51,11 @@ OPTIONAL = {
     "MEDIA_FILE_STORAGE": (
         str,
         "hope_dedup_engine.apps.core.storage.MediaStorage",
+=======
+    "MEDIA_FILE_STORAGE": (
+        str,
+        "hope_country_report.apps.power_query.storage.MediaStorage",
+>>>>>>> Stashed changes
         setting("storages"),
     ),
     "SECURE_HSTS_SECONDS": (int, 60),
