@@ -8,7 +8,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: dev
     command: |
       sh -c "
@@ -85,7 +85,7 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: dev
     command: |
       sh -c "
@@ -106,7 +106,7 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: dev
     command: |
       sh -c "
