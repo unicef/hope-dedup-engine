@@ -28,6 +28,7 @@ class DuplicationDetector:
         self.filename: str = filename
         self.encodings_filename = f"{self.filename}.pkl"
 
+        self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
         self.threshold: float = settings.DISTANCE_THRESHOLD
 
     @property
@@ -36,6 +37,7 @@ class DuplicationDetector:
 
     def _get_face_detections_dnn(self) -> List[Tuple[int, int, int, int]]:
         # TODO: Implement case if face regions for image are not detected
+        face_regions: List[Tuple[int, int, int, int]] = []
         try:
             with self.storages["images"].open(self.filename, "rb") as img_file:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
@@ -46,15 +48,14 @@ class DuplicationDetector:
             )
             self.net.setInput(blob)
             detections = self.net.forward()
-            face_regions: List[Tuple[int, int, int, int]] = []
             for i in range(0, detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
-                if confidence > 0.5:
+                if confidence > self.confidence:
                     box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-                    face_regions.append(box.astype("int").tolist())
-            return face_regions
+                    face_regions.append(tuple(box.astype("int").tolist()))
         except Exception as e:
             self.logger.exception(f"Error processing face detection for image {self.filename}", exc_info=e)
+        return face_regions
 
     def _load_encodings_all(self) -> Dict[str, List[np.ndarray]]:
         data: Dict[str, List[np.ndarray]] = {}
@@ -88,11 +89,11 @@ class DuplicationDetector:
 
     def find_duplicates(self) -> Tuple[str]:
         duplicated_images = set()
+        path1 = self.filename
         try:
             if not self.has_encodings:
                 self._encode_face()
             encodings_all = self._load_encodings_all()
-            path1 = self.filename
             encodings1 = encodings_all[path1]
 
             for path2, encodings2 in encodings_all.items():
