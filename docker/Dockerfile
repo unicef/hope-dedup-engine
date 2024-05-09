@@ -1,9 +1,9 @@
 FROM python:3.11-slim-bullseye as base
 
-RUN apt-get update \
-    && apt-get install -y \
+RUN apt update \
+    && apt install --no-install-recommends -y \
         gcc curl libgdal-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && apt clean && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 82 dde \
     && adduser \
         --system --uid 82 \
@@ -23,10 +23,9 @@ WORKDIR /code
 FROM base as builder
 
 WORKDIR $PACKAGES_DIR
-RUN pip install pdm==2.9.3
-ADD pyproject.toml ./
-ADD ../pdm.toml.template ./pdm.toml
-ADD pdm.lock ./
+RUN pip install pdm
+COPY ../pyproject.toml ./
+COPY ../pdm.lock ./
 RUN pdm sync --prod --no-editable --no-self
 
 FROM builder AS dev
@@ -36,7 +35,7 @@ RUN pdm sync --no-editable --no-self
 WORKDIR /code
 COPY .. ./
 
-ADD docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
 
 
@@ -48,5 +47,5 @@ COPY --chown=dde:dde .. ./
 COPY --chown=dde:dde --from=builder $PACKAGES_DIR $PACKAGES_DIR
 USER dde
 
-ADD docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
