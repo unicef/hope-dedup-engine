@@ -7,7 +7,7 @@ from PIL import Image
 
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
-from .const import FILENAME
+from ..const import FILENAME
 
 
 @pytest.fixture(scope="module")

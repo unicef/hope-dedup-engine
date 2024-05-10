@@ -18,7 +18,8 @@ def task_lifecycle(name: str, ttl: int):
             logger = logging.getLogger(func.__module__)
             logger.info(f"{name} task started")
 
-            lock_name: str = f"{name}_{kwargs.get('filename')}"
+            filename: str = args[0] if args else kwargs.get("filename")
+            lock_name: str = f"{name}_{filename}"
             if not _acquire_lock(lock_name, ttl):
                 logger.info(f"Task {name} with brocker lock {lock_name} is already running.")
                 return None
