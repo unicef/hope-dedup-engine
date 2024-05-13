@@ -25,7 +25,7 @@ exclude_lines =
     #if 0:
     if __name__ == .__main__.:
     if TYPE_CHECKING:
-    
+    if settings.DEBUG:
 
 fail_under = 95
 

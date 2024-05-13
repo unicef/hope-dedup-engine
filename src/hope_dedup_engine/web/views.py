@@ -1,5 +1,9 @@
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
+
+
+def healthcheck(request: HttpRequest) -> HttpResponse:
+    return HttpResponse("OK")
 
 
 def index(request: "HttpRequest") -> TemplateResponse:

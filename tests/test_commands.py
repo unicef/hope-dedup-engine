@@ -114,3 +114,14 @@ def test_env_raise(mocked_responses):
     with mock.patch.dict(os.environ, environ, clear=True):
         with pytest.raises(CommandError):
             call_command("env", ignore_errors=False, check=True)
+
+def test_upgrade_exception(mocked_responses, environment):
+    with mock.patch("hope_dedup_engine.apps.core.management.commands.upgrade.call_command") as m:
+        m.side_effect = Exception
+        with pytest.raises(SystemExit):
+            call_command("upgrade")
+
+    out = StringIO()
+    with mock.patch.dict(os.environ, {"ADMIN_EMAIL": "2222", "ADMIN_USER":"admin", **environment}, clear=True):
+        with pytest.raises(SystemExit):
+            call_command("upgrade", stdout=out, check=True, admin_email="")

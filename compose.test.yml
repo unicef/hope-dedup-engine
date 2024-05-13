@@ -9,16 +9,15 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: dev
-    command: tests
     environment:
       - SECRET_KEY=secret-key
       - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
-      - DATABASE_HOPE_URL=postgres://postgres:postgres@db:5432/postgres
       - CACHE_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - AZURE_CLIENT_SECRET=
       - AZURE_TENANT_ID=
       - AZURE_CLIENT_KEY=
+      - FILE_STORAGE_HOPE=hope_dedup_engine.apps.core.storage.HOPEAzureStorage?location=hope/
     ports:
       - 8000:8000
     depends_on:
@@ -35,8 +34,8 @@ services:
       - POSTGRES_DB=postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-    ports:
-      - 5432:5432
+#    ports:
+#      - 5432:5432
     restart: always
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
@@ -48,8 +47,8 @@ services:
 
   redis:
     image: redis:7.2
-    ports:
-      - 6379:6379
+#    ports:
+#      - 6379:6379
     restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -58,3 +57,12 @@ services:
       interval: 5s
       timeout: 4s
       retries: 5
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    hostname: azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+    restart: always
+    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001"

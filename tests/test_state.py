@@ -1,3 +1,5 @@
+from http.cookies import SimpleCookie
+
 from django.http import HttpResponse
 
 import pytest
@@ -18,8 +20,15 @@ def test_state(state):
 
 
 def test_cookies(state):
-
     assert not state.cookies
+
+
+def test_get_cookie(state, rf):
+    request = rf.get("/")
+    request.COOKIES["name"] = "test"
+    with state.configure(request=request):
+        assert state.request == request
+        assert state.get_cookie("name") == "test"
 
 
 def test_configure(state):

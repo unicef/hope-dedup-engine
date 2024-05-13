@@ -2,8 +2,6 @@ import logging
 import os
 from typing import Any
 
-from django.conf import settings
-
 import sentry_sdk
 from celery import Celery, signals
 
@@ -13,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 app = Celery("hpg")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
 
 @signals.celeryd_init.connect

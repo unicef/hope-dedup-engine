@@ -5,8 +5,6 @@ from datetime import datetime, timedelta
 from threading import local
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
-if TYPE_CHECKING:
-    from bitcaster.types.http import AnyRequest, AnyResponse
 
 not_set = object()
 
