@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:5966fdd96c1c0202670a746a79b82eb1691839681440f9c7e0a0f980c7aac911"
+content_hash = "sha256:09cc7ec3f6fe83b640f8b6f04858ad7b042333962ca30f0e1cc9f671d8902687"
 
 [[package]]
 name = "amqp"
@@ -2202,6 +2202,15 @@ groups = ["default", "dev"]
 files = [
     {file = "urllib3-2.2.1-py3-none-any.whl", hash = "sha256:450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"},
     {file = "urllib3-2.2.1.tar.gz", hash = "sha256:d0570876c61ab9e520d776c38acbbb5b05a776d3f9ff98a5c8fd5162a444cf19"},
+]
+
+[[package]]
+name = "uwsgi"
+version = "2.0.25.1"
+summary = "The uWSGI server"
+groups = ["default"]
+files = [
+    {file = "uwsgi-2.0.25.1.tar.gz", hash = "sha256:d653d2d804c194c8cbe2585fa56efa2650313ae75c686a9d7931374d4dfbfc6e"},
 ]
 
 [[package]]

@@ -36,6 +36,7 @@ dependencies = [
     "unicef-security",
     "django-flags>=5.0.13",
     "django-reversion>=5.0.12",
+    "uwsgi>=2.0.25.1",
 ]
 
 [tool.pdm.build]
