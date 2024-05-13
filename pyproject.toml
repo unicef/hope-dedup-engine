@@ -37,6 +37,7 @@ dependencies = [
     "django-flags>=5.0.13",
     "django-reversion>=5.0.12",
     "uwsgi>=2.0.25.1",
+    "drf-nested-routers>=0.94.1",
 ]
 
 [tool.pdm.build]
