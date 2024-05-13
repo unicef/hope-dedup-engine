@@ -51,6 +51,13 @@ class Command(BaseCommand):
             help="Let ask for confirmation",
         )
         parser.add_argument(
+            "--debug",
+            action="store_true",
+            dest="debug",
+            default=False,
+            help="debug mode",
+        )
+        parser.add_argument(
             "--no-static",
             action="store_false",
             dest="static",
@@ -58,20 +65,6 @@ class Command(BaseCommand):
             help="Do not run collectstatic",
         )
 
-        parser.add_argument(
-            "--bootstrap",
-            action="store_true",
-            dest="bootstrap",
-            default=False,
-            help="Load Initial objects",
-        )
-        parser.add_argument(
-            "--demo",
-            action="store_true",
-            dest="demo",
-            default=False,
-            help="Create demo Data",
-        )
         parser.add_argument(
             "--admin-email",
             action="store",
@@ -93,27 +86,29 @@ class Command(BaseCommand):
         self.prompt = not options["prompt"]
         self.static = options["static"]
         self.migrate = options["migrate"]
-        self.demo = options["demo"]
-        self.bootstrap = options["bootstrap"]
+        self.debug = options["debug"]
 
         self.admin_email = str(options["admin_email"] or env("ADMIN_EMAIL", ""))
         self.admin_password = str(options["admin_password"] or env("ADMIN_PASSWORD", ""))
 
-    def halt(self, msg: Any) -> None:  # pragma: no cover
-        self.stdout.write(str(msg), style_func=self.style.ERROR)
+    def halt(self, e: Exception) -> None:
+        self.stdout.write(str(e), style_func=self.style.ERROR)
         self.stdout.write("\n\n***", style_func=self.style.ERROR)
         self.stdout.write("SYSTEM HALTED", style_func=self.style.ERROR)
         self.stdout.write("Unable to start...", style_func=self.style.ERROR)
+        if self.debug:
+            raise e
+
         sys.exit(1)
 
-    def handle(self, *args: Any, **options: Any) -> None:
-        from hope_dedup_engine.apps.core.models import User
+    def handle(self, *args: Any, **options: Any) -> None:  # noqa: C901
+        from django.contrib.auth.models import Group
 
         self.get_options(options)
         if self.verbosity >= 1:
             echo = self.stdout.write
         else:
-            echo = lambda *a, **kw: None  # noqa
+            echo = lambda *a, **kw: None  # noqa: E731
 
         try:
             extra = {
@@ -138,8 +133,13 @@ class Command(BaseCommand):
                 call_command("migrate", **extra)
                 call_command("create_extra_permissions")
 
+            echo("Init reversion")
+            call_command("createinitialrevisions")
+            call_command("deleterevisions", days=180, keep=3)
+
             echo("Remove stale contenttypes")
             call_command("remove_stale_contenttypes", **extra)
+            from hope_dedup_engine.apps.security.models import User
 
             if self.admin_email:
                 if User.objects.filter(email=self.admin_email).exists():
@@ -148,7 +148,7 @@ class Command(BaseCommand):
                         style_func=self.style.WARNING,
                     )
                 else:
-                    echo("Creating superuser")
+                    echo(f"Creating superuser: {self.admin_email}", style_func=self.style.WARNING)
                     validate_email(self.admin_email)
                     os.environ["DJANGO_SUPERUSER_USERNAME"] = self.admin_email
                     os.environ["DJANGO_SUPERUSER_EMAIL"] = self.admin_email
@@ -160,9 +160,22 @@ class Command(BaseCommand):
                         verbosity=self.verbosity - 1,
                         interactive=False,
                     )
+
+                admin = User.objects.get(email=self.admin_email)
+            else:
+                admin = User.objects.filter(is_superuser=True).first()
+
+            if not admin:
+                raise CommandError("Create an admin user")
+
+            from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
+
+            Group.objects.get_or_create(name="Admins")
+            Group.objects.get_or_create(name=DEFAULT_GROUP_NAME)
+
             echo("Upgrade completed", style_func=self.style.SUCCESS)
         except ValidationError as e:
-            self.halt("\n- ".join(["Wrong argument(s):", *e.messages]))
+            self.halt(Exception("\n- ".join(["Wrong argument(s):", *e.messages])))
         except (CommandError, SystemCheckError) as e:
             self.halt(e)
         except Exception as e:

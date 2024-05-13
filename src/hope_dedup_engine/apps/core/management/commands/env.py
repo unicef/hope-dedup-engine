@@ -1,11 +1,23 @@
-import os
-import uuid
+import shlex
 from typing import TYPE_CHECKING
 
 from django.core.management import BaseCommand, CommandError, CommandParser
 
 if TYPE_CHECKING:
-    from typing import Any, Dict
+    from typing import Any
+
+DEVELOP = {
+    "DEBUG": True,
+    "SECRET_KEY": "only-development-secret-key",
+}
+
+
+def clean(value):
+    if isinstance(value, (list, tuple)):
+        ret = ",".join(value)
+    else:
+        ret = str(value)
+    return shlex.quote(ret)
 
 
 class Command(BaseCommand):
@@ -13,97 +25,51 @@ class Command(BaseCommand):
     requires_system_checks = []
 
     def add_arguments(self, parser: "CommandParser") -> None:
+
         parser.add_argument(
-            "-t",
-            "--template",
-            action="store_true",
-            dest="template",
-            default=False,
-            help="Only dumps keys, without values",
+            "--pattern",
+            action="store",
+            dest="pattern",
+            default="export {key}={value}",
+            help="Check env for variable availability (default: 'export {key}=\"{value}\"')",
         )
-        parser.add_argument(
-            "-g",
-            "--group",
-            choices=("mandatory", "optional", "all", "develop"),
-            default="mandatory",
-            help="Dump all or partial keys",
-        )
-        parser.add_argument(
-            "-s",
-            "--style",
-            choices=("dotenv", "direnv", "env"),
-            default="env",
-            help="Format dump according to specific synthax",
-        )
-        parser.add_argument(
-            "--defaults", action="store_true", help="Get values from teh code not from the current environment"
-        )
-        parser.add_argument(
-            "--comment-optional", action="store_true", dest="comment", default=False, help="Comment optional"
-        )
+        parser.add_argument("--develop", action="store_true", help="Display development values")
+        parser.add_argument("--config", action="store_true", help="Only list changed values")
+        parser.add_argument("--diff", action="store_true", help="Mark changed values")
         parser.add_argument(
             "--check", action="store_true", dest="check", default=False, help="Check env for variable availability"
         )
+        parser.add_argument(
+            "--ignore-errors", action="store_true", dest="ignore_errors", default=False, help="Do not fail"
+        )
 
     def handle(self, *args: "Any", **options: "Any") -> None:
-        from hope_dedup_engine.config import MANDATORY, OPTIONAL
-
-        VARIABLES: "Dict[str, Any]" = {**MANDATORY, **OPTIONAL}
-
-        DEVELOP = {
-            "DEBUG": True,
-            "SECRET_KEY": uuid.uuid4(),
-            **{
-                k: VARIABLES[k][1]
-                for k in [
-                    "CELERY_BROKER_URL",
-                    "DATABASE_URL",
-                ]
-            },
-        }
-        selected = {}
-        if options["group"] == "all":
-            selected.update(**VARIABLES)
-        elif options["group"] == "mandatory":
-            selected.update(**MANDATORY)
-        elif options["group"] == "optional":
-            selected.update(**OPTIONAL)
-        elif options["group"] == "develop":
-            selected.update(**DEVELOP)
+        from hope_dedup_engine.config import CONFIG, EXPLICIT_SET, env
 
         check_failure = False
-        pattern = "{key}={value}{help}"
-        if options["style"] == "direnv":
-            pattern = "export {key}={value}{help}"
-        elif options["style"] == "dotenv":
-            pattern = "export {key}=${{{key}}}"
-        value: Any
-        help: str
+        pattern = options["pattern"]
 
-        for k, __ in sorted(selected.items()):
-            help = ""
-            if options["template"]:
-                value = ""
-            elif options["defaults"]:
-                value = VARIABLES[k][1]
-                if len(VARIABLES[k]) > 2:
-                    help = f"  # {VARIABLES[k][2]}"
-            else:
-                value = os.environ.get(k, VARIABLES[k][1])
-                if len(VARIABLES[k]) > 2:
-                    help = f"  # {VARIABLES[k][2]}"
-
+        for k, __ in sorted(CONFIG.items()):
+            help: str = env.get_help(k)
+            default = env.get_default(k)
             if options["check"]:
-                try:
-                    os.environ[k]
-                except KeyError:
+                if k in EXPLICIT_SET and k not in env.ENVIRON:
                     self.stderr.write(self.style.ERROR(f"- Missing env variable: {k}"))
                     check_failure = True
             else:
-                if k in OPTIONAL.keys() and options["comment"]:
-                    self.stdout.write(("# %s" % pattern).format(key=k, value=value, help=help))
+                if options["develop"]:
+                    value: Any = env.for_develop(k)
                 else:
-                    self.stdout.write(pattern.format(key=k, value=value, help=help))
+                    value: Any = env.get_value(k)
 
-        if check_failure:
+                line: str = pattern.format(key=k, value=clean(value), help=help, default=default)
+                if options["diff"]:
+                    if value != default:
+                        line = self.style.SUCCESS(line)
+                elif options["config"]:
+                    if value == default and k not in EXPLICIT_SET:
+                        continue
+                self.stdout.write(line)
+
+        if check_failure and not options["ignore_errors"]:
             raise CommandError("Env check command failure!")

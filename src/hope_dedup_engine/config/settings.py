@@ -1,51 +1,25 @@
-import datetime
-import os
 from pathlib import Path
-from typing import Dict
 from urllib.parse import urlparse
-
-import sentry_sdk
-from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.django import DjangoIntegration
 
 from . import env
 
+# BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
 DEVELOPMENT_DIR = PACKAGE_DIR.parent.parent
 
 DEBUG = env.bool("DEBUG")
 
-RO_CONN = dict(**env.db("DATABASE_HOPE_URL")).copy()
-RO_CONN.update(
-    **{
-        "OPTIONS": {"options": "-c default_transaction_read_only=on"},
-    }
-)
-RO_CONN.update(
-    {
-        "OPTIONS": {"options": "-c default_transaction_read_only=on"},
-        "TEST": {
-            "READ_ONLY": True,  # Do not manage this database during tests
-        },
-    }
-)
 DATABASES = {
     "default": env.db("DATABASE_URL"),
-    "hope_ro": RO_CONN,
-}
-
-DATABASE_ROUTERS = ("hope_dedup_engine.apps.core.dbrouters.DbRouter",)
-DATABASE_APPS_MAPPING: Dict[str, str] = {
-    "hope": "hope",
 }
 
 INSTALLED_APPS = (
     "hope_dedup_engine.web",
-    "hope_dedup_engine.apps.core.apps.AppConfig",
-    "unicef_security",
+    "hope_dedup_engine.apps.core.apps.Config",
+    "hope_dedup_engine.apps.security.apps.Config",
+    # "unicef_security",
     "django.contrib.contenttypes",
-    "advanced_filters",
     "django.contrib.auth",
     "django.contrib.humanize",
     "django.contrib.messages",
@@ -55,22 +29,17 @@ INSTALLED_APPS = (
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     "django.contrib.admin",
-    "django_extensions",
-    "django_filters",
-    "corsheaders",
-    "django_fsm",
+    "flags",
+    "reversion",
+    # "django_filters",
     "social_django",
     "admin_extra_buttons",
     "adminactions",
     "adminfilters",
     "adminfilters.depot",
-    "smart_admin.apps.SmartTemplateConfig",
-    "import_export",
     "constance",
     "rest_framework",
     "django_celery_beat",
-    "django_celery_results",
-    "power_query",
     "drf_spectacular",
     "drf_spectacular_sidecar",
 )
@@ -83,8 +52,7 @@ MIDDLEWARE = (
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
-    "unicef_security.middleware.UNICEFSocialAuthExceptionMiddleware",
+    # "unicef_security.middleware.UNICEFSocialAuthExceptionMiddleware",
 )
 
 AUTHENTICATION_BACKENDS = (
@@ -95,30 +63,23 @@ AUTHENTICATION_BACKENDS = (
 
 
 # path
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 MEDIA_ROOT = env("MEDIA_ROOT")
 MEDIA_URL = env("MEDIA_URL")
-STATIC_ROOT = env("STATIC_ROOT", default=os.path.join(BASE_DIR, "static"))
-STATIC_URL = env("STATIC_URL", default="/static/")
-STATICFILES_DIRS = []
+#
+STATIC_ROOT = env("STATIC_ROOT")
+STATIC_URL = env("STATIC_URL")
+# #
+# # STATICFILES_DIRS = []
 STATICFILES_FINDERS = [
-    "django.contrib.staticfiles.finders.FileSystemFinder",
+    # "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
 
 STORAGES = {
-    "default": {
-        "BACKEND": env("DEFAULT_FILE_STORAGE"),
-    },
-    "staticfiles": {
-        "BACKEND": env("STATIC_FILE_STORAGE"),
-    },
-    "media": {
-        "BACKEND": env("MEDIA_FILE_STORAGE"),
-    },
-    "hope": {
-        "BACKEND": env("HOPE_FILE_STORAGE"),
-    },
+    "default": env.storage("FILE_STORAGE_DEFAULT"),
+    "staticfiles": env.storage("FILE_STORAGE_STATIC"),
+    "media": env.storage("FILE_STORAGE_MEDIA"),
+    "hope": env.storage("FILE_STORAGE_HOPE"),
 }
 
 SECRET_KEY = env("SECRET_KEY")
@@ -129,7 +90,7 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_URL = "/accounts/logout"
 LOGOUT_REDIRECT_URL = "/"
 
-# TIME_ZONE = env('TIME_ZONE')
+TIME_ZONE = env("TIME_ZONE")
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
@@ -158,6 +119,7 @@ CACHES = {
         "LOCATION": CACHE_URL,
     }
 }
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 ROOT_URLCONF = "hope_dedup_engine.config.urls"
 WSGI_APPLICATION = "hope_dedup_engine.config.wsgi.application"
@@ -170,6 +132,7 @@ TEMPLATES = [
         "OPTIONS": {
             "loaders": [
                 "django.template.loaders.app_directories.Loader",
+                "django.template.loaders.filesystem.Loader",
             ],
             "context_processors": [
                 "constance.context_processors.config",
@@ -201,85 +164,7 @@ LOGGING = {
     },
 }
 
-AUTH_USER_MODEL = "core.User"
-
-HOST = env("HOST", default="http://localhost:8000")
-
-CELERY_ACCEPT_CONTENT = ["pickle", "json", "application/text"]
-CELERY_BROKER_URL = env("CACHE_URL")
-CELERY_BROKER_VISIBILITY_VAR = env("CELERY_VISIBILITY_TIMEOUT", default=1800)  # in seconds
-CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": int(CELERY_BROKER_VISIBILITY_VAR)}
-CELERY_RESULT_BACKEND = "django-db"
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers.DatabaseScheduler"
-# Sensible settings for celery
-CELERY_TASK_ALWAYS_EAGER = env("CELERY_TASK_ALWAYS_EAGER", default=False)
-CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_PUBLISH_RETRY = True
-CELERY_WORKER_DISABLE_RATE_LIMITS = False
-CELERY_TASK_IGNORE_RESULT = True
-CELERY_SEND_TASK_ERROR_EMAILS = False
-CELERY_RESULT_EXPIRES = 600
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-
-REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_FILTER_BACKENDS": [
-        "django_filters.rest_framework.DjangoFilterBackend",
-        "rest_framework.filters.OrderingFilter",
-        "rest_framework.filters.SearchFilter",
-    ],
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-}
-
-SPECTACULAR_SETTINGS = {
-    "TITLE": "Payment Gateway API",
-    "DESCRIPTION": "Payment Gateway to integrate HOPE with FSP",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": True,
-    "SWAGGER_UI_DIST": "SIDECAR",
-    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
-    "REDOC_DIST": "SIDECAR",
-}
-
-# django-cors-headers: https://github.com/ottoyiu/django-cors-headers
-CORS_ORIGIN_ALLOW_ALL = env("CORS_ORIGIN_ALLOW_ALL", default=False)
-
-
-JWT_AUTH = {
-    "JWT_VERIFY": False,  # this requires private key
-    "JWT_VERIFY_EXPIRATION": True,
-    "JWT_LEEWAY": 60,
-    "JWT_EXPIRATION_DELTA": datetime.timedelta(seconds=30000),
-    "JWT_AUDIENCE": None,
-    "JWT_ISSUER": None,
-    "JWT_ALLOW_REFRESH": False,
-    "JWT_REFRESH_EXPIRATION_DELTA": datetime.timedelta(days=7),
-    "JWT_AUTH_HEADER_PREFIX": "JWT",
-    "JWT_SECRET_KEY": SECRET_KEY,
-    "JWT_DECODE_HANDLER": "rest_framework_jwt.utils.jwt_decode_handler",
-    # Keys will be set in core.apps.Config.ready()
-    "JWT_PUBLIC_KEY": "?",
-    # 'JWT_PRIVATE_KEY': wallet.get_private(),
-    # 'JWT_PRIVATE_KEY': None,
-    "JWT_ALGORITHM": "RS256",
-}
-SENTRY_DSN = env("SENTRY_DSN", default=None)  # noqa: F405
-
-if SENTRY_DSN:  # pragma: no cover
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        # by default this is False, must be set to True so the library attaches the request data to the event
-        send_default_pii=True,
-        integrations=[DjangoIntegration(), CeleryIntegration()],
-        environment=env("SENTRY_ENVIRONMENT", default=None),
-    )
-
-if DEBUG:  # pragma: no cover
-    INSTALLED_APPS += ("debug_toolbar",)  # noqa
-    MIDDLEWARE += ("debug_toolbar.middleware.DebugToolbarMiddleware",)  # noqa
-    DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TEMPLATE_CONTEXT": True,
-    }
+AUTH_USER_MODEL = "security.User"
 
 
 DEFAULT_FROM_EMAIL = "hope@unicef.org"
@@ -292,33 +177,13 @@ EMAIL_PORT = env("EMAIL_PORT", default=25)
 EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=False)
 EMAIL_USE_SSL = env("EMAIL_USE_SSL", default=False)
 
-SOCIAL_AUTH_SECRET = env.str("AZURE_CLIENT_SECRET", default="")
-SOCIAL_AUTH_TENANT_ID = env("AZURE_TENANT_ID", default="")
-SOCIAL_AUTH_KEY = env.str("AZURE_CLIENT_KEY", default="")
-
-SOCIAL_AUTH_URL_NAMESPACE = "social"
-SOCIAL_AUTH_SANITIZE_REDIRECTS = False
-SOCIAL_AUTH_JSONFIELD_ENABLED = True
-SOCIAL_AUTH_USER_MODEL = "core.User"
-
-SOCIAL_AUTH_PIPELINE = (
-    "unicef_security.pipeline.social_details",
-    "social_core.pipeline.social_auth.social_uid",
-    "social_core.pipeline.social_auth.auth_allowed",
-    "social_core.pipeline.social_auth.social_user",
-    "social_core.pipeline.user.get_username",
-    "social_core.pipeline.social_auth.associate_by_email",
-    "unicef_security.pipeline.create_unicef_user",
-    "social_core.pipeline.social_auth.associate_user",
-    "social_core.pipeline.social_auth.load_extra_data",
-    "social_core.pipeline.user.user_details",
-)
-
-USER_FIELDS = ["username", "email", "first_name", "last_name"]
-USERNAME_IS_FULL_EMAIL = True
-
-CONSTANCE_CONFIG = {}
-CONSTANCE_REDIS_CONNECTION = CACHE_URL
-
-POWER_QUERY_DB_ALIAS = "read_only"
-POWER_QUERY_EXTRA_CONNECTIONS = []
+from .fragments.celery import *  # noqa
+from .fragments.constance import *  # noqa
+from .fragments.csp import *  # noqa
+from .fragments.debug_toolbar import *  # noqa
+from .fragments.flags import *  # noqa
+from .fragments.rest_framework import *  # noqa
+from .fragments.root import *  # noqa
+from .fragments.sentry import *  # noqa
+from .fragments.social_auth import *  # noqa
+from .fragments.spectacular import *  # noqa

@@ -1,3 +1,79 @@
+[project]
+name = "hope_dedup_engine"
+version = "0.1.0"
+description = "HOPE Deduplication Engine (HDE)"
+readme = "README.md"
+authors = [
+    {name = "ddinicola"},
+    {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
+]
+requires-python = ">=3.12"
+dependencies = [
+    "Django",
+    "celery[redis]",
+    "django-admin-extra-buttons",
+    "django-admin-sync",
+    "django-adminactions",
+    "django-adminfilters",
+    "django-celery-beat",
+    "django-concurrency",
+    "django-constance",
+    "django-csp",
+    "django-debug-toolbar",
+    "django-environ>=0.11.2",
+    "django-extensions",
+    "django-filter",
+    "django-import-export",
+    "django-regex>=0.5.0",
+    "django-storages[azure]",
+    "djangorestframework",
+    "drf-spectacular[sidecar]",
+    "gunicorn",
+    "psycopg2-binary>=2.9.9",
+    "sentry-sdk",
+    "social-auth-app-django",
+    "social-auth-core",
+    "unicef-security",
+    "django-flags>=5.0.13",
+    "django-reversion>=5.0.12",
+]
+
+[tool.pdm.build]
+includes = []
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "black",
+    "django-webtest",
+    "factory-boy",
+    "faker",
+    "flake8",
+    "flake8-bugbear",
+    "flake8-formatter-junit-xml",
+    "flake8-html",
+    "freezegun",
+    "graphene-stubs",
+    "ipdb",
+    "isort",
+    "mypy",
+    "openpyxl-stubs",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-django",
+    "pytest-echo",
+    "pytest-xdist",
+    "requests-mock",
+    "responses>=0.25.0",
+    "types-freezegun",
+    "types-python-dateutil",
+    "types-pytz",
+    "types-redis",
+    "types-requests",
+    "unittest-xml-reporting",
+    "watchdog",
+    "pytest-factoryboy>=2.7.0",
+]
 [tool.black]
 line-length = 120
 include = '\.pyi?$'
@@ -28,95 +104,5 @@ skip = ["migrations", "snapshots", ".venv"]
 [tool.django-stubs]
 django_settings_module = "hope_dedup_engine.config.settings"
 
-
-[tool.pdm.build]
-includes = []
-
-[tool.pdm.dev-dependencies]
-dev = [
-    "argh",
-    "black",
-    "django-webtest",
-    "faker",
-    "flake8",
-    "flake8-bugbear",
-    "flake8-formatter-junit-xml",
-    "flake8-html",
-    "freezegun",
-    "graphene-stubs",
-    "ipdb",
-    "isort",
-    "openpyxl-stubs",
-    "parameterized",
-    "parso",
-    "pytest",
-    "pytest-cov",
-    "pytest-django",
-    "pytest-echo",
-    "pytest-xdist",
-    "requests-mock",
-    "responses",
-    "snapshottest",
-    "types-freezegun",
-    "types-requests",
-    "types-python-dateutil",
-    "types-pytz",
-    "types-redis",
-    "unittest-xml-reporting",
-    "watchdog",
-]
-[project]
-authors = [
-    {name = "ddinicola"},
-    {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
-]
-requires-python = "<3.12,>=3.8"
-dependencies = [
-    "Django",
-    "celery[redis]",
-    "djangorestframework",
-    "djangorestframework-xml",
-    "django-admin-extra-buttons",
-    "django-admin-sync",
-    "django-adminactions",
-    "django-adminfilters",
-    "django-advanced-filters",
-    "django-celery-beat",
-    "django-celery-results",
-    "django-concurrency",
-    "django-constance",
-    "django-cors-headers",
-    "django-csp",
-    "django-debug-toolbar",
-    "django-environ",
-    "django-extensions",
-    "django-filter",
-    "django-fsm",
-    "django-import-export",
-    "django-model-utils",
-    "django-mptt",
-    "django-smart-admin",
-    "django-storages[azure]",
-    "dj-static",
-    "drf-spectacular[sidecar]",
-    "factory-boy",
-    "gunicorn",
-    "newrelic",
-    "natural-keys",
-    "pre-commit",
-    "psycopg[binary]",
-    "sentry-sdk",
-    "social-auth-app-django",
-    "social-auth-core",
-    "swapper",
-    "tablib",
-    "unicef-power-query",
-    "unicef-security",
-    "wheel",
-    "uwsgi",
-    "django-regex>=0.5.0",
-]
-name = "hope_dedup_engine"
-version = "0.1"
-description = "HOPE integration with FSPs"
-readme = "README.md"
+[tool.pdm.scripts]
+coverage = "pytest tests/ --cov -n auto --create-db -c pytest.ini"
