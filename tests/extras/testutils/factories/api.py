@@ -2,6 +2,7 @@ from factory import fuzzy
 from factory.django import DjangoModelFactory
 
 from hope_dedup_engine.apps.public_api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.public_api.models.deduplication import Image
 
 
 class TokenFactory(DjangoModelFactory):
@@ -15,3 +16,10 @@ class DeduplicationSetFactory(DjangoModelFactory):
 
     class Meta:
         model = DeduplicationSet
+
+
+class ImageFactory(DjangoModelFactory):
+    filename = fuzzy.FuzzyText()
+
+    class Meta:
+        model = Image

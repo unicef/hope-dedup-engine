@@ -19,5 +19,23 @@ class DeduplicationSet(models.Model):
     )
     deleted = models.BooleanField(_("deleted"), null=False, blank=False, default=False)
     external_system = models.ForeignKey(ExternalSystem, on_delete=models.CASCADE)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+
+class Image(models.Model):
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    filename = models.CharField(max_length=255)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+
+    class Meta:
+        unique_together = ("deduplication_set", "filename")
