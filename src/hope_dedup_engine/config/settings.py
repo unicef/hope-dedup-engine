@@ -116,12 +116,9 @@ STORAGES = {
     "media": {
         "BACKEND": env("MEDIA_FILE_STORAGE"),
     },
-<<<<<<< Updated upstream
     "hope": {
         "BACKEND": env("HOPE_FILE_STORAGE"),
     },
-=======
->>>>>>> Stashed changes
 }
 
 SECRET_KEY = env("SECRET_KEY")
