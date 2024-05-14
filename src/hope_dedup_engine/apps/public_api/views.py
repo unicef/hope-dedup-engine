@@ -1,11 +1,14 @@
 from dataclasses import dataclass
+from http import HTTPMethod
 from typing import Any
 
 from django.db.models import QuerySet
 
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
+from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
@@ -42,7 +45,11 @@ class DeduplicationSetViewSet(
 
 
 class ImageViewSet(
-    nested_viewsets.NestedViewSetMixin, mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet
+    nested_viewsets.NestedViewSetMixin,
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
@@ -55,6 +62,12 @@ class ImageViewSet(
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
         deduplication_set = serializer.instance.deduplication_set
+        deduplication_set.updated_by = self.request.user
+        deduplication_set.save()
+
+    def perform_destroy(self, instance: Image) -> None:
+        deduplication_set = instance.deduplication_set
+        super().perform_destroy(instance)
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
@@ -107,3 +120,11 @@ class BulkImageViewSet(
         if deduplication_set := serializer.instance[0].deduplication_set if serializer.instance else None:
             deduplication_set.updated_by = self.request.user
             deduplication_set.save()
+
+    @action(detail=False, methods=(HTTPMethod.DELETE,))
+    def clear(self, request: Request, deduplication_set_pk: str) -> Response:
+        deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
+        Image.objects.filter(deduplication_set=deduplication_set).delete()
+        deduplication_set.updated_by = request.user
+        deduplication_set.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,7 +1,14 @@
-from enum import StrEnum, auto
+from http import HTTPMethod
 from typing import Any
 
-from const import BULK_IMAGE_LIST_VIEW, DEDUPLICATION_SET_DETAIL_VIEW, DEDUPLICATION_SET_LIST_VIEW, IMAGE_LIST_VIEW
+from const import (
+    BULK_IMAGE_CLEAR_VIEW,
+    BULK_IMAGE_LIST_VIEW,
+    DEDUPLICATION_SET_DETAIL_VIEW,
+    DEDUPLICATION_SET_LIST_VIEW,
+    IMAGE_DETAIL_VIEW,
+    IMAGE_LIST_VIEW,
+)
 from conftest import get_auth_headers
 from pytest import mark
 from rest_framework import status
@@ -11,49 +18,46 @@ from rest_framework.test import APIClient
 from hope_dedup_engine.apps.security.models import User
 from testutils.factories.api import TokenFactory
 
-
-class Methods(StrEnum):
-    GET = auto()
-    POST = auto()
-    DELETE = auto()
-
-
 PK = 1
 
 
 @mark.parametrize(
     ("view_name", "method", "args"),
     (
-        (DEDUPLICATION_SET_LIST_VIEW, Methods.GET, ()),
-        (DEDUPLICATION_SET_LIST_VIEW, Methods.POST, ()),
-        (DEDUPLICATION_SET_DETAIL_VIEW, Methods.DELETE, (PK,)),
-        (IMAGE_LIST_VIEW, Methods.GET, (PK,)),
-        (IMAGE_LIST_VIEW, Methods.POST, (PK,)),
-        (BULK_IMAGE_LIST_VIEW, Methods.POST, (PK,)),
+        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
+        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
+        (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
+        (IMAGE_LIST_VIEW, HTTPMethod.GET, (PK,)),
+        (IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+        (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+        (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
+        (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
     ),
 )
 def test_anonymous_cannot_access(
-    anonymous_api_client: APIClient, view_name: str, method: Methods, args: tuple[Any, ...]
+    anonymous_api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
-    response = getattr(anonymous_api_client, method)(reverse(view_name, args))
+    response = getattr(anonymous_api_client, method.lower())(reverse(view_name, args))
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @mark.parametrize(
     ("view_name", "method", "args"),
     (
-        (DEDUPLICATION_SET_LIST_VIEW, Methods.GET, ()),
-        (DEDUPLICATION_SET_LIST_VIEW, Methods.POST, ()),
-        (DEDUPLICATION_SET_DETAIL_VIEW, Methods.DELETE, (PK,)),
-        (IMAGE_LIST_VIEW, Methods.GET, (PK,)),
-        (IMAGE_LIST_VIEW, Methods.POST, (PK,)),
-        (BULK_IMAGE_LIST_VIEW, Methods.POST, (PK,)),
+        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
+        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
+        (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
+        (IMAGE_LIST_VIEW, HTTPMethod.GET, (PK,)),
+        (IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+        (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+        (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
+        (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
     ),
 )
 def test_authenticated_can_access(
-    api_client: APIClient, view_name: str, method: Methods, args: tuple[Any, ...]
+    api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
-    response = getattr(api_client, method)(reverse(view_name, args), format="json")
+    response = getattr(api_client, method.lower())(reverse(view_name, args), format="json")
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 
