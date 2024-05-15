@@ -17,24 +17,26 @@ fi
 
 case "$1" in
     dev)
-        ./docker/wait-for-it.sh db:5432
-        python3 manage.py upgrade
-        python3 manage.py runserver 0.0.0.0:8000 
+        wait-for-it.sh db:5432
+        ./manage.py upgrade
+        ./manage.py runserver 0.0.0.0:8000
     ;;
     tests)
-        ./docker/wait-for-it.sh db:5432
-        python3 manage.py migrate
+        wait-for-it.sh db:5432
+        ./manage.py migrate
+        tail -f /dev/null
         pytest
     ;;
     prd)
+        tail -f /dev/null
         production
     ;;
     celery_worker)
         export C_FORCE_ROOT=1
-        celery -A hope_dedup_engine.celery worker -l info
+        celery -A hope_dedup_engine.config.celery worker -l info
     ;;
     celery_beat)
-        celery -A hope_dedup_engine.celery beat -l info
+        celery -A hope_dedup_engine.config.celery beat -l info
     ;;
     *)
         exec "$@"

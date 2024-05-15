@@ -6,9 +6,7 @@ from django.urls import path
 
 import debug_toolbar
 
-
-
-urlpatterns = (
+urlpatterns = [
     path(r"admin/", admin.site.urls),
     path(r"security/", include("unicef_security.urls", namespace="security")),
     path(r"social/", include("social_django.urls", namespace="social")),
@@ -17,7 +15,7 @@ urlpatterns = (
     path(r"sentry_debug/", lambda _: 1 / 0),
     path(r"__debug__/", include(debug_toolbar.urls)),
     path(r"", include("hope_dedup_engine.web.urls")),
-)
+]
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

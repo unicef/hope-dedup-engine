@@ -1,38 +1,44 @@
-version: '3.8'
-
-volumes:
-  postgres_data:
-  hope_postgres_data:
+x-common: &common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: dev
+  env_file:
+    - .env
+  volumes:
+    - .:/code
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: dev
-    command: |
-      sh -c "
-        entrypoint.sh ./wait-for-it.sh db:5432
-        python3 manage.py upgrade
-        entrypoint.sh dev
-      "
-    env_file:
-      - .env
-    ports:
-      - 8000:8000
-    volumes:
-      - .:/code
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    <<: *common
+    profiles: ["development"]
+    command: ["entrypoint.sh", "dev"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://backend:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  celery_worker:
+    <<: *common
+    profiles: ["development"]
+    command: ["entrypoint.sh", "celery_worker"]
+
+  celery_beat:
+    <<: *common
+    profiles: ["development"]
+    command: ["entrypoint.sh", "celery_beat"]
+
+  test:
+    <<: *common
+    profiles: ["test"]
+    command: ["entrypoint.sh", "test"]
 
   db:
     image: postgres:15
@@ -82,44 +88,6 @@ services:
       timeout: 4s
       retries: 5
 
-  celery_worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: dev
-    command: |
-      sh -c "
-        entrypoint.sh ./wait-for-it.sh db:5432
-        entrypoint.sh celery_worker
-      "
-    env_file:
-      - .env
-    volumes:
-      - .:/code
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  celery_beat:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: dev
-    command: |
-      sh -c "
-        entrypoint.sh ./wait-for-it.sh db:5432
-        entrypoint.sh celery_beat
-      "
-    env_file:
-      - .env
-    volumes:
-      - .:/code
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+volumes:
+  postgres_data:
+  # hope_postgres_data:
