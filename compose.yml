@@ -2,7 +2,7 @@ x-common: &common
   build:
     context: .
     dockerfile: docker/Dockerfile
-    target: development
+    target: dev
   env_file:
     - .env
   volumes:

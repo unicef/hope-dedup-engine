@@ -62,14 +62,9 @@ RUN rm -f /etc/apt/apt.conf.d/docker-clean \
     && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get update
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get install -y --no-install-recommends $buildDeps
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get install -y --no-install-recommends $runtimeDeps
-RUN rm -rf /var/lib/apt/lists/*
+    apt-get update && \
+    apt-get install -y --no-install-recommends $buildDeps $runtimeDeps && \
+    rm -rf /var/lib/apt/lists/*
 RUN pip install -U pip setuptools && pip install pdm
 
 FROM common-os AS builder
@@ -81,7 +76,7 @@ COPY pyproject.toml pdm.lock pdm.toml ./
 RUN pdm sync --prod --no-editable --no-self
 # RUN echo $CHECKSUM > /CHECKSUM
 
-FROM builder AS development
+FROM builder AS dev
 RUN pdm sync --no-editable --no-self
 WORKDIR /code/
 COPY .. ./
