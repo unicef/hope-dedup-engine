@@ -17,28 +17,20 @@ x-common: &common
 services:
   backend:
     <<: *common
-    profiles: ["development"]
     command: ["entrypoint.sh", "dev"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://backend:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   celery_worker:
     <<: *common
-    profiles: ["development"]
     command: ["entrypoint.sh", "celery_worker"]
 
   celery_beat:
     <<: *common
-    profiles: ["development"]
     command: ["entrypoint.sh", "celery_beat"]
-
-  test:
-    <<: *common
-    profiles: ["test"]
-    command: ["entrypoint.sh", "test"]
 
   db:
     image: postgres:15
@@ -90,4 +82,4 @@ services:
 
 volumes:
   postgres_data:
-  # hope_postgres_data:
+  hope_postgres_data:
