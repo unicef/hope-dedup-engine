@@ -53,10 +53,8 @@ def task_lifecycle(name: str, ttl: int):
 
 
 def _acquire_lock(lock_name: str, ttl: int = 1 * 60 * 60) -> bool:
-    print(f"Acquiring lock {lock_name} for {ttl} seconds")
     return redis_client.set(lock_name, "true", nx=True, ex=ttl)
 
 
 def _release_lock(lock_name: str) -> None:
-    print(f"Releasing lock {lock_name}")
     redis_client.delete(lock_name)

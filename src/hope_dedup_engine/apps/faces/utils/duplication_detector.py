@@ -9,27 +9,36 @@ import cv2
 import face_recognition
 import numpy as np
 
-from hope_dedup_engine.apps.core.storage import DataSetStorage
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
 
 
 class DuplicationDetector:
     def __init__(self, filename: str) -> None:
         self.logger = logging.getLogger(__name__)
 
-        self.net = cv2.dnn.readNetFromCaffe(str(settings.PROTOTXT_FILE), str(settings.CAFFEMODEL_FILE))
-        self.net.setPreferableBackend(settings.DNN_BACKEND)
-        self.net.setPreferableTarget(settings.DNN_TARGET)
-
         self.storages = {
-            "default": DataSetStorage(location=settings.DATASET_PATH),
-            "images": DataSetStorage(location=settings.IMAGES_PATH),
-            "encoded": DataSetStorage(location=settings.ENCODED_PATH),
+            "images": HOPEAzureStorage(),
+            "cv2dnn": CV2DNNStorage(),
+            "encoded": HDEAzureStorage(),
         }
+
         self.filename: str = filename
         self.encodings_filename = f"{self.filename}.pkl"
 
         self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
         self.threshold: float = settings.DISTANCE_THRESHOLD
+
+        for file in (settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE):
+            if not self.storages.get("cv2dnn").exists(file):
+                raise FileNotFoundError(f"File {file} does not exist in storage.")
+
+        self.net = cv2.dnn.readNetFromCaffe(
+            self.storages.get("cv2dnn").path(settings.PROTOTXT_FILE),
+            self.storages.get("cv2dnn").path(settings.CAFFEMODEL_FILE),
+        )
+
+        self.net.setPreferableBackend(settings.DNN_BACKEND)
+        self.net.setPreferableTarget(settings.DNN_TARGET)
 
     @property
     def has_encodings(self) -> bool:
