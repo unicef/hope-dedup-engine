@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -11,6 +13,7 @@ class DeduplicationSet(models.Model):
         DIRTY = 1, _("Dirty")  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, _("Processing")  # Images are being processed
 
+    id = models.UUIDField(primary_key=True, default=uuid4)
     name = models.CharField(max_length=100)
     reference_pk = models.IntegerField()
     state = models.IntegerField(
@@ -30,6 +33,7 @@ class DeduplicationSet(models.Model):
 
 
 class Image(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     filename = models.CharField(max_length=255)
     created_by = models.ForeignKey(

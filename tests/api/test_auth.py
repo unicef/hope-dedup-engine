@@ -1,6 +1,8 @@
 from http import HTTPMethod
 from typing import Any
+from uuid import uuid4
 
+from conftest import get_auth_headers
 from const import (
     BULK_IMAGE_CLEAR_VIEW,
     BULK_IMAGE_LIST_VIEW,
@@ -9,16 +11,15 @@ from const import (
     IMAGE_DETAIL_VIEW,
     IMAGE_LIST_VIEW,
 )
-from conftest import get_auth_headers
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
-
-from hope_dedup_engine.apps.security.models import User
 from testutils.factories.api import TokenFactory
 
-PK = 1
+from hope_dedup_engine.apps.security.models import User
+
+PK = uuid4()
 
 
 @mark.parametrize(
