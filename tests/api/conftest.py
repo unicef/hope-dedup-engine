@@ -2,18 +2,19 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from pytest import fixture
-from pytest_factoryboy import register
+from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
-
-from hope_dedup_engine.apps.public_api.models import HDEToken, DeduplicationSet
-from hope_dedup_engine.apps.public_api.models.deduplication import Image
-from hope_dedup_engine.apps.security.models import User
+from testutils.factories.api import DeduplicationSetFactory, ImageFactory, TokenFactory
 from testutils.factories.user import ExternalSystemFactory, UserFactory
-from testutils.factories.api import TokenFactory, DeduplicationSetFactory, ImageFactory
+
+from hope_dedup_engine.apps.public_api.models import HDEToken
+from hope_dedup_engine.apps.security.models import User
 
 register(ExternalSystemFactory)
 register(UserFactory)
+register(DeduplicationSetFactory, external_system=LazyFixture("external_system"))
+register(ImageFactory, deduplication_Set=LazyFixture("deduplication_set"))
 
 
 @fixture
@@ -49,10 +50,5 @@ def delete_model_data(mocker: MockerFixture) -> MagicMock:
 
 
 @fixture
-def deduplication_set(user: User) -> DeduplicationSet:
-    return DeduplicationSetFactory(created_by=user, external_system=user.external_system)
-
-
-@fixture()
-def image(deduplication_set: DeduplicationSet) -> Image:
-    return ImageFactory(deduplication_set=deduplication_set)
+def start_processing(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("hope_dedup_engine.apps.public_api.views.start_processing")

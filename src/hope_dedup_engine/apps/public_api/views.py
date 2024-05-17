@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any
+from uuid import UUID
 
 from django.db.models import QuerySet
 
@@ -21,7 +22,12 @@ from hope_dedup_engine.apps.public_api.const import DEDUPLICATION_SET_FILTER, DE
 from hope_dedup_engine.apps.public_api.models import DeduplicationSet
 from hope_dedup_engine.apps.public_api.models.deduplication import Image
 from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer, ImageSerializer
-from hope_dedup_engine.apps.public_api.utils import delete_model_data
+from hope_dedup_engine.apps.public_api.utils import delete_model_data, start_processing
+
+MESSAGE = "message"
+STARTED = "started"
+RETRYING = "retrying"
+ALREADY_PROCESSING = "already processing"
 
 
 class DeduplicationSetViewSet(
@@ -43,6 +49,19 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def process(self, request: Request, pk: UUID | None = None) -> Response:
+        deduplication_set = DeduplicationSet.objects.get(pk=pk)
+        match deduplication_set.state:
+            case DeduplicationSet.State.CLEAN | DeduplicationSet.State.ERROR:
+                start_processing(deduplication_set)
+                return Response({MESSAGE: RETRYING})
+            case DeduplicationSet.State.DIRTY:
+                start_processing(deduplication_set)
+                return Response({MESSAGE: STARTED})
+            case DeduplicationSet.State.PROCESSING:
+                return Response({MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ImageViewSet(
     nested_viewsets.NestedViewSetMixin,
@@ -62,6 +81,7 @@ class ImageViewSet(
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
         deduplication_set = serializer.instance.deduplication_set
+        deduplication_set.state = DeduplicationSet.State.DIRTY
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
