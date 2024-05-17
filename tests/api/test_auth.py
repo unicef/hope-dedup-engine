@@ -10,6 +10,7 @@ from const import (
     DEDUPLICATION_SET_LIST_VIEW,
     IMAGE_DETAIL_VIEW,
     IMAGE_LIST_VIEW,
+    JSON,
 )
 from pytest import mark
 from rest_framework import status
@@ -58,7 +59,7 @@ def test_anonymous_cannot_access(
 def test_authenticated_can_access(
     api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
-    response = getattr(api_client, method.lower())(reverse(view_name, args), format="json")
+    response = getattr(api_client, method.lower())(reverse(view_name, args), format=JSON)
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 
