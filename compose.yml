@@ -7,6 +7,7 @@ x-common: &common
     - .env
   volumes:
     - .:/code
+    - /var/run/docker.sock:/var/run/docker.sock
   restart: unless-stopped
   depends_on:
     db:
@@ -19,7 +20,7 @@ services:
     <<: *common
     command: ["entrypoint.sh", "dev"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -80,6 +81,15 @@ services:
       timeout: 4s
       retries: 5
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose"
+    ports:
+      - "10000:10000" # Blob service
+    volumes:
+      - azurite_data:/workspace
+
 volumes:
   postgres_data:
   hope_postgres_data:
+  azurite_data:

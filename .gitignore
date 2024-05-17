@@ -21,3 +21,13 @@ Makefile
 site
 black.txt
 flake8
+.idea/
+.env
+.envrc
+.venv/
+.DS_Store
+.vscode
+.pdm-python
+
+dataset
+cv2dnn
