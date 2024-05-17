@@ -30,3 +30,4 @@ flake8
 .pdm-python
 
 dataset
+cv2dnn

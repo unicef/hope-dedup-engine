@@ -60,5 +60,6 @@ def mocked_responses():
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         yield rsps
 
-from faces.fixtures.celery import *  # noqa: E402, F401, F403
+
 from faces.fixtures.duplication_detector import *  # noqa: E402, F401, F403
+from faces.fixtures.tasks import *  # noqa: E402, F401, F403

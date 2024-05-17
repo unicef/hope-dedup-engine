@@ -43,6 +43,7 @@ INSTALLED_APPS = (
     "django_celery_beat",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "storages",
 )
 
 MIDDLEWARE = (
@@ -75,7 +76,6 @@ STATICFILES_FINDERS = [
     # "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
-DATASET_PATH = env("DATASET_PATH", default=DEVELOPMENT_DIR / "dataset")
 
 STORAGES = {
     "default": env.storage("FILE_STORAGE_DEFAULT"),
@@ -196,3 +196,4 @@ from .fragments.root import *  # noqa
 from .fragments.sentry import *  # noqa
 from .fragments.social_auth import *  # noqa
 from .fragments.spectacular import *  # noqa
+from .fragments.storages import *  # noqa
