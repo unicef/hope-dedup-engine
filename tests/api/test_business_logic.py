@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from const import (
+from api_const import (
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
     DEDUPLICATION_SET_PROCESS_VIEW,
@@ -35,7 +35,7 @@ def test_deduplication_set_processing_trigger(
 ) -> None:
     response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_200_OK
-    start_processing.assert_called_once_with(deduplication_set)
+    start_processing.delay.assert_called_once_with(deduplication_set.pk)
 
 
 def test_new_image_makes_deduplication_set_state_dirty(

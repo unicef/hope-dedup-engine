@@ -2,8 +2,7 @@ from http import HTTPMethod
 from typing import Any
 from uuid import uuid4
 
-from conftest import get_auth_headers
-from const import (
+from api_const import (
     BULK_IMAGE_CLEAR_VIEW,
     BULK_IMAGE_LIST_VIEW,
     DEDUPLICATION_SET_DETAIL_VIEW,
@@ -12,6 +11,7 @@ from const import (
     IMAGE_LIST_VIEW,
     JSON,
 )
+from conftest import get_auth_headers
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse

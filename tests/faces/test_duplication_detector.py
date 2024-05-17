@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, mock_open, patch
 from django.conf import settings
 
 import numpy as np
-from const import FILENAME, FILENAMES
+from faces_const import FILENAME, FILENAMES
 
 # def test_initialization(dd):
 #     assert isinstance(dd.net, cv2.dnn_Net)

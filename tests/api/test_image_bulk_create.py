@@ -1,4 +1,4 @@
-from const import BULK_IMAGE_LIST_VIEW, JSON
+from api_const import BULK_IMAGE_LIST_VIEW, JSON
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient

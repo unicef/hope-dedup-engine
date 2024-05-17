@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
+from hope_dedup_engine.apps.faces.celery_tasks import deduplicate
 from hope_dedup_engine.apps.public_api.auth import (
     AssignedToExternalSystem,
     HDETokenAuthentication,
@@ -22,7 +23,7 @@ from hope_dedup_engine.apps.public_api.const import DEDUPLICATION_SET_FILTER, DE
 from hope_dedup_engine.apps.public_api.models import DeduplicationSet
 from hope_dedup_engine.apps.public_api.models.deduplication import Image
 from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer, ImageSerializer
-from hope_dedup_engine.apps.public_api.utils import delete_model_data, start_processing
+from hope_dedup_engine.apps.public_api.utils import delete_model_data
 
 MESSAGE = "message"
 STARTED = "started"
@@ -54,10 +55,10 @@ class DeduplicationSetViewSet(
         deduplication_set = DeduplicationSet.objects.get(pk=pk)
         match deduplication_set.state:
             case DeduplicationSet.State.CLEAN | DeduplicationSet.State.ERROR:
-                start_processing(deduplication_set)
+                deduplicate.delay(deduplication_set.pk)
                 return Response({MESSAGE: RETRYING})
             case DeduplicationSet.State.DIRTY:
-                start_processing(deduplication_set)
+                deduplicate.delay(deduplication_set.pk)
                 return Response({MESSAGE: STARTED})
             case DeduplicationSet.State.PROCESSING:
                 return Response({MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST)

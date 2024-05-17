@@ -51,4 +51,4 @@ def delete_model_data(mocker: MockerFixture) -> MagicMock:
 
 @fixture
 def start_processing(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.public_api.views.start_processing")
+    return mocker.patch("hope_dedup_engine.apps.public_api.views.deduplicate")
