@@ -1,4 +1,3 @@
-.*
 ~*
 *.sh
 *.egg-info
@@ -21,3 +20,4 @@ Makefile
 site
 black.txt
 flake8
+.env
