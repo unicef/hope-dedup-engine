@@ -31,7 +31,6 @@ def test_deduplicate_task_success(
     mock_find.return_value = set(FILENAMES[:2])  # Assuming the first two are duplicates based on mock data
 
     task_result = deduplicate.apply(args=[FILENAME]).get()
-
     assert task_result == set(FILENAMES[:2])  # Assuming the first two are duplicates based on mock data
     mock_set.assert_called_once_with(f"Deduplicate_{FILENAME}", "true", nx=True, ex=3600)
     mock_delete.assert_called_once_with(f"Deduplicate_{FILENAME}")  # Lock is released
