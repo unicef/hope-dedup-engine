@@ -2,8 +2,8 @@ from factory import SubFactory, fuzzy
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet, HDEToken
-from hope_dedup_engine.apps.public_api.models.deduplication import Image
+from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models.deduplication import Image
 
 
 class TokenFactory(DjangoModelFactory):

@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
 def test_can_list_deduplication_sets(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:

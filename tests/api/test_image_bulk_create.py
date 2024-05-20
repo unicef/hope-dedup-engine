@@ -4,8 +4,8 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from testutils.factories.api import ImageFactory
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
-from hope_dedup_engine.apps.public_api.serializers import ImageSerializer
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.serializers import ImageSerializer
 from hope_dedup_engine.apps.security.models import User
 
 

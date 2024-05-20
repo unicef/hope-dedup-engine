@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from testutils.factories.api import DeduplicationSetFactory, ImageFactory, TokenFactory
 from testutils.factories.user import ExternalSystemFactory, UserFactory
 
-from hope_dedup_engine.apps.public_api.models import HDEToken
+from hope_dedup_engine.apps.api.models import HDEToken
 from hope_dedup_engine.apps.security.models import User
 
 register(ExternalSystemFactory)
@@ -46,9 +46,9 @@ def another_system_api_client(db: Any) -> APIClient:
 
 @fixture
 def delete_model_data(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.public_api.views.delete_model_data")
+    return mocker.patch("hope_dedup_engine.apps.api.views.delete_model_data")
 
 
 @fixture
 def start_processing(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.public_api.views.start_processing")
+    return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")

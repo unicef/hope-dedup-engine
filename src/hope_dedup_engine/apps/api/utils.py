@@ -1,4 +1,4 @@
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
 def start_processing(_: DeduplicationSet) -> None:

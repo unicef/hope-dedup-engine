@@ -15,7 +15,7 @@ urlpatterns = [
     path(r"sentry_debug/", lambda _: 1 / 0),
     path(r"__debug__/", include(debug_toolbar.urls)),
     path(r"", include("hope_dedup_engine.web.urls")),
-    path("", include("hope_dedup_engine.apps.public_api.urls")),
+    path("", include("hope_dedup_engine.apps.api.urls")),
 ]
 
 if settings.DEBUG:

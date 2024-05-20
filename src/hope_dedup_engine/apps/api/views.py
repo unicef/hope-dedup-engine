@@ -13,16 +13,16 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
-from hope_dedup_engine.apps.public_api.auth import (
+from hope_dedup_engine.apps.api.auth import (
     AssignedToExternalSystem,
     HDETokenAuthentication,
     UserAndDeduplicationSetAreOfTheSameSystem,
 )
-from hope_dedup_engine.apps.public_api.const import DEDUPLICATION_SET_FILTER, DEDUPLICATION_SET_PARAM
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
-from hope_dedup_engine.apps.public_api.models.deduplication import Image
-from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer, ImageSerializer
-from hope_dedup_engine.apps.public_api.utils import delete_model_data, start_processing
+from hope_dedup_engine.apps.api.const import DEDUPLICATION_SET_FILTER, DEDUPLICATION_SET_PARAM
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import Image
+from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer, ImageSerializer
+from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
 
 MESSAGE = "message"
 STARTED = "started"

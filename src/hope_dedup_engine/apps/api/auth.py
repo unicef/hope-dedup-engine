@@ -3,8 +3,8 @@ from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.views import View
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
-from hope_dedup_engine.apps.public_api.models.auth import HDEToken
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.auth import HDEToken
 
 
 class AssignedToExternalSystem(BasePermission):

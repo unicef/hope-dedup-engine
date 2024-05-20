@@ -14,9 +14,9 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from testutils.factories.api import DeduplicationSetFactory, ImageFactory
 
-from hope_dedup_engine.apps.public_api.models import DeduplicationSet
-from hope_dedup_engine.apps.public_api.models.deduplication import Image
-from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer, ImageSerializer
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import Image
+from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer, ImageSerializer
 
 
 def test_new_deduplication_set_status_is_clean(api_client: APIClient) -> None:
