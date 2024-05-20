@@ -9,7 +9,7 @@ def test_fs(tmp_path):
     s = CV2DNNStorage(tmp_path)
     s.save("test", ContentFile("aa", "test.txt"))
     s.save("test", ContentFile("bb", "test.txt"))
-    # assert s.listdir(".") == ([], ["test"])
+    assert s.listdir(".") == ([], ["test"])
     with s.open("test") as fd:
         assert fd.read() == b"bb"
     s.delete("test")
