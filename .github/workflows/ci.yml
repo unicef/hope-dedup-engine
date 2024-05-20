@@ -71,7 +71,12 @@ jobs:
           run: |
             docker run --rm -i \
               ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-support-images:deduplication-engine-${{ github.sha }}-dev \
-              flake8 .
+              flake8 \
+              --max-complexity 12 \
+              --max-line-length 120 \
+              --exclude=.*/,__pycache__,docs,~build,dist,*.md \
+              --per-file-ignores='src/**/migrations/*.py:E501' \
+              .
 
     unit_tests:
       runs-on: ubuntu-latest
