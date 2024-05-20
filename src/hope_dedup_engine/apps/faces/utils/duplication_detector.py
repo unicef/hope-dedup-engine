@@ -14,6 +14,7 @@ from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, 
 
 class DuplicationDetector:
     def __init__(self, filename: str) -> None:
+        print()
         self.logger = logging.getLogger(__name__)
 
         self.storages = {
@@ -21,12 +22,6 @@ class DuplicationDetector:
             "cv2dnn": CV2DNNStorage(),
             "encoded": HDEAzureStorage(),
         }
-
-        self.filename: str = filename
-        self.encodings_filename = f"{self.filename}.pkl"
-
-        self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
-        self.threshold: float = settings.DISTANCE_THRESHOLD
 
         for file in (settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE):
             if not self.storages.get("cv2dnn").exists(file):
@@ -39,6 +34,12 @@ class DuplicationDetector:
 
         self.net.setPreferableBackend(settings.DNN_BACKEND)
         self.net.setPreferableTarget(settings.DNN_TARGET)
+
+        self.filename: str = filename
+        self.encodings_filename = f"{self.filename}.pkl"
+
+        self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
+        self.threshold: float = settings.DISTANCE_THRESHOLD
 
     @property
     def has_encodings(self) -> bool:
