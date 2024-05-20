@@ -6,7 +6,6 @@ from .models import TaskModel
 
 @admin.register(TaskModel)
 class TaskModelAdmin(admin.ModelAdmin):
-
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 

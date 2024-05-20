@@ -8,7 +8,6 @@ from .userrole import UserRole, UserRoleFactory  # noqa
 
 
 def get_factory_for_model(_model) -> type[TAutoRegisterModelFactory]:
-
     class Meta:
         model = _model
 
