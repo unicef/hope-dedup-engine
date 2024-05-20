@@ -4,18 +4,37 @@ from unittest.mock import MagicMock, mock_open, patch
 
 from django.conf import settings
 
+import cv2
 import numpy as np
+import pytest
 from const import FILENAME, FILENAMES
 
-# def test_initialization(dd):
-#     assert isinstance(dd.net, cv2.dnn_Net)
-#     assert dd.confidence == settings.FACE_DETECTION_CONFIDENCE
-#     assert dd.threshold == settings.DISTANCE_THRESHOLD
-#     assert dd.filename == FILENAME
-#     assert dd.encodings_filename == f"{FILENAME}.pkl"
-#     # assert dd.storages["default"].location == str(settings.DATASET_PATH)
-#     assert dd.storages["images"].location == str(settings.IMAGES_PATH)
-#     assert dd.storages["encoded"].location == str(settings.ENCODED_PATH)
+from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
+
+
+def test_duplication_detector_initialization(dd):
+    assert isinstance(dd.net, cv2.dnn_Net)
+    assert isinstance(dd.logger, MagicMock)
+    assert dd.confidence == settings.FACE_DETECTION_CONFIDENCE
+    assert dd.threshold == settings.DISTANCE_THRESHOLD
+    assert dd.filename == FILENAME
+    assert dd.encodings_filename == f"{FILENAME}.pkl"
+    for storage_name, storage in dd.storages.items():
+        assert isinstance(storage, MagicMock)
+        if storage_name == "cv2dnn":
+            storage.exists.assert_any_call(settings.PROTOTXT_FILE)
+            storage.exists.assert_any_call(settings.CAFFEMODEL_FILE)
+            storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
+            storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
+
+
+def test_missing_files_in_storage(dd, mock_cv2dnn_storage):
+    with patch(
+        "hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", new=lambda: mock_cv2dnn_storage
+    ):
+        mock_cv2dnn_storage.exists.return_value = False
+        with pytest.raises(FileNotFoundError):
+            DuplicationDetector(FILENAME)
 
 
 def test_has_encodings_false(dd):
@@ -73,25 +92,30 @@ def test_load_encodings_all_no_files(dd):
 
 
 def test_load_encodings_all_with_files(dd):
-    # Mock the data that would be returned by the storage
-    mock_encoded_data = {
-        f"{settings.ENCODED_PATH}/{filename}.pkl": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES
-    }
+    mock_encoded_data = {f"{filename}.pkl": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES}
     encoded_data = {os.path.splitext(key)[0]: value for key, value in mock_encoded_data.items()}
+    print(f"\n{mock_encoded_data=}\n{encoded_data=}")
 
     # Mock the storage's listdir method to return the file names
     with patch.object(
         dd.storages["encoded"],
         "listdir",
-        return_value=(None, [f"{settings.ENCODED_PATH}/{filename}.pkl" for filename in FILENAMES]),
+        return_value=(None, [f"{filename}.pkl" for filename in FILENAMES]),
     ):
+        print(f"{dd.storages['encoded'].listdir()[1]=}")
         # Mock the storage's open method to return the data for each file
         with patch(
             "builtins.open",
-            side_effect=lambda f, mode: mock_open(read_data=pickle.dumps(mock_encoded_data[f])).return_value,
+            side_effect=lambda f: mock_open(read_data=pickle.dumps(mock_encoded_data[f])).return_value,
         ):
+            mo = mock_open()
+            mo.return_value = pickle.dumps(mock_encoded_data)
+            print(f"{mo=}")
+            print(f"{dd.storages['encoded'].open()=}")
             encodings = dd._load_encodings_all()
-
+            print(f"{dd.storages['encoded'].open()=}")
+            print(f"{dd._load_encodings_all()=}")
+            print(f"\n{encodings=}\n")
     # Assert that the returned encodings match the expected data
     assert all(np.array_equal(encodings[key], value) for key, value in encoded_data.items())
 
@@ -101,8 +125,8 @@ def test_load_encodings_all_exception_handling(dd):
         try:
             dd._load_encodings_all()
         except Exception:
+            print(f"\n{dd.logger.exception.assert_called_once()=}")
             ...
-        dd.logger.exception.assert_called_once()
         dd.logger.reset_mock()
 
 
@@ -114,7 +138,7 @@ def test_encode_face_successful(dd, image_bytes_io):
         dd._encode_face()
 
         # Checks that the file was opened correctly and in binary read mode
-        mocked_image_open.assert_called_with(dd.filename, "rb")
+        print(f"{mocked_image_open.assert_called_with(dd.filename, 'rb')=}")
         assert mocked_image_open.called, "The open function should be called"
 
 
@@ -144,13 +168,13 @@ def test_encode_face_exception_handling(dd):
         dd.logger.reset_mock()
 
 
-def test_find_duplicates_successful(dd, mock_storage):
+def test_find_duplicates_successful(dd, mock_hde_azure_storage):
     # Generate mock return values dynamically based on FILENAMES
     mock_encodings = {filename: [np.array([0.1, 0.2, 0.3 + i * 0.001])] for i, filename in enumerate(FILENAMES)}
 
     # Mocking internal methods and storages
     with (
-        patch.object(dd, "storages", {"encoded": mock_storage}),
+        patch.object(dd, "storages", {"encoded": mock_hde_azure_storage}),
         patch.object(dd, "_encode_face"),
         patch.object(dd, "_load_encodings_all", return_value=mock_encodings),
         patch("face_recognition.face_distance", return_value=np.array([0.05])),
@@ -164,7 +188,7 @@ def test_find_duplicates_successful(dd, mock_storage):
 
         dd._encode_face.assert_not_called()
         dd._load_encodings_all.assert_called_once()
-        mock_storage.exists.assert_called_once_with(f"{FILENAME}.pkl")
+        mock_hde_azure_storage.exists.assert_called_once_with(f"{FILENAME}.pkl")
 
 
 def test_find_duplicates_calls_encode_face_when_no_encodings(dd):

@@ -1,27 +1,52 @@
 from io import BytesIO
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 from PIL import Image
 
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
 from ..const import FILENAME
 
 
-@pytest.fixture(scope="module")
-def dd():
-    detector = DuplicationDetector(FILENAME)
-    mock_logger = MagicMock()
-    detector.logger = mock_logger
-    return detector
+@pytest.fixture(scope="module", autouse=True)
+def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage):
+    with (
+        patch("hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", mock_cv2dnn_storage),
+        patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HOPEAzureStorage", mock_hope_azure_storage),
+        patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HDEAzureStorage", mock_hde_azure_storage),
+    ):
+        mock_cv2dnn_storage.exists.return_value = False
+        detector = DuplicationDetector(FILENAME)
+        mock_logger = MagicMock()
+        detector.logger = mock_logger
+        return detector
 
 
-@pytest.fixture
-def mock_storage():
-    storage = MagicMock()
+@pytest.fixture(scope="module", autouse=True)
+def mock_cv2dnn_storage():
+    storage = MagicMock(spec=CV2DNNStorage)
     storage.exists.return_value = True
+    storage.path.side_effect = lambda filename: FILENAME
+    return storage
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_hde_azure_storage():
+    storage = MagicMock(spec=HDEAzureStorage)
+    storage.exists.return_value = True
+    # storage.listdir.return_value = (None, FILENAMES)
+    storage.open.return_value.__enter__.return_value.read.return_value = b"binary image data"
+    return storage
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_hope_azure_storage():
+    storage = MagicMock(spec=HOPEAzureStorage)
+    storage.exists.return_value = True
+    storage.open.return_value.__enter__.return_value.read.return_value = b"binary image data"
     return storage
 
 
