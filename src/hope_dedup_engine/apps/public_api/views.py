@@ -88,6 +88,7 @@ class ImageViewSet(
     def perform_destroy(self, instance: Image) -> None:
         deduplication_set = instance.deduplication_set
         super().perform_destroy(instance)
+        deduplication_set.state = DeduplicationSet.State.DIRTY
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 

@@ -4,6 +4,7 @@ from const import (
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
     DEDUPLICATION_SET_PROCESS_VIEW,
+    IMAGE_DETAIL_VIEW,
     IMAGE_LIST_VIEW,
     JSON,
 )
@@ -14,6 +15,7 @@ from rest_framework.test import APIClient
 from testutils.factories.api import DeduplicationSetFactory, ImageFactory
 
 from hope_dedup_engine.apps.public_api.models import DeduplicationSet
+from hope_dedup_engine.apps.public_api.models.deduplication import Image
 from hope_dedup_engine.apps.public_api.serializers import DeduplicationSetSerializer, ImageSerializer
 
 
@@ -50,7 +52,16 @@ def test_new_image_makes_deduplication_set_state_dirty(
     assert deduplication_set.state == DeduplicationSet.State.DIRTY
 
 
-def test_can_deletion_triggers_model_data_deletion(
+def test_image_deletion_makes_deduplication_state_dirty(
+    api_client: APIClient, deduplication_set: DeduplicationSet, image: Image
+) -> None:
+    response = api_client.delete(reverse(IMAGE_DETAIL_VIEW, (deduplication_set.pk, image.pk)))
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.state == DeduplicationSet.State.DIRTY
+
+
+def test_deletion_triggers_model_data_deletion(
     api_client: APIClient, deduplication_set: DeduplicationSet, delete_model_data: MagicMock
 ) -> None:
     response = api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
