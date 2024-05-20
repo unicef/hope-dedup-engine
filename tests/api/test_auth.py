@@ -23,19 +23,19 @@ from hope_dedup_engine.apps.security.models import User
 PK = uuid4()
 
 
-@mark.parametrize(
-    ("view_name", "method", "args"),
-    (
-        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
-        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
-        (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
-        (IMAGE_LIST_VIEW, HTTPMethod.GET, (PK,)),
-        (IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
-        (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
-        (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
-        (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
-    ),
+REQUESTS = (
+    (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
+    (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
+    (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
+    (IMAGE_LIST_VIEW, HTTPMethod.GET, (PK,)),
+    (IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+    (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
+    (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
+    (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
 )
+
+
+@mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_anonymous_cannot_access(
     anonymous_api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
@@ -43,19 +43,7 @@ def test_anonymous_cannot_access(
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-@mark.parametrize(
-    ("view_name", "method", "args"),
-    (
-        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
-        (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
-        (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
-        (IMAGE_LIST_VIEW, HTTPMethod.GET, (PK,)),
-        (IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
-        (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
-        (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
-        (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
-    ),
-)
+@mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_authenticated_can_access(
     api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
