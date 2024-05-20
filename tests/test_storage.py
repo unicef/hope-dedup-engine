@@ -12,6 +12,7 @@ def test_fs(tmp_path):
     assert s.listdir(".") == ([], ["test"])
     with s.open("test") as fd:
         assert fd.read() == b"bb"
+    s.delete("test")
 
 
 def test_azure(tmp_path):
