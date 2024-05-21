@@ -1,5 +1,6 @@
 .git
 .*
+!.flake8
 ~*
 db
 docs
