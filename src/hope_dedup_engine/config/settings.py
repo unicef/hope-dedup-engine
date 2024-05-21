@@ -83,7 +83,7 @@ STORAGES = {
 }
 
 SECRET_KEY = env("SECRET_KEY")
-ALLOWED_HOSTS = (env("ALLOWED_HOST", default="localhost"),)
+ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
