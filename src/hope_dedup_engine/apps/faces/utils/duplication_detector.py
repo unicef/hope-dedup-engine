@@ -1,6 +1,5 @@
 import logging
 import os
-import pickle
 from typing import Dict, List, Tuple
 
 from django.conf import settings
@@ -36,7 +35,7 @@ class DuplicationDetector:
         self.net.setPreferableTarget(settings.DNN_TARGET)
 
         self.filename: str = filename
-        self.encodings_filename = f"{self.filename}.pkl"
+        self.encodings_filename = f"{self.filename}.npy"
 
         self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
         self.threshold: float = settings.DISTANCE_THRESHOLD
@@ -72,9 +71,9 @@ class DuplicationDetector:
         try:
             _, files = self.storages["encoded"].listdir("")
             for file in files:
-                if file.endswith(".pkl"):
+                if file.endswith(".npy"):
                     with self.storages["encoded"].open(file, "rb") as f:
-                        data[os.path.splitext(file)[0]] = pickle.load(f)
+                        data[os.path.splitext(file)[0]] = np.load(f, allow_pickle=False)
         except Exception as e:
             self.logger.exception(f"Error loading encodings: {e}", exc_info=True)
         return data
@@ -93,7 +92,7 @@ class DuplicationDetector:
                 else:
                     self.logger.error(f"Invalid face region {region}")
             with self.storages["encoded"].open(self.encodings_filename, "wb") as f:
-                pickle.dump(encodings, f)
+                np.save(f, encodings)
         except Exception as e:
             self.logger.exception(f"Error processing face encodings for image {self.filename}", exc_info=e)
 
