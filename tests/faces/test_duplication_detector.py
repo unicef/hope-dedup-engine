@@ -1,5 +1,4 @@
 import os
-import pickle
 from unittest.mock import MagicMock, mock_open, patch
 
 from django.conf import settings
@@ -18,7 +17,7 @@ def test_duplication_detector_initialization(dd):
     assert dd.confidence == settings.FACE_DETECTION_CONFIDENCE
     assert dd.threshold == settings.DISTANCE_THRESHOLD
     assert dd.filename == FILENAME
-    assert dd.encodings_filename == f"{FILENAME}.pkl"
+    assert dd.encodings_filename == f"{FILENAME}.npy"
     for storage_name, storage in dd.storages.items():
         assert isinstance(storage, MagicMock)
         if storage_name == "cv2dnn":
@@ -92,7 +91,7 @@ def test_load_encodings_all_no_files(dd):
 
 
 def test_load_encodings_all_with_files(dd):
-    mock_encoded_data = {f"{filename}.pkl": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES}
+    mock_encoded_data = {f"{filename}.npy": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES}
     encoded_data = {os.path.splitext(key)[0]: value for key, value in mock_encoded_data.items()}
     print(f"\n{mock_encoded_data=}\n{encoded_data=}")
 
@@ -100,16 +99,14 @@ def test_load_encodings_all_with_files(dd):
     with patch.object(
         dd.storages["encoded"],
         "listdir",
-        return_value=(None, [f"{filename}.pkl" for filename in FILENAMES]),
+        return_value=(None, [f"{filename}.npy" for filename in FILENAMES]),
     ):
         print(f"{dd.storages['encoded'].listdir()[1]=}")
         # Mock the storage's open method to return the data for each file
         with patch(
             "builtins.open",
-            side_effect=lambda f: mock_open(read_data=pickle.dumps(mock_encoded_data[f])).return_value,
+            side_effect=lambda f: mock_open(read_data=np.save(mock_encoded_data[f])).return_value,
         ):
-            mo = mock_open()
-            mo.return_value = pickle.dumps(mock_encoded_data)
             dd._load_encodings_all()
     # Assert that the returned encodings match the expected data
     # TODO: Fix
@@ -184,7 +181,7 @@ def test_find_duplicates_successful(dd, mock_hde_azure_storage):
 
         dd._encode_face.assert_not_called()
         dd._load_encodings_all.assert_called_once()
-        mock_hde_azure_storage.exists.assert_called_once_with(f"{FILENAME}.pkl")
+        mock_hde_azure_storage.exists.assert_called_once_with(f"{FILENAME}.npy")
 
 
 def test_find_duplicates_calls_encode_face_when_no_encodings(dd):
