@@ -3,14 +3,23 @@ import json
 from copy import copy
 from datetime import datetime, timedelta
 from threading import local
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Protocol
+
+# TODO: find out what is correct value for this
+not_set = None
 
 
-not_set = object()
+class AnyRequest(Protocol):
+    COOKIES: Mapping[str, Any]
+
+
+class AnyResponse(Protocol):
+    def set_cookie(self, name: str, *args: Any) -> None:
+        pass
 
 
 class State(local):
-    request: "AnyRequest|None" = None
+    request: AnyRequest | None = None
     cookies: Dict[str, List[Any]] = {}
 
     def __repr__(self) -> str:

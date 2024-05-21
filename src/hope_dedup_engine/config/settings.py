@@ -42,6 +42,7 @@ INSTALLED_APPS = (
     "django_celery_beat",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "hope_dedup_engine.apps.api",
 )
 
 MIDDLEWARE = (

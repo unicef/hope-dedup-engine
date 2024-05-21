@@ -1,10 +1,17 @@
 from django.contrib.auth.models import Group
 
-import factory
+import factory.fuzzy
 
-from hope_dedup_engine.apps.security.models import User
+from hope_dedup_engine.apps.security.models import User, ExternalSystem
 
 from .base import AutoRegisterModelFactory
+
+
+class ExternalSystemFactory(AutoRegisterModelFactory):
+    name = factory.fuzzy.FuzzyText()
+
+    class Meta:
+        model = ExternalSystem
 
 
 class UserFactory(AutoRegisterModelFactory):
@@ -12,6 +19,7 @@ class UserFactory(AutoRegisterModelFactory):
     username = factory.Sequence(lambda n: "m%03d@example.com" % n)
     password = factory.django.Password(_password)
     email = factory.Sequence(lambda n: "m%03d@example.com" % n)
+    external_system = factory.SubFactory(ExternalSystemFactory)
 
     class Meta:
         model = User

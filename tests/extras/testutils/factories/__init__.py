@@ -3,7 +3,7 @@ from pytest_factoryboy import register
 from .base import AutoRegisterModelFactory, TAutoRegisterModelFactory, factories_registry
 from .django_celery_beat import PeriodicTaskFactory  # noqa
 from .social import SocialAuthUserFactory  # noqa
-from .user import GroupFactory, SuperUserFactory, User, UserFactory  # noqa
+from .user import ExternalSystemFactory, GroupFactory, SuperUserFactory, User, UserFactory  # noqa
 from .userrole import UserRole, UserRoleFactory  # noqa
 
 

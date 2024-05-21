@@ -1,5 +1,3 @@
-from http.cookies import SimpleCookie
-
 from django.http import HttpResponse
 
 import pytest
