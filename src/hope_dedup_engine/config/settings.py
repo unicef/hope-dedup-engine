@@ -18,6 +18,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
+    "hope_dedup_engine.apps.faces.apps.Config",
     # "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
@@ -43,6 +44,7 @@ INSTALLED_APPS = (
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
+    "storages",
 )
 
 MIDDLEWARE = (
@@ -157,11 +159,17 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "level": "INFO"},
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+        },
     },
-    "root": {
-        "handlers": ["console"],
-        "level": "WARNING",
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
     },
 }
 
@@ -183,8 +191,10 @@ from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.debug_toolbar import *  # noqa
 from .fragments.flags import *  # noqa
+from .fragments.recognition import *  # noqa
 from .fragments.rest_framework import *  # noqa
 from .fragments.root import *  # noqa
 from .fragments.sentry import *  # noqa
 from .fragments.social_auth import *  # noqa
 from .fragments.spectacular import *  # noqa
+from .fragments.storages import *  # noqa

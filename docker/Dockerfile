@@ -56,7 +56,7 @@ RUN ln -s -f /bin/true /usr/bin/chfn \
     && adduser --disabled-login --disabled-password --no-create-home --ingroup hope -q www
 
 FROM common-env AS common-os
-ENV buildDeps="build-essential gcc libjpeg-dev zlib1g-dev libffi-dev libssl-dev libpq-dev "
+ENV buildDeps="build-essential gcc cmake curl libjpeg-dev zlib1g-dev libffi-dev libssl-dev libpq-dev libgdal-dev libgl1-mesa-glx docker.io "
 ENV runtimeDeps="postgresql-client libmagic1"
 RUN rm -f /etc/apt/apt.conf.d/docker-clean \
     && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
