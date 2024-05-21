@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from const import FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.celery_tasks import deduplicate
@@ -21,7 +23,7 @@ def test_deduplicate_task_already_running(
 
 
 def test_deduplicate_task_success(
-    mock_redis_client, mock_duplication_detector, mock_task_model, celery_app, celery_worker
+    dd, mock_redis_client, mock_duplication_detector, mock_task_model, celery_app, celery_worker
 ):
     mock_set, mock_delete = mock_redis_client
     mock_create, mock_task_instance = mock_task_model
@@ -30,7 +32,8 @@ def test_deduplicate_task_success(
     mock_set.return_value = True  # Lock is acquired
     mock_find.return_value = set(FILENAMES[:2])  # Assuming the first two are duplicates based on mock data
 
-    task_result = deduplicate.apply(args=[FILENAME]).get()
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=dd):
+        task_result = deduplicate.apply(args=[FILENAME]).get()
     assert task_result == set(FILENAMES[:2])  # Assuming the first two are duplicates based on mock data
     mock_set.assert_called_once_with(f"Deduplicate_{FILENAME}", "true", nx=True, ex=3600)
     mock_delete.assert_called_once_with(f"Deduplicate_{FILENAME}")  # Lock is released
@@ -43,14 +46,15 @@ def test_deduplicate_task_success(
 
 
 def test_deduplicate_task_exception_handling(
-    mock_redis_client, mock_task_model, mock_duplication_detector, celery_app, celery_worker
+    dd, mock_redis_client, mock_task_model, mock_duplication_detector, celery_app, celery_worker
 ):
     mock_set, mock_delete = mock_redis_client
     mock_create, mock_task_instance = mock_task_model
     mock_find = mock_duplication_detector
     mock_find.side_effect = Exception("Simulated task failure")
 
-    task = deduplicate.apply(args=[FILENAME])
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=dd):
+        task = deduplicate.apply(args=[FILENAME])
 
     assert task.result is None  # Task is not executed
     mock_duplication_detector.assert_called_once()  # DeduplicationDetector is called
