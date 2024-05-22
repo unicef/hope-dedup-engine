@@ -12,9 +12,7 @@ class UniqueStorageMixin:
 
 
 class CV2DNNStorage(UniqueStorageMixin, FileSystemStorage):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.location = settings.CV2DNN_PATH
+    pass
 
 
 class HDEAzureStorage(UniqueStorageMixin, AzureStorage):

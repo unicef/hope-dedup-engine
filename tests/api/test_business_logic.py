@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from const import (
+from api_const import (
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
     DEDUPLICATION_SET_PROCESS_VIEW,
@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 from testutils.factories.api import DeduplicationSetFactory, ImageFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Image
+from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
 from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer, ImageSerializer
 
 
@@ -38,6 +38,15 @@ def test_deduplication_set_processing_trigger(
     response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_200_OK
     start_processing.assert_called_once_with(deduplication_set)
+
+
+def test_duplicates_are_removed_before_processing(
+    api_client: APIClient, deduplication_set: DeduplicationSet, duplicate: Duplicate
+) -> None:
+    assert Duplicate.objects.count()
+    response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
+    assert response.status_code == status.HTTP_200_OK
+    assert not Duplicate.objects.count()
 
 
 def test_new_image_makes_deduplication_set_state_dirty(

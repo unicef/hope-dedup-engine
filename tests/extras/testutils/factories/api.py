@@ -3,7 +3,7 @@ from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
-from hope_dedup_engine.apps.api.models.deduplication import Image
+from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
 
 
 class TokenFactory(DjangoModelFactory):
@@ -22,8 +22,20 @@ class DeduplicationSetFactory(DjangoModelFactory):
 
 
 class ImageFactory(DjangoModelFactory):
-    filename = fuzzy.FuzzyText()
     deduplication_set = SubFactory(DeduplicationSetFactory)
+    filename = fuzzy.FuzzyText()
+    reference_pk = fuzzy.FuzzyInteger(low=1)
 
     class Meta:
         model = Image
+
+
+class DuplicateFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+    first_filename = fuzzy.FuzzyText()
+    first_reference_pk = fuzzy.FuzzyInteger(low=1)
+    second_filename = fuzzy.FuzzyText()
+    second_reference_pk = fuzzy.FuzzyInteger(low=1)
+
+    class Meta:
+        model = Duplicate
