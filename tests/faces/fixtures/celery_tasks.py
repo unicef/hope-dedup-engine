@@ -1,12 +1,12 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+
+import docker
 
 
 @pytest.fixture(scope="session")
 def docker_client():
-    import docker
-
     client = docker.from_env()
     yield client
     client.close()
@@ -24,12 +24,3 @@ def mock_duplication_detector():
         "hope_dedup_engine.apps.faces.utils.duplication_detector.DuplicationDetector.find_duplicates"
     ) as mock_find:
         yield mock_find
-
-
-@pytest.fixture
-def mock_task_model():
-    with patch("hope_dedup_engine.apps.faces.models.TaskModel.objects.create") as mock_create:
-        mock_instance = MagicMock()
-        mock_create.return_value = mock_instance
-        mock_instance.save = MagicMock()
-        yield mock_create, mock_instance
