@@ -27,6 +27,7 @@ INSTALLED_APPS = (
     "django.contrib.sessions",
     "django.contrib.sites",
     "django.contrib.sitemaps",
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     "django.contrib.admin",
@@ -49,6 +50,7 @@ INSTALLED_APPS = (
 
 MIDDLEWARE = (
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
