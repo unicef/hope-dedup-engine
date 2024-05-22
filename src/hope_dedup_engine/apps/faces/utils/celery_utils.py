@@ -40,6 +40,7 @@ def task_lifecycle(name: str, ttl: int):
                     task.completed_at = timezone.now()
                     task.is_success = False
                     task.error = str(e)
+                raise e
             finally:
                 _release_lock(lock_name)
                 if task:

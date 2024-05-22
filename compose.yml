@@ -70,6 +70,7 @@ services:
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose"
+    restart: always
     ports:
       - "10000:10000" # Blob service
     volumes:
