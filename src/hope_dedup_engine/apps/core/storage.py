@@ -30,16 +30,16 @@ class HOPEAzureStorage(HDEAzureStorage):
         super().__init__(*args, **kwargs)
         self.azure_container = settings.AZURE_CONTAINER_HOPE
 
-    def delete(self, name):
-        raise RuntimeError("This storage cannot delete files")
+    # def delete(self, name):
+    #     raise RuntimeError("This storage cannot delete files")
 
-    def open(self, name, mode="rb"):
-        if "w" in mode:
-            raise RuntimeError("This storage cannot open files in write mode")
-        return super().open(name, mode="rb")
+    # def open(self, name, mode="rb"):
+    #     if "w" in mode:
+    #         raise RuntimeError("This storage cannot open files in write mode")
+    #     return super().open(name, mode="rb")
 
-    def save(self, name, content, max_length=None):
-        raise RuntimeError("This storage cannot save files")
+    # def save(self, name, content, max_length=None):
+    #     raise RuntimeError("This storage cannot save files")
 
-    def listdir(self, path=""):
-        return []
+    # def listdir(self, path=""):
+    #     return []

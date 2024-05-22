@@ -36,6 +36,10 @@ dependencies = [
     "social-auth-core",
     "unicef-security",
     "uwsgi>=2.0.25.1",
+    "drf-nested-routers>=0.94.1",
+    "face-recognition>=1.3.0",
+    "opencv-python>=4.9.0.80",
+    "django-celery-results>=2.5.1",
 ]
 
 [tool.pdm.build]
