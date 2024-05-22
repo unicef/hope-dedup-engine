@@ -13,7 +13,6 @@ from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, 
 
 class DuplicationDetector:
     def __init__(self, filename: str) -> None:
-        print()
         self.logger = logging.getLogger(__name__)
 
         self.storages = {
@@ -110,7 +109,6 @@ class DuplicationDetector:
                     for encoding1 in encodings1:
                         for encoding2 in encodings2:
                             distance = face_recognition.face_distance([encoding1], encoding2)
-                            print(f"{distance.item():10.8f}\t{path1} vs {path2}")
                             if distance < settings.DISTANCE_THRESHOLD:
                                 duplicated_images.update([path1, path2])
                                 break
