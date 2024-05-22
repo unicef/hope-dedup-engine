@@ -36,6 +36,7 @@ class DuplicateFactory(DjangoModelFactory):
     first_reference_pk = fuzzy.FuzzyInteger(low=1)
     second_filename = fuzzy.FuzzyText()
     second_reference_pk = fuzzy.FuzzyInteger(low=1)
+    score = fuzzy.FuzzyFloat(low=0, high=1)
 
     class Meta:
         model = Duplicate

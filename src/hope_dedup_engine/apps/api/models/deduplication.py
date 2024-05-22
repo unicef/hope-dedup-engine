@@ -50,3 +50,4 @@ class Duplicate(models.Model):
     first_filename = models.CharField(max_length=255)
     second_reference_pk = models.IntegerField()
     second_filename = models.CharField(max_length=255)
+    score = models.FloatField()
