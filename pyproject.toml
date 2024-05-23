@@ -30,7 +30,7 @@ dependencies = [
     "drf-spectacular[sidecar]",
     "gunicorn",
     "psycopg2-binary>=2.9.9",
-    "sentry-sdk",
+    "sentry-sdk[celery,django]>=2.2.1",
     "social-auth-app-django",
     "social-auth-core",
     "unicef-security",
