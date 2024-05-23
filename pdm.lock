@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:a2169a7dd23f3f26ea9bbbc9c9420526f55e75eec4b4b4c70c54de4e39461412"
+content_hash = "sha256:165cd62ebad1eac8924f3c14694414f6d7f2fd991008a97d353bd18b9b3e08ee"
 
 [[package]]
 name = "amqp"
@@ -2108,6 +2108,23 @@ groups = ["default"]
 dependencies = [
     "certifi",
     "urllib3>=1.26.11",
+]
+files = [
+    {file = "sentry_sdk-2.3.1-py2.py3-none-any.whl", hash = "sha256:c5aeb095ba226391d337dd42a6f9470d86c9fc236ecc71cfc7cd1942b45010c6"},
+    {file = "sentry_sdk-2.3.1.tar.gz", hash = "sha256:139a71a19f5e9eb5d3623942491ce03cf8ebc14ea2e39ba3e6fe79560d8a5b1f"},
+]
+
+[[package]]
+name = "sentry-sdk"
+version = "2.3.1"
+extras = ["celery", "django"]
+requires_python = ">=3.6"
+summary = "Python client for Sentry (https://sentry.io)"
+groups = ["default"]
+dependencies = [
+    "celery>=3",
+    "django>=1.8",
+    "sentry-sdk==2.3.1",
 ]
 files = [
     {file = "sentry_sdk-2.3.1-py2.py3-none-any.whl", hash = "sha256:c5aeb095ba226391d337dd42a6f9470d86c9fc236ecc71cfc7cd1942b45010c6"},
