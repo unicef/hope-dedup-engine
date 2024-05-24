@@ -8,7 +8,7 @@ from PIL import Image
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
-from ..const import FILENAME
+from ..faces_const import FILENAME
 
 
 @pytest.fixture(scope="module", autouse=True)

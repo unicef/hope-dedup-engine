@@ -6,7 +6,7 @@ from django.conf import settings
 import cv2
 import numpy as np
 import pytest
-from const import FILENAME, FILENAMES
+from faces_const import FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
@@ -29,7 +29,7 @@ def test_duplication_detector_initialization(dd):
 
 def test_missing_files_in_storage(dd, mock_cv2dnn_storage):
     with patch(
-        "hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", new=lambda: mock_cv2dnn_storage
+        "hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", new=lambda _: mock_cv2dnn_storage
     ):
         mock_cv2dnn_storage.exists.return_value = False
         with pytest.raises(FileNotFoundError):

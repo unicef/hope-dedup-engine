@@ -18,7 +18,7 @@ class DuplicationDetector:
 
         self.storages = {
             "images": HOPEAzureStorage(),
-            "cv2dnn": CV2DNNStorage(),
+            "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
             "encoded": HDEAzureStorage(),
         }
 

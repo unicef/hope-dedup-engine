@@ -20,8 +20,8 @@ from hope_dedup_engine.apps.api.auth import (
 )
 from hope_dedup_engine.apps.api.const import DEDUPLICATION_SET_FILTER, DEDUPLICATION_SET_PARAM
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Image
-from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer, ImageSerializer
+from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
+from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer, DuplicateSerializer, ImageSerializer
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
 
 MESSAGE = "message"
@@ -49,15 +49,20 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
+    @staticmethod
+    def _start_processing(deduplication_set: DeduplicationSet) -> None:
+        Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
+        start_processing(deduplication_set)
+
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
         deduplication_set = DeduplicationSet.objects.get(pk=pk)
         match deduplication_set.state:
             case DeduplicationSet.State.CLEAN | DeduplicationSet.State.ERROR:
-                start_processing(deduplication_set)
+                self._start_processing(deduplication_set)
                 return Response({MESSAGE: RETRYING})
             case DeduplicationSet.State.DIRTY:
-                start_processing(deduplication_set)
+                self._start_processing(deduplication_set)
                 return Response({MESSAGE: STARTED})
             case DeduplicationSet.State.PROCESSING:
                 return Response({MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST)
@@ -149,3 +154,13 @@ class BulkImageViewSet(
         deduplication_set.updated_by = request.user
         deduplication_set.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DuplicateViewSet(nested_viewsets.NestedViewSetMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    authentication_classes = (HDETokenAuthentication,)
+    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    serializer_class = DuplicateSerializer
+    queryset = Duplicate.objects.all()
+    parent_lookup_kwargs = {
+        DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
+    }

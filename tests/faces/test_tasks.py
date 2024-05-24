@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from const import FILENAME, FILENAMES
+from faces_const import FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.celery_tasks import deduplicate
 from hope_dedup_engine.apps.faces.models import TaskModel
