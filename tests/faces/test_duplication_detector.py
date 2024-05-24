@@ -118,7 +118,6 @@ def test_load_encodings_all_exception_handling(dd):
         try:
             dd._load_encodings_all()
         except Exception:
-            print(f"\n{dd.logger.exception.assert_called_once()=}")
             ...
         dd.logger.reset_mock()
 
@@ -149,6 +148,7 @@ def test_encode_face_invalid_region(dd, image_bytes_io):
 
         # Check that the error was logged with the correct message
         mock_error_logger.assert_called_once_with(f"Invalid face region {(0, 0, 10)}")
+        dd.logger.reset_mock()
 
 
 def test_encode_face_exception_handling(dd):
