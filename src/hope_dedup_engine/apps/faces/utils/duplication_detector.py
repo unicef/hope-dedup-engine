@@ -12,6 +12,7 @@ import numpy as np
 from constance import config
 
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
+from hope_dedup_engine.apps.faces.exceptions import NoFaceRegionsDetectedException
 
 
 class DuplicationDetector:
