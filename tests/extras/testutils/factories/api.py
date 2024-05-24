@@ -13,7 +13,7 @@ class TokenFactory(DjangoModelFactory):
 
 class DeduplicationSetFactory(DjangoModelFactory):
     name = fuzzy.FuzzyText()
-    reference_pk = fuzzy.FuzzyInteger(low=1)
+    reference_pk = fuzzy.FuzzyText()
     external_system = SubFactory(ExternalSystemFactory)
     state = DeduplicationSet.State.CLEAN
 
@@ -24,7 +24,7 @@ class DeduplicationSetFactory(DjangoModelFactory):
 class ImageFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
     filename = fuzzy.FuzzyText()
-    reference_pk = fuzzy.FuzzyInteger(low=1)
+    reference_pk = fuzzy.FuzzyText()
 
     class Meta:
         model = Image
@@ -33,9 +33,9 @@ class ImageFactory(DjangoModelFactory):
 class DuplicateFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
     first_filename = fuzzy.FuzzyText()
-    first_reference_pk = fuzzy.FuzzyInteger(low=1)
+    first_reference_pk = fuzzy.FuzzyText()
     second_filename = fuzzy.FuzzyText()
-    second_reference_pk = fuzzy.FuzzyInteger(low=1)
+    second_reference_pk = fuzzy.FuzzyText()
     score = fuzzy.FuzzyFloat(low=0, high=1)
 
     class Meta:

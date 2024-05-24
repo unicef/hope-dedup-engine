@@ -47,9 +47,7 @@ def test_missing_fields_handling(api_client: APIClient, omit: str | tuple[str, .
     (
         ("name", ""),
         ("name", None),
-        ("reference_pk", "foo"),
         ("reference_pk", None),
-        ("reference_pk", 3.14),
     ),
 )
 def test_invalid_values_handling(api_client: APIClient, field: str, value: Any) -> None:
