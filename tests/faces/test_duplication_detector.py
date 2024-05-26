@@ -91,26 +91,23 @@ def test_load_encodings_all_no_files(dd):
 
 
 def test_load_encodings_all_with_files(dd):
-    mock_encoded_data = {f"{filename}.npy": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES}
+    mock_encoded_data = {f"{filename}.npy": np.array([1, 2, 3]) for filename in FILENAMES}
     encoded_data = {os.path.splitext(key)[0]: value for key, value in mock_encoded_data.items()}
-    print(f"\n{mock_encoded_data=}\n{encoded_data=}")
 
-    # Mock the storage's listdir method to return the file names
     with patch.object(
-        dd.storages["encoded"],
-        "listdir",
-        return_value=(None, [f"{filename}.npy" for filename in FILENAMES]),
+        dd.storages["encoded"], "listdir", return_value=(None, [f"{filename}.npy" for filename in FILENAMES])
     ):
-        print(f"{dd.storages['encoded'].listdir()[1]=}")
-        # Mock the storage's open method to return the data for each file
-        with patch(
-            "builtins.open",
-            side_effect=lambda f: mock_open(read_data=np.save(mock_encoded_data[f])).return_value,
-        ):
-            dd._load_encodings_all()
-    # Assert that the returned encodings match the expected data
-    # TODO: Fix
-    # assert all(np.array_equal(encodings[key], value) for key, value in encoded_data.items())
+        with patch("builtins.open", mock_open()) as mocked_open:
+            for filename, data in mock_encoded_data.items():
+                mocked_file = mock_open(read_data=data.tobytes()).return_value
+                mocked_open.side_effect = lambda f, mode="rb", mocked_file=mocked_file, filename=filename: (
+                    mocked_file if f.endswith(filename) else MagicMock()
+                )
+                with patch("numpy.load", return_value=data):
+                    result = dd._load_encodings_all()
+
+            for key, value in encoded_data.items():
+                assert np.array_equal(result[key], value)
 
 
 def test_load_encodings_all_exception_handling(dd):
@@ -122,16 +119,15 @@ def test_load_encodings_all_exception_handling(dd):
         dd.logger.reset_mock()
 
 
-def test_encode_face_successful(dd, image_bytes_io):
+def test_encode_face_successful(dd, image_bytes_io, mock_net):
+    mock_net, *_ = mock_net
     with (
-        patch("builtins.open", new_callable=lambda: image_bytes_io.fake_open),
         patch.object(dd.storages["images"], "open", side_effect=image_bytes_io.fake_open) as mocked_image_open,
+        patch.object(dd, "net", mock_net),
     ):
         dd._encode_face()
-
-        # Checks that the file was opened correctly and in binary read mode
-        print(f"{mocked_image_open.assert_called_with(dd.filename, 'rb')=}")
-        assert mocked_image_open.called, "The open function should be called"
+        mocked_image_open.assert_called_with(dd.filename, "rb")
+        assert mocked_image_open.called
 
 
 def test_encode_face_invalid_region(dd, image_bytes_io):
@@ -185,16 +181,16 @@ def test_find_duplicates_successful(dd, mock_hde_azure_storage):
 
 
 def test_find_duplicates_calls_encode_face_when_no_encodings(dd):
-    # Prepare a mock for the 'exists' method used in the 'has_encodings' property
     with (
-        patch.object(dd.storages["encoded"], "exists", return_value=False),
+        patch(
+            "hope_dedup_engine.apps.faces.utils.duplication_detector.DuplicationDetector.has_encodings",
+            new_callable=MagicMock(return_value=False),
+        ),
         patch.object(dd, "_encode_face") as mock_encode_face,
+        patch.object(dd, "_load_encodings_all", return_value={"test_file.jpg": [MagicMock()]}),
     ):
-
         dd.find_duplicates()
-
         mock_encode_face.assert_called_once()
-        dd.logger.reset_mock()
 
 
 def test_find_duplicates_exception_handling(dd):
