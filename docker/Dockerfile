@@ -1,83 +1,147 @@
-# syntax=docker/dockerfile:1.7
-ARG PYTHON_VER=3.12
-ARG PKG_DIR=/packages
+ARG PYTHON_VER=3.11
 ARG BUILD_DATE=not_provided
-ARG CHECKSUM=not_provided
 ARG VERSION=0.1.0
-
-FROM python:$PYTHON_VER-slim-bullseye AS python
-
-FROM python AS common-env
-ARG BUILD_DATE
+ARG DEST_DIR=/hde
+ARG PKG_DIR=${DEST_DIR}/__pypackages__/${PYTHON_VER}
 ARG CHECKSUM
+
+FROM python:$PYTHON_VER-slim-bullseye AS python_base
+ARG DEST_DIR
 ARG PKG_DIR
-ARG VERSION
-ARG PYTHON_VER
-ENV PKG_DIR=$PKG_DIR \
-    PYPACKAGES=$PKG_DIR/__pypackages__/$PYTHON_VER
 ENV ADMINS="" \
     BUILD_DATE=$BUILD_DATE \
-    CHANNEL_URLS=""\
     CHECKSUM=$CHECKSUM \
-    CI_BUILD_ID=$CI_BUILD_ID \
-    CI_COMMIT_SHORT_SHA=$CI_COMMIT_SHORT_SHA \
-    CI_JOB_URL=$CI_JOB_URL \
     DATABASE_URL="" \
-    DEV_FOOTER_INFO="" \
+    DEST_DIR=${DEST_DIR} \
     DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings" \
-    DJSTRIPE_WEBHOOK_VALIDATION=""\
-    DOCKER_TAG=$DOCKER_TAG \
     INIT_RUN_CHECK=1 \
     INIT_RUN_COLLECTSTATIC=1 \
     INIT_RUN_MIGRATATIONS=1 \
     INIT_RUN_UPGRADE=0 \
-    INIT_START_BEAT=0 \
-    INIT_START_BOB=0 \
-    INIT_START_CELERY=0 \
-    INIT_START_DAPHNE=0 \
-    INIT_START_FLOWER=0 \
     LOG_LEVEL="ERROR" \
     MEDIA_ROOT="/var/hope_dedup_engine/media" \
     MEDIA_URL="/media/" \
+    PATH=${PKG_DIR}/bin:${PATH}:/usr/local/bin/ \
+    PYTHONPATH=${PKG_DIR}/lib/:${PYTHONPATH} \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=$PYTHONPATH:$PYPACKAGES/lib:/code/src \
     SECRET_KEY="secret-key-just-for-build" \
     SENTRY_DSN="" \
-    SOCIAL_AUTH_GOOGLE_OAUTH_KEY=""\
-    SOCIAL_AUTH_GOOGLE_OAUTH_SECRET=""\
     STATIC_ROOT="/var/hope_dedup_engine/static" \
     STATIC_URL="/static/" \
     UWSGI_PROCESSES=4 \
-    VERSION=$VERSION \
-    PATH=$PATH:$PYPACKAGES/bin
+    VERSION=$VERSION
+
+ARG GOSU_VERSION=1.17
+ARG GOSU_SHA256=bbc4136d03ab138b1ad66fa4fc051bafc6cc7ffae632b069a53657279a450de3
+ARG TINI_VERSION=0.19.0
+ARG TINI_SHA256=93dcc18adc78c65a028a84799ecf8ad40c936fdfc5f2a57b1acda5a8117fa82c
+RUN set -x \
+  && buildDeps=" \
+  wget \
+  " \
+  && apt-get update && apt-get install -y --no-install-recommends $buildDeps \
+  && rm -rf /var/lib/apt/lists/* \
+  && wget --quiet -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64" \
+  && echo "$GOSU_SHA256 /usr/local/bin/gosu" | sha256sum --check --status \
+  && chmod +x /usr/local/bin/gosu \
+  && wget --quiet -O /usr/local/bin/tini "https://github.com/krallin/tini/releases/download/v$TINI_VERSION/tini-amd64" \
+  && echo "$TINI_SHA256 /usr/local/bin/tini" | sha256sum --check --status \
+  && chmod +x /usr/local/bin/tini \
+  && apt-get purge -y --auto-remove $buildDeps
+# sudo apt-get install libcairo2-dev libjpeg62-turbo-dev libpango1.0-dev libgif-dev build-essential g++
+# sudo apt-get install libopenblas-dev libwebp-dev
+
+RUN \
+    --mount=type=cache,target=/var/cache/apt \
+    apt-get update  \
+    && apt-get install -y --no-install-recommends  \
+      postgresql-client \
+      libgl1  \
+      libglib2.0-0 \
+      libffi7 \
+      libgif-dev \
+      libjpeg-dev \
+      libmagic1 \
+      libopenblas-dev \
+      libpng16-16  \
+      libxml2  \
+      libwebp-dev \
+      mime-support  \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig
+
 RUN ln -s -f /bin/true /usr/bin/chfn \
     && groupadd --gid 1024 hope \
-    && adduser --disabled-login --disabled-password --no-create-home --ingroup hope -q www
+    && adduser --disabled-login --disabled-password --no-create-home --ingroup hope -q hde \
+    && mkdir ${DEST_DIR} \
+    && chown hde:hope ${DEST_DIR} \
+    && echo $CHECKSUM > /CHECKSUM
 
-FROM common-env AS common-os
-ENV buildDeps="build-essential gcc cmake curl libjpeg-dev zlib1g-dev libffi-dev libssl-dev libpq-dev libgdal-dev libgl1-mesa-glx docker.io "
-ENV runtimeDeps="postgresql-client libmagic1"
-RUN rm -f /etc/apt/apt.conf.d/docker-clean \
-    && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends $buildDeps $runtimeDeps && \
-    rm -rf /var/lib/apt/lists/*
-RUN pip install -U pip setuptools && pip install pdm
+COPY docker/bin/* /usr/local/bin/
+COPY docker/conf/* /conf/
 
-FROM common-os AS builder
-# ARG CHECKSUM
-WORKDIR $PKG_DIR
-# COPY docker/conf/* /conf/
-COPY docker/entrypoint.sh docker/wait-for-it.sh /usr/local/bin/
-COPY pyproject.toml pdm.lock pdm.toml ./
-RUN pdm sync --prod --no-editable --no-self
-# RUN echo $CHECKSUM > /CHECKSUM
+FROM python_base AS build_deps
+ARG DEST_DIR
+ENV buildDeps="build-essential \
+                cmake \
+                curl \
+                gcc \
+                libgdal-dev \
+                liblapack-dev \
+                libpng-dev  \
+                libpq-dev \
+                libssl-dev \
+                python3-dev \
+                zlib1g-dev "
 
-FROM builder AS dev
-RUN pdm sync --no-editable --no-self
-WORKDIR /code/
-COPY .. ./
-ENTRYPOINT ["entrypoint.sh"]
+RUN apt-get update  \
+    && apt-get install -y --no-install-recommends \
+    $buildDeps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+FROM build_deps AS python_dev_deps
+ARG DEST_DIR
+WORKDIR ${DEST_DIR}
+COPY pyproject.toml .
+COPY pdm.lock .
+RUN pip install -U pip setuptools pdm \
+    && mkdir -p ${DEST_DIR}/__pypackages__ \
+    && pdm config python.use_venv false \
+    && pdm sync --no-editable -v --no-self  \
+    && apt-get purge -y --auto-remove $buildDeps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+FROM build_deps AS python_prod_deps
+ARG DEST_DIR
+WORKDIR ${DEST_DIR}
+COPY pyproject.toml .
+COPY pdm.lock .
+COPY ./src ${DEST_DIR}/src
+RUN pip install -U pip setuptools pdm \
+    && mkdir -p ${DEST_DIR}/__pypackages__ \
+    && pdm config python.use_venv false \
+    && pdm sync --no-editable -v --prod \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM python_base AS dev
+COPY --chown=hde:hope --from=python_dev_deps ${DEST_DIR}/__pypackages__ ${DEST_DIR}/__pypackages__
+COPY ./src ${DEST_DIR}/src
+ENV PYTHONPATH=${DEST_DIR}/src/:${PYTHONPATH}
+
+
+FROM python_base AS dist
+ENV PYTHONPATH=${DEST_DIR}/src/:${PYTHONPATH}
+WORKDIR ${DEST_DIR}
+COPY --chown=hde:hope --from=python_prod_deps ${DEST_DIR}/__pypackages__ ${DEST_DIR}/__pypackages__
+USER hde
+CMD "run"
+ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
+
+

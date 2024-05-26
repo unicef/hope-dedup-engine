@@ -133,10 +133,6 @@ class Command(BaseCommand):
                 call_command("migrate", **extra)
                 call_command("create_extra_permissions")
 
-            echo("Init reversion")
-            call_command("createinitialrevisions")
-            call_command("deleterevisions", days=180, keep=3)
-
             echo("Remove stale contenttypes")
             call_command("remove_stale_contenttypes", **extra)
             from hope_dedup_engine.apps.security.models import User
@@ -164,7 +160,6 @@ class Command(BaseCommand):
                 admin = User.objects.get(email=self.admin_email)
             else:
                 admin = User.objects.filter(is_superuser=True).first()
-
             if not admin:
                 raise CommandError("Create an admin user")
 

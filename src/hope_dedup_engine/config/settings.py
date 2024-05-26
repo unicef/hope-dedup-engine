@@ -31,8 +31,6 @@ INSTALLED_APPS = (
     "django.contrib.postgres",
     "django.contrib.admin",
     "flags",
-    "reversion",
-    # "django_filters",
     "social_django",
     "admin_extra_buttons",
     "adminactions",

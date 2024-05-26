@@ -27,6 +27,9 @@ def pytest_configure(config):
     os.environ["FILE_STORAGE_MEDIA"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
     os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
     os.environ["SOCIAL_AUTH_REDIRECT_IS_HTTPS"] = "0"
+    os.environ["CELERY_TASK_ALWAYS_EAGER"] = "0"
+    os.environ["SECURE_HSTS_PRELOAD"] = "0"
+    os.environ["SECRET_KEY"] = "kugiugiuygiuygiuygiuhgiuhgiuhgiugiu"
 
     os.environ["GMAIL_USER"] = "11"
     os.environ["GMAIL_PASSWORD"] = "11"
