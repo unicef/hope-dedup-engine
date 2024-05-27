@@ -98,7 +98,7 @@ jobs:
         SECRET_KEY: secret_key
         CACHE_URL: redis://redis:6379/0
         CELERY_BROKER_URL: redis://redis:6379/0
-        PYTHONPATH:/hde/code/src
+        PYTHONPATH: /hde/code/src
       steps:
         - name: Checkout code
           uses: actions/checkout@v2
