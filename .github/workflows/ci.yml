@@ -70,7 +70,7 @@ jobs:
         - name: Pull
           run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Black
-          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check ./code/src
+          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check src/
         - name: Flake8
           run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
 #        - name: pre-commit
