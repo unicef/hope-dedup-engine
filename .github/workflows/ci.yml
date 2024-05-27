@@ -114,7 +114,7 @@ jobs:
                 env > env.txt
                 docker run --rm \
                 --env-file env.txt \
-                -v ${PWD}:/hde/code/ \              
+                -v ${PWD}:/hde/code/ \
                 -w /hde/code/ \
                 -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
                 pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
