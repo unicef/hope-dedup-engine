@@ -6,16 +6,17 @@ from django.conf import settings
 import cv2
 import numpy as np
 import pytest
+from constance import config
 from faces_const import FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
 
-def test_duplication_detector_initialization(dd):
+def test_duplication_detector_initialization(dd, db):
     assert isinstance(dd.net, cv2.dnn_Net)
     assert isinstance(dd.logger, MagicMock)
-    assert dd.confidence == settings.FACE_DETECTION_CONFIDENCE
-    assert dd.threshold == settings.DISTANCE_THRESHOLD
+    assert dd.face_detection_confidence == config.FACE_DETECTION_CONFIDENCE
+    assert dd.distance_threshold == config.DISTANCE_THRESHOLD
     assert dd.filename == FILENAME
     assert dd.encodings_filename == f"{FILENAME}.npy"
     for storage_name, storage in dd.storages.items():

@@ -7,6 +7,7 @@ from django.conf import settings
 import cv2
 import face_recognition
 import numpy as np
+from constance import config
 
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
 from hope_dedup_engine.apps.faces.exceptions import NoFaceRegionsDetectedException
@@ -31,14 +32,14 @@ class DuplicationDetector:
             self.storages.get("cv2dnn").path(settings.CAFFEMODEL_FILE),
         )
 
-        self.net.setPreferableBackend(settings.DNN_BACKEND)
-        self.net.setPreferableTarget(settings.DNN_TARGET)
+        self.net.setPreferableBackend(config.DNN_BACKEND)
+        self.net.setPreferableTarget(config.DNN_TARGET)
 
         self.filename: str = filename
         self.encodings_filename = f"{self.filename}.npy"
 
-        self.confidence: float = settings.FACE_DETECTION_CONFIDENCE
-        self.threshold: float = settings.DISTANCE_THRESHOLD
+        self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
+        self.distance_threshold: float = config.DISTANCE_THRESHOLD
 
     @property
     def has_encodings(self) -> bool:
@@ -58,7 +59,7 @@ class DuplicationDetector:
             detections = self.net.forward()
             for i in range(0, detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
-                if confidence > self.confidence:
+                if confidence > self.face_detection_confidence:
                     box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                     face_regions.append(tuple(box.astype("int").tolist()))
         except Exception as e:
@@ -115,7 +116,7 @@ class DuplicationDetector:
                     for encoding1 in encodings1:
                         for encoding2 in encodings2:
                             distance = face_recognition.face_distance([encoding1], encoding2)
-                            if distance < settings.DISTANCE_THRESHOLD:
+                            if distance < self.distance_threshold:
                                 duplicated_images.update([path1, path2])
                                 break
                         if path2 in duplicated_images:
