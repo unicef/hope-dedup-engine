@@ -112,7 +112,7 @@ jobs:
         - name: Run tests
           run: |
                 docker run --rm \
-                -e PYTHONPATH=/hde/code/src \ 
+                -e PYTHONPATH=/hde/code/src \
                 -e CACHE_URL="${CACHE_URL}" \
                 -e DATABASE_URL="${DATABASE_URL}" \
                 -e SECRET_KEY="${SECRET_KEY}" \
