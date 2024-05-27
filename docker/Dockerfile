@@ -1,4 +1,4 @@
-ARG PYTHON_VER=3.11
+ARG PYTHON_VER=3.12
 ARG BUILD_DATE=not_provided
 ARG VERSION=0.1.0
 ARG DEST_DIR=/hde
@@ -108,13 +108,13 @@ ARG DEST_DIR
 WORKDIR ${DEST_DIR}
 COPY pyproject.toml .
 COPY pdm.lock .
+ENV PDM_CHECK_UPDATE=0 \
+    PDM_CACHE_DIR=/cache/ \
+    PDM_USE_VENV=0 \
+    PDM_INSTALL_PARALLEL=0
 RUN pip install -U pip setuptools pdm \
     && mkdir -p ${DEST_DIR}/__pypackages__ \
-    && pdm config python.use_venv false \
-    && pdm sync --no-editable -v --no-self  \
-    && apt-get purge -y --auto-remove $buildDeps \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && pdm sync --no-editable -v --no-self
 
 
 FROM build_deps AS python_prod_deps
@@ -123,9 +123,12 @@ WORKDIR ${DEST_DIR}
 COPY pyproject.toml .
 COPY pdm.lock .
 COPY ./src ${DEST_DIR}/src
+ENV PDM_CHECK_UPDATE=0 \
+    PDM_CACHE_DIR=/cache/ \
+    PDM_USE_VENV=0 \
+    PDM_INSTALL_PARALLEL=0
 RUN pip install -U pip setuptools pdm \
     && mkdir -p ${DEST_DIR}/__pypackages__ \
-    && pdm config python.use_venv false \
     && pdm sync --no-editable -v --prod \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
