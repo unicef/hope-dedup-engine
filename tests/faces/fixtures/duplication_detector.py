@@ -11,8 +11,8 @@ from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationD
 from ..faces_const import FILENAME
 
 
-@pytest.fixture(scope="module", autouse=True)
-def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage):
+@pytest.fixture
+def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage, db):
     with (
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", mock_cv2dnn_storage),
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HOPEAzureStorage", mock_hope_azure_storage),
@@ -25,7 +25,7 @@ def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage):
         return detector
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def mock_cv2dnn_storage():
     storage = MagicMock(spec=CV2DNNStorage)
     storage.exists.return_value = True
@@ -33,7 +33,7 @@ def mock_cv2dnn_storage():
     return storage
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def mock_hde_azure_storage():
     storage = MagicMock(spec=HDEAzureStorage)
     storage.exists.return_value = True
@@ -42,7 +42,7 @@ def mock_hde_azure_storage():
     return storage
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def mock_hope_azure_storage():
     storage = MagicMock(spec=HOPEAzureStorage)
     storage.exists.return_value = True

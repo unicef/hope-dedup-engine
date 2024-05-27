@@ -12,7 +12,7 @@ from faces_const import FILENAME, FILENAMES
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
 
-def test_duplication_detector_initialization(dd, db):
+def test_duplication_detector_initialization(dd):
     assert isinstance(dd.net, cv2.dnn_Net)
     assert isinstance(dd.logger, MagicMock)
     assert dd.face_detection_confidence == config.FACE_DETECTION_CONFIDENCE
