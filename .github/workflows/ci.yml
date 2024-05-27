@@ -30,7 +30,7 @@ jobs:
           run: |
             set +e
             LOCK_SHA=$(echo sha1sum ${{env.HASH_SEEDS}}| sha1sum | awk '{print $1}' | cut -c 1-8)
-            exists=$(docker manifest inspect ${DOCKER_CACHE_IMAGE}:${LOCK_SHA} > /dev/null 2>&1 && echo "exists" || echo "not_found")
+            exists=$(docker manifest inspect ${DOCKER_CACHE_IMAGE}:hde-dev-${LOCK_SHA} > /dev/null 2>&1 && echo "exists" || echo "not_found")
             echo "result=$exists" >> "$GITHUB_OUTPUT"
             echo "SHA=$LOCK_SHA" >> "$GITHUB_OUTPUT"
             if [ $exists = "exists" ];then
@@ -70,9 +70,9 @@ jobs:
         - name: Pull
           run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Black
-          run: docker run --rm -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check ./src/
+          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check ./code/src
         - name: Flake8
-          run: docker run --rm -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
+          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
 #        - name: pre-commit
 #          run: docker run --rm -it -v .:/hde/src/ -t ${DOCKER_IMAGE_DEV}:latest pre-commit run --all-files
 
