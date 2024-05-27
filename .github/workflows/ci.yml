@@ -70,9 +70,9 @@ jobs:
         - name: Pull
           run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Black
-          run: docker run --rm -it -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check ./src/
+          run: docker run --rm -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check ./src/
         - name: Flake8
-          run: docker run --rm -it -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
+          run: docker run --rm -v .:/hde/src/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
 #        - name: pre-commit
 #          run: docker run --rm -it -v .:/hde/src/ -t ${DOCKER_IMAGE_DEV}:latest pre-commit run --all-files
 
@@ -111,7 +111,7 @@ jobs:
           run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Run tests
           run: |
-                docker run --rm -it \
+                docker run --rm \
                 -v .:/hde/code/ \
                 -w /hde/code/ \
                 -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
