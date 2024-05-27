@@ -112,7 +112,11 @@ jobs:
         - name: Run tests
           run: |
                 docker run --rm \
-                -v .:/hde/code/ \
+                -e CACHE_URL=$CACHE_URL \
+                -e DATABASE_URL=$DATABASE_URL \
+                -e SECRET_KEY=$SECRET_KEY \
+                -e CELERY_BROKER_URL=$CELERY_BROKER_URL \
+                -v .:/hde/code/ \              
                 -w /hde/code/ \
                 -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
 
