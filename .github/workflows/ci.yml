@@ -98,6 +98,7 @@ jobs:
         SECRET_KEY: secret_key
         CACHE_URL: redis://redis:6379/0
         CELERY_BROKER_URL: redis://redis:6379/0
+        PYTHONPATH: /hde/code/src
       steps:
         - name: Checkout code
           uses: actions/checkout@v2
@@ -110,16 +111,14 @@ jobs:
           run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Run tests
           run: |
+                env > env.txt
+            
                 docker run --rm \
-                -e PYTHONPATH=/hde/code/src 
-                -e CACHE_URL="${CACHE_URL}" \
-                -e DATABASE_URL="${DATABASE_URL}" \
-                -e SECRET_KEY="${SECRET_KEY}" \
-                -e CELERY_BROKER_URL="${CELERY_BROKER_URL}" \
-                -v ${PWD}:/hde/code/ \              
-                -w /hde/code/ \
-                -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
-                pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
+                    --env-file env.txt \
+                    -v ${PWD}:/hde/code/ \              
+                    -w /hde/code/ \
+                    -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
+                    pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
 
         - name: Upload coverage to Codecov
           uses: codecov/codecov-action@v4
