@@ -51,8 +51,8 @@ jobs:
               --progress=plain \
               --cache-to type=local,ref=${DOCKER_CACHE_IMAGE}:hde-dev-latest,dest=./.AAA \
               --cache-from ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
-              -t ${{ !steps.image_name.outputs.name }} \
-              -t ${{ !steps.image_name.outputs.latest }} \
+              -t ${{ steps.image_name.outputs.name }} \
+              -t ${{ steps.image_name.outputs.latest }} \
               -f ./docker/Dockerfile \
               --push \
               --target python_dev_deps .
