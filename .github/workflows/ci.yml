@@ -11,6 +11,7 @@ env:
   HASH_SEEDS: pdm.lock docker/bin/* docker/conf/* docker/Dockerfile
   DOCKER_CACHE_IMAGE: ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-support-images
   BUILD_DATE: $(date +"%Y-%m-%d %H:%M")
+  DOCKER_DEFAULT_PLATFORM: linux/amd64
 
 jobs:
 
@@ -31,6 +32,7 @@ jobs:
             set +e
             LOCK_SHA=$(echo sha1sum ${{env.HASH_SEEDS}}| sha1sum | awk '{print $1}' | cut -c 1-8)
             exists=$(docker manifest inspect ${DOCKER_CACHE_IMAGE}:hde-dev-${LOCK_SHA} > /dev/null 2>&1 && echo "exists" || echo "not_found")
+            exists="exists"
             echo "result=$exists" >> "$GITHUB_OUTPUT"
             echo "SHA=$LOCK_SHA" >> "$GITHUB_OUTPUT"
             if [ $exists = "exists" ];then
@@ -43,7 +45,7 @@ jobs:
           run: |
             LOCK_SHA=${{ steps.image_exists.outputs.SHA }}
             docker buildx create --use --platform x86_64 --name builder --driver docker-container
-            docker buildx build \
+            docker buildx build \            
               --platform x86_64 \
               --builder builder \
               --build-arg BUILD_DATE="${BUILD_DATE}" \
@@ -59,26 +61,29 @@ jobs:
     lint:
       runs-on: ubuntu-20.04
       needs: [build]
+      container:
+        image: ${DOCKER_CACHE_IMAGE}:hde-dev-latest
+        credentials:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       steps:
         - name: Checkout code
           uses: actions/checkout@v2
-        - name: DockerHub login
-          uses: docker/login-action@v1
-          with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
-        - name: Pull
-          run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Black
-          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest black --check src/
+          run: black --check src/
         - name: Flake8
-          run: docker run --rm -v .:/hde/code/ -w /hde/code/ -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest flake8 src/
-#        - name: pre-commit
-#          run: docker run --rm -it -v .:/hde/src/ -t ${DOCKER_IMAGE_DEV}:latest pre-commit run --all-files
+          run: flake8 src/
 
     test:
       runs-on: ubuntu-20.04
       needs: [build]
+      container:
+        image: ${DOCKER_CACHE_IMAGE}:hde-dev-latest
+        credentials:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        ports:
+          - 8000:8000
       services:
         redis:
           image: redis
@@ -88,51 +93,44 @@ jobs:
             POSTGRES_DATABASE: dedupe
             POSTGRES_PASSWORD: postgres
             POSTGRES_USERNAME: postgres
-          ports:
-            - 5432:5432
           options: >-
             --health-cmd pg_isready
             --health-interval 10s
             --health-timeout 5s
             --health-retries 5
       env:
-        DATABASE_URL: postgres://postgres:postgres@db:5432/dedupe
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/dedupe
         SECRET_KEY: secret_key
         CACHE_URL: redis://redis:6379/0
         CELERY_BROKER_URL: redis://redis:6379/0
-        PYTHONPATH: /hde/code/src
-        POSTGRES_HOST: db
+        PYTHONPATH: "/hde/code/src:/hde/__pypackages__/3.12/lib"
       steps:
         - name: Checkout code
           uses: actions/checkout@v2
-        - name: DockerHub login
-          uses: docker/login-action@v1
-          with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
-        - name: Pull
-          run: docker pull ${DOCKER_CACHE_IMAGE}:hde-dev-latest
         - name: Run tests
           run: |
-                docker run --rm \
-                -e PYTHONPATH=/hde/code/src:/hde/__pypackages__/3.12/lib \
-                -e CACHE_URL="${CACHE_URL}" \
-                -e DATABASE_URL="${DATABASE_URL}" \
-                -e SECRET_KEY="${SECRET_KEY}" \
-                -e CELERY_BROKER_URL="${CELERY_BROKER_URL}" \
-                -v ${PWD}:/hde/code/ \
-                -w /hde/code/ \
-                -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
-                pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
-
-        - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v4
-          with:
-            directory: ./coverage/reports/
-            env_vars: OS,PYTHON
-            fail_ci_if_error: true
-            files: /hde/code/coverage1.xml
-            flags: unittests
-            name: codecov-umbrella
-            token: ${{ secrets.CODECOV_TOKEN }}
-            verbose: true
+            pytest tests
+#              echo "==================================="
+#              ls -al
+#                docker run --rm \
+#                -e PYTHONPATH=/hde/code/src:/hde/__pypackages__/3.12/lib \
+#                -e CACHE_URL="${CACHE_URL}" \
+#                -e DATABASE_URL="${DATABASE_URL}" \
+#                -e SECRET_KEY="${SECRET_KEY}" \
+#                -e CELERY_BROKER_URL="${CELERY_BROKER_URL}" \
+#                -v ${PWD}:/hde/code/ \
+#                -w /hde/code/ \
+#                -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
+#                pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
+#
+#        - name: Upload coverage to Codecov
+#          uses: codecov/codecov-action@v4
+#          with:
+#            directory: ./coverage/reports/
+#            env_vars: OS,PYTHON
+#            fail_ci_if_error: true
+#            files: /hde/code/coverage1.xml
+#            flags: unittests
+#            name: codecov-umbrella
+#            token: ${{ secrets.CODECOV_TOKEN }}
+#            verbose: true
