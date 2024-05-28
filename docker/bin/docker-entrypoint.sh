@@ -37,10 +37,11 @@ case "$1" in
       exec uwsgi --ini /conf/uwsgi.ini
       ;;
     worker)
-      exec celery -A hope_dedup_engine.celery worker -E --loglevel=ERROR --concurrency=4
+      export C_FORCE_ROOT=1
+      exec celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
       ;;
     beat)
-      exec celery -A hope_dedup_engine.celery beat -E --loglevel=ERROR ---scheduler django_celery_beat.schedulers:DatabaseScheduler
+      exec celery -A hope_dedup_engine.config.celery beat --loglevel=ERROR --scheduler django_celery_beat.schedulers:DatabaseScheduler
       ;;
     dev)
       until pg_isready -h db -p 5432;
