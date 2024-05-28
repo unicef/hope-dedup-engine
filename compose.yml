@@ -20,7 +20,7 @@ services:
     <<: *common
     ports:
       - 8000:8000
-    command: ["entrypoint.sh", "dev"]
+    command: ["docker-entrypoint.sh", "dev"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
       interval: 10s
@@ -29,11 +29,11 @@ services:
 
   celery_worker:
     <<: *common
-    command: ["entrypoint.sh", "celery_worker"]
+    command: ["docker-entrypoint.sh", "worker"]
 
   celery_beat:
     <<: *common
-    command: ["entrypoint.sh", "celery_beat"]
+    command: ["docker-entrypoint.sh", "beat"]
 
   db:
     image: postgres:15
