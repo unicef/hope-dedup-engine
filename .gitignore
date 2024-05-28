@@ -15,10 +15,14 @@ __pycache__/
 !.pre-commit-config.yaml
 !.bumpversion.cfg
 !.trivyignore
+!docker/bin/*.sh
 !bandit.yaml
+build
+dist
 coverage.xml
 Makefile
 site
 black.txt
 flake8
-.env
+act.*
+

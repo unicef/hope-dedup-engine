@@ -1,8 +1,6 @@
-.git
-.*
-!.flake8
-~*
-db
-docs
-dataset
-cv2dnn
+*
+!docker/bin
+!docker/conf
+!pyproject.toml
+!pdm.lock
+!src

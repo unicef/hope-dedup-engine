@@ -13,6 +13,7 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture()
 def environment():
     return {
+        "ADMIN_EMAIL": "",
         "CACHE_URL": "test",
         "CELERY_BROKER_URL": "",
         "DATABASE_URL": "",
@@ -63,7 +64,7 @@ def test_upgrade_check(mocked_responses, admin_user, environment):
         call_command("upgrade", stdout=out, check=True)
 
 
-def test_upgrade_noadmin(transactional_db, mocked_responses, environment):
+def test_upgrade_noadmin(db, mocked_responses, environment):
     out = StringIO()
     with mock.patch.dict(os.environ, environment, clear=True):
         with pytest.raises(SystemExit):
@@ -71,7 +72,7 @@ def test_upgrade_noadmin(transactional_db, mocked_responses, environment):
 
 
 @pytest.mark.parametrize("admin", [True, False], ids=["existing_admin", "new_admin"])
-def test_upgrade_admin(transactional_db, mocked_responses, environment, admin):
+def test_upgrade_admin(db, mocked_responses, environment, admin):
     if admin:
         email = SuperUserFactory().email
     else:
