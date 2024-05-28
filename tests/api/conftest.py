@@ -5,7 +5,13 @@ from pytest import fixture
 from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
-from testutils.factories.api import DeduplicationSetFactory, DuplicateFactory, ImageFactory, TokenFactory
+from testutils.factories.api import (
+    DeduplicationSetFactory,
+    DuplicateFactory,
+    IgnoredKeyPairFactory,
+    ImageFactory,
+    TokenFactory,
+)
 from testutils.factories.user import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.models import HDEToken
@@ -16,6 +22,7 @@ register(UserFactory)
 register(DeduplicationSetFactory, external_system=LazyFixture("external_system"))
 register(ImageFactory, deduplication_Set=LazyFixture("deduplication_set"))
 register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(IgnoredKeyPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 
 
 @fixture

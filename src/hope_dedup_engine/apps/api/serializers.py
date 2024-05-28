@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
+from hope_dedup_engine.apps.api.models.deduplication import Duplicate, IgnoredKeyPair, Image
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -38,3 +38,9 @@ class EntrySerializer(serializers.Serializer):
 class DuplicateSerializer(serializers.Serializer):
     first = EntrySerializer(prefix="first", source="*")
     second = EntrySerializer(prefix="second", source="*")
+
+
+class IgnoredKeyPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredKeyPair
+        fields = "__all__"
