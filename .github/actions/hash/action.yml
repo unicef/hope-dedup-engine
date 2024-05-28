@@ -14,6 +14,8 @@ runs:
 #  args:
 #    - ${{ inputs.files }}
   steps:
-    - run: |
+    - name: Calculate release hash
+      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      run: |
         LOCK_SHA=$(echo sha1sum ${{ inputs.files }} | sha1sum | awk '{print $1}' | cut -c 1-8)
         echo "hash=$LOCK_SHA" >> "$GITHUB_OUTPUT"
