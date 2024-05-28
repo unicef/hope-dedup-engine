@@ -1,0 +1,19 @@
+# ref: https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
+name: 'Calculate version hash'
+description: 'Calculate deps and os hash'
+inputs:
+  files:
+    description: 'Files to use to calculate the hash'
+    required: true
+    default: "pdm.lock docker/bin/* docker/conf/* docker/Dockerfile"
+outputs:
+  hash: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'composite'
+#  args:
+#    - ${{ inputs.files }}
+  steps:
+    - run: |
+        LOCK_SHA=$(echo sha1sum ${{ inputs.files }} | sha1sum | awk '{print $1}' | cut -c 1-8)
+        echo "hash=$LOCK_SHA" >> "$GITHUB_OUTPUT"

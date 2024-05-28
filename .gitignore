@@ -8,10 +8,9 @@ __pycache__/
 !.dockerignore
 !.flake8
 !.gitignore
-!.gitlab/
+!.github/*
 !.tx/config
 !.mypy.ini
-!.gitlab-ci.yml
 !.pre-commit-config.yaml
 !.bumpversion.cfg
 !.trivyignore
