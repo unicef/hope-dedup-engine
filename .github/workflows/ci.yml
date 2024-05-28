@@ -8,52 +8,51 @@ on:
     branches:
     - develop
 env:
-  HASH_SEEDS: pdm.lock docker/bin/* docker/conf/* docker/Dockerfile
   DOCKER_CACHE_IMAGE: ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-support-images
-  BUILD_DATE: $(date +"%Y-%m-%d %H:%M")
   DOCKER_DEFAULT_PLATFORM: linux/amd64
 
 jobs:
 
     build:
       runs-on: ubuntu-20.04
+      outputs:
+        docker-image: ${{ steps.image_name.outputs.name }}
       steps:
         - name: Checkout code
           uses: actions/checkout@v4
-        - name: DockerHub login
-          uses: docker/login-action@v3
+
+        - uses: ./.github/actions/hash
+          id: release_hash
+
+        - name: Image name
+          id: image_name
+          run: |
+            image_name="$DOCKER_CACHE_IMAGE:hde-dev-${{ steps.release_hash.outputs.hash }}"
+            image_name_latest="$DOCKER_CACHE_IMAGE:hde-dev-latest"
+            echo "name=$image_name" >> $GITHUB_OUTPUT
+            echo "latest=$image_name_latest" >> $GITHUB_OUTPUT
+        - name: Check if image exists
+          uses: ./.github/actions/image_exists
+          id: image_exists
           with:
+            image: ${{ steps.image_name.outputs.name }}
             username: ${{ secrets.DOCKERHUB_USERNAME }}
             password: ${{ secrets.DOCKERHUB_TOKEN }}
-        - name: Check Dev Image
-          continue-on-error: true
-          id: image_exists
-          run: |
-            set +e
-            LOCK_SHA=$(echo sha1sum ${{env.HASH_SEEDS}}| sha1sum | awk '{print $1}' | cut -c 1-8)
-            exists=$(docker manifest inspect ${DOCKER_CACHE_IMAGE}:hde-dev-${LOCK_SHA} > /dev/null 2>&1 && echo "exists" || echo "not_found")
-            exists="exists"
-            echo "result=$exists" >> "$GITHUB_OUTPUT"
-            echo "SHA=$LOCK_SHA" >> "$GITHUB_OUTPUT"
-            if [ $exists = "exists" ];then
-              echo "Tag ${{ steps.image_exists.outputs.SHA }} found"
-            else
-              echo "Tag ${{ steps.image_exists.outputs.SHA }} does not exist"            
-            fi
         - name: Build Dev Image
-          if: ${{ steps.image_exists.outputs.result == 'not_found' || contains(github.event.head_commit.message, 'rebuild') }}
+          if: ${{ !steps.image_exists.outputs.exists || contains(github.event.head_commit.message, 'rebuild') }}
+          id: docker_build
           run: |
-            LOCK_SHA=${{ steps.image_exists.outputs.SHA }}
+            BUILD_DATE=$(date +"%Y-%m-%d %H:%M")
             docker buildx create --use --platform x86_64 --name builder --driver docker-container
-            docker buildx build \            
+            docker buildx build \
               --platform x86_64 \
               --builder builder \
               --build-arg BUILD_DATE="${BUILD_DATE}" \
               --progress=plain \
               --cache-to type=local,ref=${DOCKER_CACHE_IMAGE}:hde-dev-latest,dest=./.AAA \
               --cache-from ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
-              -t ${DOCKER_CACHE_IMAGE}:hde-dev-${LOCK_SHA} \
-              -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
+              -t ${{ steps.image_name.outputs.name }} \
+              -t ${{ steps.image_name.outputs.latest }} \
               -f ./docker/Dockerfile \
               --push \
               --target python_dev_deps .
@@ -73,64 +72,3 @@ jobs:
           run: black --check src/
         - name: Flake8
           run: flake8 src/
-
-    test:
-      runs-on: ubuntu-20.04
-      needs: [build]
-      container:
-        image: unicef/hope-support-images:hde-dev-latest
-        credentials:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-        ports:
-          - 8000:8000
-      services:
-        redis:
-          image: redis
-        db:
-          image: postgres:14
-          env:
-            POSTGRES_DATABASE: dedupe
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_USERNAME: postgres
-          options: >-
-            --health-cmd pg_isready
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
-      env:
-        DATABASE_URL: postgres://postgres:postgres@db:5432/dedupe
-        SECRET_KEY: secret_key
-        CACHE_URL: redis://redis:6379/0
-        CELERY_BROKER_URL: redis://redis:6379/0
-        PYTHONPATH: "/hde/code/src:/hde/__pypackages__/3.12/lib"
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v2
-        - name: Run tests
-          run: |
-            pytest tests
-#              echo "==================================="
-#              ls -al
-#                docker run --rm \
-#                -e PYTHONPATH=/hde/code/src:/hde/__pypackages__/3.12/lib \
-#                -e CACHE_URL="${CACHE_URL}" \
-#                -e DATABASE_URL="${DATABASE_URL}" \
-#                -e SECRET_KEY="${SECRET_KEY}" \
-#                -e CELERY_BROKER_URL="${CELERY_BROKER_URL}" \
-#                -v ${PWD}:/hde/code/ \
-#                -w /hde/code/ \
-#                -t ${DOCKER_CACHE_IMAGE}:hde-dev-latest \
-#                pytest tests/ --create-db -v --cov --cov-report xml:coverage.xml
-#
-#        - name: Upload coverage to Codecov
-#          uses: codecov/codecov-action@v4
-#          with:
-#            directory: ./coverage/reports/
-#            env_vars: OS,PYTHON
-#            fail_ci_if_error: true
-#            files: /hde/code/coverage1.xml
-#            flags: unittests
-#            name: codecov-umbrella
-#            token: ${{ secrets.CODECOV_TOKEN }}
-#            verbose: true
