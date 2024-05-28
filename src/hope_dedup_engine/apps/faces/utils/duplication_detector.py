@@ -32,8 +32,8 @@ class DuplicationDetector:
             self.storages.get("cv2dnn").path(settings.CAFFEMODEL_FILE),
         )
 
-        self.net.setPreferableBackend(config.DNN_BACKEND)
-        self.net.setPreferableTarget(config.DNN_TARGET)
+        self.net.setPreferableBackend(int(config.DNN_BACKEND))
+        self.net.setPreferableTarget(int(config.DNN_TARGET))
 
         self.filename: str = filename
         self.encodings_filename = f"{self.filename}.npy"
