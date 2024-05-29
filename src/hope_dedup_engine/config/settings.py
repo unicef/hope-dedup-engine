@@ -18,7 +18,6 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
-    "hope_dedup_engine.apps.faces.apps.Config",
     # "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
@@ -39,9 +38,11 @@ INSTALLED_APPS = (
     "constance",
     "rest_framework",
     "django_celery_beat",
+    "django_celery_results",
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
+    "hope_dedup_engine.apps.faces",
     "storages",
 )
 
