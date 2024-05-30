@@ -43,7 +43,8 @@ class DuplicationDetector:
         self.filename: str = filename
         self.encodings_filename: str = f"{self.filename}.npy"
         self.scale_factor: float = config.SCALE_FACTOR
-        self.mean_values: Tuple[float, float, float] = tuple(map(float, config.MEAN_VALUES.split(",")))
+        # self.mean_values: Tuple[float, float, float] = tuple(map(float, config.MEAN_VALUES.split(", ")))
+        self.mean_values: Tuple[float, float, float] = config.MEAN_VALUES
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
         self.face_detection_model: str = config.FACE_DETECTION_MODEL
         self.distance_threshold: float = config.DISTANCE_THRESHOLD
