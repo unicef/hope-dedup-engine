@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from typing import Dict, List, Tuple
 
 from django.conf import settings
@@ -16,7 +17,6 @@ from hope_dedup_engine.apps.faces.exceptions import NoFaceRegionsDetectedExcepti
 class DuplicationDetector:
     def __init__(self, filename: str) -> None:
         self.logger = logging.getLogger(__name__)
-
         self.storages = {
             "images": HOPEAzureStorage(),
             "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
@@ -27,17 +27,11 @@ class DuplicationDetector:
             if not self.storages.get("cv2dnn").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 
-        self.net = cv2.dnn.readNetFromCaffe(
-            self.storages.get("cv2dnn").path(settings.PROTOTXT_FILE),
-            self.storages.get("cv2dnn").path(settings.CAFFEMODEL_FILE),
-        )
-
-        self.net.setPreferableBackend(int(config.DNN_BACKEND))
-        self.net.setPreferableTarget(int(config.DNN_TARGET))
+        self.shape: Dict[str, int] = self._get_shape()
+        self.net = self._set_net(self.storages.get("cv2dnn"))
 
         self.filename: str = filename
         self.encodings_filename = f"{self.filename}.npy"
-
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
         self.distance_threshold: float = config.DISTANCE_THRESHOLD
 
@@ -45,15 +39,41 @@ class DuplicationDetector:
     def has_encodings(self) -> bool:
         return self.storages["encoded"].exists(self.encodings_filename)
 
+    def _set_net(self, storage: CV2DNNStorage) -> cv2.dnn_Net:
+        net = cv2.dnn.readNetFromCaffe(
+            storage.path(settings.PROTOTXT_FILE),
+            storage.path(settings.CAFFEMODEL_FILE),
+        )
+        net.setPreferableBackend(int(config.DNN_BACKEND))
+        net.setPreferableTarget(int(config.DNN_TARGET))
+        return net
+
+    def _get_shape(self) -> Dict[str, int]:
+        pattern = r"input_shape\s*\{\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*\}"
+        with open(settings.PROTOTXT_FILE, "r") as file:
+            match = re.search(pattern, file.read())
+            if not match:
+                raise ValueError("Could not find input_shape in prototxt file.")
+        return {
+            "batch_size": int(match.group(1)),
+            "channels": int(match.group(2)),
+            "height": int(match.group(3)),
+            "width": int(match.group(4)),
+        }
+
     def _get_face_detections_dnn(self) -> List[Tuple[int, int, int, int]]:
         face_regions: List[Tuple[int, int, int, int]] = []
         try:
             with self.storages["images"].open(self.filename, "rb") as img_file:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
             (h, w) = image.shape[:2]
             blob = cv2.dnn.blobFromImage(
-                image=cv2.resize(image, dsize=(300, 300)), scalefactor=1.0, size=(300, 300), mean=(104.0, 177.0, 123.0)
+                image=cv2.resize(image, dsize=(self.shape["height"], self.shape["width"])),
+                size=(self.shape["height"], self.shape["width"]),
+                scalefactor=1.0,
+                mean=(104.0, 177.0, 123.0),
             )
             self.net.setInput(blob)
             detections = self.net.forward()
