@@ -83,7 +83,6 @@ class DuplicationDetector:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
                 # Decode image from binary buffer to 3D numpy array (height, width, channels of BlueGreeRed color space)
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
             (h, w) = image.shape[:2]
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
@@ -170,6 +169,7 @@ class DuplicationDetector:
         try:
             if not self.has_encodings:
                 self._encode_face()
+
             encodings_all = self._load_encodings_all()
             encodings1 = encodings_all[path1]
 
@@ -189,6 +189,7 @@ class DuplicationDetector:
                             checked_pairs.add((path1, path2, tuple(encoding1), tuple(encoding2)))
                         if path2 in duplicated_images:
                             break
+
             return tuple(duplicated_images)
         except Exception as e:
             self.logger.exception("Error finding duplicates for image %s", path1)
