@@ -125,6 +125,7 @@ class DuplicationDetector:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
                 # Decode image from binary buffer to 3D numpy array (height, width, channels of BlueGreeRed color space)
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
             (h, w) = image.shape[:2]
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
