@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 from django.conf import settings
 
@@ -43,8 +43,7 @@ class DuplicationDetector:
         self.filename: str = filename
         self.encodings_filename: str = f"{self.filename}.npy"
         self.scale_factor: float = config.SCALE_FACTOR
-        # self.mean_values: Tuple[float, float, float] = tuple(map(float, config.MEAN_VALUES.split(", ")))
-        self.mean_values: Tuple[float, float, float] = config.MEAN_VALUES
+        self.mean_values: Tuple[float, float, float] = tuple(map(float, config.MEAN_VALUES.split(", ")))
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
         self.face_detection_model: str = config.FACE_DETECTION_MODEL
         self.distance_threshold: float = config.DISTANCE_THRESHOLD
@@ -161,26 +160,30 @@ class DuplicationDetector:
         Returns:
             Tuple[str]: A tuple of filenames of duplicate images.
         """
-        duplicated_images = set()
+        duplicated_images: Set[str] = set()
         path1 = self.filename
         try:
             if not self.has_encodings:
                 self._encode_face()
-
             encodings_all = self._load_encodings_all()
             encodings1 = encodings_all[path1]
 
+            checked_pairs = set()
             for path2, encodings2 in encodings_all.items():
                 if path1 != path2:
                     for encoding1 in encodings1:
                         for encoding2 in encodings2:
+                            if (path1, path2, tuple(encoding1), tuple(encoding2)) in checked_pairs:
+                                continue
+
                             distance = face_recognition.face_distance([encoding1], encoding2)
                             if distance < self.distance_threshold:
                                 duplicated_images.update([path1, path2])
                                 break
+
+                            checked_pairs.add((path1, path2, tuple(encoding1), tuple(encoding2)))
                         if path2 in duplicated_images:
                             break
-
             return tuple(duplicated_images)
         except Exception as e:
             self.logger.exception(f"Error finding duplicates for image {path1}", exc_info=e)

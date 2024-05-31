@@ -1,6 +1,7 @@
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
+import cv2
 import numpy as np
 import pytest
 from PIL import Image
@@ -12,17 +13,24 @@ from ..faces_const import FILENAME
 
 
 @pytest.fixture
-def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage, db):
+def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage, mock_prototxt_file, db):
     with (
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", mock_cv2dnn_storage),
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HOPEAzureStorage", mock_hope_azure_storage),
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HDEAzureStorage", mock_hde_azure_storage),
+        patch("builtins.open", mock_prototxt_file),
     ):
         mock_cv2dnn_storage.exists.return_value = False
         detector = DuplicationDetector(FILENAME)
         mock_logger = MagicMock()
         detector.logger = mock_logger
         return detector
+
+
+@pytest.fixture
+def mock_prototxt_file():
+    content = "input_shape { dim: 1 dim: 3 dim: 300 dim: 300 }"
+    return mock_open(read_data=content)
 
 
 @pytest.fixture
@@ -80,7 +88,7 @@ def mock_open_context_manager(image_bytes_io):
 
 @pytest.fixture
 def mock_net():
-    mock_net = MagicMock()  # Mocking the neural network object
+    mock_net = MagicMock(spec=cv2.dnn_Net)  # Mocking the neural network object
     mock_detections = np.array(
         [
             [

@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 from constance import config
-from faces_const import FILENAME, FILENAMES
+from faces_const import DEPLOY_PROTO_SHAPE, FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
@@ -19,12 +19,38 @@ def test_duplication_detector_initialization(dd):
     assert dd.distance_threshold == config.DISTANCE_THRESHOLD
     assert dd.filename == FILENAME
     assert dd.encodings_filename == f"{FILENAME}.npy"
+    assert dd.scale_factor == config.SCALE_FACTOR
+    assert dd.mean_values == tuple(map(float, config.MEAN_VALUES.split(", ")))
+    assert dd.face_detection_model == config.FACE_DETECTION_MODEL
+    assert dd.nms_threshold == config.NMS_THRESHOLD
+    assert dd.shape == DEPLOY_PROTO_SHAPE
+
+
+def test_get_shape(dd, mock_prototxt_file):
+    with patch("builtins.open", mock_prototxt_file):
+        shape = dd._get_shape()
+        assert shape == DEPLOY_PROTO_SHAPE
+
+
+def test_set_net(dd, mock_cv2dnn_storage, mock_net):
+    mock_net_instance, *_ = mock_net
+    with patch("cv2.dnn.readNetFromCaffe", return_value=mock_net_instance) as mock_read_net:
+        net = dd._set_net(mock_cv2dnn_storage)
+        mock_read_net.assert_called_once_with(
+            mock_cv2dnn_storage.path(settings.PROTOTXT_FILE),
+            mock_cv2dnn_storage.path(settings.CAFFEMODEL_FILE),
+        )
+
+        assert net == mock_net_instance
+        mock_net_instance.setPreferableBackend.assert_called_once_with(int(config.DNN_BACKEND))
+        mock_net_instance.setPreferableTarget.assert_called_once_with(int(config.DNN_TARGET))
+
     for storage_name, storage in dd.storages.items():
         assert isinstance(storage, MagicMock)
         if storage_name == "cv2dnn":
             storage.exists.assert_any_call(settings.PROTOTXT_FILE)
             storage.exists.assert_any_call(settings.CAFFEMODEL_FILE)
-            storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
+            storage.path.assert_any_call(settings.PROTOTXT_FILE)
             storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
 
 
@@ -63,10 +89,8 @@ def test_get_face_detections_dnn_with_detections(dd, mock_net, mock_open_context
         patch.object(dd.storages["images"], "open", return_value=mock_open_context_manager),
         patch("cv2.imdecode", imdecode),
         patch("cv2.resize", resize),
+        patch.object(dd, "net", net),
     ):
-
-        dd.net.setInput(blob)
-        dd.net = net
         face_regions = dd._get_face_detections_dnn()
 
         assert face_regions == expected_regions
@@ -201,4 +225,7 @@ def test_find_duplicates_exception_handling(dd):
         except Exception:
             ...
         dd.logger.exception.assert_called_once()
+        args, kwargs = dd.logger.exception.call_args
+        assert args[0] == f"Error finding duplicates for image {dd.filename}"
+        assert isinstance(kwargs["exc_info"], Exception)
         dd.logger.reset_mock()
