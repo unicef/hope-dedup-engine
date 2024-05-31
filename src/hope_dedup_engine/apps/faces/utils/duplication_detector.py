@@ -169,7 +169,6 @@ class DuplicationDetector:
         try:
             if not self.has_encodings:
                 self._encode_face()
-
             encodings_all = self._load_encodings_all()
             encodings1 = encodings_all[path1]
 
@@ -189,7 +188,6 @@ class DuplicationDetector:
                             checked_pairs.add((path1, path2, tuple(encoding1), tuple(encoding2)))
                         if path2 in duplicated_images:
                             break
-
             return tuple(duplicated_images)
         except Exception as e:
             self.logger.exception("Error finding duplicates for image %s", path1)
