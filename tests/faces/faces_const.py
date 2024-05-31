@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Dict, Final
 
 FILENAME: Final[str] = "test_file.jpg"
 FILENAME_ENCODED_FORMAT: Final[str] = "{}.npy"

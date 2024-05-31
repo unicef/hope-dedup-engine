@@ -38,6 +38,12 @@ def mock_prototxt_file():
 
 
 @pytest.fixture
+def mock_prototxt_file():
+    content = "input_shape { dim: 1 dim: 3 dim: 300 dim: 300 }"
+    return mock_open(read_data=content)
+
+
+@pytest.fixture
 def mock_cv2dnn_storage():
     return MagicMock(spec=CV2DNNStorage)
 
