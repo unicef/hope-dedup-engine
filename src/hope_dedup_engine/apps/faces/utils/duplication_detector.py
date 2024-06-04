@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-from typing import Dict, List, Set, Tuple
 
 from django.conf import settings
 
@@ -11,7 +10,6 @@ import numpy as np
 from constance import config
 
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
-from hope_dedup_engine.apps.faces.exceptions import NoFaceRegionsDetectedException
 
 
 class DuplicationDetector:
@@ -27,7 +25,7 @@ class DuplicationDetector:
             filename (str): The filename of the image to process.
         """
         self.logger: logging.Logger = logging.getLogger(__name__)
-        self.storages: Dict[str, CV2DNNStorage | HDEAzureStorage | HOPEAzureStorage] = {
+        self.storages: dict[str, CV2DNNStorage | HDEAzureStorage | HOPEAzureStorage] = {
             "images": HOPEAzureStorage(),
             "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
             "encoded": HDEAzureStorage(),
@@ -37,16 +35,18 @@ class DuplicationDetector:
             if not self.storages.get("cv2dnn").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 
-        self.shape: Dict[str, int] = self._get_shape()
+        self.shape: dict[str, int] = self._get_shape()
         self.net: cv2.dnn_Net = self._set_net(self.storages.get("cv2dnn"))
 
         self.filename: str = filename
         self.encodings_filename: str = f"{self.filename}.npy"
-        self.scale_factor: float = config.SCALE_FACTOR
-        self.mean_values: Tuple[float, float, float] = tuple(map(float, config.MEAN_VALUES.split(", ")))
+        self.scale_factor: float = config.BLOB_FROM_IMAGE_SCALE_FACTOR
+        self.mean_values: tuple[float, float, float] = tuple(map(float, config.BLOB_FROM_IMAGE_MEAN_VALUES.split(", ")))
+        # self.mean_values: config.BLOB_FROM_IMAGE_MEAN_VALUES
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
-        self.face_detection_model: str = config.FACE_DETECTION_MODEL
-        self.distance_threshold: float = config.DISTANCE_THRESHOLD
+        self.face_encodings_model: str = config.FACE_ENCODINGS_MODEL
+        self.face_encodings_num_jitters: int = config.FACE_ENCODINGS_NUM_JITTERS
+        self.distance_threshold: float = config.FACE_DISTANCE_THRESHOLD
         self.nms_threshold: float = config.NMS_THRESHOLD
 
     @property
@@ -62,21 +62,21 @@ class DuplicationDetector:
         net.setPreferableTarget(int(config.DNN_TARGET))
         return net
 
-    def _get_shape(self) -> Dict[str, int]:
+    def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*\}"
         with open(settings.PROTOTXT_FILE, "r") as file:
-            match = re.search(pattern, file.read())
-            if not match:
+            if match := re.search(pattern, file.read()):
+                return {
+                    "batch_size": int(match.group(1)),
+                    "channels": int(match.group(2)),
+                    "height": int(match.group(3)),
+                    "width": int(match.group(4)),
+                }
+            else:
                 raise ValueError("Could not find input_shape in prototxt file.")
-        return {
-            "batch_size": int(match.group(1)),
-            "channels": int(match.group(2)),
-            "height": int(match.group(3)),
-            "width": int(match.group(4)),
-        }
 
-    def _get_face_detections_dnn(self) -> List[Tuple[int, int, int, int]]:
-        face_regions: List[Tuple[int, int, int, int]] = []
+    def _get_face_detections_dnn(self) -> list[tuple[int, int, int, int]]:
+        face_regions: list[tuple[int, int, int, int]] = []
         try:
             with self.storages["images"].open(self.filename, "rb") as img_file:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
@@ -111,12 +111,12 @@ class DuplicationDetector:
                     for i in indices:
                         face_regions.append(tuple(boxes[i]))
         except Exception as e:
-            self.logger.exception(f"Error processing face detection for image {self.filename}", exc_info=e)
+            self.logger.exception("Error processing face detection for image %s", self.filename)
             raise e
         return face_regions
 
-    def _load_encodings_all(self) -> Dict[str, List[np.ndarray]]:
-        data: Dict[str, List[np.ndarray]] = {}
+    def _load_encodings_all(self) -> dict[str, list[np.ndarray]]:
+        data: dict[str, list[np.ndarray]] = {}
         try:
             _, files = self.storages["encoded"].listdir("")
             for file in files:
@@ -124,7 +124,7 @@ class DuplicationDetector:
                     with self.storages["encoded"].open(file, "rb") as f:
                         data[os.path.splitext(file)[0]] = np.load(f, allow_pickle=False)
         except Exception as e:
-            self.logger.exception(f"Error loading encodings: {e}", exc_info=True)
+            self.logger.exception("Error loading encodings.")
             raise e
         return data
 
@@ -135,32 +135,35 @@ class DuplicationDetector:
             encodings: list = []
             face_regions = self._get_face_detections_dnn()
             if not face_regions:
-                self.logger.error(f"No face regions detected in image {self.filename}")
-                raise NoFaceRegionsDetectedException(f"No face regions detected in image {self.filename}")
-            for region in face_regions:
-                if isinstance(region, (list, tuple)) and len(region) == 4:
-                    top, right, bottom, left = region
-                    # Compute the face encodings for the face regions in the image
-                    face_encodings = face_recognition.face_encodings(
-                        image, [(top, right, bottom, left)], model=self.face_detection_model
-                    )
-                    encodings.extend(face_encodings)
-                else:
-                    self.logger.error(f"Invalid face region {region}")
-            with self.storages["encoded"].open(self.encodings_filename, "wb") as f:
-                np.save(f, encodings)
+                self.logger.error("No face regions detected in image %s", self.filename)
+            else:
+                for region in face_regions:
+                    if isinstance(region, (list, tuple)) and len(region) == 4:
+                        top, right, bottom, left = region
+                        # Compute the face encodings for the face regions in the image
+                        face_encodings = face_recognition.face_encodings(
+                            image,
+                            [(top, right, bottom, left)],
+                            num_jitters=self.face_encodings_num_jitters,
+                            model=self.face_encodings_model,
+                        )
+                        encodings.extend(face_encodings)
+                    else:
+                        self.logger.error("Invalid face region.")
+                with self.storages["encoded"].open(self.encodings_filename, "wb") as f:
+                    np.save(f, encodings)
         except Exception as e:
-            self.logger.exception(f"Error processing face encodings for image {self.filename}", exc_info=e)
+            self.logger.exception("Error processing face encodings for image %s", self.filename)
             raise e
 
-    def find_duplicates(self) -> Tuple[str]:
+    def find_duplicates(self) -> tuple[str]:
         """
         Find and return a list of duplicate images based on face encodings.
 
         Returns:
-            Tuple[str]: A tuple of filenames of duplicate images.
+            tuple[str]: A tuple of filenames of duplicate images.
         """
-        duplicated_images: Set[str] = set()
+        duplicated_images: set[str] = set()
         path1 = self.filename
         try:
             if not self.has_encodings:
@@ -186,5 +189,5 @@ class DuplicationDetector:
                             break
             return tuple(duplicated_images)
         except Exception as e:
-            self.logger.exception(f"Error finding duplicates for image {path1}", exc_info=e)
+            self.logger.exception("Error finding duplicates for image %s", path1)
             raise e

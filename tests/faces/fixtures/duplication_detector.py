@@ -9,7 +9,15 @@ from PIL import Image
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
-from ..faces_const import FILENAME
+from ..faces_const import (
+    BLOB_SHAPE,
+    DEPLOY_PROTO_CONTENT,
+    FACE_DETECTIONS,
+    FACE_REGIONS_VALID,
+    FILENAME,
+    IMAGE_SIZE,
+    RESIZED_IMAGE_SIZE,
+)
 
 
 @pytest.fixture
@@ -20,62 +28,36 @@ def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage, moc
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HDEAzureStorage", mock_hde_azure_storage),
         patch("builtins.open", mock_prototxt_file),
     ):
-        mock_cv2dnn_storage.exists.return_value = False
-        detector = DuplicationDetector(FILENAME)
-        mock_logger = MagicMock()
-        detector.logger = mock_logger
-        return detector
+        return DuplicationDetector(FILENAME)
 
 
 @pytest.fixture
 def mock_prototxt_file():
-    content = "input_shape { dim: 1 dim: 3 dim: 300 dim: 300 }"
-    return mock_open(read_data=content)
+    return mock_open(read_data=DEPLOY_PROTO_CONTENT)
 
 
 @pytest.fixture
 def mock_cv2dnn_storage():
-    storage = MagicMock(spec=CV2DNNStorage)
-    storage.exists.return_value = True
-    storage.path.side_effect = lambda filename: FILENAME
-    return storage
+    return MagicMock(spec=CV2DNNStorage)
 
 
 @pytest.fixture
 def mock_hde_azure_storage():
-    storage = MagicMock(spec=HDEAzureStorage)
-    storage.exists.return_value = True
-    # storage.listdir.return_value = (None, FILENAMES)
-    storage.open.return_value.__enter__.return_value.read.return_value = b"binary image data"
-    return storage
+    return MagicMock(spec=HDEAzureStorage)
 
 
 @pytest.fixture
 def mock_hope_azure_storage():
-    storage = MagicMock(spec=HOPEAzureStorage)
-    storage.exists.return_value = True
-    storage.open.return_value.__enter__.return_value.read.return_value = b"binary image data"
-    return storage
+    return MagicMock(spec=HOPEAzureStorage)
 
 
 @pytest.fixture
 def image_bytes_io(dd):
-    # Create an image and save it to a BytesIO object
-    image = Image.new("RGB", (100, 100), color="red")
     img_byte_arr = BytesIO()
+    image = Image.new("RGB", (100, 100), color="red")
     image.save(img_byte_arr, format="JPEG")
     img_byte_arr.seek(0)
-
-    def fake_open(file, mode="rb", *args, **kwargs):
-        if "rb" in mode and file == dd.filename:
-            # Return a new BytesIO object with image data each time to avoid file closure
-            return BytesIO(img_byte_arr.getvalue())
-        else:
-            # Return a MagicMock for other cases to simulate other file behaviors
-            return MagicMock()
-
-    img_byte_arr.fake_open = fake_open
-
+    img_byte_arr.fake_open = lambda *_: BytesIO(img_byte_arr.getvalue())
     return img_byte_arr
 
 
@@ -89,20 +71,10 @@ def mock_open_context_manager(image_bytes_io):
 @pytest.fixture
 def mock_net():
     mock_net = MagicMock(spec=cv2.dnn_Net)  # Mocking the neural network object
-    mock_detections = np.array(
-        [
-            [
-                [
-                    [0, 0, 0.95, 0.1, 0.1, 0.2, 0.2],  # with confidence 0.95
-                    [0, 0, 0.15, 0.1, 0.1, 0.2, 0.2],  # with confidence 0.15
-                ]
-            ]
-        ],
-        dtype=np.float32,
-    )  # Mocking the detections array
-    expected_regions = [(10, 10, 20, 20)]  # Mocking the expected regions
+    mock_detections = np.array([[FACE_DETECTIONS]], dtype=np.float32)  # Mocking the detections array
+    mock_expected_regions = FACE_REGIONS_VALID
     mock_net.forward.return_value = mock_detections  # Setting up the forward method of the mock network
-    mock_imdecode = MagicMock(return_value=np.ones((100, 100, 3), dtype=np.uint8))
-    mock_resize = MagicMock(return_value=np.ones((300, 300, 3), dtype=np.uint8))
-    mock_blob = np.zeros((1, 3, 300, 300))
-    return mock_net, mock_imdecode, mock_resize, mock_blob, expected_regions
+    mock_imdecode = MagicMock(return_value=np.ones(IMAGE_SIZE, dtype=np.uint8))
+    mock_resize = MagicMock(return_value=np.ones(RESIZED_IMAGE_SIZE, dtype=np.uint8))
+    mock_blob = np.zeros(BLOB_SHAPE)
+    return mock_net, mock_imdecode, mock_resize, mock_blob, mock_expected_regions
