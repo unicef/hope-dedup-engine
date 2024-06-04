@@ -39,8 +39,7 @@ def mock_prototxt_file():
 
 @pytest.fixture
 def mock_prototxt_file():
-    content = "input_shape { dim: 1 dim: 3 dim: 300 dim: 300 }"
-    return mock_open(read_data=content)
+    return mock_open(read_data=DEPLOY_PROTO_CONTENT)
 
 
 @pytest.fixture
