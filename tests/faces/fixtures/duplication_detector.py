@@ -38,11 +38,6 @@ def mock_prototxt_file():
 
 
 @pytest.fixture
-def mock_prototxt_file():
-    return mock_open(read_data=DEPLOY_PROTO_CONTENT)
-
-
-@pytest.fixture
 def mock_cv2dnn_storage():
     return MagicMock(spec=CV2DNNStorage)
 
