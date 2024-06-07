@@ -1,7 +1,8 @@
 import logging
 import os
 import re
-from collections import defaultdict, namedtuple
+from collections import defaultdict
+from dataclasses import dataclass
 
 from django.conf import settings
 
@@ -18,18 +19,27 @@ class DuplicationDetector:
     A class to detect and process duplicate faces in images.
     """
 
-    BlobFromImageConfig = namedtuple("BlobFromImageConfig", "shape scale_factor mean_values")
-    FaceEncodingsConfig = namedtuple("FaceEncodingsConfig", "num_jitters model")
+    @dataclass(frozen=True, slots=True)
+    class BlobFromImageConfig:
+        shape: dict[str, int]
+        scale_factor: float
+        mean_values: tuple[float, float, float]
 
-    def __init__(self, filenames: tuple[str], ignore: tuple[str, str] = tuple()) -> None:
+    @dataclass(frozen=True, slots=True)
+    class FaceEncodingsConfig:
+        num_jitters: int
+        model: str
+
+    logger: logging.Logger = logging.getLogger(__name__)
+
+    def __init__(self, filenames: tuple[str], ignore_pairs: tuple[str, str] = tuple()) -> None:
         """
         Initialize the DuplicationDetector with the given filenames.
 
         Args:
             filenames (list[str]): The filenames of the images to process.
-            ignore (list[tuple[str, str]]): The pairs of filenames to ignore.
+            ignore_pairs (list[tuple[str, str]]): The pairs of filenames to ignore.
         """
-        self.logger: logging.Logger = logging.getLogger(__name__)
         self.storages: dict[str, CV2DNNStorage | HDEAzureStorage | HOPEAzureStorage] = {
             "images": HOPEAzureStorage(),
             "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
@@ -43,16 +53,22 @@ class DuplicationDetector:
         self.net: cv2.dnn_Net = self._set_net(self.storages.get("cv2dnn"))
 
         self.filenames: tuple[str] = filenames
-        self.ignore_set: set[tuple[str, str]] = self._get_pairs_to_ignore(ignore)
+        self.ignore_set: set[tuple[str, str]] = self._get_pairs_to_ignore(ignore_pairs)
 
         self.blob_from_image_cfg = self.BlobFromImageConfig(
-            shape=self._get_shape(), scale_factor=config.SCALE_FACTOR, mean_values=config.MEAN_VALUES
+            shape=self._get_shape(),
+            scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR,
+            mean_values=(
+                tuple(map(float, config.BLOB_FROM_IMAGE_MEAN_VALUES.split(", ")))
+                if isinstance(config.BLOB_FROM_IMAGE_MEAN_VALUES, str)
+                else config.BLOB_FROM_IMAGE_MEAN_VALUES
+            ),
         )
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
-        self.distance_threshold: float = config.DISTANCE_THRESHOLD
+        self.distance_threshold: float = config.FACE_DISTANCE_THRESHOLD
         self.face_encodings_cfg = self.FaceEncodingsConfig(
-            num_jitters=10,  # How many times to re-sample the face when calculating encoding.
-            model="large",  # "large" or "small" (default) which only returns 5 points but is faster.
+            num_jitters=config.FACE_ENCODINGS_NUM_JITTERS,
+            model=config.FACE_ENCODINGS_MODEL,
         )
 
         self.nms_threshold: float = config.NMS_THRESHOLD
@@ -84,7 +100,7 @@ class DuplicationDetector:
         if not ignore:
             return set()
         if all(
-            isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(item, str) for item in pair)
+            isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(item, str) and item for item in pair)
             for pair in ignore
         ):
             return {(item1, item2) for item1, item2 in ignore} | {(item2, item1) for item1, item2 in ignore}
@@ -95,11 +111,11 @@ class DuplicationDetector:
                 "Invalid format for 'ignore'. Expected tuple of tuples each containing exactly two strings."
             )
 
-    def _has_encodings(self, filename: str) -> bool:
-        return self.storages["encoded"].exists(self._encodings_filename(filename))
-
     def _encodings_filename(self, filename: str) -> str:
         return f"{filename}.npy"
+
+    def _has_encodings(self, filename: str) -> bool:
+        return self.storages["encoded"].exists(self._encodings_filename(filename))
 
     def _get_face_detections_dnn(self, filename: str) -> list[tuple[int, int, int, int]]:
         face_regions: list[tuple[int, int, int, int]] = []
@@ -139,7 +155,7 @@ class DuplicationDetector:
                     for i in indices:
                         face_regions.append(tuple(boxes[i]))
         except Exception as e:
-            self.logger.exception("Error processing face detection for image %s", self.filename)
+            self.logger.exception("Error processing face detection for image %s", filename)
             raise e
         return face_regions
 
@@ -163,7 +179,7 @@ class DuplicationDetector:
             encodings: list = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.error("No face regions detected in image %s", self.filename)
+                self.logger.error("No face regions detected in image %s", filename)
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:
@@ -176,11 +192,11 @@ class DuplicationDetector:
                         )
                         encodings.extend(face_encodings)
                     else:
-                        self.logger.error("Invalid face region.")
-                with self.storages["encoded"].open(self.encodings_filename, "wb") as f:
+                        self.logger.error("Invalid face region %s", region)
+                with self.storages["encoded"].open(self._encodings_filename(filename), "wb") as f:
                     np.save(f, encodings)
         except Exception as e:
-            self.logger.exception("Error processing face encodings for image %s", self.filename)
+            self.logger.exception("Error processing face encodings for image %s", filename)
             raise e
 
     def _get_duplicated_groups(self, checked: set[tuple[str, str, float]]) -> tuple[tuple[str]]:
@@ -235,5 +251,5 @@ class DuplicationDetector:
 
             return self._get_duplicated_groups(checked)
         except Exception as e:
-            self.logger.exception("Error finding duplicates for image %s", path1)
+            self.logger.exception("Error finding duplicates for images %s", self.filenames)
             raise e
