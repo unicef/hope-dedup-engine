@@ -16,6 +16,7 @@ class DeduplicationSetFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
     external_system = SubFactory(ExternalSystemFactory)
     state = DeduplicationSet.State.CLEAN
+    notification_url = fuzzy.FuzzyText()
 
     class Meta:
         model = DeduplicationSet
