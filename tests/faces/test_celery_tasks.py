@@ -48,5 +48,6 @@ def test_deduplicate_task_exception_handling(
     assert task.traceback is not None
 
     mock_find.assert_called_once()
+    # Check that the Redis lock was acquired and then released
     mock_set.assert_called_once_with(f"Deduplicate_{FILENAME}", "true", nx=True, ex=3600)
     mock_delete.assert_called_once_with(f"Deduplicate_{FILENAME}")  # Lock is released

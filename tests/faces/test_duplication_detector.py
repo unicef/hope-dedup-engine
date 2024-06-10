@@ -6,43 +6,72 @@ from django.conf import settings
 import cv2
 import numpy as np
 import pytest
-from faces_const import FILENAME, FILENAMES
+from constance import config
+from faces_const import DEPLOY_PROTO_SHAPE, FACE_REGIONS_INVALID, FILENAME, FILENAMES
 
 from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
 
 def test_duplication_detector_initialization(dd):
     assert isinstance(dd.net, cv2.dnn_Net)
-    assert isinstance(dd.logger, MagicMock)
-    assert dd.confidence == settings.FACE_DETECTION_CONFIDENCE
-    assert dd.threshold == settings.DISTANCE_THRESHOLD
+    assert dd.face_detection_confidence == config.FACE_DETECTION_CONFIDENCE
+    assert dd.distance_threshold == config.FACE_DISTANCE_THRESHOLD
     assert dd.filename == FILENAME
     assert dd.encodings_filename == f"{FILENAME}.npy"
+    assert dd.scale_factor == config.BLOB_FROM_IMAGE_SCALE_FACTOR
+    assert dd.mean_values == tuple(map(float, config.BLOB_FROM_IMAGE_MEAN_VALUES.split(", ")))
+    assert dd.face_encodings_model == config.FACE_ENCODINGS_MODEL
+    assert dd.face_encodings_num_jitters == config.FACE_ENCODINGS_NUM_JITTERS
+    assert dd.nms_threshold == config.NMS_THRESHOLD
+    assert dd.shape == DEPLOY_PROTO_SHAPE
+
+
+def test_get_shape(dd, mock_prototxt_file):
+    with patch("builtins.open", mock_prototxt_file):
+        shape = dd._get_shape()
+        assert shape == DEPLOY_PROTO_SHAPE
+
+
+def test_set_net(dd, mock_cv2dnn_storage, mock_net):
+    mock_net_instance, *_ = mock_net
+    with patch("cv2.dnn.readNetFromCaffe", return_value=mock_net_instance) as mock_read_net:
+        net = dd._set_net(mock_cv2dnn_storage)
+        mock_read_net.assert_called_once_with(
+            mock_cv2dnn_storage.path(settings.PROTOTXT_FILE),
+            mock_cv2dnn_storage.path(settings.CAFFEMODEL_FILE),
+        )
+
+        assert net == mock_net_instance
+        mock_net_instance.setPreferableBackend.assert_called_once_with(int(config.DNN_BACKEND))
+        mock_net_instance.setPreferableTarget.assert_called_once_with(int(config.DNN_TARGET))
+
     for storage_name, storage in dd.storages.items():
         assert isinstance(storage, MagicMock)
         if storage_name == "cv2dnn":
             storage.exists.assert_any_call(settings.PROTOTXT_FILE)
             storage.exists.assert_any_call(settings.CAFFEMODEL_FILE)
-            storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
+            storage.path.assert_any_call(settings.PROTOTXT_FILE)
             storage.path.assert_any_call(settings.CAFFEMODEL_FILE)
 
 
-def test_missing_files_in_storage(dd, mock_cv2dnn_storage):
+@pytest.mark.parametrize("missing_file", [settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE])
+def test_initialization_missing_files_in_cv2dnn_storage(mock_cv2dnn_storage, missing_file):
     with patch(
-        "hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", new=lambda _: mock_cv2dnn_storage
+        "hope_dedup_engine.apps.faces.utils.duplication_detector.CV2DNNStorage", return_value=mock_cv2dnn_storage
     ):
-        mock_cv2dnn_storage.exists.return_value = False
+        mock_cv2dnn_storage.exists.side_effect = lambda filename: filename != missing_file
         with pytest.raises(FileNotFoundError):
             DuplicationDetector(FILENAME)
+        mock_cv2dnn_storage.exists.assert_any_call(missing_file)
 
 
 def test_has_encodings_false(dd):
-    dd.storages["encoded"].exists = MagicMock(return_value=False)
+    dd.storages["encoded"].exists.return_value = False
     assert not dd.has_encodings
 
 
 def test_has_encodings_true(dd):
-    dd.storages["encoded"].exists = MagicMock(return_value=True)
+    dd.storages["encoded"].exists.return_value = True
     assert dd.has_encodings
 
 
@@ -51,37 +80,36 @@ def test_get_face_detections_dnn_no_detections(dd, mock_open_context_manager):
         patch.object(dd.storages["images"], "open", return_value=mock_open_context_manager),
         patch.object(dd, "_get_face_detections_dnn", return_value=[]),
     ):
-
         face_regions = dd._get_face_detections_dnn()
-        assert len(face_regions) == 0  # Assuming no faces are detected
+        assert len(face_regions) == 0
 
 
 def test_get_face_detections_dnn_with_detections(dd, mock_net, mock_open_context_manager):
-    net, imdecode, resize, blob, expected_regions = mock_net
+    net, imdecode, resize, _, expected_regions = mock_net
     with (
         patch.object(dd.storages["images"], "open", return_value=mock_open_context_manager),
         patch("cv2.imdecode", imdecode),
         patch("cv2.resize", resize),
+        patch.object(dd, "net", net),
     ):
-
-        dd.net.setInput(blob)
-        dd.net = net
         face_regions = dd._get_face_detections_dnn()
 
         assert face_regions == expected_regions
-        assert len(face_regions) == 1  # Assuming one face is detected
-        assert isinstance(face_regions[0], tuple)  # Each detected face region should be a tuple
-        assert len(face_regions[0]) == 4  # Each tuple should have four elements (coordinates of the bounding box)
+        for region in face_regions:
+            assert isinstance(region, tuple)
+            assert len(region) == 4
 
 
 def test_get_face_detections_dnn_exception_handling(dd):
-    with patch("builtins.open", side_effect=Exception("Test exception")):
-        try:
+    with (
+        patch.object(dd.storages["images"], "open", side_effect=Exception("Test exception")) as mock_storage_open,
+        patch.object(dd.logger, "exception") as mock_logger_exception,
+    ):
+        with pytest.raises(Exception, match="Test exception"):
             dd._get_face_detections_dnn()
-        except Exception:
-            ...
-        dd.logger.exception.assert_called_once()
-        dd.logger.reset_mock()
+
+        mock_storage_open.assert_called_once_with(dd.filename, "rb")
+        mock_logger_exception.assert_called_once()
 
 
 def test_load_encodings_all_no_files(dd):
@@ -91,77 +119,94 @@ def test_load_encodings_all_no_files(dd):
 
 
 def test_load_encodings_all_with_files(dd):
-    mock_encoded_data = {f"{filename}.npy": [np.array([1, 2, 3]), np.array([4, 5, 6])] for filename in FILENAMES}
+    mock_encoded_data = {f"{filename}.npy": np.array([1, 2, 3]) for filename in FILENAMES}
     encoded_data = {os.path.splitext(key)[0]: value for key, value in mock_encoded_data.items()}
-    print(f"\n{mock_encoded_data=}\n{encoded_data=}")
 
-    # Mock the storage's listdir method to return the file names
     with patch.object(
-        dd.storages["encoded"],
-        "listdir",
-        return_value=(None, [f"{filename}.npy" for filename in FILENAMES]),
+        dd.storages["encoded"], "listdir", return_value=(None, [f"{filename}.npy" for filename in FILENAMES])
     ):
-        print(f"{dd.storages['encoded'].listdir()[1]=}")
-        # Mock the storage's open method to return the data for each file
-        with patch(
-            "builtins.open",
-            side_effect=lambda f: mock_open(read_data=np.save(mock_encoded_data[f])).return_value,
-        ):
-            dd._load_encodings_all()
-    # Assert that the returned encodings match the expected data
-    # TODO: Fix
-    # assert all(np.array_equal(encodings[key], value) for key, value in encoded_data.items())
+        with patch("builtins.open", mock_open()) as mocked_open:
+            for filename, data in mock_encoded_data.items():
+                mocked_file = mock_open(read_data=data.tobytes()).return_value
+                mocked_open.side_effect = lambda f, mode="rb", mocked_file=mocked_file, filename=filename: (
+                    mocked_file if f.endswith(filename) else MagicMock()
+                )
+                with patch("numpy.load", return_value=data):
+                    result = dd._load_encodings_all()
+
+            for key, value in encoded_data.items():
+                assert np.array_equal(result[key], value)
 
 
-def test_load_encodings_all_exception_handling(dd):
-    with patch("builtins.open", side_effect=Exception("Test exception")):
-        try:
-            dd._load_encodings_all()
-        except Exception:
-            ...
-        dd.logger.reset_mock()
-
-
-def test_encode_face_successful(dd, image_bytes_io):
+def test_load_encodings_all_exception_handling_listdir(dd):
     with (
-        patch("builtins.open", new_callable=lambda: image_bytes_io.fake_open),
+        patch.object(dd.storages["encoded"], "listdir", side_effect=Exception("Test exception")) as mock_listdir,
+        patch.object(dd.logger, "exception") as mock_logger_exception,
+    ):
+        with pytest.raises(Exception, match="Test exception"):
+            dd._load_encodings_all()
+
+        mock_listdir.assert_called_once_with("")
+
+        mock_logger_exception.assert_called_once()
+
+
+def test_load_encodings_all_exception_handling_open(dd):
+    with (
+        patch.object(dd.storages["encoded"], "listdir", return_value=(None, [f"{FILENAME}.npy"])) as mock_listdir,
+        patch.object(dd.storages["encoded"], "open", side_effect=Exception("Test exception")) as mock_open,
+        patch.object(dd.logger, "exception") as mock_logger_exception,
+    ):
+        with pytest.raises(Exception, match="Test exception"):
+            dd._load_encodings_all()
+
+        mock_listdir.assert_called_once_with("")
+        mock_open.assert_called_once_with(f"{FILENAME}.npy", "rb")
+
+        mock_logger_exception.assert_called_once()
+
+
+def test_encode_face_successful(dd, image_bytes_io, mock_net):
+    mock_net, *_ = mock_net
+    with (
         patch.object(dd.storages["images"], "open", side_effect=image_bytes_io.fake_open) as mocked_image_open,
+        patch.object(dd, "net", mock_net),
     ):
         dd._encode_face()
 
-        # Checks that the file was opened correctly and in binary read mode
-        print(f"{mocked_image_open.assert_called_with(dd.filename, 'rb')=}")
-        assert mocked_image_open.called, "The open function should be called"
+        mocked_image_open.assert_called_with(dd.filename, "rb")
+        assert mocked_image_open.side_effect == image_bytes_io.fake_open
+        assert mocked_image_open.called
 
 
-def test_encode_face_invalid_region(dd, image_bytes_io):
-    # Mock _get_face_detections_dnn to return an invalid region
+@pytest.mark.parametrize("face_regions", FACE_REGIONS_INVALID)
+def test_encode_face_error(dd, image_bytes_io, face_regions):
     with (
-        patch("builtins.open", new_callable=lambda: image_bytes_io.fake_open),
-        patch.object(dd.storages["images"], "open", side_effect=image_bytes_io.fake_open),
-        patch.object(dd, "_get_face_detections_dnn", return_value=[(0, 0, 10)]),
+        patch.object(dd.storages["images"], "open", side_effect=image_bytes_io.fake_open) as mock_storage_open,
+        patch.object(dd, "_get_face_detections_dnn", return_value=face_regions) as mock_get_face_detections_dnn,
         patch.object(dd.logger, "error") as mock_error_logger,
     ):
-
-        # Invoke the _encode_face method, expecting an error log due to an invalid region
         dd._encode_face()
 
-        # Check that the error was logged with the correct message
-        mock_error_logger.assert_called_once_with(f"Invalid face region {(0, 0, 10)}")
-        dd.logger.reset_mock()
+        mock_storage_open.assert_called_with(dd.filename, "rb")
+        mock_get_face_detections_dnn.assert_called_once()
+
+        mock_error_logger.assert_called_once()
 
 
 def test_encode_face_exception_handling(dd):
-    with patch("builtins.open", side_effect=Exception("Test exception")):
-        try:
+    with (
+        patch.object(dd.storages["images"], "open", side_effect=Exception("Test exception")) as mock_storage_open,
+        patch.object(dd.logger, "exception") as mock_logger_exception,
+    ):
+        with pytest.raises(Exception, match="Test exception"):
             dd._encode_face()
-        except Exception:
-            ...
-        dd.logger.exception.assert_called_once()
-        dd.logger.reset_mock()
+
+        mock_storage_open.assert_called_with(dd.filename, "rb")
+        mock_logger_exception.assert_called_once()
 
 
-def test_find_duplicates_successful(dd, mock_hde_azure_storage):
+def test_find_duplicates_successful_when_encoded(dd, mock_hde_azure_storage):
     # Generate mock return values dynamically based on FILENAMES
     mock_encodings = {filename: [np.array([0.1, 0.2, 0.3 + i * 0.001])] for i, filename in enumerate(FILENAMES)}
 
@@ -185,23 +230,21 @@ def test_find_duplicates_successful(dd, mock_hde_azure_storage):
 
 
 def test_find_duplicates_calls_encode_face_when_no_encodings(dd):
-    # Prepare a mock for the 'exists' method used in the 'has_encodings' property
     with (
-        patch.object(dd.storages["encoded"], "exists", return_value=False),
         patch.object(dd, "_encode_face") as mock_encode_face,
+        patch.object(dd, "_load_encodings_all", return_value={FILENAME: [MagicMock()]}),
     ):
-
+        dd.storages["encoded"].exists.return_value = False
         dd.find_duplicates()
-
         mock_encode_face.assert_called_once()
-        dd.logger.reset_mock()
 
 
 def test_find_duplicates_exception_handling(dd):
-    with patch.object(dd, "_load_encodings_all", side_effect=Exception("Test exception")):
-        try:
+    with (
+        patch.object(dd, "_load_encodings_all", side_effect=Exception("Test exception")),
+        patch.object(dd.logger, "exception") as mock_logger_exception,
+    ):
+        with pytest.raises(Exception, match="Test exception"):
             dd.find_duplicates()
-        except Exception:
-            ...
-        dd.logger.exception.assert_called_once()
-        dd.logger.reset_mock()
+
+        mock_logger_exception.assert_called_once()
