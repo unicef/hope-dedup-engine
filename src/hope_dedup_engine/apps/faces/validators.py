@@ -21,4 +21,4 @@ class MeanValuesTupleField(CharField):
     def prepare_value(self, value):
         if isinstance(value, tuple):
             return ", ".join(map(str, value))
-        return value
+        return super().prepare_value(value)

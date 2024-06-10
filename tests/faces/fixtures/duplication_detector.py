@@ -14,7 +14,8 @@ from ..faces_const import (
     DEPLOY_PROTO_CONTENT,
     FACE_DETECTIONS,
     FACE_REGIONS_VALID,
-    FILENAME,
+    FILENAMES,
+    IGNORE_PAIRS,
     IMAGE_SIZE,
     RESIZED_IMAGE_SIZE,
 )
@@ -28,7 +29,7 @@ def dd(mock_hope_azure_storage, mock_cv2dnn_storage, mock_hde_azure_storage, moc
         patch("hope_dedup_engine.apps.faces.utils.duplication_detector.HDEAzureStorage", mock_hde_azure_storage),
         patch("builtins.open", mock_prototxt_file),
     ):
-        return DuplicationDetector(FILENAME)
+        return DuplicationDetector(FILENAMES, IGNORE_PAIRS)
 
 
 @pytest.fixture
