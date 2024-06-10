@@ -4,7 +4,7 @@ from pytest import fixture, mark
 from pytest_mock import MockerFixture
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.utils import send_notification
+from hope_dedup_engine.apps.api.utils import REQUEST_TIMEOUT, send_notification
 
 
 @fixture
@@ -17,7 +17,7 @@ def test_notification_is_sent_when_url_is_set(
     requests_get_mock: MagicMock, deduplication_set: DeduplicationSet
 ) -> None:
     send_notification(deduplication_set)
-    requests_get_mock.assert_called_once_with(deduplication_set.notification_url)
+    requests_get_mock.assert_called_once_with(deduplication_set.notification_url, timeout=REQUEST_TIMEOUT)
 
 
 @mark.parametrize("deduplication_set__notification_url", (None,))

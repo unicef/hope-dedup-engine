@@ -11,6 +11,9 @@ def delete_model_data(_: DeduplicationSet) -> None:
     pass
 
 
+REQUEST_TIMEOUT = 5
+
+
 def send_notification(deduplication_set: DeduplicationSet) -> None:
     if url := deduplication_set.notification_url:
-        requests.get(url, timeout=5)
+        requests.get(url, timeout=REQUEST_TIMEOUT)
