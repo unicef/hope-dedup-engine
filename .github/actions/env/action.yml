@@ -1,0 +1,51 @@
+name: 'version'
+description: ''
+
+outputs:
+  stage:
+    description: ''
+    value: ${{ steps.version.outputs.stage }}
+  version:
+    description: ''
+    value: ${{ steps.version.outputs.version }}
+  commit:
+    description: ''
+    value: ${{ steps.version.outputs.commit }}
+  release:
+    description: ''
+    value: ${{ steps.version.outputs.release }}
+  date:
+    description: ''
+    value: ${{ steps.build_date.outputs.date }}
+  today:
+    description: ''
+    value: ${{ steps.build_date.outputs.today }}
+  timestamp:
+    description: ''
+    value: ${{ steps.build_date.outputs.timestamp }}
+  branch:
+    description: ''
+    value: ${{ steps.extract_branch.outputs.branch }}
+
+
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash --noprofile --norc -eo pipefail {0}
+      run: git config --global --add safe.directory $(realpath .)
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - id: version
+      uses: ./.github/actions/version
+    - id: extract_branch
+      name: Extract branch name
+      shell: bash
+      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+    - id: build_date
+      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      run: |
+        d1=$(date +"%a,%e %b %Y %H:%M %Z")
+        d2=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        d3=$(date -u +"%Y%m%d%H%M%S")
+        echo "today=$d1" >> $GITHUB_OUTPUT
+        echo "date=$d2" >> $GITHUB_OUTPUT
+        echo "timestamp=$d3" >> $GITHUB_OUTPUT

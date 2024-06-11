@@ -1,0 +1,99 @@
+name: 'version'
+description: ''
+
+outputs:
+  stage:
+    description: 'The time we greeted you'
+    value: ${{ steps.parser.outputs.stage }}
+  version:
+    description: 'The time we greeted you'
+    value: ${{ steps.parser.outputs.version }}
+  commit:
+    description: 'The time we greeted you'
+    value: ${{ steps.parser.outputs.commit }}
+  sha:
+    description: 'The time we greeted you'
+    value: ${{ steps.parser.outputs.sha }}
+
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure Git
+      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      run: |
+        git config --global --add safe.directory $(realpath .)
+    - name: ch
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - name: Parse branch
+      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      id: parser
+      run: |
+        #        BASE=$(git describe --all --exact-match 2>/dev/null | sed 's=.*/==')
+        #        BASE="1.2.3-rc1"
+        #        VERSION="${BASE#[vV]}"
+        #        VERSION_MAJOR="${VERSION%%.*}"
+        #        VERSION_MINOR_PATCH="${VERSION#*.}"
+        #        VERSION_MINOR="${VERSION_MINOR_PATCH%%.*}"
+        #        VERSION_PATCH_PRE_RELEASE="${VERSION_MINOR_PATCH#*.}"
+        #        VERSION_PATCH="${VERSION_PATCH_PRE_RELEASE%%[-+]*}"
+        #        VERSION_PRE_RELEASE=""
+        #
+        #        case "$VERSION" in
+        #          *rc)
+        #            VERSION_PRE_RELEASE="${VERSION#rc}"
+        #            VERSION_PRE_RELEASE="${VERSION_PRE_RELEASE%%+*}"
+        #            ;;
+        #          *-*)
+        #            VERSION_PRE_RELEASE="${VERSION#*-}"
+        #            VERSION_PRE_RELEASE="${VERSION_PRE_RELEASE%%+*}"
+        #            ;;
+        #        esac
+        if [[ "${{ github.event_name }}" == pull_request ]]; then
+          sha=$(git rev-parse --short ${{ github.event.pull_request.head.sha }})
+        elif [[ "${{ github.event_name }}" == push ]]; then
+          sha="${GITHUB_SHA}"
+        else
+          sha="not-available"
+        fi
+        
+        commit="${{ github.sha }}"
+        
+        if [[ ${{github.ref_name}} == develop ]]; then
+          stage=dev
+          version="${GITHUB_SHA::7}"
+          release=snapshot
+        elif [[ ${{github.ref_name}} == master ]]; then
+          stage=final
+          version=11111
+        elif [[ ${{github.ref_name}} == releases/* ]]; then
+          stage=rc
+          version=${GITHUB_SHA::7}
+        elif [[ ${{github.ref_name}} == tags/* ]]; then
+          stage=final
+          version=${GITHUB_SHA::7}
+        else
+          stage=a
+          version=${GITHUB_SHA::7}
+        fi
+        
+        cat <<EOF
+        stage $stage
+        version $version
+        sha $sha
+        release $release
+        EOF
+        
+        echo "version=$version" >> $GITHUB_OUTPUT
+        echo "stage=$stage" >> $GITHUB_OUTPUT
+        echo "release=$release" >> $GITHUB_OUTPUT
+        echo "sha=$sha" >> $GITHUB_OUTPUT
+        echo "commit=$commit" >> $GITHUB_OUTPUT
+#
+#    - name: Describe
+#      id: describe
+#      shell: bash --noprofile --norc -eo pipefail -ux {0}
+#      run: |
+#        echo ${{ steps.branch.version }}
+#        ver=$(`git symbolic-ref HEAD 2> /dev/null | cut -b 12-`-`git log --pretty=format:"%h" -1`)
+#        echo "version=$ver" >> $GITHUB_OUTPUT

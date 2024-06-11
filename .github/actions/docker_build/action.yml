@@ -1,0 +1,54 @@
+# ref: https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
+name: 'Calculate version hash'
+description: 'Calculate deps and os hash'
+inputs:
+  username:
+    description: ''
+    required: true
+  password:
+    description: ''
+    required: true
+  image:
+    description: ''
+    required: true
+  target:
+    description: ''
+    required: true
+
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        tags: ${{vars.DOCKER_IMAGE}}:dev-latest
+        file: ./docker/Dockerfile
+        platforms: linux/amd64
+        cache-from: type=registry,ref=${{vars.DOCKER_IMAGE}}:dev-latest
+        cache-to: type=inline
+        outputs: type=registry
+        target: python_dev_deps
+        build-args: |
+          BUILD_DATE="${{ steps.build_date.outputs.date }}"
+          CHECKSUM="${{ steps.release_hash.outputs.hash }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+    - name: Calculate Release Hash
+      id: calc
+      shell: bash --noprofile --norc -eo pipefail {0}
+      run: |
+          docker pull ${{inputs.image}}
+          echo "----------"
+          docker inspect --format='{{json .Config.Labels}}' ${{inputs.image}}}}:dev-latest
+          docker run -t ${{inputs.image}}}}:dev-latest release-info.sh
+          echo "----------"

@@ -4,9 +4,11 @@
 *.egg-info
 __pycache__/
 *.py[cod]
+
 !tests/.coveragerc
 !.dockerignore
 !.flake8
+!.github
 !.gitignore
 !.gitlab/
 !.tx/config

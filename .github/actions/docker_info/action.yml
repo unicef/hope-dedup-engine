@@ -1,0 +1,34 @@
+# ref: https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
+name: 'Retrieve Docker Image Information'
+description: 'Calculate deps and os hash'
+inputs:
+  image:
+    description: 'Files to use to calculate the hash'
+    required: true
+  username:
+    description: ''
+    required: true
+  password:
+    description: ''
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+#    - name: Configure Git
+#      shell: bash
+#      run: git config --global --add safe.directory $(realpath .)
+#    - name: ch
+#      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+    - name: Calculate Release Hash
+      shell: bash
+      run: |
+          docker pull ${{inputs.image}}
+          echo "----------"
+          docker inspect --format='{{json .Config.Labels}}' ${{inputs.image}}
+          docker run -t ${{inputs.image}} release-info.sh
+          echo "----------"
