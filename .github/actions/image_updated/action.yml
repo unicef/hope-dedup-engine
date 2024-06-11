@@ -52,9 +52,7 @@ runs:
         echo "tag=$tag" >> $GITHUB_OUTPUT
         echo "architecture=$architecture" >> $GITHUB_OUTPUT
 
-        res=$(curl \
-                -H 'Authorization: Bearer ${{steps.setup.outputs.token}}'
-                -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+        res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
         
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
