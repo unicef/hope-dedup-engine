@@ -48,11 +48,14 @@ runs:
         architecture=${{ inputs.architecture }}
         repo="${ref%:*}"
         tag="${ref##*:}"
+        
+        echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
         echo "tag=$tag" >> $GITHUB_OUTPUT
         echo "architecture=$architecture" >> $GITHUB_OUTPUT
 
-        res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+        res=$(curl -u "${{ inputs.username }}:${{ inputs.password }}" \
+                   -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
         
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
@@ -64,12 +67,11 @@ runs:
       id: check
       shell: bash
       run: |
-        echo "Repo: ${{steps.setup.outputs.repo}}"
         url="https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/manifests/${{steps.setup.outputs.tag}}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
                         -s $url)
-
+                
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
           echo "exists=false" >> "$GITHUB_OUTPUT"
           echo "updated=false" >> "$GITHUB_OUTPUT"
@@ -108,13 +110,22 @@ runs:
           echo "::error title=⛔ error hint::Digest is empty"
           exit 1
         fi        
-        url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest      
+        url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest
+        
         blob=$(curl \
               --silent \
               --location \
               -H "Accept: application/vnd.docker.disribution.manifest.v2+json" \
               -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
               $url )        
+        
+        if [[ $blob == *BLOB_UNKNOWN* ]];then
+          code=$(echo $blob | jq .errors[0].code)
+          message=$(echo $blob | jq .errors[0].message)          
+          echo "::error title=$code error hint::$message $url"
+          exit 1        
+        fi
+        
         if [[ -z "$blob" ]]; then
           echo "Unable to get blob from: https://registry-1.docker.io/v2/$repo/blobs/$digest"
           echo "updated=false" >> "$GITHUB_OUTPUT"

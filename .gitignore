@@ -19,8 +19,8 @@ __pycache__/
 !.trivyignore
 !docker/bin/*.sh
 !bandit.yaml
-build
-dist
+/build
+/dist
 coverage.xml
 Makefile
 site

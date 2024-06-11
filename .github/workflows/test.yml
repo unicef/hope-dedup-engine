@@ -61,6 +61,15 @@ jobs:
         id: image_name
         run: |
           echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+      - id: image_updated
+        name: Check if image exists and updated
+        uses: ./.github/actions/image_updated
+        with:
+          image: unicef/hope-dedupe-engine:test-feature-ci_rc
+          checksum: 00f2f954
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
+
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     uses: ./.github/workflows/_build.yml
@@ -97,8 +106,6 @@ jobs:
         uses: actions/checkout@v2
       - name: Run tests
         run: |
-          ls -al $PWD
-          touch __PIPPO__
           docker run --rm \
             -e DATABASE_URL=postgres://postgres:postgres@db:5432/dedupe \
             -e SECRET_KEY=secret_key \
@@ -108,7 +115,6 @@ jobs:
             -w /code/app \
             -t ${{needs.setup.outputs.image_name}} \
             pytest tests -v 
-          ls -al $PWD
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
