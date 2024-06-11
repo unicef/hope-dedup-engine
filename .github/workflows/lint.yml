@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   changes:
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: check files
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -46,7 +46,7 @@ jobs:
   flake8:
     needs: changes
     runs-on: ubuntu-latest
-#    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
+    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -63,7 +63,7 @@ jobs:
   isort:
     needs: changes
     runs-on: ubuntu-latest
-#    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
+    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -76,7 +76,7 @@ jobs:
   black:
     needs: changes
     runs-on: ubuntu-latest
-#    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
+    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -86,16 +86,16 @@ jobs:
         run: pip install black
       - name: Black
         run: black src/ --check
-#  bandit:
-#    needs: changes
-#    runs-on: ubuntu-latest
-##    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions/setup-python@v2
-#        with:
-#          python-version: '3.11'
-#      - name: Install requirements
-#        run: pip install bandit
-#      - name: bandit
-#        run: bandit src/
+  bandit:
+    needs: changes
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && steps.changes.outputs.lint
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+      - name: Install requirements
+        run: pip install bandit
+      - name: bandit
+        run: bandit src/
