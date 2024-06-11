@@ -1,49 +1,36 @@
+import hashlib
 import logging
 from functools import wraps
 
 from django.conf import settings
-from django.utils import timezone
 
 import redis
-
-from hope_dedup_engine.apps.faces.models import TaskModel
 
 redis_client = redis.Redis.from_url(settings.CELERY_BROKER_URL)
 
 
-def task_lifecycle(name: str, ttl: int):
-    def decorator(func):
+def task_lifecycle(name: str, ttl: int) -> callable:
+    def decorator(func) -> callable:
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, *args, **kwargs) -> any:
             logger = logging.getLogger(func.__module__)
             logger.info(f"{name} task started")
+            result = None
 
-            filename: str = args[0] if args else kwargs.get("filename")
-            lock_name: str = f"{name}_{filename}"
+            filenames = args[0] if args else kwargs.get("filenames")
+            ignore_pairs = args[1] if args else kwargs.get("ignore_pairs")
+            lock_name: str = f"{name}_{_get_hash(filenames, ignore_pairs)}"
             if not _acquire_lock(lock_name, ttl):
                 logger.info(f"Task {name} with brocker lock {lock_name} is already running.")
                 return None
 
-            task: TaskModel = None
-            result = None
-
             try:
-                task = TaskModel.objects.create(name=name, celery_task_id=self.request.id)
                 result = func(self, *args, **kwargs)
-                task.status = TaskModel.StatusChoices.COMPLETED_SUCCESS
-                task.completed_at = timezone.now()
-                task.is_success = True
             except Exception as e:
                 logger.exception(f"{name} task failed", exc_info=e)
-                if task:
-                    task.status = TaskModel.StatusChoices.FAILED
-                    task.completed_at = timezone.now()
-                    task.is_success = False
-                    task.error = str(e)
+                raise e
             finally:
                 _release_lock(lock_name)
-                if task:
-                    task.save(update_fields=["status", "completed_at", "is_success", "error"])
                 logger.info(f"{name} task ended")
             return result
 
@@ -58,3 +45,10 @@ def _acquire_lock(lock_name: str, ttl: int = 1 * 60 * 60) -> bool:
 
 def _release_lock(lock_name: str) -> None:
     redis_client.delete(lock_name)
+
+
+def _get_hash(filenames: tuple[str], ignore_pairs: tuple[tuple[str, str]]) -> str:
+    fn_str: str = ",".join(sorted(filenames))
+    ip_sorted = sorted((min(item1, item2), max(item1, item2)) for item1, item2 in ignore_pairs)
+    ip_str = ",".join(f"{item1},{item2}" for item1, item2 in ip_sorted)
+    return hashlib.sha256(f"{fn_str}{ip_str}".encode()).hexdigest()

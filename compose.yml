@@ -20,7 +20,7 @@ services:
     <<: *common
     ports:
       - 8000:8000
-    command: ["entrypoint.sh", "dev"]
+    command: ["docker-entrypoint.sh", "dev"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
       interval: 10s
@@ -29,11 +29,11 @@ services:
 
   celery_worker:
     <<: *common
-    command: ["entrypoint.sh", "celery_worker"]
+    command: ["docker-entrypoint.sh", "worker"]
 
   celery_beat:
     <<: *common
-    command: ["entrypoint.sh", "celery_beat"]
+    command: ["docker-entrypoint.sh", "beat"]
 
   db:
     image: postgres:15
@@ -70,6 +70,7 @@ services:
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose"
+    restart: always
     ports:
       - "10000:10000" # Blob service
     volumes:

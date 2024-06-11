@@ -33,6 +33,7 @@ class DeduplicationSet(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
     )
     updated_at = models.DateTimeField(auto_now=True)
+    notification_url = models.CharField(max_length=255, null=True, blank=True)
 
 
 class Image(models.Model):

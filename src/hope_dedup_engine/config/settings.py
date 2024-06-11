@@ -18,7 +18,6 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
-    "hope_dedup_engine.apps.faces.apps.Config",
     # "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
@@ -39,9 +38,11 @@ INSTALLED_APPS = (
     "constance",
     "rest_framework",
     "django_celery_beat",
+    "django_celery_results",
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
+    "hope_dedup_engine.apps.faces",
     "storages",
 )
 
@@ -189,7 +190,6 @@ from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.debug_toolbar import *  # noqa
 from .fragments.flags import *  # noqa
-from .fragments.recognition import *  # noqa
 from .fragments.rest_framework import *  # noqa
 from .fragments.root import *  # noqa
 from .fragments.sentry import *  # noqa

@@ -1,13 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from freezegun import freeze_time
+
+from docker import from_env
+
+from ..faces_const import FILENAMES
 
 
 @pytest.fixture(scope="session")
 def docker_client():
-    import docker
-
-    client = docker.from_env()
+    client = from_env()
     yield client
     client.close()
 
@@ -19,17 +22,15 @@ def mock_redis_client():
 
 
 @pytest.fixture
-def mock_duplication_detector():
+def mock_dd_find():
     with patch(
         "hope_dedup_engine.apps.faces.utils.duplication_detector.DuplicationDetector.find_duplicates"
     ) as mock_find:
+        mock_find.return_value = (FILENAMES[:2],)  # Assuming the first two are duplicates based on mock data
         yield mock_find
 
 
 @pytest.fixture
-def mock_task_model():
-    with patch("hope_dedup_engine.apps.faces.models.TaskModel.objects.create") as mock_create:
-        mock_instance = MagicMock()
-        mock_create.return_value = mock_instance
-        mock_instance.save = MagicMock()
-        yield mock_create, mock_instance
+def time_control():
+    with freeze_time("2024-01-01") as frozen_time:
+        yield frozen_time

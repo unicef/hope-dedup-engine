@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:7d3f2042a8da96d2ff7757f480ddc05f36918c8b03c9275b2a838fae8c0d5278"
+content_hash = "sha256:07d1e2f3b569e6b60d3825c075de0d525c36024c441e7d4fcbace92bb8cd931b"
 
 [[package]]
 name = "amqp"
@@ -317,48 +317,48 @@ files = [
 
 [[package]]
 name = "coverage"
-version = "7.5.1"
+version = "7.5.3"
 requires_python = ">=3.8"
 summary = "Code coverage measurement for Python"
 groups = ["dev"]
 files = [
-    {file = "coverage-7.5.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b6cf3764c030e5338e7f61f95bd21147963cf6aa16e09d2f74f1fa52013c1206"},
-    {file = "coverage-7.5.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:2ec92012fefebee89a6b9c79bc39051a6cb3891d562b9270ab10ecfdadbc0c34"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:16db7f26000a07efcf6aea00316f6ac57e7d9a96501e990a36f40c965ec7a95d"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:beccf7b8a10b09c4ae543582c1319c6df47d78fd732f854ac68d518ee1fb97fa"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8748731ad392d736cc9ccac03c9845b13bb07d020a33423fa5b3a36521ac6e4e"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:7352b9161b33fd0b643ccd1f21f3a3908daaddf414f1c6cb9d3a2fd618bf2572"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:7a588d39e0925f6a2bff87154752481273cdb1736270642aeb3635cb9b4cad07"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:68f962d9b72ce69ea8621f57551b2fa9c70509af757ee3b8105d4f51b92b41a7"},
-    {file = "coverage-7.5.1-cp312-cp312-win32.whl", hash = "sha256:f152cbf5b88aaeb836127d920dd0f5e7edff5a66f10c079157306c4343d86c19"},
-    {file = "coverage-7.5.1-cp312-cp312-win_amd64.whl", hash = "sha256:5a5740d1fb60ddf268a3811bcd353de34eb56dc24e8f52a7f05ee513b2d4f596"},
-    {file = "coverage-7.5.1-pp38.pp39.pp310-none-any.whl", hash = "sha256:6537e7c10cc47c595828b8a8be04c72144725c383c4702703ff4e42e44577312"},
-    {file = "coverage-7.5.1.tar.gz", hash = "sha256:54de9ef3a9da981f7af93eafde4ede199e0846cd819eb27c88e2b712aae9708c"},
+    {file = "coverage-7.5.3-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:296a7d9bbc598e8744c00f7a6cecf1da9b30ae9ad51c566291ff1314e6cbbed8"},
+    {file = "coverage-7.5.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:34d6d21d8795a97b14d503dcaf74226ae51eb1f2bd41015d3ef332a24d0a17b3"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8e317953bb4c074c06c798a11dbdd2cf9979dbcaa8ccc0fa4701d80042d4ebf1"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:705f3d7c2b098c40f5b81790a5fedb274113373d4d1a69e65f8b68b0cc26f6db"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b1196e13c45e327d6cd0b6e471530a1882f1017eb83c6229fc613cd1a11b53cd"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:015eddc5ccd5364dcb902eaecf9515636806fa1e0d5bef5769d06d0f31b54523"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:fd27d8b49e574e50caa65196d908f80e4dff64d7e592d0c59788b45aad7e8b35"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:33fc65740267222fc02975c061eb7167185fef4cc8f2770267ee8bf7d6a42f84"},
+    {file = "coverage-7.5.3-cp312-cp312-win32.whl", hash = "sha256:7b2a19e13dfb5c8e145c7a6ea959485ee8e2204699903c88c7d25283584bfc08"},
+    {file = "coverage-7.5.3-cp312-cp312-win_amd64.whl", hash = "sha256:0bbddc54bbacfc09b3edaec644d4ac90c08ee8ed4844b0f86227dcda2d428fcb"},
+    {file = "coverage-7.5.3-pp38.pp39.pp310-none-any.whl", hash = "sha256:3538d8fb1ee9bdd2e2692b3b18c22bb1c19ffbefd06880f5ac496e42d7bb3884"},
+    {file = "coverage-7.5.3.tar.gz", hash = "sha256:04aefca5190d1dc7a53a4c1a5a7f8568811306d7a8ee231c42fb69215571944f"},
 ]
 
 [[package]]
 name = "coverage"
-version = "7.5.1"
+version = "7.5.3"
 extras = ["toml"]
 requires_python = ">=3.8"
 summary = "Code coverage measurement for Python"
 groups = ["dev"]
 dependencies = [
-    "coverage==7.5.1",
+    "coverage==7.5.3",
 ]
 files = [
-    {file = "coverage-7.5.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b6cf3764c030e5338e7f61f95bd21147963cf6aa16e09d2f74f1fa52013c1206"},
-    {file = "coverage-7.5.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:2ec92012fefebee89a6b9c79bc39051a6cb3891d562b9270ab10ecfdadbc0c34"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:16db7f26000a07efcf6aea00316f6ac57e7d9a96501e990a36f40c965ec7a95d"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:beccf7b8a10b09c4ae543582c1319c6df47d78fd732f854ac68d518ee1fb97fa"},
-    {file = "coverage-7.5.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8748731ad392d736cc9ccac03c9845b13bb07d020a33423fa5b3a36521ac6e4e"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:7352b9161b33fd0b643ccd1f21f3a3908daaddf414f1c6cb9d3a2fd618bf2572"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:7a588d39e0925f6a2bff87154752481273cdb1736270642aeb3635cb9b4cad07"},
-    {file = "coverage-7.5.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:68f962d9b72ce69ea8621f57551b2fa9c70509af757ee3b8105d4f51b92b41a7"},
-    {file = "coverage-7.5.1-cp312-cp312-win32.whl", hash = "sha256:f152cbf5b88aaeb836127d920dd0f5e7edff5a66f10c079157306c4343d86c19"},
-    {file = "coverage-7.5.1-cp312-cp312-win_amd64.whl", hash = "sha256:5a5740d1fb60ddf268a3811bcd353de34eb56dc24e8f52a7f05ee513b2d4f596"},
-    {file = "coverage-7.5.1-pp38.pp39.pp310-none-any.whl", hash = "sha256:6537e7c10cc47c595828b8a8be04c72144725c383c4702703ff4e42e44577312"},
-    {file = "coverage-7.5.1.tar.gz", hash = "sha256:54de9ef3a9da981f7af93eafde4ede199e0846cd819eb27c88e2b712aae9708c"},
+    {file = "coverage-7.5.3-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:296a7d9bbc598e8744c00f7a6cecf1da9b30ae9ad51c566291ff1314e6cbbed8"},
+    {file = "coverage-7.5.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:34d6d21d8795a97b14d503dcaf74226ae51eb1f2bd41015d3ef332a24d0a17b3"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8e317953bb4c074c06c798a11dbdd2cf9979dbcaa8ccc0fa4701d80042d4ebf1"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:705f3d7c2b098c40f5b81790a5fedb274113373d4d1a69e65f8b68b0cc26f6db"},
+    {file = "coverage-7.5.3-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b1196e13c45e327d6cd0b6e471530a1882f1017eb83c6229fc613cd1a11b53cd"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:015eddc5ccd5364dcb902eaecf9515636806fa1e0d5bef5769d06d0f31b54523"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:fd27d8b49e574e50caa65196d908f80e4dff64d7e592d0c59788b45aad7e8b35"},
+    {file = "coverage-7.5.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:33fc65740267222fc02975c061eb7167185fef4cc8f2770267ee8bf7d6a42f84"},
+    {file = "coverage-7.5.3-cp312-cp312-win32.whl", hash = "sha256:7b2a19e13dfb5c8e145c7a6ea959485ee8e2204699903c88c7d25283584bfc08"},
+    {file = "coverage-7.5.3-cp312-cp312-win_amd64.whl", hash = "sha256:0bbddc54bbacfc09b3edaec644d4ac90c08ee8ed4844b0f86227dcda2d428fcb"},
+    {file = "coverage-7.5.3-pp38.pp39.pp310-none-any.whl", hash = "sha256:3538d8fb1ee9bdd2e2692b3b18c22bb1c19ffbefd06880f5ac496e42d7bb3884"},
+    {file = "coverage-7.5.3.tar.gz", hash = "sha256:04aefca5190d1dc7a53a4c1a5a7f8568811306d7a8ee231c42fb69215571944f"},
 ]
 
 [[package]]
@@ -528,6 +528,20 @@ files = [
 ]
 
 [[package]]
+name = "django-celery-results"
+version = "2.5.1"
+summary = "Celery result backends for Django."
+groups = ["default"]
+dependencies = [
+    "Django>=3.2.18",
+    "celery<6.0,>=5.2.7",
+]
+files = [
+    {file = "django_celery_results-2.5.1-py3-none-any.whl", hash = "sha256:0da4cd5ecc049333e4524a23fcfc3460dfae91aa0a60f1fae4b6b2889c254e01"},
+    {file = "django_celery_results-2.5.1.tar.gz", hash = "sha256:3ecb7147f773f34d0381bac6246337ce4cf88a2ea7b82774ed48e518b67bb8fd"},
+]
+
+[[package]]
 name = "django-concurrency"
 version = "2.5"
 summary = "Optimistic lock implementation for Django. Prevents users from doing concurrent editing."
@@ -579,17 +593,17 @@ files = [
 
 [[package]]
 name = "django-debug-toolbar"
-version = "4.3.0"
+version = "4.4.2"
 requires_python = ">=3.8"
 summary = "A configurable set of panels that display various debug information about the current request/response."
 groups = ["default"]
 dependencies = [
-    "django>=3.2.4",
+    "django>=4.2.9",
     "sqlparse>=0.2",
 ]
 files = [
-    {file = "django_debug_toolbar-4.3.0-py3-none-any.whl", hash = "sha256:e09b7dcb8417b743234dfc57c95a7c1d1d87a88844abd13b4c5387f807b31bf6"},
-    {file = "django_debug_toolbar-4.3.0.tar.gz", hash = "sha256:0b0dddee5ea29b9cb678593bc0d7a6d76b21d7799cb68e091a2148341a80f3c4"},
+    {file = "django_debug_toolbar-4.4.2-py3-none-any.whl", hash = "sha256:5d7afb2ea5f8730241e5b0735396e16cd1fd8c6b53a2f3e1e30bbab9abb23728"},
+    {file = "django_debug_toolbar-4.4.2.tar.gz", hash = "sha256:9204050fcb1e4f74216c5b024bc76081451926a6303993d6c513f5e142675927"},
 ]
 
 [[package]]
@@ -905,7 +919,7 @@ files = [
 
 [[package]]
 name = "faker"
-version = "25.2.0"
+version = "25.3.0"
 requires_python = ">=3.8"
 summary = "Faker is a Python package that generates fake data for you."
 groups = ["dev"]
@@ -913,8 +927,8 @@ dependencies = [
     "python-dateutil>=2.4",
 ]
 files = [
-    {file = "Faker-25.2.0-py3-none-any.whl", hash = "sha256:cfe97c4857c4c36ee32ea4aaabef884895992e209bae4cbd26807cf3e05c6918"},
-    {file = "Faker-25.2.0.tar.gz", hash = "sha256:45b84f47ff1ef86e3d1a8d11583ca871ecf6730fad0660edadc02576583a2423"},
+    {file = "Faker-25.3.0-py3-none-any.whl", hash = "sha256:0158d47e955b6ec22134c0a74ebb7ed34fe600896208bafbf1008db831b17f04"},
+    {file = "Faker-25.3.0.tar.gz", hash = "sha256:bcbe31eee5ef4bbf87ce36c4eba53c01e2a1d912fde2a4d3528b430d2beb784f"},
 ]
 
 [[package]]
@@ -1014,20 +1028,6 @@ dependencies = [
 files = [
     {file = "graphene-stubs-0.16.tar.gz", hash = "sha256:9b8c2d1d4f5ceb8ed55bbc6b34af748f9264da147d8b1ff5f9de6f0e651bd5e8"},
     {file = "graphene_stubs-0.16-py3-none-any.whl", hash = "sha256:7fae3ff663344db1b3ee5b187f054a1d018bb63c364c3624890fe02960c6affe"},
-]
-
-[[package]]
-name = "gunicorn"
-version = "22.0.0"
-requires_python = ">=3.7"
-summary = "WSGI HTTP Server for UNIX"
-groups = ["default"]
-dependencies = [
-    "packaging",
-]
-files = [
-    {file = "gunicorn-22.0.0-py3-none-any.whl", hash = "sha256:350679f91b24062c86e386e198a15438d53a7a8207235a78ba1b53df4c4378d9"},
-    {file = "gunicorn-22.0.0.tar.gz", hash = "sha256:4a0b436239ff76fb33f11c07a16482c521a7e09c1ce3cc293c2330afe01bec63"},
 ]
 
 [[package]]
@@ -1358,16 +1358,13 @@ files = [
 
 [[package]]
 name = "nodeenv"
-version = "1.8.0"
-requires_python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*"
+version = "1.9.0"
+requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 summary = "Node.js virtual environment builder"
 groups = ["dev"]
-dependencies = [
-    "setuptools",
-]
 files = [
-    {file = "nodeenv-1.8.0-py2.py3-none-any.whl", hash = "sha256:df865724bb3c3adc86b3876fa209771517b0cfe596beff01a92700e0e8be4cec"},
-    {file = "nodeenv-1.8.0.tar.gz", hash = "sha256:d51e0c37e64fbf47d017feac3145cdbb58836d7eee8c6f6d3b6880c5456227d2"},
+    {file = "nodeenv-1.9.0-py2.py3-none-any.whl", hash = "sha256:508ecec98f9f3330b636d4448c0f1a56fc68017c68f1e7857ebc52acf0eb879a"},
+    {file = "nodeenv-1.9.0.tar.gz", hash = "sha256:07f144e90dae547bf0d4ee8da0ee42664a42a04e02ed68e06324348dafe4bdb1"},
 ]
 
 [[package]]
@@ -1462,7 +1459,7 @@ name = "packaging"
 version = "24.0"
 requires_python = ">=3.7"
 summary = "Core utilities for Python packages"
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "packaging-24.0-py3-none-any.whl", hash = "sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"},
     {file = "packaging-24.0.tar.gz", hash = "sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9"},
@@ -1582,7 +1579,7 @@ files = [
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.43"
+version = "3.0.45"
 requires_python = ">=3.7.0"
 summary = "Library for building powerful interactive command lines in Python"
 groups = ["default", "dev"]
@@ -1590,8 +1587,8 @@ dependencies = [
     "wcwidth",
 ]
 files = [
-    {file = "prompt_toolkit-3.0.43-py3-none-any.whl", hash = "sha256:a11a29cb3bf0a28a387fe5122cdb649816a957cd9261dcedf8c9f1fef33eacf6"},
-    {file = "prompt_toolkit-3.0.43.tar.gz", hash = "sha256:3527b7af26106cbc65a040bcc84839a3566ec1b051bb0bfe953631e704b0ff7d"},
+    {file = "prompt_toolkit-3.0.45-py3-none-any.whl", hash = "sha256:a29b89160e494e3ea8622b09fa5897610b437884dcdcd054fdc1308883326c2a"},
+    {file = "prompt_toolkit-3.0.45.tar.gz", hash = "sha256:07c60ee4ab7b7e90824b61afa840c8f5aad2d46b3e2e10acc33d8ecc94a49089"},
 ]
 
 [[package]]
@@ -1969,7 +1966,7 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.32.2"
+version = "2.32.3"
 requires_python = ">=3.8"
 summary = "Python HTTP for Humans."
 groups = ["default", "dev"]
@@ -1980,8 +1977,8 @@ dependencies = [
     "urllib3<3,>=1.21.1",
 ]
 files = [
-    {file = "requests-2.32.2-py3-none-any.whl", hash = "sha256:fc06670dd0ed212426dfeb94fc1b983d917c4f9847c863f313c9dfaaffb7c23c"},
-    {file = "requests-2.32.2.tar.gz", hash = "sha256:dd951ff5ecf3e3b3aa26b40703ba77495dab41da839ae72ef3c8e5d8e2433289"},
+    {file = "requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"},
+    {file = "requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760"},
 ]
 
 [[package]]
@@ -2108,6 +2105,23 @@ groups = ["default"]
 dependencies = [
     "certifi",
     "urllib3>=1.26.11",
+]
+files = [
+    {file = "sentry_sdk-2.3.1-py2.py3-none-any.whl", hash = "sha256:c5aeb095ba226391d337dd42a6f9470d86c9fc236ecc71cfc7cd1942b45010c6"},
+    {file = "sentry_sdk-2.3.1.tar.gz", hash = "sha256:139a71a19f5e9eb5d3623942491ce03cf8ebc14ea2e39ba3e6fe79560d8a5b1f"},
+]
+
+[[package]]
+name = "sentry-sdk"
+version = "2.3.1"
+extras = ["celery", "django"]
+requires_python = ">=3.6"
+summary = "Python client for Sentry (https://sentry.io)"
+groups = ["default"]
+dependencies = [
+    "celery>=3",
+    "django>=1.8",
+    "sentry-sdk==2.3.1",
 ]
 files = [
     {file = "sentry_sdk-2.3.1-py2.py3-none-any.whl", hash = "sha256:c5aeb095ba226391d337dd42a6f9470d86c9fc236ecc71cfc7cd1942b45010c6"},

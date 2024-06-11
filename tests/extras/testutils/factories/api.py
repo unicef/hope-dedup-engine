@@ -1,12 +1,14 @@
 from factory import SubFactory, fuzzy
 from factory.django import DjangoModelFactory
-from testutils.factories import ExternalSystemFactory
+from testutils.factories import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
 
 
 class TokenFactory(DjangoModelFactory):
+    user = SubFactory(UserFactory)
+
     class Meta:
         model = HDEToken
 
@@ -16,6 +18,7 @@ class DeduplicationSetFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
     external_system = SubFactory(ExternalSystemFactory)
     state = DeduplicationSet.State.CLEAN
+    notification_url = fuzzy.FuzzyText()
 
     class Meta:
         model = DeduplicationSet
