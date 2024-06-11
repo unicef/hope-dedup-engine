@@ -21,7 +21,9 @@ def task_lifecycle(name: str, ttl: int) -> callable:
             ignore_pairs = args[1] if args else kwargs.get("ignore_pairs")
             lock_name: str = f"{name}_{_get_hash(filenames, ignore_pairs)}"
             if not _acquire_lock(lock_name, ttl):
-                logger.info(f"Task {name} with brocker lock {lock_name} is already running.")
+                logger.info(
+                    f"Task {name} with brocker lock {lock_name} is already running."
+                )
                 return None
 
             try:
@@ -49,6 +51,8 @@ def _release_lock(lock_name: str) -> None:
 
 def _get_hash(filenames: tuple[str], ignore_pairs: tuple[tuple[str, str]]) -> str:
     fn_str: str = ",".join(sorted(filenames))
-    ip_sorted = sorted((min(item1, item2), max(item1, item2)) for item1, item2 in ignore_pairs)
+    ip_sorted = sorted(
+        (min(item1, item2), max(item1, item2)) for item1, item2 in ignore_pairs
+    )
     ip_str = ",".join(f"{item1},{item2}" for item1, item2 in ip_sorted)
     return hashlib.sha256(f"{fn_str}{ip_str}".encode()).hexdigest()

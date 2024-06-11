@@ -11,7 +11,11 @@ import face_recognition
 import numpy as np
 from constance import config
 
-from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
+from hope_dedup_engine.apps.core.storage import (
+    CV2DNNStorage,
+    HDEAzureStorage,
+    HOPEAzureStorage,
+)
 
 
 class DuplicationDetector:
@@ -32,7 +36,9 @@ class DuplicationDetector:
 
     logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(self, filenames: tuple[str], ignore_pairs: tuple[str, str] = tuple()) -> None:
+    def __init__(
+        self, filenames: tuple[str], ignore_pairs: tuple[str, str] = tuple()
+    ) -> None:
         """
         Initialize the DuplicationDetector with the given filenames.
 
@@ -83,7 +89,13 @@ class DuplicationDetector:
         return net
 
     def _get_shape(self) -> dict[str, int]:
-        pattern = r"input_shape\s*\{\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*" r"dim:\s*(\d+)\s*\}"
+        pattern = (
+            r"input_shape\s*\{\s*"
+            r"dim:\s*(\d+)\s*"
+            r"dim:\s*(\d+)\s*"
+            r"dim:\s*(\d+)\s*"
+            r"dim:\s*(\d+)\s*\}"
+        )
         with open(settings.PROTOTXT_FILE, "r") as file:
             if match := re.search(pattern, file.read()):
                 return {
@@ -95,15 +107,21 @@ class DuplicationDetector:
             else:
                 raise ValueError("Could not find input_shape in prototxt file.")
 
-    def _get_pairs_to_ignore(self, ignore: tuple[tuple[str, str]]) -> set[tuple[str, str]]:
+    def _get_pairs_to_ignore(
+        self, ignore: tuple[tuple[str, str]]
+    ) -> set[tuple[str, str]]:
         ignore = tuple(tuple(pair) for pair in ignore)
         if not ignore:
             return set()
         if all(
-            isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(item, str) and item for item in pair)
+            isinstance(pair, tuple)
+            and len(pair) == 2
+            and all(isinstance(item, str) and item for item in pair)
             for pair in ignore
         ):
-            return {(item1, item2) for item1, item2 in ignore} | {(item2, item1) for item1, item2 in ignore}
+            return {(item1, item2) for item1, item2 in ignore} | {
+                (item2, item1) for item1, item2 in ignore
+            }
         elif len(ignore) == 2 and all(isinstance(item, str) for item in ignore):
             return {(ignore[0], ignore[1]), (ignore[1], ignore[0])}
         else:
@@ -117,7 +135,9 @@ class DuplicationDetector:
     def _has_encodings(self, filename: str) -> bool:
         return self.storages["encoded"].exists(self._encodings_filename(filename))
 
-    def _get_face_detections_dnn(self, filename: str) -> list[tuple[int, int, int, int]]:
+    def _get_face_detections_dnn(
+        self, filename: str
+    ) -> list[tuple[int, int, int, int]]:
         face_regions: list[tuple[int, int, int, int]] = []
         try:
             with self.storages["images"].open(filename, "rb") as img_file:
@@ -128,9 +148,16 @@ class DuplicationDetector:
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
                 image=cv2.resize(
-                    image, dsize=(self.blob_from_image_cfg.shape["height"], self.blob_from_image_cfg.shape["width"])
+                    image,
+                    dsize=(
+                        self.blob_from_image_cfg.shape["height"],
+                        self.blob_from_image_cfg.shape["width"],
+                    ),
                 ),
-                size=(self.blob_from_image_cfg.shape["height"], self.blob_from_image_cfg.shape["width"]),
+                size=(
+                    self.blob_from_image_cfg.shape["height"],
+                    self.blob_from_image_cfg.shape["width"],
+                ),
                 scalefactor=self.blob_from_image_cfg.scale_factor,
                 mean=self.blob_from_image_cfg.mean_values,
             )
@@ -145,17 +172,26 @@ class DuplicationDetector:
                 confidence = detections[0, 0, i, 2]
                 # Filter out weak detections by ensuring the confidence is greater than the minimum confidence
                 if confidence > self.face_detection_confidence:
-                    box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype("int")
+                    box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype(
+                        "int"
+                    )
                     boxes.append(box)
                     confidences.append(confidence)
             if boxes:
                 # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-                indices = cv2.dnn.NMSBoxes(boxes, confidences, self.face_detection_confidence, self.nms_threshold)
+                indices = cv2.dnn.NMSBoxes(
+                    boxes,
+                    confidences,
+                    self.face_detection_confidence,
+                    self.nms_threshold,
+                )
                 if indices is not None:
                     for i in indices:
                         face_regions.append(tuple(boxes[i]))
         except Exception as e:
-            self.logger.exception("Error processing face detection for image %s", filename)
+            self.logger.exception(
+                "Error processing face detection for image %s", filename
+            )
             raise e
         return face_regions
 
@@ -193,13 +229,19 @@ class DuplicationDetector:
                         encodings.extend(face_encodings)
                     else:
                         self.logger.error("Invalid face region %s", region)
-                with self.storages["encoded"].open(self._encodings_filename(filename), "wb") as f:
+                with self.storages["encoded"].open(
+                    self._encodings_filename(filename), "wb"
+                ) as f:
                     np.save(f, encodings)
         except Exception as e:
-            self.logger.exception("Error processing face encodings for image %s", filename)
+            self.logger.exception(
+                "Error processing face encodings for image %s", filename
+            )
             raise e
 
-    def _get_duplicated_groups(self, checked: set[tuple[str, str, float]]) -> tuple[tuple[str]]:
+    def _get_duplicated_groups(
+        self, checked: set[tuple[str, str, float]]
+    ) -> tuple[tuple[str]]:
         # Dictionary to store connections between paths where distances are less than the threshold
         groups = []
         connections = defaultdict(set)
@@ -216,10 +258,14 @@ class DuplicationDetector:
                 # Try to expand the group ensuring each new path is duplicated to all in the group
                 while queue:
                     neighbor = queue.pop(0)
-                    if neighbor not in new_group and all(neighbor in connections[member] for member in new_group):
+                    if neighbor not in new_group and all(
+                        neighbor in connections[member] for member in new_group
+                    ):
                         new_group.add(neighbor)
                         # Add neighbors of the current neighbor, excluding those already in the group
-                        queue.extend([n for n in connections[neighbor] if n not in new_group])
+                        queue.extend(
+                            [n for n in connections[neighbor] if n not in new_group]
+                        )
                 # Add the newly formed group to the list of groups
                 groups.append(new_group)
         return tuple(map(tuple, groups))
@@ -244,12 +290,18 @@ class DuplicationDetector:
                         min_distance = float("inf")
                         for encoding1 in encodings1:
                             if (
-                                current_min := min(face_recognition.face_distance(encodings2, encoding1))
+                                current_min := min(
+                                    face_recognition.face_distance(
+                                        encodings2, encoding1
+                                    )
+                                )
                             ) < min_distance:
                                 min_distance = current_min
                         checked.add((path1, path2, min_distance))
 
             return self._get_duplicated_groups(checked)
         except Exception as e:
-            self.logger.exception("Error finding duplicates for images %s", self.filenames)
+            self.logger.exception(
+                "Error finding duplicates for images %s", self.filenames
+            )
             raise e

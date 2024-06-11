@@ -10,14 +10,30 @@ from hope_dedup_engine.apps.api.const import (
     DUPLICATE_LIST,
     IMAGE_LIST,
 )
-from hope_dedup_engine.apps.api.views import BulkImageViewSet, DeduplicationSetViewSet, DuplicateViewSet, ImageViewSet
+from hope_dedup_engine.apps.api.views import (
+    BulkImageViewSet,
+    DeduplicationSetViewSet,
+    DuplicateViewSet,
+    ImageViewSet,
+)
 
 router = routers.SimpleRouter()
-router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST)
+router.register(
+    DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST
+)
 
-deduplication_sets_router = nested_routers.NestedSimpleRouter(router, DEDUPLICATION_SET_LIST, lookup=DEDUPLICATION_SET)
+deduplication_sets_router = nested_routers.NestedSimpleRouter(
+    router, DEDUPLICATION_SET_LIST, lookup=DEDUPLICATION_SET
+)
 deduplication_sets_router.register(IMAGE_LIST, ImageViewSet, basename=IMAGE_LIST)
-deduplication_sets_router.register(BULK_IMAGE_LIST, BulkImageViewSet, basename=BULK_IMAGE_LIST)
-deduplication_sets_router.register(DUPLICATE_LIST, DuplicateViewSet, basename=DUPLICATE_LIST)
+deduplication_sets_router.register(
+    BULK_IMAGE_LIST, BulkImageViewSet, basename=BULK_IMAGE_LIST
+)
+deduplication_sets_router.register(
+    DUPLICATE_LIST, DuplicateViewSet, basename=DUPLICATE_LIST
+)
 
-urlpatterns = [path("", include(router.urls)), path("", include(deduplication_sets_router.urls))]
+urlpatterns = [
+    path("", include(router.urls)),
+    path("", include(deduplication_sets_router.urls)),
+]

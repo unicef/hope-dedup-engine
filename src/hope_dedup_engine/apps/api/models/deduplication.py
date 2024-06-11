@@ -11,7 +11,10 @@ REFERENCE_PK_LENGTH = 100
 class DeduplicationSet(models.Model):
     class State(models.IntegerChoices):
         CLEAN = 0, "Clean"  # Deduplication set is created or already processed
-        DIRTY = 1, "Dirty"  # Images are added to deduplication set, but not yet processed
+        DIRTY = (
+            1,
+            "Dirty",
+        )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # Images are being processed
         ERROR = 3, "Error"  # Error occurred
 
@@ -26,11 +29,19 @@ class DeduplicationSet(models.Model):
     external_system = models.ForeignKey(ExternalSystem, on_delete=models.CASCADE)
     error = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
@@ -42,7 +53,11 @@ class Image(models.Model):
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
     filename = models.CharField(max_length=255)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

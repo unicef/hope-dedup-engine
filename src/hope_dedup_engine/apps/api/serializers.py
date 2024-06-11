@@ -10,7 +10,14 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeduplicationSet
         exclude = ("deleted",)
-        read_only_fields = "external_system", "created_at", "created_by", "deleted", "updated_at", "updated_by"
+        read_only_fields = (
+            "external_system",
+            "created_at",
+            "created_by",
+            "deleted",
+            "updated_at",
+            "updated_by",
+        )
 
 
 class ImageSerializer(serializers.ModelSerializer):
