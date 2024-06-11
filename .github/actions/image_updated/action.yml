@@ -64,6 +64,7 @@ runs:
       id: check
       shell: bash
       run: |
+        echo "Repo: ${{steps.setup.outputs.repo}}"
         url="https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/manifests/${{steps.setup.outputs.tag}}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
