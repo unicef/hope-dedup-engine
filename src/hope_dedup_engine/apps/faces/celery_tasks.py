@@ -2,8 +2,8 @@ import traceback
 
 from celery import shared_task, states
 
+from hope_dedup_engine.apps.faces.services.duplication_detector import DuplicationDetector
 from hope_dedup_engine.apps.faces.utils.celery_utils import task_lifecycle
-from hope_dedup_engine.apps.faces.utils.duplication_detector import DuplicationDetector
 
 
 @shared_task(bind=True, soft_time_limit=0.5 * 60 * 60, time_limit=1 * 60 * 60)
