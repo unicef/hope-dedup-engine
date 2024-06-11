@@ -82,7 +82,7 @@ dev = [
     "watchdog",
 ]
 [tool.black]
-line-length = 120
+line-length = 88
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -99,7 +99,7 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-line_length = 120
+line_length = 88
 default_section = "THIRDPARTY"
 known_first_party = []
 known_django = "django"
