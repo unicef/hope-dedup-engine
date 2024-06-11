@@ -1,5 +1,5 @@
-ABOUT HOPE Payment Gateway
-==========================
+ABOUT HOPE Deduplication Engine
+===============================
 
 
 ## Contributing
@@ -14,7 +14,7 @@ ABOUT HOPE Payment Gateway
 
 
 **WARNING**  
-> Hope Payment Gateway implements **security first** policy. It means that configuration default values are "almost" production compliant.
+> Hope Deduplication Engine implements **security first** policy. It means that configuration default values are "almost" production compliant.
 > 
 > Es. `DEBUG=False` or `SECURE_SSL_REDIRECT=True`. 
 > 
@@ -39,6 +39,3 @@ Uses `./manage.py env` to check required (and optional) variables to put
 ### 3. Run upgrade to run migrations and initial setup
 
     ./manage.py upgrade
-
-# Troubleshoot
-> Exception are logged in Sentry: https://sentry.io/unicef-jk/
