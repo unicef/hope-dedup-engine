@@ -1,0 +1,28 @@
+# This is used by the action https://github.com/dorny/paths-filter
+docker: &docker
+  - added|modified: './docker/**'
+
+dependencies: &dependencies
+  - 'pdm.lock'
+  - 'pyproject.toml'
+
+python: &python
+  - added|modified: 'src/**'
+  - added|modified: 'tests/**'
+  - 'manage.py'
+
+docker_base:
+  - *docker
+  - *dependencies
+
+run_tests:
+  -  *python
+  - 'pytest.ini'
+
+migrations:
+  - added|modified: 'src/**/migrations/*'
+
+lint:
+  -  *python
+  - '.flake8'
+  - 'pyproject.toml'

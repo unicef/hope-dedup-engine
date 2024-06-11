@@ -35,7 +35,7 @@ sha:
 	@echo ${LOCK_SHA}
 
 .build:
-	docker login -u saxix -p ${DOCKERHUB_TOKEN}
+	@echo  ${DOCKERHUB_TOKEN} | docker login -u saxix --password-stdin
 	cd .. && docker buildx build \
 			--progress=plain \
 			--build-arg BUILDKIT_INLINE_CACHE=1 \
@@ -43,7 +43,6 @@ sha:
 			--build-arg BUILD_DATE="${BUILD_DATE}" \
 			--build-arg CHECKSUM="${LOCK_SHA}" \
 			--build-arg COMMIT="${COMMIT_SHA}" \
-		    --cache-from ${DOCKER_CACHE_IMAGE}:hde-${STAGE}-latest \
 			${EXTRA} \
 			-t "${DOCKER_IMAGE}:${TAG}" \
 			--push \
@@ -67,9 +66,9 @@ buildDeps:  ## build 'builder' image
 
 pythonDevDeps:  ## build 'builder' image
 	STAGE="python_dev_deps" \
-	EXTRA='--cache-from "${CI_REGISTRY_IMAGE}:deps-${LOCK_SHA}" --target python_dev_deps' \
+	EXTRA='--cache-from "${CI_REGISTRY_IMAGE}:dev-${LOCK_SHA}" --target python_dev_deps' \
 	DOCKER_IMAGE="${CI_REGISTRY_IMAGE}" \
-	TAG="python_dev_deps-${LOCK_SHA}" \
+	TAG="dev-${LOCK_SHA}" \
 	$(MAKE) .build
 
 pythonProdDeps:  ## build 'builder' image
@@ -79,12 +78,12 @@ pythonProdDeps:  ## build 'builder' image
 	TAG="python_prod_deps-${LOCK_SHA}" \
 	$(MAKE) .build
 
-dev:  ## build dev image
-	STAGE='dev' \
-	EXTRA='--cache-from "${CI_REGISTRY_IMAGE}:python_dev_deps-${LOCK_SHA}" --target dev' \
-	DOCKER_IMAGE="${CI_REGISTRY_IMAGE}" \
-	TAG="dev" \
-	$(MAKE) .build
+#dev:  ## build dev image
+#	STAGE='dev' \
+#	EXTRA='--cache-from "${CI_REGISTRY_IMAGE}:python_dev_deps-${LOCK_SHA}" --target dev' \
+#	DOCKER_IMAGE="${CI_REGISTRY_IMAGE}" \
+#	TAG="dev" \
+#	$(MAKE) .build
 
 
 #test:  ## build test image

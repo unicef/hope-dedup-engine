@@ -1,0 +1,6 @@
+name: Tag
+
+on:
+  push:
+    tags:
+      - '*'           # Push events to every tag not containing /    - develop

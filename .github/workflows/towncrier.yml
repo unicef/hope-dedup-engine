@@ -1,0 +1,21 @@
+name: Changelog entries
+on: [pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  towncrier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install python deps
+        run: pip install towncrier
+
+      - name: Check that changelog is updated
+        run: towncrier check >> $GITHUB_STEP_SUMMARY

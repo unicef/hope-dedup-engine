@@ -3,60 +3,118 @@ name: Test
 on:
   push:
     branches:
-    - develop
+      - develop
+      - master
+      - staging
+      - release/*
+      - feature/*
+      - bugfix/*
+      - hotfix/*
   pull_request:
-    branches:
-    - develop
-  workflow_run:
-    workflows: [ci]
-    types:
-      - completed
+    branches: [develop, master]
+    types: [synchronize, opened, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
 
 jobs:
+  setup:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    name: check files
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      test_files: ${{ steps.changes.outputs.run_tests }}
+      docker: ${{ steps.changes.outputs.docker_base }}
+      python_files: ${{ steps.changes.outputs.python }}
+      branch: ${{ steps.extract_branch.outputs.branch }}
+      hash: ${{ steps.release_hash.outputs.hash }}
+      tags: ${{ steps.meta.outputs.tags }}
+      version: ${{ steps.meta.outputs.version }}
+      image_name: ${{ steps.image_name.outputs.name }}
+    steps:
+      - run: git config --global --add safe.directory $(realpath .)
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - id: changes
+        name: Check for file changes
+        uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        with:
+          base: ${{ github.ref }}
+          token: ${{ github.token }}
+          filters: .github/file-filters.yml
+      - id: extract_branch
+        name: Extract branch name
+#        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      - id: release_hash
+        uses: ./.github/actions/distro_hash
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+      - name: Define target image name
+        id: image_name
+        run: |
+          echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    uses: ./.github/workflows/_build.yml
+    needs: [setup]
+    secrets: inherit
+    with:
+      image: ${{needs.setup.outputs.image_name}}
+      cache-from: ${{needs.setup.outputs.image_name}}
+      checksum: ${{needs.setup.outputs.hash}}
+      target: "python_dev_deps"
 
-    test:
-      runs-on: ubuntu-20.04
-      container:
-        image: unicef/hope-support-images:hde-dev-latest
-        credentials:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-        ports:
-          - 8000:8000
-      services:
-        redis:
-          image: redis
-        db:
-          image: postgres:14
-          env:
-            POSTGRES_DATABASE: dedupe
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_USERNAME: postgres
-          options: >-
-            --health-cmd pg_isready
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
-      env:
-        DATABASE_URL: postgres://postgres:postgres@db:5432/dedupe
-        SECRET_KEY: secret_key
-        CACHE_URL: redis://redis:6379/0
-        CELERY_BROKER_URL: redis://redis:6379/0
-        PYTHONPATH: "/hde/code/src:/hde/__pypackages__/3.12/lib"
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v2
-        - name: Run tests
-          run: |
-            pytest tests --create-db -v --cov --cov-report xml:coverage.xml
-#        - name: Upload coverage to Codecov
-#          uses: codecov/codecov-action@v4
-#          with:
-#            directory: ./coverage/reports/
-#            env_vars: OS,PYTHON
-#            fail_ci_if_error: true
-#            files: /hde/code/coverage1.xml
-#            flags: unittests
-#            name: codecov-umbrella
-#            token: ${{ secrets.CODECOV_TOKEN }}
-#            verbose: true
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    needs: [build, setup]
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+      db:
+        image: postgres:14
+        env:
+          POSTGRES_DATABASE: dedupe
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USERNAME: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: |
+          ls -al $PWD
+          touch __PIPPO__
+          docker run --rm \
+            -e DATABASE_URL=postgres://postgres:postgres@db:5432/dedupe \
+            -e SECRET_KEY=secret_key \
+            -e CACHE_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=redis://redis:6379/0 \
+            -v $PWD:/code/app \
+            -w /code/app \
+            -t ${{needs.setup.outputs.image_name}} \
+            pytest tests -v 
+          ls -al $PWD
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          env_vars: OS,PYTHON
+          fail_ci_if_error: true
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+          name: codecov-${{env.GITHUB_REF_NAME}}
