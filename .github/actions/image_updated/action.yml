@@ -48,17 +48,20 @@ runs:
         architecture=${{ inputs.architecture }}
         repo="${ref%:*}"
         tag="${ref##*:}"
+        echo "repo=$repo" >> $GITHUB_OUTPUT
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+        echo "architecture=$architecture" >> $GITHUB_OUTPUT
 
-        res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+        res=$(curl \
+                -H 'Authorization: Bearer ${{steps.setup.outputs.token}}'
+                -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+        
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
           echo "::error title=⛔ error hint::Unable to get valid token"
           exit 1
         fi
         echo "token=$token" >> $GITHUB_OUTPUT
-        echo "repo=$repo" >> $GITHUB_OUTPUT
-        echo "tag=$tag" >> $GITHUB_OUTPUT
-        echo "architecture=$architecture" >> $GITHUB_OUTPUT
     - name: Check Checksum
       id: check
       shell: bash
