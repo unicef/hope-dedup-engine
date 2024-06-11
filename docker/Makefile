@@ -33,6 +33,9 @@ help:
 sha:
 #	@cd .. && sha1sum ${HASH_SEEDS} | sha1sum | awk '{print $1}' | cut -c 1-8
 	@echo ${LOCK_SHA}
+xxx:
+	docker run -it --rm -t python:3.12-slim-bookworm /bin/bash
+
 
 .build:
 	@echo  ${DOCKERHUB_TOKEN} | docker login -u saxix --password-stdin

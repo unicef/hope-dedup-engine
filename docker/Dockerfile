@@ -64,7 +64,7 @@ RUN \
       postgresql-client \
       libgl1  \
       libglib2.0-0 \
-      libffi7 \
+      libffi8 \
       libgif-dev \
       libjpeg-dev \
       libmagic1 \
