@@ -9,5 +9,5 @@ AZURE_CONTAINER_HDE = "hde"
 AZURE_CONTAINER_HOPE = "hope"
 
 CV2DNN_PATH = env("CV2DNN_PATH")
-PROTOTXT_FILE = f"{CV2DNN_PATH}/deploy.prototxt"
-CAFFEMODEL_FILE = f"{CV2DNN_PATH}/res10_300x300_ssd_iter_140000.caffemodel"
+PROTOTXT_FILE = f"{CV2DNN_PATH}deploy.prototxt"
+CAFFEMODEL_FILE = f"{CV2DNN_PATH}res10_300x300_ssd_iter_140000.caffemodel"

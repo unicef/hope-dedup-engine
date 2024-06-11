@@ -11,12 +11,12 @@ from hope_dedup_engine.apps.faces.utils.celery_utils import _get_hash
 
 
 @pytest.mark.parametrize("lock_is_acquired", [True, False])
-def test_deduplicate_task_locking(mock_redis_client, mock_dd_find, dd, lock_is_acquired):
+def test_deduplicate_task_locking(mock_redis_client, mock_dd_find, mock_dd, lock_is_acquired):
     mock_set, mock_delete = mock_redis_client
     mock_set.return_value = lock_is_acquired
     mock_find = mock_dd_find
 
-    with patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=dd):
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=mock_dd):
         task_result = deduplicate.apply(args=(FILENAMES, IGNORE_PAIRS)).get()
     hash_value = _get_hash(FILENAMES, IGNORE_PAIRS)
 
@@ -39,7 +39,7 @@ def test_deduplicate_task_locking(mock_redis_client, mock_dd_find, dd, lock_is_a
         (CELERY_TASK_DELAYS["CustomException"], Exception("Simulated custom task failure")),
     ],
 )
-def test_deduplicate_task_exception_handling(mock_redis_client, mock_dd_find, time_control, dd, delay, exception):
+def test_deduplicate_task_exception_handling(mock_redis_client, mock_dd_find, time_control, mock_dd, delay, exception):
     mock_set, mock_delete = mock_redis_client
     mock_find = mock_dd_find
     mock_find.side_effect = exception
@@ -48,7 +48,7 @@ def test_deduplicate_task_exception_handling(mock_redis_client, mock_dd_find, ti
 
     with (
         pytest.raises(type(exception)) as exc_info,
-        patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=dd),
+        patch("hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector", return_value=mock_dd),
     ):
         task = deduplicate.apply(args=(FILENAMES, IGNORE_PAIRS))
         assert exc_info.value == exception

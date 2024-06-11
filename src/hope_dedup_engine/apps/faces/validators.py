@@ -1,24 +1,20 @@
-from django.forms import CharField, ValidationError
+from django.core.exceptions import ValidationError
 
 
-class MeanValuesTupleField(CharField):
-    def to_python(self, value):
-        try:
-            values = tuple(map(float, value.split(", ")))
-            if len(values) != 3:
-                raise ValueError("The tuple must have exactly three elements.")
-            if not all(-255 <= v <= 255 for v in values):
-                raise ValueError("Each value in the tuple must be between -255 and 255.")
-            return values
-        except Exception as e:
+class IgnorePairsValidator:
+    @staticmethod
+    def validate(ignore: tuple[tuple[str, str]]) -> set[tuple[str, str]]:
+        ignore = tuple(tuple(pair) for pair in ignore)
+        if not ignore:
+            return set()
+        if all(
+            isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(item, str) and item for item in pair)
+            for pair in ignore
+        ):
+            return {(item1, item2) for item1, item2 in ignore} | {(item2, item1) for item1, item2 in ignore}
+        elif len(ignore) == 2 and all(isinstance(item, str) for item in ignore):
+            return {(ignore[0], ignore[1]), (ignore[1], ignore[0])}
+        else:
             raise ValidationError(
-                """
-                Enter a valid tuple of three float values separated by commas and spaces, e.g. '0.0, 0.0, 0.0'.
-                Each value must be between -255 and 255.
-                """
-            ) from e
-
-    def prepare_value(self, value):
-        if isinstance(value, tuple):
-            return ", ".join(map(str, value))
-        return super().prepare_value(value)
+                "Invalid format for 'ignore'. Expected tuple of tuples each containing exactly two strings."
+            )
