@@ -12,13 +12,12 @@ env:
 
 jobs:
   assign_one_project:
-    if: vars.DEFAULT_PROJECT
+    if: ${{ vars.DEFAULT_PROJECT != '' }}
     runs-on: ubuntu-latest
     name: Assign to Project
     steps:
-    - name: Assign NEW issues and NEW pull requests to '${{ vars.DEFAULT_PROJECT }}'
-      uses: srggrs/assign-one-project-github-action@1.2.1
-      if: ${{ vars.DEFAULT_PROJECT }}
-      with:
-        project: ${{ vars.DEFAULT_PROJECT }}
-        column_name: 'New'
+      - name: Assign NEW issues and NEW pull requests to ${{ vars.DEFAULT_PROJECT }}
+        uses: srggrs/assign-one-project-github-action@1.2.1
+        with:
+          project: ${{ vars.DEFAULT_PROJECT }}
+          column_name: 'New'
