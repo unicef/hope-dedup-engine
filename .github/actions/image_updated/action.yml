@@ -128,8 +128,8 @@ runs:
               $url )        
         
         if [[ $blob == *BLOB_UNKNOWN* ]];then
-#          code=$(echo $blob | jq .errors[0].code)
-#          message=$(echo $blob | jq .errors[0].message)
+          code=$(echo $blob | jq .errors[0].code)
+          message=$(echo $blob | jq .errors[0].message)
 #          echo "::debug::$blob"
           echo "::warning title=$code::$message $url"
           echo "updated=false" >> "$GITHUB_OUTPUT"
