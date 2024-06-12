@@ -106,10 +106,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Checkout code
-        run:
-          docker run --rm \
-            waitforit -host=127.0.0.1 -port=5432 -timeout=20 -debug -proto tcp
       - name: Run tests
         run: |
           docker run --rm \
