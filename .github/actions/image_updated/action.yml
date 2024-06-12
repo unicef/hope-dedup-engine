@@ -51,13 +51,6 @@ runs:
         architecture=${{ inputs.architecture }}
         repo="${ref%:*}"
         tag="${ref##*:}"
-#
-#        echo "::notice::REF:${ref}"
-#        echo "::notice::REPO:${repo}"
-#        echo "::notice::TAG:${tag}"
-#        echo "::notice::ARCH:${architecture}"
-#        echo "::notice::VER:${version}"
-        
         echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
         echo "tag=$tag" >> $GITHUB_OUTPUT

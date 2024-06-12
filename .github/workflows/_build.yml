@@ -114,29 +114,31 @@ jobs:
         run: |
           echo "::warning:: Build docker ${{ inputs.image }} - Checksum: ${{ steps.release_hash.outputs.hash }}"
       - name: Build and push
-        if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          tags: ${{ inputs.image }}
-          target: ${{ inputs.target }}
-          file: ./docker/Dockerfile
-          platforms: linux/amd64
-          outputs: type=registry
-          cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-          cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-          labels: BuildNumber=${{ steps.setup.outputs.build_number }},
-          build-args: |
-            BUILD_DATE=${{ steps.setup.outputs.date }}
-            CHECKSUM=${{ steps.release_hash.outputs.hash }}
-            VERSION=${{ inputs.version }}
-            SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
-            GITHUB_SERVER_URL=${{ github.server_url }}
-            GITHUB_REPOSITORY=${{ github.repository }}
-      - name: Dump Image Info
+        if: steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
         run: |
-          echo "Pulling... ${{ inputs.image }}"
-          docker pull --platform linux/amd64 ${{ inputs.image }}
-          docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }}
-          docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh
-          echo "----------"
+          echo "==========="
+#        uses: docker/build-push-action@v5
+#        with:
+#          context: .
+#          tags: ${{ inputs.image }}
+#          target: ${{ inputs.target }}
+#          file: ./docker/Dockerfile
+#          platforms: linux/amd64
+#          outputs: type=registry
+#          cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+#          cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+#          labels: BuildNumber=${{ steps.setup.outputs.build_number }},
+#          build-args: |
+#            BUILD_DATE=${{ steps.setup.outputs.date }}
+#            CHECKSUM=${{ steps.release_hash.outputs.hash }}
+#            VERSION=${{ inputs.version }}
+#            SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
+#            GITHUB_SERVER_URL=${{ github.server_url }}
+#            GITHUB_REPOSITORY=${{ github.repository }}
+#      - name: Dump Image Info
+#        run: |
+#          echo "Pulling... ${{ inputs.image }}"
+#          docker pull --platform linux/amd64 ${{ inputs.image }}
+#          docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }}
+#          docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh
+#          echo "----------"
