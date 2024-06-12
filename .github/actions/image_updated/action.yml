@@ -49,10 +49,10 @@ runs:
         repo="${ref%:*}"
         tag="${ref##*:}"
         
-        echo "::debug:: $ref"
-        echo "::debug:: $repo"
-        echo "::debug:: $tag"
-        echo "::debug:: $architecture"
+        echo "::debug::REF:${ref}"
+        echo "::debug::REPO:${repo}"
+        echo "::debug::TAG:${tag}"
+        echo "::debug::ARCH:${architecture}"
         
         echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
@@ -130,6 +130,7 @@ runs:
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           code=$(echo $blob | jq .errors[0].code)
           message=$(echo $blob | jq .errors[0].message)          
+          echo "::debug::$blob"
           echo "::error title=$code::$message $url"
           exit 1        
         fi

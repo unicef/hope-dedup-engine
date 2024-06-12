@@ -15,7 +15,7 @@ runs:
   using: 'composite'
   steps:
     - id: calc
-      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      shell: bash
       run: |
         LOCK_SHA=$(sha1sum ${{ inputs.files }} | sha1sum | awk '{print $1}' | cut -c 1-8)
         echo "hash=$LOCK_SHA" >> "$GITHUB_OUTPUT"

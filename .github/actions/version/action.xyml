@@ -20,13 +20,13 @@ runs:
   using: 'composite'
   steps:
     - name: Configure Git
-      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      shell: bash
       run: |
         git config --global --add safe.directory $(realpath .)
     - name: ch
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - name: Parse branch
-      shell: bash --noprofile --norc -eo pipefail -ux {0}
+      shell: bash
       id: parser
       run: |
         #        BASE=$(git describe --all --exact-match 2>/dev/null | sed 's=.*/==')

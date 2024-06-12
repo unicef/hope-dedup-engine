@@ -45,7 +45,7 @@ runs:
 
     - name: Calculate Release Hash
       id: calc
-      shell: bash --noprofile --norc -eo pipefail {0}
+      shell: bash
       run: |
           docker pull ${{inputs.image}}
           echo "----------"
