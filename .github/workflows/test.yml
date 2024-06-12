@@ -106,17 +106,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Checkout code
+        run:
+          docker run --rm \
+            waitforit -host=127.0.0.1 -port=5432 -timeout=20 -debug -proto tcp
       - name: Run tests
         run: |
           docker run --rm \
-            -e DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/dedupe \
+            -e DATABASE_URL=postgres://postgres:postgres@db:5432/dedupe \
             -e SECRET_KEY=secret_key \
             -e CACHE_URL=redis://redis:6379/0 \
             -e CELERY_BROKER_URL=redis://redis:6379/0 \
             -v $PWD:/code/app \
             -w /code/app \
             -t ${{needs.setup.outputs.image_name}} \
-            pytest tests -v --maxfail=10
+            pytest tests --create-db -v --maxfail=10
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
