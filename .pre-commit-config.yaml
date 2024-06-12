@@ -24,6 +24,6 @@ repos:
       - id: bandit
         args: ["-c", "bandit.yaml"]
   - repo: https://github.com/twisted/towncrier
-    rev: 22.13.0 
+    rev: 22.13.0
     hooks:
       - id: towncrier-check
