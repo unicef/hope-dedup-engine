@@ -49,10 +49,10 @@ runs:
         repo="${ref%:*}"
         tag="${ref##*:}"
         
-        echo "DOCKER_IMAGE=$ref" >> $GITHUB_ENV
-        echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
-        echo "DOCKER_REPO=$repo" >> $GITHUB_ENV
-        echo "DOCKER_ARCH=$architecture" >> $GITHUB_ENV
+        echo "::debug:: $ref"
+        echo "::debug:: $repo"
+        echo "::debug:: $tag"
+        echo "::debug:: $architecture"
         
         echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
@@ -61,12 +61,11 @@ runs:
         
         url="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull"
         
-        res=$(curl -u "${{ inputs.username }}:${{ inputs.password }}" \
-                   -s $url)
+        res=$(curl -s $url)
         
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
-          echo "::error title=⛔ error hint::Unable to get valid token from $url"
+          echo "::error:: title=⛔::Unable to get valid token from $url"
           exit 1
         fi
         echo "token=$token" >> $GITHUB_OUTPUT
@@ -80,6 +79,7 @@ runs:
                         -s $url)
                 
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
+          echo "::warning:: MANIFEST_UNKNOWN"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           echo "updated=false" >> "$GITHUB_OUTPUT"
           echo "build_number=1" >> "$GITHUB_OUTPUT"
@@ -88,8 +88,9 @@ runs:
         fi
         if [[ $manifest == *errors\":* ]];then
           code=$(echo $manifest | jq .errors[0].code)
-          message=$(echo $manifest | jq .errors[0].message)          
-          echo "::error title=$code error hint::$message $url"
+          message=$(echo $manifest | jq .errors[0].message)                    
+          echo "::error title=$code::Error fetching manifest"
+          echo "::error title=$code::$message $url"
           exit 1
         fi
         echo "exists=true" >> $GITHUB_OUTPUT
@@ -106,15 +107,15 @@ runs:
         elif [[ -n "$check2" ]]; then
           digest=$(echo $manifest | jq -r '.config.digest')
         else
-          echo "::error title=⛔ error hint::Unable to detect digest"
+          echo "::error title=⛔::Unable to detect digest"
           exit 1        
         fi
         if [[ $digest == null ]]; then
-          echo "::error title=⛔ error hint::Digest is null"
+          echo "::error title=⛔::Digest is null"
           exit 1
         fi
         if [[ -z "$digest" ]];then
-          echo "::error title=⛔ error hint::Digest is empty"
+          echo "::error title=⛔::Digest is empty"
           exit 1
         fi        
         url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest
@@ -129,7 +130,7 @@ runs:
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           code=$(echo $blob | jq .errors[0].code)
           message=$(echo $blob | jq .errors[0].message)          
-          echo "::error title=$code error hint::$message $url"
+          echo "::error title=$code::$message $url"
           exit 1        
         fi
         

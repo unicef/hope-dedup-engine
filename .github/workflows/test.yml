@@ -65,8 +65,8 @@ jobs:
         name: Check if image exists and updated
         uses: ./.github/actions/image_updated
         with:
-          image: unicef/hope-dedupe-engine:test-feature-ci_rc
-          checksum: 00f2f954
+          image: ${{steps.image_name.outputs.name}}
+          checksum: ${{needs.setup.outputs.hash}}
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
 
