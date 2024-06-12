@@ -30,14 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      test_files: ${{ steps.changes.outputs.run_tests }}
-      docker: ${{ steps.changes.outputs.docker_base }}
-      python_files: ${{ steps.changes.outputs.python }}
-      branch: ${{ steps.extract_branch.outputs.branch }}
-      hash: ${{ steps.release_hash.outputs.hash }}
-      tags: ${{ steps.meta.outputs.tags }}
-      version: ${{ steps.meta.outputs.version }}
-      image_name: ${{ steps.image_name.outputs.name }}
+#      test_files: ${{ steps.changes.outputs.run_tests }}
+#      docker: ${{ steps.changes.outputs.docker_base }}
+#      python_files: ${{ steps.changes.outputs.python }}
+#      branch: ${{ steps.extract_branch.outputs.branch }}
+      hash: ${{ steps.docker_image.outputs.checksum }}
+#      tags: ${{ steps.meta.outputs.tags }}
+      version: ${{ steps.docker_image.outputs.version }}
+      image_name: ${{ steps.docker_image.outputs.name }}
     steps:
       - run: git config --global --add safe.directory $(realpath .)
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -48,25 +48,28 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
-      - id: extract_branch
-        name: Extract branch name
-#        shell: bash
-        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       - id: release_hash
         uses: ./.github/actions/distro_hash
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
       - name: Define target image name
-        id: image_name
+        id: docker_image
         run: |
+          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          version="${branch##*/}"
           echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+          echo "tag=test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+          echo "checksum=${{ steps.release_hash.outputs.hash }}" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "branch=$branch" >> $GITHUB_OUTPUT
+
       - id: image_updated
         name: Check if image exists and updated
         uses: ./.github/actions/image_updated
         with:
-          image: ${{steps.image_name.outputs.name}}
-          checksum: ${{needs.setup.outputs.hash}}
+          image: ${{steps.docker_image.outputs.name}}
+          checksum: ${{steps.docker_image.outputs.checksum}}
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
 
@@ -77,8 +80,8 @@ jobs:
     secrets: inherit
     with:
       image: ${{needs.setup.outputs.image_name}}
-      cache-from: ${{needs.setup.outputs.image_name}}
       checksum: ${{needs.setup.outputs.hash}}
+      version: ${{needs.setup.outputs.version}}
       target: "python_dev_deps"
 
   test:

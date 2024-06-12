@@ -202,7 +202,7 @@ RUN <<EOF cat> /RELEASE
  "commit": "$SOURCE_COMMIT",
  "date": "$BUILD_DATE",
  "checksum": "$CHECKSUM",
- "source": "${GITHUB_SERVER_URL}/$${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
+ "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
 EOF
 

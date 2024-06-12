@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: false
+      version:
+        description: "Docker version"
+        required: true
+        type: string
       target:
         description: "Dockerfile stage to stop to"
         required: true
@@ -85,6 +89,7 @@ jobs:
           echo image           : ${{steps.setup.outputs.image}}
           echo tag             : ${{inputs.image}}
           echo target          : ${{inputs.target}}
+          echo version         : ${{steps.image_updated.outputs.version}}
           echo target-checksum : ${{inputs.checksum}}
           echo docker-checksum : ${{steps.image_updated.outputs.checksum }}
           echo image_exists    : ${{steps.image_updated.outputs.exists}}
@@ -118,13 +123,13 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/amd64
           outputs: type=registry
-          cache-from: "type=registry,ref=${{inputs.image}}-buildcache,ref=${{steps.setup.outputs.image}}:test-develop,mode=max"
+          cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
           cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
           labels: BuildNumber=${{ steps.setup.outputs.build_number }},
           build-args: |
             BUILD_DATE=${{ steps.setup.outputs.date }}
             CHECKSUM=${{ steps.release_hash.outputs.hash }}
-            VERSION=${{ steps.version.outputs.version }}
+            VERSION=${{ inputs.version }}
             SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
             GITHUB_SERVER_URL=${{ github.server_url }}
             GITHUB_REPOSITORY=${{ github.repository }}

@@ -36,6 +36,9 @@ outputs:
   build_date:
       description: 'Returns tha image build date'
       value: ${{ steps.check.outputs.build_date }}
+  version:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.version }}
 
 runs:
   using: 'composite'
@@ -48,11 +51,13 @@ runs:
         architecture=${{ inputs.architecture }}
         repo="${ref%:*}"
         tag="${ref##*:}"
+        version
         
-        echo "::debug::REF:${ref}"
-        echo "::debug::REPO:${repo}"
-        echo "::debug::TAG:${tag}"
-        echo "::debug::ARCH:${architecture}"
+        echo "::notice::REF:${ref}"
+        echo "::notice::REPO:${repo}"
+        echo "::notice::TAG:${tag}"
+        echo "::notice::ARCH:${architecture}"
+        echo "::notice::VER:${version}"
         
         echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
