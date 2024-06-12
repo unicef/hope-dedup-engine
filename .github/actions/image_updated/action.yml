@@ -49,6 +49,11 @@ runs:
         repo="${ref%:*}"
         tag="${ref##*:}"
         
+        echo "DOCKER_IMAGE=$ref" >> $GITHUB_ENV
+        echo "DOCKER_TAG=$tag" >> $GITHUB_ENV
+        echo "DOCKER_REPO=$repo" >> $GITHUB_ENV
+        echo "DOCKER_ARCH=$architecture" >> $GITHUB_ENV
+        
         echo "image=$ref" >> $GITHUB_OUTPUT
         echo "repo=$repo" >> $GITHUB_OUTPUT
         echo "tag=$tag" >> $GITHUB_OUTPUT

@@ -22,7 +22,7 @@ jobs:
   dump:
     name: "[DEBUG] Echo Full Context"
     if: ${{ contains(github.event.head_commit.message, 'ci:debug') }}
-    runs-on: [ubuntu-latest, self-hosted]
+    runs-on: ubuntu-latest
     steps:
       - name: Dump Env vars
         run: |
