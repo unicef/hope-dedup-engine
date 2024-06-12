@@ -128,11 +128,14 @@ runs:
               $url )        
         
         if [[ $blob == *BLOB_UNKNOWN* ]];then
-          code=$(echo $blob | jq .errors[0].code)
-          message=$(echo $blob | jq .errors[0].message)          
-          echo "::debug::$blob"
-          echo "::error title=$code::$message $url"
-          exit 1        
+#          code=$(echo $blob | jq .errors[0].code)
+#          message=$(echo $blob | jq .errors[0].message)
+#          echo "::debug::$blob"
+          echo "::warning title=$code::$message $url"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "build_number=1" >> "$GITHUB_OUTPUT"
+          echo "build_date=-" >> "$GITHUB_OUTPUT"             
+          exit 0        
         fi
         
         if [[ -z "$blob" ]]; then
