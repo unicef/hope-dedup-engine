@@ -1,3 +1,4 @@
+from typing import Any, override
 from uuid import uuid4
 
 from django.conf import settings
@@ -69,3 +70,23 @@ class Duplicate(models.Model):
     second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
     second_filename = models.CharField(max_length=255)
     score = models.FloatField()
+
+
+class IgnoredKeyPair(models.Model):
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
+
+    class Meta:
+        unique_together = (
+            "deduplication_set",
+            "first_reference_pk",
+            "second_reference_pk",
+        )
+
+    @override
+    def save(self, **kwargs: Any) -> None:
+        self.first_reference_pk, self.second_reference_pk = sorted(
+            (self.first_reference_pk, self.second_reference_pk)
+        )
+        super().save(**kwargs)

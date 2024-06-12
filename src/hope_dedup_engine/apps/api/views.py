@@ -23,10 +23,15 @@ from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET_PARAM,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Duplicate, Image
+from hope_dedup_engine.apps.api.models.deduplication import (
+    Duplicate,
+    IgnoredKeyPair,
+    Image,
+)
 from hope_dedup_engine.apps.api.serializers import (
     DeduplicationSetSerializer,
     DuplicateSerializer,
+    IgnoredKeyPairSerializer,
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
@@ -205,3 +210,29 @@ class DuplicateViewSet(
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
+
+
+class IgnoredKeyPairViewSet(
+    nested_viewsets.NestedViewSetMixin,
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    authentication_classes = (HDETokenAuthentication,)
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
+    serializer_class = IgnoredKeyPairSerializer
+    queryset = IgnoredKeyPair.objects.all()
+    parent_lookup_kwargs = {
+        DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
+    }
+
+    def perform_create(self, serializer: Serializer) -> None:
+        super().perform_create(serializer)
+        deduplication_set = serializer.instance.deduplication_set
+        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.updated_by = self.request.user
+        deduplication_set.save()
