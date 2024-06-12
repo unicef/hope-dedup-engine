@@ -13,7 +13,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install python deps
-        run: pip install towncrier
-
-      - name: Check that changelog is updated
-        run: towncrier check >> $GITHUB_STEP_SUMMARY
+        run: |
+          pip install towncrier
+          towncrier check >> $GITHUB_STEP_SUMMARY
