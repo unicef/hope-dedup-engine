@@ -72,13 +72,11 @@ jobs:
           echo "image=${tag%:*}" >> $GITHUB_OUTPUT
       - name: Setup Environment (PR)
         if: ${{ github.event_name == 'pull_request' }}
-#        shell: bash
         run: |
           SHA=${{ github.event.pull_request.head.sha }}
           echo "LAST_COMMIT_SHA=${SHA::7}" >> ${GITHUB_ENV}
       - name: Setup Environment (Push)
         if: ${{ github.event_name == 'push' }}
-#        shell: bash
         run: |
           echo "LAST_COMMIT_SHA=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
       - run: |
@@ -107,6 +105,9 @@ jobs:
           platforms: linux/amd64
           driver: docker-container
           driver-opts: 'image=moby/buildkit:v0.13.2'
+      - if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
+        run: |
+          echo "::warning:: Build docker ${{ inputs.image }} - Checksum: ${{ steps.release_hash.outputs.hash }}"
       - name: Build and push
         if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
         uses: docker/build-push-action@v5

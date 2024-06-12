@@ -94,6 +94,8 @@ jobs:
           POSTGRES_DATABASE: dedupe
           POSTGRES_PASSWORD: postgres
           POSTGRES_USERNAME: postgres
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -114,7 +116,7 @@ jobs:
             -v $PWD:/code/app \
             -w /code/app \
             -t ${{needs.setup.outputs.image_name}} \
-            pytest tests -v 
+            pytest tests -v --maxfail=10
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
