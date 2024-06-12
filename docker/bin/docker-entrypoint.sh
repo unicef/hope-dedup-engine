@@ -6,10 +6,6 @@ export STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}"
 export UWSGI_PROCESSES="${UWSGI_PROCESSES:-"4"}"
 mkdir -p "${MEDIA_ROOT}" "${STATIC_ROOT}" || echo "Cannot create dirs ${MEDIA_ROOT} ${STATIC_ROOT}"
 
-echo 111, $1
-echo 222, "$@"
-
-
 case "$1" in
     run)
 	    set -- tini -- "$@"
