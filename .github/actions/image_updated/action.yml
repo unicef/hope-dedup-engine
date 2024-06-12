@@ -58,13 +58,15 @@ runs:
         echo "repo=$repo" >> $GITHUB_OUTPUT
         echo "tag=$tag" >> $GITHUB_OUTPUT
         echo "architecture=$architecture" >> $GITHUB_OUTPUT
-
+        
+        url="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull"
+        
         res=$(curl -u "${{ inputs.username }}:${{ inputs.password }}" \
-                   -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+                   -s $url)
         
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
-          echo "::error title=⛔ error hint::Unable to get valid token"
+          echo "::error title=⛔ error hint::Unable to get valid token from $url"
           exit 1
         fi
         echo "token=$token" >> $GITHUB_OUTPUT
@@ -87,7 +89,7 @@ runs:
         if [[ $manifest == *errors\":* ]];then
           code=$(echo $manifest | jq .errors[0].code)
           message=$(echo $manifest | jq .errors[0].message)          
-          echo "::error title=$code error hint::$message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
+          echo "::error title=$code error hint::$message $url"
           exit 1
         fi
         echo "exists=true" >> $GITHUB_OUTPUT
@@ -132,7 +134,7 @@ runs:
         fi
         
         if [[ -z "$blob" ]]; then
-          echo "Unable to get blob from: https://registry-1.docker.io/v2/$repo/blobs/$digest"
+          echo "Unable to get blob from: $url"
           echo "updated=false" >> "$GITHUB_OUTPUT"
           echo "build_number=1" >> "$GITHUB_OUTPUT"
           echo "build_date=-" >> "$GITHUB_OUTPUT"        
