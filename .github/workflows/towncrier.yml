@@ -15,4 +15,4 @@ jobs:
       - name: Install python deps
         run: |
           pip install towncrier
-          towncrier check >> $GITHUB_STEP_SUMMARY
+          towncrier check
