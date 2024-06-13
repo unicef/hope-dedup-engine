@@ -115,7 +115,6 @@ jobs:
           echo "::warning:: Build docker ${{ inputs.image }} - Checksum: ${{ steps.release_hash.outputs.hash }}"
       - name: Build and push
         if: steps.image_updated.outputs.updated != 'true' || inputs.force == 'true'
-        run: |
         uses: docker/build-push-action@v5
         with:
           context: .
