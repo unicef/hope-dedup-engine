@@ -1,0 +1,62 @@
+name: MyPy
+
+on:
+  workflow_run:
+    workflows: [ 'Test' ]
+    types: [ completed ]
+    branches:
+      - develop
+      - master
+      - staging
+      - releases/*
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+
+jobs:
+  setup:
+    name: check files
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      mypy: ${{ steps.changes.outputs.mypy }}
+    steps:
+#      - run: git config --global --add safe.directory $(realpath .)
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - id: changes
+        name: Check for backend file changes
+        uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        with:
+          base: ${{ github.ref }}
+          token: ${{ github.token }}
+          filters: .github/file-filters.yml
+#      - id: release_hash
+#        uses: ./.github/actions/distro_hash
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+      - name: Define target image name
+        id: image_name
+        run: |
+          echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+
+  mypy:
+    needs: [setup]
+    if: needs.setup.outputs.python_files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run check
+        run: |
+          docker run --rm \
+            -v $PWD:/code/app \
+            -w /code/app \
+            -t ${{needs.setup.outputs.image_name}} \
+            mypy src/

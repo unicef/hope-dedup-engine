@@ -82,7 +82,7 @@ dev = [
     "watchdog",
 ]
 [tool.black]
-line-length = 120
+line-length = 88
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -99,7 +99,7 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-line_length = 120
+line_length = 88
 default_section = "THIRDPARTY"
 known_first_party = []
 known_django = "django"
@@ -116,9 +116,11 @@ coverage = "pytest tests/ --cov -n auto --create-db -c pytest.ini"
 act = "act"
 
 [tool.towncrier]
+name = "Deduplication Engine"
 directory = "changes"
 package = "hope_dedup_engine"
 filename = "CHANGELOG.md"
-title_format = "v.{version} {project_date}"
-issue_format = "`#{issue} <https://github.com/unicef/hope_dedup_engine/pull/{issue}>`_"
+title_format = "{version}"
+#template =
+#issue_format = "`#{issue} <https://github.com/unicef/hope-dedup-engine/pull/{issue}>`_"
 wrap = true

@@ -1,4 +1,5 @@
 #!/bin/bash
 
-echo "CHECKSUM ${CHECKSUM}"
-echo "uwsgi   " `uwsgi --version`
+cat /RELEASE
+uwsgi --version
+django-admin --version

@@ -1,0 +1,30 @@
+# Adds labels to pull requests for the type of change the PR makes
+name: Adds Reviewers
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, ready_for_review]
+
+jobs:
+  add-reviewer:
+    steps:
+      - name: Check for file changes
+        uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        id: changes
+        with:
+          token: ${{ github.token }}
+          filters: .github/file-filters.yml
+
+      - name: Add Pull Request Reviewer
+        if: steps.changes.outputs.migrations == 'true'
+        uses: AveryCameronUofR/add-reviewer-gh-action@1.0.3
+        with:
+          reviewers: "saxix"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Pull Request Reviewer
+        if: steps.changes.outputs.dependencies == 'true'
+        uses: AveryCameronUofR/add-reviewer-gh-action@1.0.3
+        with:
+          reviewers: "saxix"
+          token: ${{ secrets.GITHUB_TOKEN }}

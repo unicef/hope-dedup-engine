@@ -1,0 +1,254 @@
+# ref: https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
+name: 'Check if image with valid checksum exists in dockerhub'
+description: 'WARNING: Only works for single platform images'
+inputs:
+  image:
+    description: 'Docker Image '
+    required: true
+  checksum:
+    description: 'checksum'
+    required: true
+  label:
+    description: 'checksum label'
+    default: 'checksum'
+    required: false
+  username:
+    description: 'DockerHub username '
+    required: false
+  password:
+    description: 'DockerHub password '
+    required: false
+  architecture:
+    description: 'DockerHub architecture to build '
+    required: false
+    default: amd64
+
+outputs:
+  updated:
+    description: 'Returns true if the image exists and the checksum is valid'
+    value: ${{ steps.check.outputs.updated }}
+  exists:
+    description: 'Returns true if the image exists'
+    value: ${{ steps.check.outputs.exists }}
+  build_number:
+      description: 'Returns build number for the current branch'
+      value: ${{ steps.check.outputs.build_number }}
+  build_date:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.build_date }}
+  version:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup
+      id: setup
+      shell: bash
+      run: |
+        ref=${{ inputs.image }}
+        architecture=${{ inputs.architecture }}
+        repo="${ref%:*}"
+        tag="${ref##*:}"
+        echo "image=$ref" >> $GITHUB_OUTPUT
+        echo "repo=$repo" >> $GITHUB_OUTPUT
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+        echo "architecture=$architecture" >> $GITHUB_OUTPUT
+        
+        url="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull"
+        
+        res=$(curl -s $url)
+        
+        token=$(echo $res | jq -r '.token')
+        if [[ -z "$token" ]];then
+          echo "::error:: title=⛔::Unable to get valid token from $url"
+          exit 1
+        fi
+        echo "token=$token" >> $GITHUB_OUTPUT
+    - name: Check Checksum
+      id: check
+      shell: bash
+      run: |
+        url="https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/manifests/${{steps.setup.outputs.tag}}"        
+        manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+                        -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
+                        -s $url)
+                
+        if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
+          echo "::warning:: MANIFEST_UNKNOWN"
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "build_number=1" >> "$GITHUB_OUTPUT"
+          echo "build_date=-" >> "$GITHUB_OUTPUT"
+          exit 0        
+        fi
+        if [[ $manifest == *errors\":* ]];then
+          code=$(echo $manifest | jq .errors[0].code)
+          message=$(echo $manifest | jq .errors[0].message)                    
+          echo "::error title=$code::Error fetching manifest"
+          echo "::error title=$code::$message $url"
+          exit 1
+        fi
+        echo "exists=true" >> $GITHUB_OUTPUT
+        
+        if [[ -z "$manifest" ]];then
+          echo "::error title=⛔ error hint::Unable to get manifest from $url"
+          exit 1
+        fi
+        check1=$(echo $manifest | jq 'try(.manifests[])')        
+        check2=$(echo $manifest | jq 'try(.config.digest)')        
+        
+        if [[ -n "$check1" ]]; then
+          digest=$(echo $manifest | jq -r ".manifests| map(select(.platform.architecture | contains (\"${{steps.setup.outputs.architecture}}\"))) | .[].digest" 2>&1)
+        elif [[ -n "$check2" ]]; then
+          digest=$(echo $manifest | jq -r '.config.digest')
+        else
+          echo "::error title=⛔::Unable to detect digest"
+          exit 1        
+        fi
+        if [[ $digest == null ]]; then
+          echo "::error title=⛔::Digest is null"
+          exit 1
+        fi
+        if [[ -z "$digest" ]];then
+          echo "::error title=⛔::Digest is empty"
+          exit 1
+        fi        
+        url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest
+        
+        blob=$(curl \
+              --silent \
+              --location \
+              -H "Accept: application/vnd.docker.disribution.manifest.v2+json" \
+              -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
+              $url )        
+        
+        if [[ $blob == *BLOB_UNKNOWN* ]];then
+          code=$(echo $blob | jq .errors[0].code)
+          message=$(echo $blob | jq .errors[0].message)
+          echo "::warning title=$code::$message"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "build_number=1" >> "$GITHUB_OUTPUT"
+          echo "build_date=-" >> "$GITHUB_OUTPUT"             
+          exit 0        
+        fi
+        
+        if [[ -z "$blob" ]]; then
+          echo "Unable to get blob from: $url"
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "build_number=1" >> "$GITHUB_OUTPUT"
+          echo "build_date=-" >> "$GITHUB_OUTPUT"        
+          echo "::error file={name},line={line},endLine={endLine},title={title}::{message}"
+          exit 1
+        fi        
+        build_number=$(echo $blob | jq '.config.Labels.BuildNumber')
+        checksum=$(echo $blob | jq -r '.config.Labels.checksum')
+        build_date=$(echo $blob | jq -r '.config.Labels.date')
+
+        if [[ $build_number =~ '^[0-9]+$' ]] ; then
+          build_number=$(( build_number + 1 ))
+        else
+          build_number=1
+        fi
+        if [[ $checksum == ${{inputs.checksum}} ]]; then
+          echo "updated=true" >> $GITHUB_OUTPUT
+        else
+          echo "updated=false" >> $GITHUB_OUTPUT
+        fi
+        echo "build_number=${build_number}" >> $GITHUB_OUTPUT
+        echo "build_date=${build_date}" >> $GITHUB_OUTPUT
+
+#
+#    - name: Check Image Updated
+#      id: check
+#      continue-on-error: true
+#      shell: bash --noprofile --norc -eo pipefail -ux {0}
+#      run: |
+#        trap 'echo "exitcode=$?" >> "$GITHUB_OUTPUT"' EXIT
+#
+#        ref=${{ inputs.image }}
+#        architecture=${{ inputs.architecture }}
+#        repo="${ref%:*}"
+#        tag="${ref##*:}"
+#
+#        echo $repo:$tag
+#
+#        res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
+#        token=$(echo $res | jq -r '.token')
+#
+#        if [[ -z "$token" ]];then
+#          echo "Unable to get Auth Token"
+#          echo $res
+#          echo "::error file={name},line={line},endLine={endLine},title={title}::{message}"
+#          exit 1
+#        fi
+#
+#        manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+#                      -H "Authorization: Bearer $token" \
+#                      -s "https://registry-1.docker.io/v2/${repo}/manifests/${tag}")
+#
+#        if [[ -z "$manifest" ]];then
+#          echo "Unable to get manifest "
+#          echo "updated=false" >> "$GITHUB_OUTPUT"
+#          echo "build_number=1" >> "$GITHUB_OUTPUT"
+#        fi
+#        check=$(echo $manifest | jq 'try(.manifests[])')
+#
+#        if [[ -n "$check" ]]; then
+#          echo "Multi platform manifest detected "
+#          digest=$(echo $manifest | jq -r ".manifests| map(select(.platform.architecture | contains (\"${architecture}\"))) | .[].digest" 2>&1)
+#        else
+#          echo "Single platform manifest found "
+#          digest=$(echo $manifest | jq -r '.config.digest' 2>&1)
+#        fi
+#        if [[ $digest == null ]]; then
+#          echo "Unable to get digest "
+#          echo $manifest | jq
+#          echo "updated=false" >> "$GITHUB_OUTPUT"
+#          echo "build_number=1" >> "$GITHUB_OUTPUT"
+#        fi
+#        if [[ -z "$digest" ]];then
+#          echo "Unable to get digest "
+#          echo $manifest | jq
+#          echo "updated=false" >> "$GITHUB_OUTPUT"
+#          echo "build_number=1" >> "$GITHUB_OUTPUT"
+#          echo "::error file={name},line={line},endLine={endLine},title={title}::{message}"
+#          exit 1
+#        fi
+#
+#        blob=$(curl \
+#              --silent \
+#              --location \
+#              --header "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+#              --header "Authorization: Bearer $token" \
+#              "https://registry-1.docker.io/v2/$repo/blobs/$digest")
+#
+#        if [[ -z "$blob" ]]; then
+#          echo "Unable to get blob from: https://registry-1.docker.io/v2/$repo/blobs/$digest"
+#          echo "updated=false" >> "$GITHUB_OUTPUT"
+#          echo "build_number=1" >> "$GITHUB_OUTPUT"
+#          echo "::error file={name},line={line},endLine={endLine},title={title}::{message}"
+#          exit 1
+#        fi
+#        checksum=$(echo $blob | jq '.config.Labels.checksum')
+#        build_number=$(echo $blob | jq '.config.Labels.BuildNumber')
+#
+#        if [[ $build_number == null ]]; then
+#          build_number=$((build_number+1))
+#        else
+#          build_number = 1
+#        fi
+#
+#        ret='???'
+#        if [[ $checksum == null ]]; then
+#          echo "Invalid Blob from: https://registry-1.docker.io/v2/$repo/blobs/$digest"
+#          ret=false
+#        elif [[ $checksum == ${{inputs.checksum}} ]]; then
+#          ret=true
+#        else
+#          echo "Checksums do not match $checksum <> ${{inputs.checksum}}"
+#          ret=false
+#        fi
+#        echo "updated=${ret}" >> "$GITHUB_OUTPUT"
+#        echo "build_number=${build_number}" >> "$GITHUB_OUTPUT"
