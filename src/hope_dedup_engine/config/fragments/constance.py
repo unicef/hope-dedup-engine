@@ -6,11 +6,7 @@ CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
-    "NEW_USER_DEFAULT_GROUP": (
-        DEFAULT_GROUP_NAME,
-        "Group to assign to any new user",
-        str,
-    ),
+    "NEW_USER_DEFAULT_GROUP": (DEFAULT_GROUP_NAME, "Group to assign to any new user", str),
     "DNN_BACKEND": (
         cv2.dnn.DNN_BACKEND_OPENCV,
         "Specifies the computation backend to be used by OpenCV for deep learning inference.",

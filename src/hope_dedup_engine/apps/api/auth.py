@@ -14,9 +14,7 @@ class AssignedToExternalSystem(BasePermission):
 
 class UserAndDeduplicationSetAreOfTheSameSystem(BasePermission):
     def has_permission(self, request: Request, view: View) -> bool:
-        if deduplication_set_pk := view.kwargs.get(
-            "deduplication_set_pk"
-        ) or view.kwargs.get("pk"):
+        if deduplication_set_pk := view.kwargs.get("deduplication_set_pk") or view.kwargs.get("pk"):
             return DeduplicationSet.objects.filter(
                 external_system=request.user.external_system, pk=deduplication_set_pk
             ).exists()

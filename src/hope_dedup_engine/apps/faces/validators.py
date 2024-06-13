@@ -8,9 +8,7 @@ class MeanValuesTupleField(CharField):
             if len(values) != 3:
                 raise ValueError("The tuple must have exactly three elements.")
             if not all(-255 <= v <= 255 for v in values):
-                raise ValueError(
-                    "Each value in the tuple must be between -255 and 255."
-                )
+                raise ValueError("Each value in the tuple must be between -255 and 255.")
             return values
         except Exception as e:
             raise ValidationError(

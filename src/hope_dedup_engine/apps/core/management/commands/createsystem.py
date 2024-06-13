@@ -10,9 +10,7 @@ class Command(BaseCommand):
         parser.add_argument("name")
 
     def handle(self, *args, **options):
-        system, created = ExternalSystem.objects.get_or_create(
-            name=(name := options["name"])
-        )
+        system, created = ExternalSystem.objects.get_or_create(name=(name := options["name"]))
         if created:
             self.stdout.write(self.style.SUCCESS(f'"{name}" system created.'))
         else:

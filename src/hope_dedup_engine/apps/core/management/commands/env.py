@@ -33,26 +33,14 @@ class Command(BaseCommand):
             default="export {key}={value}",
             help="Check env for variable availability (default: 'export {key}=\"{value}\"')",
         )
-        parser.add_argument(
-            "--develop", action="store_true", help="Display development values"
-        )
-        parser.add_argument(
-            "--config", action="store_true", help="Only list changed values"
-        )
+        parser.add_argument("--develop", action="store_true", help="Display development values")
+        parser.add_argument("--config", action="store_true", help="Only list changed values")
         parser.add_argument("--diff", action="store_true", help="Mark changed values")
         parser.add_argument(
-            "--check",
-            action="store_true",
-            dest="check",
-            default=False,
-            help="Check env for variable availability",
+            "--check", action="store_true", dest="check", default=False, help="Check env for variable availability"
         )
         parser.add_argument(
-            "--ignore-errors",
-            action="store_true",
-            dest="ignore_errors",
-            default=False,
-            help="Do not fail",
+            "--ignore-errors", action="store_true", dest="ignore_errors", default=False, help="Do not fail"
         )
 
     def handle(self, *args: "Any", **options: "Any") -> None:
@@ -74,9 +62,7 @@ class Command(BaseCommand):
                 else:
                     value: Any = env.get_value(k)
 
-                line: str = pattern.format(
-                    key=k, value=clean(value), help=help, default=default
-                )
+                line: str = pattern.format(key=k, value=clean(value), help=help, default=default)
                 if options["diff"]:
                     if value != default:
                         line = self.style.SUCCESS(line)
