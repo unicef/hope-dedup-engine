@@ -120,6 +120,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - run: |
+          echo ""
+          echo "${{ toJSON(needs.build.outputs) }}"
       - name: Run tests
         run: |
           docker run --rm \
