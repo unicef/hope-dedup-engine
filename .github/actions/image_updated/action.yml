@@ -8,10 +8,6 @@ inputs:
   checksum:
     description: 'checksum'
     required: true
-  label:
-    description: 'checksum label'
-    default: 'checksum'
-    required: false
   username:
     description: 'DockerHub username '
     required: false
