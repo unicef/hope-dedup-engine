@@ -97,17 +97,21 @@ runs:
         build_date=$(date +"%Y-%m-%d %H:%M")
         echo "date=$build_date" >> $GITHUB_OUTPUT
         echo "image=${tag%:*}" >> $GITHUB_OUTPUT
-    - name: Setup Environment (PR)
-      if: ${{ github.event_name == 'pull_request' }}
-      shell: bash
-      run: |
-        SHA=${{ github.event.pull_request.head.sha }}
-        echo "LAST_COMMIT_SHA=${SHA::7}" >> ${GITHUB_ENV}
-    - name: Setup Environment (Push)
-      if: ${{ github.event_name == 'push' }}
-      shell: bash
-      run: |
-        echo "LAST_COMMIT_SHA=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
+    - name: Retrieve Last Commit Hash
+      id: last_commit
+      uses: ./.github/actions/last_commit
+
+#    - name: Setup Environment (PR)
+#      if: ${{ github.event_name == 'pull_request' }}
+#      shell: bash
+#      run: |
+#        SHA=${{ github.event.pull_request.head.sha }}
+#        echo "LAST_COMMIT_SHA=${SHA::7}" >> ${GITHUB_ENV}
+#    - name: Setup Environment (Push)
+#      if: ${{ github.event_name == 'push' }}
+#      shell: bash
+#      run: |
+#        echo "LAST_COMMIT_SHA=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
     - shell: bash
       run: |
         echo ""
@@ -125,6 +129,13 @@ runs:
         echo "force           : ${{inputs.force}}"
         echo "build           : ${{steps.image_updated.outputs.updated != 'true' || inputs.force == 'true'}}"
         echo "commit_sha      : ${{env.LAST_COMMIT_SHA}}"
+        echo "====================================="
+        echo "BUILD_DATE=${{ steps.setup.outputs.date }}
+        echo "CHECKSUM=${{ steps.release_hash.outputs.hash }}
+        echo "VERSION=${{ steps.version.outputs.version }}
+        echo "SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
+        echo "GITHUB_SERVER_URL=${{ github.server_url }}
+        echo "GITHUB_REPOSITORY=${{ github.repository }}
         echo "====================================="
     - uses: docker/login-action@v3
       with:
