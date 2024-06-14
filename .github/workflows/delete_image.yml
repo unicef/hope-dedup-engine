@@ -13,8 +13,9 @@ jobs:
         run: |
           echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
       - name: Clean up
+        shell: bash
         run: |
-          registry='https://registry-1.docker.io'
+          registry="https://registry-1.docker.io"
           name=${{steps.image_name.outputs.name}}
           curl -v -sSL -X DELETE "http://${registry}/v2/${name}/manifests/$(
               curl -sSL -I \
