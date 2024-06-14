@@ -37,7 +37,7 @@ CONSTANCE_CONFIG = {
         "tuple_field",
     ),
     "FACE_DETECTION_CONFIDENCE": (
-        0.7,
+        0.5,
         """
         Specifies the minimum confidence score required for a detected face to be considered valid. Detections
         with confidence scores below this threshold are discarded as likely false positives.
@@ -128,5 +128,5 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             "choices": (("small", "SMALL"), ("large", "LARGE")),
         },
     ],
-    "tuple_field": ["hope_dedup_engine.apps.faces.validators.MeanValuesTupleField", {}],
+    "tuple_field": ["hope_dedup_engine.apps.faces.forms.MeanValuesTupleField", {}],
 }

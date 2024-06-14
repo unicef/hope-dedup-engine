@@ -1,7 +1,13 @@
+from typing import Any
+
 from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Duplicate, IgnoredKeyPair, Image
+from hope_dedup_engine.apps.api.models.deduplication import (
+    Duplicate,
+    IgnoredKeyPair,
+    Image,
+)
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -10,7 +16,14 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeduplicationSet
         exclude = ("deleted",)
-        read_only_fields = "external_system", "created_at", "created_by", "deleted", "updated_at", "updated_by"
+        read_only_fields = (
+            "external_system",
+            "created_at",
+            "created_by",
+            "deleted",
+            "updated_at",
+            "updated_by",
+        )
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -24,7 +37,7 @@ class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
     filename = serializers.SerializerMethodField()
 
-    def __init__(self, prefix: str, *args, **kwargs) -> None:
+    def __init__(self, prefix: str, *args: Any, **kwargs: Any) -> None:
         self._prefix = prefix
         super().__init__(*args, **kwargs)
 

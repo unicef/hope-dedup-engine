@@ -18,9 +18,16 @@ from hope_dedup_engine.apps.api.auth import (
     HDETokenAuthentication,
     UserAndDeduplicationSetAreOfTheSameSystem,
 )
-from hope_dedup_engine.apps.api.const import DEDUPLICATION_SET_FILTER, DEDUPLICATION_SET_PARAM
+from hope_dedup_engine.apps.api.const import (
+    DEDUPLICATION_SET_FILTER,
+    DEDUPLICATION_SET_PARAM,
+)
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Duplicate, IgnoredKeyPair, Image
+from hope_dedup_engine.apps.api.models.deduplication import (
+    Duplicate,
+    IgnoredKeyPair,
+    Image,
+)
 from hope_dedup_engine.apps.api.serializers import (
     DeduplicationSetSerializer,
     DuplicateSerializer,
@@ -36,17 +43,29 @@ ALREADY_PROCESSING = "already processing"
 
 
 class DeduplicationSetViewSet(
-    mixins.ListModelMixin, mixins.CreateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
     serializer_class = DeduplicationSetSerializer
 
     def get_queryset(self) -> QuerySet:
-        return DeduplicationSet.objects.filter(external_system=self.request.user.external_system, deleted=False)
+        return DeduplicationSet.objects.filter(
+            external_system=self.request.user.external_system, deleted=False
+        )
 
     def perform_create(self, serializer: Serializer) -> None:
-        serializer.save(created_by=self.request.user, external_system=self.request.user.external_system)
+        serializer.save(
+            created_by=self.request.user,
+            external_system=self.request.user.external_system,
+        )
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
         instance.updated_by = self.request.user
@@ -70,18 +89,24 @@ class DeduplicationSetViewSet(
                 self._start_processing(deduplication_set)
                 return Response({MESSAGE: STARTED})
             case DeduplicationSet.State.PROCESSING:
-                return Response({MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST
+                )
 
 
 class ImageViewSet(
-    nested_viewsets.NestedViewSetMixin,
+    nested_viewsets.NestedViewSetMixin[Image],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
     serializer_class = ImageSerializer
     queryset = Image.objects.all()
     parent_lookup_kwargs = {
@@ -105,7 +130,7 @@ class ImageViewSet(
 
 @dataclass
 class ListDataWrapper:
-    data: list[dict]
+    data: list[dict[str, Any]]
 
     def __setitem__(self, key: str, value: Any) -> None:
         for item in self.data:
@@ -113,14 +138,18 @@ class ListDataWrapper:
 
 
 class WrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
+    def initialize_request(
+        self, request: Request, *args: Any, **kwargs: Any
+    ) -> Request:
         request = super().initialize_request(request, *args, **kwargs)
         request._full_data = ListDataWrapper(request.data)
         return request
 
 
 class UnwrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
+    def initialize_request(
+        self, request: Request, *args: Any, **kwargs: Any
+    ) -> Request:
         request = super().initialize_request(request, *args, **kwargs)
         request._full_data = request._full_data.data
         return request
@@ -130,13 +159,17 @@ class UnwrapRequestDataMixin:
 # UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkImageViewSet(
     UnwrapRequestDataMixin,
-    nested_viewsets.NestedViewSetMixin,
+    nested_viewsets.NestedViewSetMixin[Image],
     WrapRequestDataMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
     serializer_class = ImageSerializer
     queryset = Image.objects.all()
     parent_lookup_kwargs = {
@@ -148,7 +181,9 @@ class BulkImageViewSet(
 
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
-        if deduplication_set := serializer.instance[0].deduplication_set if serializer.instance else None:
+        if deduplication_set := (
+            serializer.instance[0].deduplication_set if serializer.instance else None
+        ):
             deduplication_set.updated_by = self.request.user
             deduplication_set.save()
 
@@ -161,9 +196,17 @@ class BulkImageViewSet(
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class DuplicateViewSet(nested_viewsets.NestedViewSetMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+class DuplicateViewSet(
+    nested_viewsets.NestedViewSetMixin[Duplicate],
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
     serializer_class = DuplicateSerializer
     queryset = Duplicate.objects.all()
     parent_lookup_kwargs = {
@@ -172,10 +215,17 @@ class DuplicateViewSet(nested_viewsets.NestedViewSetMixin, mixins.ListModelMixin
 
 
 class IgnoredKeyPairViewSet(
-    nested_viewsets.NestedViewSetMixin, mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet
+    nested_viewsets.NestedViewSetMixin[IgnoredKeyPair],
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = IsAuthenticated, AssignedToExternalSystem, UserAndDeduplicationSetAreOfTheSameSystem
+    permission_classes = (
+        IsAuthenticated,
+        AssignedToExternalSystem,
+        UserAndDeduplicationSetAreOfTheSameSystem,
+    )
     serializer_class = IgnoredKeyPairSerializer
     queryset = IgnoredKeyPair.objects.all()
     parent_lookup_kwargs = {
