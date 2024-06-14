@@ -78,8 +78,8 @@ jobs:
     steps:
       - run: |
           echo ""
-          echo ${{ toJSON(needs.setup.outputs) }}
-          
+          echo "${{ toJSON(needs.setup.outputs) }}"
+
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Define target image name
