@@ -168,23 +168,23 @@ jobs:
       - run: |
           echo "::notice:: ${{steps.image_name.outputs.name}} pushed to dockerhub"
 
-    trivy:
-      runs-on: ubuntu-latest
-      needs: [release]
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v2
-        - name: DockerHub login
-          uses: docker/login-action@v1
-          with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
-        - name: Run Trivy vulnerability scanner
-          uses: aquasecurity/trivy-action@master
-          with:
-            image-ref: ${{ needs.release.outputs.image }}
-            format: 'table'
-            exit-code: '0'
-            ignore-unfixed: true
-            vuln-type: 'os,library'
-            severity: 'CRITICAL,HIGH'
+  trivy:
+    runs-on: ubuntu-latest
+    needs: [release]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: DockerHub login
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.release.outputs.image }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
