@@ -70,7 +70,7 @@ runs:
     - name: Output Inputs
       shell: bash
       run: |
-        echo "====================================="
+        echo ""
         echo "${{ toJSON(inputs) }}"
         echo "====================================="
 #    - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -100,18 +100,6 @@ runs:
     - name: Retrieve Last Commit Hash
       id: last_commit
       uses: ./.github/actions/last_commit
-
-#    - name: Setup Environment (PR)
-#      if: ${{ github.event_name == 'pull_request' }}
-#      shell: bash
-#      run: |
-#        SHA=${{ github.event.pull_request.head.sha }}
-#        echo "LAST_COMMIT_SHA=${SHA::7}" >> ${GITHUB_ENV}
-#    - name: Setup Environment (Push)
-#      if: ${{ github.event_name == 'push' }}
-#      shell: bash
-#      run: |
-#        echo "LAST_COMMIT_SHA=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
     - shell: bash
       run: |
         echo ""
