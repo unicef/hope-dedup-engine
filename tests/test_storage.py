@@ -24,5 +24,5 @@ def test_azure(tmp_path):
     with pytest.raises(RuntimeError):
         s.delete("test")
 
-    assert s.listdir(".") == []
+    assert s.listdir(".") == ([], [])
     assert s.open("test", "r")

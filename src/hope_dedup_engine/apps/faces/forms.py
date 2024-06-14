@@ -2,13 +2,15 @@ from django.forms import CharField, ValidationError
 
 
 class MeanValuesTupleField(CharField):
-    def to_python(self, value):
+    def to_python(self, value: str) -> tuple[float, float, float]:
         try:
             values = tuple(map(float, value.split(", ")))
             if len(values) != 3:
                 raise ValueError("The tuple must have exactly three elements.")
             if not all(-255 <= v <= 255 for v in values):
-                raise ValueError("Each value in the tuple must be between -255 and 255.")
+                raise ValueError(
+                    "Each value in the tuple must be between -255 and 255."
+                )
             return values
         except Exception as e:
             raise ValidationError(
@@ -18,7 +20,7 @@ class MeanValuesTupleField(CharField):
                 """
             ) from e
 
-    def prepare_value(self, value):
+    def prepare_value(self, value: tuple[float, float, float]) -> str:
         if isinstance(value, tuple):
             return ", ".join(map(str, value))
         return super().prepare_value(value)

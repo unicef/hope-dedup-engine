@@ -1,7 +1,7 @@
 from django.conf import settings
 
-import cv2
 from constance import config
+from cv2 import dnn, dnn_Net
 
 from hope_dedup_engine.apps.core.storage import CV2DNNStorage
 
@@ -21,14 +21,14 @@ class DNNInferenceManager:
         Args:
             storage (CV2DNNStorage): The storage object from which to load the neural network model.
         """
-        self.net = cv2.dnn.readNetFromCaffe(
+        self.net = dnn.readNetFromCaffe(
             storage.path(settings.PROTOTXT_FILE),
             storage.path(settings.CAFFEMODEL_FILE),
         )
         self.net.setPreferableBackend(int(config.DNN_BACKEND))
         self.net.setPreferableTarget(int(config.DNN_TARGET))
 
-    def get_model(self) -> cv2.dnn_Net:
+    def get_model(self) -> dnn_Net:
         """
         Get the loaded and configured neural network model.
 

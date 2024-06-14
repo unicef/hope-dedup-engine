@@ -1,6 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -63,7 +64,8 @@ class ImageProcessor:
         self.net = DNNInferenceManager(self.storages.get_storage("cv2dnn")).get_model()
 
         self.blob_from_image_cfg = BlobFromImageConfig(
-            scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR, mean_values=config.BLOB_FROM_IMAGE_MEAN_VALUES
+            scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR,
+            mean_values=config.BLOB_FROM_IMAGE_MEAN_VALUES,
         )
         self.face_encodings_cfg = FaceEncodingsConfig(
             num_jitters=config.FACE_ENCODINGS_NUM_JITTERS,
@@ -73,7 +75,9 @@ class ImageProcessor:
         self.distance_threshold: float = config.FACE_DISTANCE_THRESHOLD
         self.nms_threshold: float = config.NMS_THRESHOLD
 
-    def _get_face_detections_dnn(self, filename: str) -> list[tuple[int, int, int, int]]:
+    def _get_face_detections_dnn(
+        self, filename: str
+    ) -> list[tuple[int, int, int, int]]:
         """
         Detect faces in an image using the DNN model.
 
@@ -93,9 +97,16 @@ class ImageProcessor:
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
                 image=cv2.resize(
-                    image, dsize=(self.blob_from_image_cfg.shape["height"], self.blob_from_image_cfg.shape["width"])
+                    image,
+                    dsize=(
+                        self.blob_from_image_cfg.shape["height"],
+                        self.blob_from_image_cfg.shape["width"],
+                    ),
                 ),
-                size=(self.blob_from_image_cfg.shape["height"], self.blob_from_image_cfg.shape["width"]),
+                size=(
+                    self.blob_from_image_cfg.shape["height"],
+                    self.blob_from_image_cfg.shape["width"],
+                ),
                 scalefactor=self.blob_from_image_cfg.scale_factor,
                 mean=self.blob_from_image_cfg.mean_values,
             )
@@ -110,17 +121,26 @@ class ImageProcessor:
                 confidence = detections[0, 0, i, 2]
                 # Filter out weak detections by ensuring the confidence is greater than the minimum confidence
                 if confidence > self.face_detection_confidence:
-                    box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype("int")
+                    box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype(
+                        "int"
+                    )
                     boxes.append(box)
                     confidences.append(confidence)
             if boxes:
                 # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-                indices = cv2.dnn.NMSBoxes(boxes, confidences, self.face_detection_confidence, self.nms_threshold)
+                indices = cv2.dnn.NMSBoxes(
+                    boxes,
+                    confidences,
+                    self.face_detection_confidence,
+                    self.nms_threshold,
+                )
                 if indices is not None:
                     for i in indices:
                         face_regions.append(tuple(boxes[i]))
         except Exception as e:
-            self.logger.exception("Error processing face detection for image %s", filename)
+            self.logger.exception(
+                "Error processing face detection for image %s", filename
+            )
             raise e
         return face_regions
 
@@ -135,7 +155,7 @@ class ImageProcessor:
         try:
             with self.storages.get_storage("images").open(filename, "rb") as img_file:
                 image = face_recognition.load_image_file(img_file)
-            encodings: list = []
+            encodings: list[np.ndarray[np.float32, Any]] = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
                 self.logger.error("No face regions detected in image %s", filename)
@@ -153,8 +173,12 @@ class ImageProcessor:
                     else:
                         self.logger.error("Invalid face region %s", region)
                         return
-                with self.storages.get_storage("encoded").open(encodings_filename, "wb") as f:
+                with self.storages.get_storage("encoded").open(
+                    encodings_filename, "wb"
+                ) as f:
                     np.save(f, encodings)
         except Exception as e:
-            self.logger.exception("Error processing face encodings for image %s", filename)
+            self.logger.exception(
+                "Error processing face encodings for image %s", filename
+            )
             raise e
