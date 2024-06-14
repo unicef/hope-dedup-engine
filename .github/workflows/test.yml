@@ -130,7 +130,7 @@ jobs:
             --network host \            
             -v $PWD:/code/app \
             -w /code/app \
-            -t ${{needs.build.outputs.image}} \
+            -t "${{needs.build.outputs.image}}" \
             pytest tests -v
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
