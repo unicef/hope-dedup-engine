@@ -36,9 +36,6 @@ outputs:
   build_date:
       description: 'Returns tha image build date'
       value: ${{ steps.check.outputs.build_date }}
-  version:
-      description: 'Returns tha image build date'
-      value: ${{ steps.check.outputs.version }}
 
 runs:
   using: 'composite'
@@ -51,21 +48,26 @@ runs:
         architecture=${{ inputs.architecture }}
         repo="${ref%:*}"
         tag="${ref##*:}"
-        echo "image=$ref" >> $GITHUB_OUTPUT
-        echo "repo=$repo" >> $GITHUB_OUTPUT
-        echo "tag=$tag" >> $GITHUB_OUTPUT
-        echo "architecture=$architecture" >> $GITHUB_OUTPUT
         
-        url="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull"
+        echo "::group:: image-updated"
+        echo "::notice:: ==================================="
+        echo "::notice:: Image ${{ inputs.image }}"
+        echo "::notice:: Arch ${{ inputs.architecture }}"
+        echo "::notice:: Repo ${repo}"
+        echo "::notice:: Tag ${tag}"
+        echo "::notice:: ==================================="
+        echo "::endgroup::"
         
-        res=$(curl -s $url)
-        
+        res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
-          echo "::error:: title=⛔::Unable to get valid token from $url"
+          echo "::error title=⛔ error hint::Unable to get valid token"
           exit 1
         fi
         echo "token=$token" >> $GITHUB_OUTPUT
+        echo "repo=$repo" >> $GITHUB_OUTPUT
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+        echo "architecture=$architecture" >> $GITHUB_OUTPUT
     - name: Check Checksum
       id: check
       shell: bash
@@ -74,9 +76,8 @@ runs:
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
                         -s $url)
-                
+
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
-          echo "::warning:: MANIFEST_UNKNOWN"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           echo "updated=false" >> "$GITHUB_OUTPUT"
           echo "build_number=1" >> "$GITHUB_OUTPUT"
@@ -85,9 +86,8 @@ runs:
         fi
         if [[ $manifest == *errors\":* ]];then
           code=$(echo $manifest | jq .errors[0].code)
-          message=$(echo $manifest | jq .errors[0].message)                    
-          echo "::error title=$code::Error fetching manifest"
-          echo "::error title=$code::$message $url"
+          message=$(echo $manifest | jq .errors[0].message)          
+          echo "::error title=$code error hint::$message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
           exit 1
         fi
         echo "exists=true" >> $GITHUB_OUTPUT
@@ -104,38 +104,26 @@ runs:
         elif [[ -n "$check2" ]]; then
           digest=$(echo $manifest | jq -r '.config.digest')
         else
-          echo "::error title=⛔::Unable to detect digest"
+          echo "::error title=⛔ error hint::Unable to detect digest"
           exit 1        
         fi
         if [[ $digest == null ]]; then
-          echo "::error title=⛔::Digest is null"
+          echo "::error title=⛔ error hint::Digest is null"
           exit 1
         fi
         if [[ -z "$digest" ]];then
-          echo "::error title=⛔::Digest is empty"
+          echo "::error title=⛔ error hint::Digest is empty"
           exit 1
         fi        
-        url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest
-        
+        url=https://registry-1.docker.io/v2/${{steps.setup.outputs.repo}}/blobs/$digest      
         blob=$(curl \
               --silent \
               --location \
               -H "Accept: application/vnd.docker.disribution.manifest.v2+json" \
               -H 'Authorization: Bearer ${{steps.setup.outputs.token}}' \
               $url )        
-        
-        if [[ $blob == *BLOB_UNKNOWN* ]];then
-          code=$(echo $blob | jq .errors[0].code)
-          message=$(echo $blob | jq .errors[0].message)
-          echo "::warning title=$code::$message"
-          echo "updated=false" >> "$GITHUB_OUTPUT"
-          echo "build_number=1" >> "$GITHUB_OUTPUT"
-          echo "build_date=-" >> "$GITHUB_OUTPUT"             
-          exit 0        
-        fi
-        
         if [[ -z "$blob" ]]; then
-          echo "Unable to get blob from: $url"
+          echo "Unable to get blob from: https://registry-1.docker.io/v2/$repo/blobs/$digest"
           echo "updated=false" >> "$GITHUB_OUTPUT"
           echo "build_number=1" >> "$GITHUB_OUTPUT"
           echo "build_date=-" >> "$GITHUB_OUTPUT"        

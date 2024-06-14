@@ -1,54 +1,166 @@
 # ref: https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action
-name: 'Calculate version hash'
+name: 'Docker build'
 description: 'Calculate deps and os hash'
 inputs:
-  username:
-    description: ''
-    required: true
-  password:
-    description: ''
-    required: true
   image:
-    description: ''
+    description: "Image name to build and push"
     required: true
+    type: string
+    default: false
+  cache-from:
+    description: "Image name to build and push"
+    required: false
+    type: string
+  checksum:
+    description: "Dependencies checksum to check to evaluate build"
+    required: false
+    type: string
+    default: false
   target:
-    description: ''
+    description: "Dockerfile stage to stop to"
     required: true
+    type: string
+    default: "-"
+  force:
+    description: "Force rebuild event is checksum matches"
+    required: false
+    type: boolean
+    default: false
+  dry_run:
+    description: "Force rebuild event is checksum matches"
+    required: false
+    type: boolean
+    default: false
+  username:
+    description: 'DockerHub username '
+    required: false
+  password:
+    description: 'DockerHub password '
+    required: false
+  token:
+    description: 'DockerHub password '
+    required: false
 
+
+defaults:
+  run:
+    shell: bash
+
+
+outputs:
+  checksum:
+    description: 'Returns true if the image exists and the checksum is valid'
+    value: ${{ steps.release_hash.outputs.hash}}
+  version:
+    description: 'Returns true if the image exists'
+    value: ${{ steps.image_updated.outputs.version }}
+  build_number:
+    description: 'Returns build number for the current branch'
+    value: ${{ steps.image_updated.outputs.build_number }}
+  build_date:
+    description: 'Returns tha image build date'
+    value: ${{ steps.setup.outputs.date }}
+  commit:
+    description: 'Returns tha image build date'
+    value: ${{ env.LAST_COMMIT_SHA }}
 
 runs:
   using: 'composite'
   steps:
+    - name: Output Inputs
+      shell: bash
+      run: |
+        echo "====================================="
+        echo "${{ toJSON(inputs) }}"
+        echo "====================================="
+#    - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - name: Calculate Release Hash
+      id: release_hash
+      uses: ./.github/actions/distro_hash
+    - id: image_updated
+      name: Check if image exists and updated
+      uses: ./.github/actions/image_updated
+      with:
+        image: ${{inputs.image}}
+        checksum: ${{ steps.release_hash.outputs.hash }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+    - id: setup
+      name: setup
+      shell: bash
+      run: |
+        tag="${{ inputs.image }}"
+        build_date=$(date +"%Y-%m-%d %H:%M")
+        echo "date=$build_date" >> $GITHUB_OUTPUT
+        echo "image=${tag%:*}" >> $GITHUB_OUTPUT
+    - name: Setup Environment (PR)
+      if: ${{ github.event_name == 'pull_request' }}
+      shell: bash
+      run: |
+        SHA=${{ github.event.pull_request.head.sha }}
+        echo "LAST_COMMIT_SHA=${SHA::7}" >> ${GITHUB_ENV}
+    - name: Setup Environment (Push)
+      if: ${{ github.event_name == 'push' }}
+      shell: bash
+      run: |
+        echo "LAST_COMMIT_SHA=${GITHUB_SHA::7}" >> ${GITHUB_ENV}
+    - shell: bash
+      run: |
+        echo ""
+        echo "run_id          : ${{ github.run_id }}"
+        echo "date            : ${{steps.setup.outputs.date}}"
+        echo "image           : ${{steps.setup.outputs.image}}"
+        echo "tag             : ${{inputs.image}}"
+        echo "target          : ${{inputs.target}}"
+        echo "target-checksum : ${{inputs.checksum}}"
+        echo "docker-checksum : ${{steps.image_updated.outputs.checksum }}"
+        echo "image_exists    : ${{steps.image_updated.outputs.exists}}"
+        echo "image_updated   : ${{steps.image_updated.outputs.updated}}"
+        echo "build_number    : ${{steps.image_updated.outputs.build_number}}"
+        echo "build_date      : ${{steps.image_updated.outputs.build_date}}"
+        echo "force           : ${{inputs.force}}"
+        echo "build           : ${{steps.image_updated.outputs.updated != 'true' || inputs.force == 'true'}}"
+        echo "commit_sha      : ${{env.LAST_COMMIT_SHA}}"
+        echo "====================================="
     - uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: linux/amd64
+        driver: docker-container
+        driver-opts: 'image=moby/buildkit:v0.13.2'
     - name: Build and push
+      if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
       uses: docker/build-push-action@v5
       with:
         context: .
-        tags: ${{vars.DOCKER_IMAGE}}:dev-latest
+        tags: ${{ inputs.image }}
+        target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
-        cache-from: type=registry,ref=${{vars.DOCKER_IMAGE}}:dev-latest
-        cache-to: type=inline
         outputs: type=registry
-        target: python_dev_deps
+        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,ref=${{steps.setup.outputs.image}}:test-develop,mode=max"
+        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+        labels: BuildNumber=${{ steps.setup.outputs.build_number }},
         build-args: |
-          BUILD_DATE="${{ steps.build_date.outputs.date }}"
-          CHECKSUM="${{ steps.release_hash.outputs.hash }}"
-          VERSION="${{ steps.version.outputs.version }}"
-
-    - name: Calculate Release Hash
-      id: calc
+          BUILD_DATE=${{ steps.setup.outputs.date }}
+          CHECKSUM=${{ steps.release_hash.outputs.hash }}
+          VERSION=${{ steps.version.outputs.version }}
+          SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
+          GITHUB_SERVER_URL=${{ github.server_url }}
+          GITHUB_REPOSITORY=${{ github.repository }}
+    - name: Dump Image Info
       shell: bash
       run: |
-          docker pull ${{inputs.image}}
-          echo "----------"
-          docker inspect --format='{{json .Config.Labels}}' ${{inputs.image}}}}:dev-latest
-          docker run -t ${{inputs.image}}}}:dev-latest release-info.sh
-          echo "----------"
+        echo "Pulling... ${{ inputs.image }}"
+        docker pull --platform linux/amd64 ${{ inputs.image }}
+        docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }}
+        docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh
+        echo "----------"
