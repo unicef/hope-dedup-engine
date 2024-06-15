@@ -22,6 +22,10 @@ runs:
       shell: bash
       run: |
         build_date=$(date +"%Y-%m-%d %H:%M")
+        AA="{CHECKSUM:${{ steps.checksum.outputs.checksum }},BUILD_DATE:${{ steps.checksum.outputs.checksum }} }"        
+        
+        echo "args=${AA}" >> $GITHUB_OUTPUT
+        
         echo "CHECKSUM=${{ steps.checksum.outputs.checksum }}" >> $GITHUB_OUTPUT
         echo "BUILD_DATE=${build_date}" >> $GITHUB_OUTPUT
         echo "SOURCE_COMMIT=${{ steps.commit.outputs.last_commit_sha }}" >> $GITHUB_OUTPUT

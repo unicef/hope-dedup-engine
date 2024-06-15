@@ -89,7 +89,7 @@ runs:
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
 #        labels: BuildNumber=${{ steps.setup.outputs.build_number }},
-        build-args: ${{tojson(steps.build_args.outputs)}}
+        build-args: ${{tojson(steps.build_args.outputs.args)}}
 #        build-args: |
 #          BUILD_DATE=${{ steps.setup.outputs.date }}
 #          CHECKSUM=${{ inuts.hash }}
