@@ -33,10 +33,23 @@ outputs:
   build_date:
       description: 'Returns tha image build date'
       value: ${{ steps.check.outputs.build_date }}
+
+  updated:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.updated }}
+  exists:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.exists }}
+  repo:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.repo }}
+  tag:
+        description: 'Returns tha image build date'
+        value: ${{ steps.check.outputs.tag }}
   version:
       description: 'Returns tha image build date'
-      value: ${{ steps.check.outputs.build_date }}
-
+      value: ${{ steps.check.outputs.version }}
+      
 runs:
   using: 'composite'
   steps:
