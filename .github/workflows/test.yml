@@ -96,7 +96,7 @@ jobs:
       run:
         shell: bash
     outputs:
-      image: ${{ steps.image_name.outputs.name }}
+      image: ${{ needs.setup.outputs.test_image_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
