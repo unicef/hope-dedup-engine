@@ -157,7 +157,7 @@ jobs:
 #          echo "GITHUB_REPOSITORY=${{ github.repository }}
 #          echo "====================================="
   check:
-    name: Build Testing Docker Image
+    name: Debug
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
@@ -184,15 +184,15 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Define target image name
-        id: image_name
-        run: |
-          echo "name=${{vars.DOCKER_IMAGE}}:test-${{needs.setup.outputs.tag}}" >> $GITHUB_OUTPUT
+#      - name: Define target image name
+#        id: image_name
+#        run: |
+#          echo "name=${{vars.DOCKER_IMAGE}}:test-${{needs.setup.outputs.tag}}" >> $GITHUB_OUTPUT
       - id: doit
         uses: ./.github/actions/docker_build
         with:
-          image: ${{steps.image_name.outputs.name}}
-          checksum: ${{needs.setup.outputs.hash}}
+          image: ${{needs.setup.outputs.test_image}}
+          checksum: ${{needs.setup.outputs.checksum}}
           target: "python_dev_deps"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -235,7 +235,7 @@ jobs:
             --network host \            
             -v $PWD:/code/app \
             -w /code/app \
-            -t "${{needs.build.outputs.image}}" \
+            -t "${{needs.build.outputs.test_image}}" \
             pytest tests -v
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
