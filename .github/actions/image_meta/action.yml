@@ -135,5 +135,6 @@ runs:
         echo "build_date=${build_date}" >> $GITHUB_OUTPUT
     - name: dump
       if: ${{ inputs.debug == 'true' }}
+      shell: bash
       run: |
         echo "${{ toJSON( steps.check.outputs) }}"
