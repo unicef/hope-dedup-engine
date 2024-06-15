@@ -151,6 +151,7 @@ runs:
         echo "checksum=${checksum}" >> $GITHUB_OUTPUT
         echo "build_number=${build_number}" >> $GITHUB_OUTPUT
         echo "build_date=${build_date}" >> $GITHUB_OUTPUT
+        echo "::notice:: Fetched $GITHUB_OUTPUT"
     - name: dump
       if: ${{ inputs.debug == 'true' }}
       shell: bash

@@ -75,7 +75,7 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
           debug: true
-          
+
   echo:
     name: Dump Configuration
     needs: [setup]
