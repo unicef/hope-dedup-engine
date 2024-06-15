@@ -48,12 +48,12 @@ defaults:
 
 
 outputs:
-#  checksum:
-#    description: 'Returns true if the image exists and the checksum is valid'
-#    value: ${{ steps.release_hash.outputs.hash}}
-#  version:
-#    description: 'Returns true if the image exists'
-#    value: ${{ steps.image_updated.outputs.version }}
+  checksum:
+    description: 'Returns true if the image exists and the checksum is valid'
+    value: ${{ steps.build_args.outputs.CHECKSUM}}
+  image:
+    description: 'Returns true if the image exists'
+    value: ${{ inputs.image }}
 #  build_number:
 #    description: 'Returns build number for the current branch'
 #    value: ${{ steps.image_updated.outputs.build_number }}
