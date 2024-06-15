@@ -33,6 +33,9 @@ outputs:
   build_date:
       description: 'Returns tha image build date'
       value: ${{ steps.check.outputs.build_date }}
+  version:
+      description: 'Returns tha image build date'
+      value: ${{ steps.check.outputs.build_date }}
 
 runs:
   using: 'composite'

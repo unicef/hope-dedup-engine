@@ -34,17 +34,16 @@ jobs:
         shell: bash
     outputs:
       checksum: ${{ steps.checksum.outputs.checksum }}
-#      branch: ${{ steps.env.outputs.branch }}
-#      date: ${{ steps.env.outputs.date }}
-#      dist_image: ${{ steps.env.outputs.dist_image }}
-      version: ${{ steps.env.outputs.version }}
-#      last_commit: ${{ steps.env.outputs.last_commit }}
-
       test_image_name: ${{ steps.image_name.outputs.name }}
       test_image_date: ${{ steps.meta.outputs.build_date }}
       test_image_build_number: ${{ steps.meta.outputs.build_number }}
       test_image_checksum: ${{ steps.meta.outputs.checksum }}
       test_image_updated: ${{ steps.meta.outputs.updated }}
+      version: ${{ steps.meta.outputs.version }}
+#      last_commit: ${{ steps.env.outputs.last_commit }}
+#      branch: ${{ steps.env.outputs.branch }}
+#      date: ${{ steps.env.outputs.date }}
+#      dist_image: ${{ steps.env.outputs.dist_image }}
 #      docker: ${{ steps.changes.outputs.docker_base }}
 #      python_files: ${{ steps.changes.outputs.python }}
 #      tags: ${{ steps.meta.outputs.tags }}
@@ -76,10 +75,6 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
 
-#      - run: |
-#          echo ""
-#          echo "${{ toJSON(steps.meta.outputs) }}"
-#          echo "${{ toJSON(steps.checksup.outputs) }}"
   echo:
     name: Dump Configuration
     needs: [setup]
@@ -94,6 +89,7 @@ jobs:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: Build Testing Docker Image
     needs: [setup]
+    if: needs.setup.outputs.updated != 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -103,10 +99,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-#      - name: Define target image name
-#        id: image_name
-#        run: |
-#          echo "name=${{vars.DOCKER_IMAGE}}:test-${{needs.setup.outputs.tag}}" >> $GITHUB_OUTPUT
       - id: doit
         uses: ./.github/actions/docker_build
         with:

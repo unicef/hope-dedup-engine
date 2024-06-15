@@ -22,13 +22,15 @@ runs:
       shell: bash
       run: |
         build_date=$(date +"%Y-%m-%d %H:%M")
-        AA='{"CHECKSUM":"${{ steps.checksum.outputs.checksum }}","BUILD_DATE":"${{ steps.checksum.outputs.checksum }}" }'        
-        
-        echo "args=${AA}" >> $GITHUB_OUTPUT
-        
+        #        AA='{"CHECKSUM":"${{ steps.checksum.outputs.checksum }}","BUILD_DATE":"${{ steps.checksum.outputs.checksum }}" }'        
+        #        
+        #        echo "args=${AA}" >> $GITHUB_OUTPUT
+        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+        ver="${branch/\//-}"
+
         echo "CHECKSUM=${{ steps.checksum.outputs.checksum }}" >> $GITHUB_OUTPUT
         echo "BUILD_DATE=${build_date}" >> $GITHUB_OUTPUT
         echo "SOURCE_COMMIT=${{ steps.commit.outputs.last_commit_sha }}" >> $GITHUB_OUTPUT
-        echo "VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+        echo "VERSION=${ver}" >> $GITHUB_OUTPUT
         echo "GITHUB_SERVER_URL=${{ github.server_url }}" >> $GITHUB_OUTPUT
         echo "GITHUB_REPOSITORY=${{ github.repository }}" >> $GITHUB_OUTPUT
