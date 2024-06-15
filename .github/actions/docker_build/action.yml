@@ -70,7 +70,6 @@ runs:
     - name: Prepare Build Args
       id: build_args
       uses: ./.github/actions/build_args
-    - run: echo 11111111111111, ${{toJSON(steps.build_args.outputs.args)}}
     - name: DockerHub login
       uses: docker/login-action@v3
       with:
@@ -95,14 +94,14 @@ runs:
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
 #        labels: BuildNumber=${{ steps.setup.outputs.build_number }},
-        build-args: ${{toJSON(steps.build_args.outputs.args)}}
-#        build-args: |
-#          BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
-#          CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
-#          VERSION=${{ steps.build_args.outputs.VERSION }}
-#          SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
-#          GITHUB_SERVER_URL=${{ github.server_url }}
-#          GITHUB_REPOSITORY=${{ github.repository }}
+#        build-args: ${{toJSON(steps.build_args.outputs.args)}}
+        build-args: |
+          BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
+          CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
+          VERSION=${{ steps.build_args.outputs.VERSION }}
+          SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
+          GITHUB_SERVER_URL=${{ github.server_url }}
+          GITHUB_REPOSITORY=${{ github.repository }}
     - name: Dump Image Info
       shell: bash
       run: |
