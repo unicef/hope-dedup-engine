@@ -22,7 +22,7 @@ runs:
       shell: bash
       run: |
         build_date=$(date +"%Y-%m-%d %H:%M")
-        AA="{CHECKSUM:${{ steps.checksum.outputs.checksum }},BUILD_DATE:${{ steps.checksum.outputs.checksum }} }"        
+        AA='{"CHECKSUM":"${{ steps.checksum.outputs.checksum }}","BUILD_DATE":"${{ steps.checksum.outputs.checksum }}" }'        
         
         echo "args=${AA}" >> $GITHUB_OUTPUT
         
