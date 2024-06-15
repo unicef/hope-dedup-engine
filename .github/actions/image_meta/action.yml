@@ -49,7 +49,7 @@ outputs:
   version:
       description: 'Returns tha image build date'
       value: ${{ steps.check.outputs.version }}
-      
+
 runs:
   using: 'composite'
   steps:
@@ -63,21 +63,23 @@ runs:
         repo="${ref%:*}"
         tag="${ref##*:}"
 
+        echo "repo=$repo" >> $GITHUB_OUTPUT
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+        echo "architecture=$architecture" >> $GITHUB_OUTPUT
+
+        echo "exists=false" >> "$GITHUB_OUTPUT"
+        echo "updated=false" >> "$GITHUB_OUTPUT"
+        echo "build_number=1" >> "$GITHUB_OUTPUT"
+        echo "build_date=-" >> "$GITHUB_OUTPUT"
+        echo "checksum=-" >> "$GITHUB_OUTPUT"
+
         res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
           echo "::error title=⛔::Unable to get valid token"
           exit 1
         fi
-        echo "repo=$repo" >> $GITHUB_OUTPUT
-        echo "tag=$tag" >> $GITHUB_OUTPUT
-        echo "architecture=$architecture" >> $GITHUB_OUTPUT
-
-        echo "exists=false" >> "$GITHUB_OUTPUT"
-        echo "build_number=1" >> "$GITHUB_OUTPUT"
-        echo "build_date=-" >> "$GITHUB_OUTPUT"
-        echo "checksum=-" >> "$GITHUB_OUTPUT"
-      
+        
         url="https://registry-1.docker.io/v2/${repo}/manifests/${tag}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
