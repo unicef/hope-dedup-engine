@@ -84,6 +84,7 @@ runs:
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
                         -s $url)
+        echo "::debug:: $manifest"
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
           echo "::error title=⛔:: Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -151,7 +152,6 @@ runs:
         echo "checksum=${checksum}" >> $GITHUB_OUTPUT
         echo "build_number=${build_number}" >> $GITHUB_OUTPUT
         echo "build_date=${build_date}" >> $GITHUB_OUTPUT
-        echo "::notice:: Fetched $GITHUB_OUTPUT"
     - name: dump
       if: ${{ inputs.debug == 'true' }}
       shell: bash
