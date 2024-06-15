@@ -26,25 +26,25 @@ defaults:
 jobs:
   setup:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: check files
+    name: setup
     runs-on: ubuntu-latest
     timeout-minutes: 3
     defaults:
       run:
         shell: bash
     outputs:
-      checksum: ${{ steps.release_hash.outputs.hash }}
-      branch: ${{ steps.env.outputs.branch }}
-      date: ${{ steps.env.outputs.date }}
-      test_image: ${{ steps.env.outputs.test_image }}
-      dist_image: ${{ steps.env.outputs.dist_image }}
+      checksum: ${{ steps.checksum.outputs.checksum }}
+#      branch: ${{ steps.env.outputs.branch }}
+#      date: ${{ steps.env.outputs.date }}
+#      dist_image: ${{ steps.env.outputs.dist_image }}
       version: ${{ steps.env.outputs.version }}
-      last_commit: ${{ steps.env.outputs.last_commit }}
+#      last_commit: ${{ steps.env.outputs.last_commit }}
 
-      image_build_date: ${{ steps.env2.outputs.image_build_date }}
-      image_build_number: ${{ steps.env2.outputs.image_build_number }}
-      image_checksum: ${{ steps.env2.outputs.image_checksum }}
-      updated: ${{ steps.env2.outputs.updated }}
+      test_image_name: ${{ steps.image_name.outputs.name }}
+      test_image_date: ${{ steps.meta.outputs.build_date }}
+      test_image_build_number: ${{ steps.meta.outputs.build_number }}
+      test_image_checksum: ${{ steps.meta.outputs.checksum }}
+      test_image_updated: ${{ steps.meta.outputs.updated }}
 #      docker: ${{ steps.changes.outputs.docker_base }}
 #      python_files: ${{ steps.changes.outputs.python }}
 #      tags: ${{ steps.meta.outputs.tags }}
@@ -60,111 +60,34 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
-#      - name: Docker meta
-#        id: meta
-#        uses: docker/metadata-action@v5
-      - id: release_hash
-        uses: ./.github/actions/distro_hash
-      - id: last_commit
-        uses: ./.github/actions/last_commit
-      - id: env
+      - id: checksum
+        uses: ./.github/actions/checksum
+      - id: image_name
         run: |
           branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
-          build_date=$(date +"%Y-%m-%d %H:%M")
-          ver="${{steps.meta.outputs.version}}"      
-          
           ver="${branch/\//-}"
-          
-          echo "version=$ver" >> $GITHUB_OUTPUT
-          echo "date=$build_date" >> $GITHUB_OUTPUT
-          echo "branch=$branch" >> $GITHUB_OUTPUT
-          
-          echo "test_image=${{vars.DOCKER_IMAGE}}:test-$ver" >> $GITHUB_OUTPUT
-          echo "dist_image=${{vars.DOCKER_IMAGE}}:$ver" >> $GITHUB_OUTPUT
-          
-          echo "last_commit=${{steps.last_commit.outputs.LAST_COMMIT_SHA}}" >> $GITHUB_OUTPUT
+          echo "name=${{vars.DOCKER_IMAGE}}:test-$ver" >> $GITHUB_OUTPUT
       - name: Image meta
         id: meta
         uses: ./.github/actions/image_meta
         with:
-          image: ${{steps.env.outputs.test_image}}
+          image: ${{steps.image_name.outputs.name}}
+          checksum: ${{steps.checksum.outputs.checksum}}
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
-      - id: env2
-        run: |
-          echo "image_build_date=${{steps.meta.outputs.build_date}}" >> $GITHUB_OUTPUT
-          echo "image_build_number=${{steps.meta.outputs.build_number}}" >> $GITHUB_OUTPUT
-          echo "image_checksum=${{steps.meta.outputs.checksum}}" >> $GITHUB_OUTPUT
-          if [[ "${{steps.meta.outputs.checksum}}" == "${{needs.release_hash.outputs.hash}}" ]];then
-            echo "updated=true" >> $GITHUB_OUTPUT
-          else
-            echo "updated=false" >> $GITHUB_OUTPUT
-          fi
-#          echo "${{ toJSON(steps.meta.outputs) }}"
-#          echo "build_number=${{steps.meta.outputs.build_number}}" >> $GITHUB_OUTPUT
-#          echo "exists=${{steps.meta.outputs.exists}}" >> $GITHUB_OUTPUT
-#          echo "checksum=${{steps.meta.outputs.checksum}}" >> $GITHUB_OUTPUT
-#
-#
-#
-#      - name: Docker meta
-#        id: meta
-#        uses: docker/metadata-action@v5
-#      - id: env
-#        run: |
-#          br=${{ steps.extract_branch.outputs.branch }}
-#          build_date=$(date +"%Y-%m-%d %H:%M")
-#
-#          echo "version=${br##*/}" >> $GITHUB_OUTPUT
-#          echo "date=$build_date" >> $GITHUB_OUTPUT
-#          echo "image=${tag%:*}" >> $GITHUB_OUTPUT
-#          echo "name=${{vars.DOCKER_IMAGE}}:test-${{needs.setup.outputs.tag}}" >> $GITHUB_OUTPUT
-#
-#      - name: Calculate Release Hash
-#        id: release_hash
-#        uses: ./.github/actions/distro_hash
-#      - id: image_updated
-#        name: Check if image exists and updated
-#        uses: ./.github/actions/image_updated
-#        with:
-#          image: ${{inputs.image}}
-#          checksum: ${{ steps.release_hash.outputs.hash }}
-#          username: ${{ inputs.username }}
-#          password: ${{ inputs.password }}
-#      - shell: bash
-#        run: |
+
+#      - run: |
 #          echo ""
-#          echo "run_id          : ${{ github.run_id }}"
-#          echo "date            : ${{steps.setup.outputs.date}}"
-#          echo "image           : ${{steps.setup.outputs.image}}"
-#          echo "tag             : ${{inputs.image}}"
-#          echo "target          : ${{inputs.target}}"
-#          echo "target-checksum : ${{inputs.checksum}}"
-#          echo "docker-checksum : ${{steps.image_updated.outputs.checksum }}"
-#          echo "image_exists    : ${{steps.image_updated.outputs.exists}}"
-#          echo "image_updated   : ${{steps.image_updated.outputs.updated}}"
-#          echo "build_number    : ${{steps.image_updated.outputs.build_number}}"
-#          echo "build_date      : ${{steps.image_updated.outputs.build_date}}"
-#          echo "force           : ${{inputs.force}}"
-#          echo "build           : ${{steps.image_updated.outputs.updated != 'true' || inputs.force == 'true'}}"
-#          echo "commit_sha      : ${{env.LAST_COMMIT_SHA}}"
-#          echo "====================================="
-#          echo "BUILD_DATE=${{ steps.setup.outputs.date }}
-#          echo "CHECKSUM=${{ steps.release_hash.outputs.hash }}
-#          echo "VERSION=${{ steps.version.outputs.version }}
-#          echo "SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
-#          echo "GITHUB_SERVER_URL=${{ github.server_url }}
-#          echo "GITHUB_REPOSITORY=${{ github.repository }}
-#          echo "====================================="
-  check:
-    name: Debug
+#          echo "${{ toJSON(steps.meta.outputs) }}"
+#          echo "${{ toJSON(steps.checksup.outputs) }}"
+  echo:
+    name: Dump Configuration
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
       - run: |
           echo ""
           echo "${{ toJSON(needs.setup.outputs) }}"
-          echo "${{ toJSON(needs.setup.env) }}"
           
 
   build:
@@ -178,10 +101,6 @@ jobs:
     outputs:
       image: ${{ steps.image_name.outputs.name }}
     steps:
-      - run: |
-          echo ""
-          echo "${{ toJSON(needs.setup.outputs) }}"
-
       - name: Checkout code
         uses: actions/checkout@v2
 #      - name: Define target image name
@@ -191,7 +110,7 @@ jobs:
       - id: doit
         uses: ./.github/actions/docker_build
         with:
-          image: ${{needs.setup.outputs.test_image}}
+          image: ${{needs.setup.outputs.test_image_name}}
           checksum: ${{needs.setup.outputs.checksum}}
           target: "python_dev_deps"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
