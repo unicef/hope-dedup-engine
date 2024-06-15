@@ -133,7 +133,7 @@ runs:
         echo "checksum=${checksum}" >> $GITHUB_OUTPUT
         echo "build_number=${build_number}" >> $GITHUB_OUTPUT
         echo "build_date=${build_date}" >> $GITHUB_OUTPUT
-    - dump:
+    - name: dump
       if: ${{ inputs.debug == 'true' }}
       run: |
         echo "${{ toJSON( steps.check.outputs) }}"
