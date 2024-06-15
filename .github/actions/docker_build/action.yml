@@ -48,21 +48,21 @@ defaults:
 
 
 outputs:
-  checksum:
-    description: 'Returns true if the image exists and the checksum is valid'
-    value: ${{ steps.release_hash.outputs.hash}}
-  version:
-    description: 'Returns true if the image exists'
-    value: ${{ steps.image_updated.outputs.version }}
-  build_number:
-    description: 'Returns build number for the current branch'
-    value: ${{ steps.image_updated.outputs.build_number }}
-  build_date:
-    description: 'Returns tha image build date'
-    value: ${{ steps.setup.outputs.date }}
-  commit:
-    description: 'Returns tha image build date'
-    value: ${{ env.LAST_COMMIT_SHA }}
+#  checksum:
+#    description: 'Returns true if the image exists and the checksum is valid'
+#    value: ${{ steps.release_hash.outputs.hash}}
+#  version:
+#    description: 'Returns true if the image exists'
+#    value: ${{ steps.image_updated.outputs.version }}
+#  build_number:
+#    description: 'Returns build number for the current branch'
+#    value: ${{ steps.image_updated.outputs.build_number }}
+#  build_date:
+#    description: 'Returns tha image build date'
+#    value: ${{ steps.setup.outputs.date }}
+#  commit:
+#    description: 'Returns tha image build date'
+#    value: ${{ env.LAST_COMMIT_SHA }}
 
 runs:
   using: 'composite'
@@ -81,6 +81,7 @@ runs:
         platforms: linux/amd64
         driver: docker-container
         driver-opts: 'image=moby/buildkit:v0.13.2'
+    - run: echo 11111111111111, ${{toJSON(steps.build_args.outputs.args)}}
     - name: Build and push
 #      if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
       uses: docker/build-push-action@v5
@@ -94,12 +95,12 @@ runs:
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
 #        labels: BuildNumber=${{ steps.setup.outputs.build_number }},
-        build-args: ${{tojson(steps.build_args.outputs.args)}}
+        build-args: ${{toJSON(steps.build_args.outputs.args)}}
 #        build-args: |
-#          BUILD_DATE=${{ steps.setup.outputs.date }}
-#          CHECKSUM=${{ inuts.hash }}
-#          VERSION=${{ steps.version.outputs.version }}
-#          SOURCE_COMMIT=${{ env.LAST_COMMIT_SHA }}
+#          BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
+#          CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
+#          VERSION=${{ steps.build_args.outputs.VERSION }}
+#          SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
 #          GITHUB_SERVER_URL=${{ github.server_url }}
 #          GITHUB_REPOSITORY=${{ github.repository }}
     - name: Dump Image Info
