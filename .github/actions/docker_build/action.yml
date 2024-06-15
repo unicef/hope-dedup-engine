@@ -70,6 +70,7 @@ runs:
     - name: Prepare Build Args
       id: build_args
       uses: ./.github/actions/build_args
+    - run: echo 11111111111111, ${{toJSON(steps.build_args.outputs.args)}}
     - name: DockerHub login
       uses: docker/login-action@v3
       with:
@@ -81,7 +82,6 @@ runs:
         platforms: linux/amd64
         driver: docker-container
         driver-opts: 'image=moby/buildkit:v0.13.2'
-    - run: echo 11111111111111, ${{toJSON(steps.build_args.outputs.args)}}
     - name: Build and push
 #      if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
       uses: docker/build-push-action@v5
