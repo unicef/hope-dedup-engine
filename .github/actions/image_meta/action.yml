@@ -99,7 +99,7 @@ runs:
         echo "======================="
         echo "111111111111, $manifest"
         
-        if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
+        if [[ $manifest =~ "MANIFEST_UNKNOWN" ]];then
           echo "::error title=⛔:: Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           exit 0
