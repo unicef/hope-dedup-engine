@@ -145,7 +145,7 @@ runs:
           echo "::error title=ERROR::⛔ Unknown Blob at $url"
           exit 0
         fi
-        if [[ $manifest == *errors\":* ]];then
+        if [[ $blob == *errors\":* ]];then
           code=$(echo $blob | jq .errors[0].code)
           message=$(echo $blob | jq .errors[0].message)
           echo "::error title=$code::⛔ Error fetching blob"
