@@ -65,7 +65,7 @@ runs:
         fi
         
         architecture=${{ inputs.architecture }}
-        echo "::notice:: Fetching meta for '${ref}' ${architecture}"
+        echo "::notice title=✅:: Fetching meta for '${ref}' ${architecture}"
         repo="${ref%:*}"
         tag="${ref##*:}"
 
