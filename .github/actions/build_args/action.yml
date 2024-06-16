@@ -40,7 +40,7 @@ runs:
         files: ${{ inputs.files }}
     - id: commit
       uses: ./.github/actions/last_commit
-    - id:
+    - id: run
       shell: bash
       run: |
         build_date=$(date +"%Y-%m-%d %H:%M")
