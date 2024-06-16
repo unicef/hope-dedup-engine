@@ -58,7 +58,7 @@ runs:
       shell: bash
       run: |
         ref=${{ inputs.image }}
-        if [[ -z $ref ]];
+        if [[ -z $ref ]]; then
           echo "::error:: No valid image provided"
           exit 1
         fi
