@@ -65,7 +65,7 @@ runs:
         fi
         
         architecture=${{ inputs.architecture }}
-        echo "::notice title=✅:: Fetching meta for '${ref}' ${architecture}"
+        echo "::notice::✅ Fetching meta for '${ref}' ${architecture}"
         repo="${ref%:*}"
         tag="${ref##*:}"
 
@@ -82,10 +82,10 @@ runs:
         res=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull")
         token=$(echo $res | jq -r '.token')
         if [[ -z "$token" ]];then
-          echo "::error title=⛔::Unable to get valid token"
+          echo "::error::⛔ Unable to get valid token"
           exit 1
         fi
-        echo "::debug:: ✅ Successfully obtained token"
+        echo "::notice:: ✅ Successfully obtained token"
         url="https://registry-1.docker.io/v2/${repo}/manifests/${tag}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
@@ -95,8 +95,8 @@ runs:
           echo "::error::⛔ Unable to get manifest from $url"
           exit 1
         fi
-        echo "::debug::✅ Successfully obtained manifest"
-        echo "::debug:: $manifest"
+        echo "::notice::✅ Successfully obtained manifest"
+        echo "::notice:: $manifest"
         
         if [[ $manifest =~ "MANIFEST_UNKNOWN" ]]; then
           echo "::error::⛔ Unknown Manifest"
@@ -144,7 +144,10 @@ runs:
           echo "exists=false" >> "$GITHUB_OUTPUT"
           echo "::error title=ERROR::⛔ Unknown Blob at $url"
           exit 0
-        fi        
+        fi
+        echo "::notice::✅ Successfully obtained blob"
+        echo "::notice::✅ $blob"
+        
         build_number=$(echo $blob | jq '.config.Labels.BuildNumber')
         checksum=$(echo $blob | jq -r '.config.Labels.checksum')
         build_date=$(echo $blob | jq -r '.config.Labels.date')
