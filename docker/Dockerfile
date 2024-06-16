@@ -132,6 +132,7 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
+LABEL distro="builder-test"
 
 WORKDIR /code
 COPY pyproject.toml pdm.lock ./
@@ -141,7 +142,7 @@ RUN <<EOF cat> /RELEASE
  "commit": "$SOURCE_COMMIT",
  "date": "$BUILD_DATE",
  "checksum": "$CHECKSUM",
- "source": "${GITHUB_SERVER_URL}/$${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
+ "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
 EOF
 
@@ -151,7 +152,7 @@ RUN set -x \
     && pdm sync --no-editable -v --no-self
 
 
-FROM python_dev_deps AS python_prod_deps
+FROM python_base AS python_prod_deps
 ARG PKG_DIR
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -169,6 +170,30 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
+LABEL distro="builder-prod"
+
+RUN set -x \
+    && buildDeps="build-essential \
+        cmake \
+        curl \
+        gcc \
+        libgdal-dev \
+        libgif-dev \
+        libjpeg-dev \
+        liblapack-dev \
+        libopenblas-dev \
+        libpng-dev  \
+        libpq-dev \
+        libwebp-dev \
+        libssl-dev \
+        libxml2-dev  \
+        python3-dev \
+        zlib1g-dev  \
+    " \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends $buildDeps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
 
 WORKDIR /code
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
@@ -215,6 +240,7 @@ EXPOSE 8000
 ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 CMD ["run"]
 
+LABEL distro="final"
 LABEL maintainer="mnt@app.io"
 LABEL org.opencontainers.image.authors="author@app.io"
 LABEL org.opencontainers.image.created="$BUILD_DATE"
@@ -227,4 +253,3 @@ LABEL org.opencontainers.image.title="App"
 LABEL org.opencontainers.image.url="https://app.io/"
 LABEL org.opencontainers.image.vendor="App ltd"
 LABEL org.opencontainers.image.version="$VERSION"
-

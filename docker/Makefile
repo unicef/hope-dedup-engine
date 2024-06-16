@@ -48,7 +48,6 @@ xxx:
 			--build-arg COMMIT="${COMMIT_SHA}" \
 			${EXTRA} \
 			-t "${DOCKER_IMAGE}:${TAG}" \
-			--push \
 			-f docker/Dockerfile .
 	docker image ls "${DOCKER_IMAGE}:${TAG}"
 	@docker inspect -f "{{json .Config.Labels}}" ${DOCKER_IMAGE}:${TAG}
