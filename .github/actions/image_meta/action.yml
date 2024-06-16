@@ -134,7 +134,7 @@ runs:
               --silent \
               --location \
               -H "Accept: application/vnd.docker.disribution.manifest.v2+json" \
-              -H 'Authorization: Bearer ${token}' \
+              -H "Authorization: Bearer ${token}" \
               $url )
         if [[ -z "$blob" ]]; then
           echo "::error title=ERROR::⛔ Empty Blob"
@@ -144,6 +144,14 @@ runs:
           echo "exists=false" >> "$GITHUB_OUTPUT"
           echo "::error title=ERROR::⛔ Unknown Blob at $url"
           exit 0
+        fi
+        if [[ $manifest == *errors\":* ]];then
+          code=$(echo $blob | jq .errors[0].code)
+          message=$(echo $blob | jq .errors[0].message)
+          echo "::error title=$code::⛔ Error fetching blob"
+          exit 1
+
+          exit 1
         fi
         echo "::notice::✅ Successfully obtained blob"
         echo "::notice::✅ $blob"
