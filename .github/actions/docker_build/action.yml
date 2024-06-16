@@ -101,12 +101,12 @@ runs:
         pull: true
         push: true
         build-args: |
-          BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
-          CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
-          VERSION=${{ steps.build_args.outputs.VERSION }}
-          SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
-          GITHUB_SERVER_URL=${{ github.server_url }}
-          GITHUB_REPOSITORY=${{ github.repository }}
+            BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
+            CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
+            VERSION=${{ steps.build_args.outputs.VERSION }}
+            SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
+            GITHUB_SERVER_URL=${{ github.server_url }}
+            GITHUB_REPOSITORY=${{ github.repository }}
     - name: Dump Image Info
       shell: bash
       run: |

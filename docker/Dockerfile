@@ -197,7 +197,8 @@ RUN set -x \
 
 WORKDIR /code
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-COPY . /code
+COPY pyproject.toml pdm.lock README.md LICENSE ./
+COPY ./src /code/src
 
 
 RUN mkdir -p $PKG_DIR \

@@ -137,12 +137,12 @@ runs:
               -H 'Authorization: Bearer ${token}' \
               $url )
         if [[ -z "$blob" ]]; then
-          echo "::error:: Empty Blob"
+          echo "::error title=ERROR::⛔ Empty Blob"
           exit 1
         fi
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           echo "exists=false" >> "$GITHUB_OUTPUT"
-          echo "::error:: Unknown Blob at $url"
+          echo "::error title=ERROR::⛔ Unknown Blob at $url"
           exit 0
         fi        
         build_number=$(echo $blob | jq '.config.Labels.BuildNumber')
