@@ -57,6 +57,7 @@ runs:
       id: check
       shell: bash
       run: |
+        set -e pipefail   
         ref=${{ inputs.image }}
         if [[ -z $ref ]]; then
           echo "::error:: No valid image provided"
@@ -84,7 +85,7 @@ runs:
           echo "::error title=⛔::Unable to get valid token"
           exit 1
         fi
-        
+        echo "::debug title=✅:: Successfully obtained token"
         url="https://registry-1.docker.io/v2/${repo}/manifests/${tag}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
@@ -94,12 +95,10 @@ runs:
           echo "::error title=⛔::Unable to get manifest from $url"
           exit 1
         fi
-        echo "======================="
-        echo "======================="
-        echo "======================="
-        echo "111111111111, $manifest"
+        echo "::debug title=✅ line=98:: Successfully obtained manifest"
+        echo "::debug:: $manifest"
         
-        if [[ $manifest =~ "MANIFEST_UNKNOWN" ]];then
+        if [[ $manifest =~ "MANIFEST_UNKNOWN" ]]; then
           echo "::error title=⛔:: Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           exit 0
