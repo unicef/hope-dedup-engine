@@ -90,6 +90,11 @@ runs:
                         -H "Authorization: Bearer ${token}" \
                         -s $url)
         
+        if [[ -z "$manifest" ]];then
+          echo "::error title=⛔::Unable to get manifest from $url"
+          exit 1
+        fi
+        
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
           echo "::error title=⛔:: Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -101,10 +106,7 @@ runs:
           echo "::error title=⛔ $code::$message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
           exit 1
         fi
-        if [[ -z "$manifest" ]];then
-          echo "::error title=⛔::Unable to get manifest from $url"
-          exit 1
-        fi
+
         check1=$(echo $manifest | jq 'try(.manifests[])')
         check2=$(echo $manifest | jq 'try(.config.digest)')
 
