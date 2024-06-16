@@ -84,7 +84,7 @@ runs:
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
                         -s $url)
-        echo "::debug:: $manifest"
+        
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
           echo "::error title=⛔:: Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
