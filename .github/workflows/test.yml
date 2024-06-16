@@ -26,7 +26,6 @@ defaults:
 jobs:
   setup:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: setup
     runs-on: ubuntu-latest
     timeout-minutes: 3
     defaults:
@@ -88,7 +87,6 @@ jobs:
 
   build:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: Build Testing Docker Image
     needs: [setup]
     if: needs.setup.outputs.updated != 'true'
     runs-on: ubuntu-latest
@@ -112,8 +110,7 @@ jobs:
 
   test:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: Run Tests
-    needs: [build]
+    needs: [setup,build]
     runs-on: ubuntu-latest
     services:
       redis:
@@ -134,9 +131,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - run: |
-          echo ""
-          echo "${{ toJSON(needs.build.outputs) }}"
+      - name: Dump 'Build' outputs
+        run: echo "${{ toJSON(needs.build.outputs) }}"
+      - name: Dump 'Setup' outputs
+        run: echo "${{ toJSON(needs.setup.outputs) }}"
       - name: Run tests
         run: |
           docker run --rm \
