@@ -142,7 +142,10 @@ runs:
         fi
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "::group::"        
           echo "::error title=ERROR::⛔ Unknown Blob at $url"
+          echo "::error:: $blob"
+          echo "::endgroup::"        
           exit 0
         fi
         if [[ $blob == *errors\":* ]];then
@@ -150,11 +153,11 @@ runs:
           message=$(echo $blob | jq .errors[0].message)
           echo "::error title=$code::⛔ Error fetching blob"
           exit 1
-
-          exit 1
         fi
+        echo "::group::"
         echo "::notice::✅ Successfully obtained blob"
         echo "::notice::✅ $blob"
+        echo "::endgroup::"
         
         build_number=$(echo $blob | jq '.config.Labels.BuildNumber')
         checksum=$(echo $blob | jq -r '.config.Labels.checksum')
