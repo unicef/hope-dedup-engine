@@ -135,6 +135,16 @@ jobs:
         run: echo "${{ toJSON(needs.build.outputs) }}"
       - name: Dump 'Setup' outputs
         run: echo "${{ toJSON(needs.setup.outputs) }}"
+      - name: Image meta
+        id: meta
+        uses: ./.github/actions/image_meta
+        with:
+          image: ${{needs.build.outputs.image}}
+          username: ${{ inputs.username }}
+          password: ${{ inputs.password }}
+          debug: true
+      - name: Dump Image meta
+        run: echo "${{ toJSON(needs.meta.outputs) }}"
       - name: Run tests
         run: |
           docker run --rm \
