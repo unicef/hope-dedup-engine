@@ -86,8 +86,8 @@ jobs:
           
 
   build:
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     needs: [setup]
+    #  && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
     if: needs.setup.outputs.updated != 'true'
     runs-on: ubuntu-latest
     defaults:
@@ -186,12 +186,13 @@ jobs:
       - name: Define target image name
         id: image_name
         run: |
-          echo "name=${{vars.DOCKER_IMAGE}}:${{needs.setup.outputs.tag}}" >> $GITHUB_OUTPUT
+          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          ver="${branch/\//-}"
+          echo "name=${{vars.DOCKER_IMAGE}}:$ver" >> $GITHUB_OUTPUT
       - id: doit
         uses: ./.github/actions/docker_build
         with:
           image: ${{steps.image_name.outputs.name}}
-          checksum: ${{needs.setup.outputs.hash}}
           target: "dist"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
