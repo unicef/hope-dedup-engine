@@ -37,7 +37,7 @@ runs:
     - id: checksum
       uses: ./.github/actions/checksum
       with:
-        files: ${{ input.files }}
+        files: ${{ inputs.files }}
     - id: commit
       uses: ./.github/actions/last_commit
     - id:
