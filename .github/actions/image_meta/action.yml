@@ -85,28 +85,28 @@ runs:
           echo "::error title=⛔::Unable to get valid token"
           exit 1
         fi
-        echo "::debug title=✅:: Successfully obtained token"
+        echo "::debug:: ✅ Successfully obtained token"
         url="https://registry-1.docker.io/v2/${repo}/manifests/${tag}"        
         manifest=$(curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
                         -H "Authorization: Bearer ${token}" \
                         -s $url)
         
         if [[ -z "$manifest" ]];then
-          echo "::error title=⛔::Unable to get manifest from $url"
+          echo "::error::⛔ Unable to get manifest from $url"
           exit 1
         fi
-        echo "::debug title=✅ line=98:: Successfully obtained manifest"
+        echo "::debug::✅ Successfully obtained manifest"
         echo "::debug:: $manifest"
         
         if [[ $manifest =~ "MANIFEST_UNKNOWN" ]]; then
-          echo "::error title=⛔:: Unknown Manifest"
+          echo "::error::⛔ Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
         if [[ $manifest == *errors\":* ]];then
           code=$(echo $manifest | jq .errors[0].code)
           message=$(echo $manifest | jq .errors[0].message)
-          echo "::error title=⛔ $code::$message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
+          echo "::error title=$code::⛔ $message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
           exit 1
         fi
 
@@ -118,15 +118,15 @@ runs:
         elif [[ -n "$check2" ]]; then
           digest=$(echo $manifest | jq -r '.config.digest')
         else
-          echo "::error title=⛔ error hint::Unable to detect digest"
+          echo "::error::⛔ Unable to detect digest"
           exit 1
         fi
         if [[ $digest == null ]]; then
-          echo "::error title=⛔ error hint::Digest is null"
+          echo "::error::⛔ Digest is null"
           exit 1
         fi
         if [[ -z "$digest" ]];then
-          echo "::error title=⛔ error hint::Digest is empty"
+          echo "::error title=ERROR::⛔ Digest is empty"
           exit 1
         fi
         url=https://registry-1.docker.io/v2/${repo}/blobs/$digest

@@ -74,6 +74,12 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
           debug: true
+      - run:
+          if [[ '${{needs.setup.outputs.updated}}' == 'true' ]]; then
+            echo "::notice::✅ Image is updated"
+          else
+            echo "::warning:: Image is outdated"
+          fi
 
 #  echo:
 #    name: Dump Configuration
