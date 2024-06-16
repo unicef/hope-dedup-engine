@@ -74,7 +74,7 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
           debug: true
-      - run:
+      - run: |
           if [[ '${{needs.setup.outputs.updated}}' == 'true' ]]; then
             echo "::notice::✅ Image is updated"
           else
