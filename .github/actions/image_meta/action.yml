@@ -94,6 +94,10 @@ runs:
           echo "::error title=⛔::Unable to get manifest from $url"
           exit 1
         fi
+        echo "======================="
+        echo "======================="
+        echo "======================="
+        echo "111111111111, $manifest"
         
         if [[ $manifest == *MANIFEST_UNKNOWN* ]];then
           echo "::error title=⛔:: Unknown Manifest"
