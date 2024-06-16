@@ -58,6 +58,11 @@ runs:
       shell: bash
       run: |
         ref=${{ inputs.image }}
+        if [[ -z $ref ]];
+          echo "::error:: No valid image provided"
+          exit 1
+        fi
+        
         architecture=${{ inputs.architecture }}
         echo "::notice:: Fetching meta for '${ref}' ${architecture}"
         repo="${ref%:*}"
