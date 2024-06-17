@@ -42,17 +42,19 @@ def test_init_successful(mock_dd):
 @pytest.mark.parametrize(
     "ignore_input, expected_output",
     [
-        (tuple(), set()),
+        (list(), set()),
         (
-            (("file1.jpg", "file2.jpg"),),
+            [
+                ["file1.jpg", "file2.jpg"],
+            ],
             {("file1.jpg", "file2.jpg"), ("file2.jpg", "file1.jpg")},
         ),
         (
-            (("file1.jpg", "file2.jpg"), ("file2.jpg", "file1.jpg")),
+            [["file1.jpg", "file2.jpg"], ["file2.jpg", "file1.jpg"]],
             {("file1.jpg", "file2.jpg"), ("file2.jpg", "file1.jpg")},
         ),
         (
-            (("file1.jpg", "file3.jpg"), ("file2.jpg", "file3.jpg")),
+            [["file1.jpg", "file3.jpg"], ["file2.jpg", "file3.jpg"]],
             {
                 ("file1.jpg", "file3.jpg"),
                 ("file3.jpg", "file1.jpg"),

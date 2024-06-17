@@ -4,10 +4,10 @@ FILENAME: Final[str] = "test_file.jpg"
 FILENAME_ENCODED: Final[str] = "test_file.jpg.npy"
 FILENAME_ENCODED_FORMAT: Final[str] = "{}.npy"
 FILENAMES: Final[list[str]] = ["test_file.jpg", "test_file2.jpg", "test_file3.jpg"]
-IGNORE_PAIRS: Final[tuple[tuple[str, str]]] = (
-    ("ignore_file.jpg", "ignore_file2.jpg"),
-    ("ignore_file4.jpg", "ignore_file3.jpg"),
-)
+IGNORE_PAIRS: Final[list[list[str, str]]] = [
+    ["ignore_file.jpg", "ignore_file2.jpg"],
+    ["ignore_file4.jpg", "ignore_file3.jpg"],
+]
 
 CELERY_TASK_NAME: Final[str] = "Deduplicate"
 CELERY_TASK_TTL: Final[int] = 1 * 60 * 60

@@ -7,11 +7,11 @@ class IgnorePairsValidator:
         if not ignore:
             return set()
         if not (
-            isinstance(ignore, tuple)
+            isinstance(ignore, list)
             and all(
                 all(
                     (
-                        isinstance(pair, tuple),
+                        isinstance(pair, list),
                         len(pair) == 2,
                         all(isinstance(item, str) and item for item in pair),
                     )
@@ -19,12 +19,11 @@ class IgnorePairsValidator:
                 for pair in ignore
             )
         ):
-            raise ValidationError(
-                "Invalid format. Expected a tuple of tuples, each containing exactly two strings."
-            )
+            raise ValidationError("Invalid format for ignore pairs.")
 
         result_set = set()
         for pair in ignore:
+            pair = tuple(pair)
             result_set.add(pair)
             result_set.add((pair[1], pair[0]))
         return result_set

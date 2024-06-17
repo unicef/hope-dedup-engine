@@ -81,12 +81,12 @@ class DuplicationDetector:
             raise e
         return data
 
-    def find_duplicates(self) -> tuple[tuple[str, ...], ...]:
+    def find_duplicates(self) -> list[list[str]]:
         """
         Find and return a list of duplicate images based on face encodings.
 
         Returns:
-            tuple[tuple[str, ...], ...]: A tuple of tuples, where each inner tuple contains
+            list[list[str]]: A list of lists, where each inner list contains
                                         the filenames of duplicate images.
         """
         try:

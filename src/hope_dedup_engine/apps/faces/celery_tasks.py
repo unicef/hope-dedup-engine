@@ -15,7 +15,7 @@ def deduplicate(
     self: Task,
     filenames: tuple[str],
     ignore_pairs: tuple[tuple[str, str], ...] = tuple(),
-) -> tuple[tuple[str, ...], ...]:
+) -> list[list[str]]:
     """
     Deduplicate a set of filenames, ignoring any specified pairs of filenames.
 
@@ -25,7 +25,7 @@ def deduplicate(
                                         a pair of filenames to be ignored in the duplication check.
 
     Returns:
-        tuple[tuple[str]]: A tuple of tuples, where each inner tuple represents a group of duplicates.
+        list[list[str]]: A list of lists, where each inner list represents a group of duplicates.
     """
     try:
         dd = DuplicationDetector(filenames, ignore_pairs)
