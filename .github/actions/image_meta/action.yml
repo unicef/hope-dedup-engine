@@ -99,7 +99,7 @@ runs:
         echo "::notice:: $manifest"
         
         if [[ $manifest =~ "MANIFEST_UNKNOWN" ]]; then
-          echo "::error::⛔ Unknown Manifest"
+          echo "::warning::⛔ Unknown Manifest"
           echo "exists=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi

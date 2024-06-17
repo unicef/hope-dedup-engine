@@ -102,7 +102,7 @@ jobs:
   test:
     name: Run Test Suite
     needs: [setup,build]
-    if: needs.setup.outputs.run_tests == 'true'  
+    if: needs.setup.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
 #      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
     runs-on: ubuntu-latest
     services:
