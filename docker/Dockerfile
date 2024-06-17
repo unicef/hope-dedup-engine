@@ -197,7 +197,7 @@ RUN set -x \
 
 WORKDIR /code
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-COPY pyproject.toml pdm.lock README.md LICENSE ./
+COPY pyproject.toml pdm.lock /README.md /LICENSE ./
 COPY ./src /code/src
 
 
