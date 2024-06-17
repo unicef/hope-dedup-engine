@@ -44,7 +44,7 @@ jobs:
 #      date: ${{ steps.env.outputs.date }}
 #      dist_image: ${{ steps.env.outputs.dist_image }}
 #      docker: ${{ steps.changes.outputs.docker_base }}
-#      python_files: ${{ steps.changes.outputs.python }}
+      run_tests: ${{ steps.changes.outputs.run_tests }}
 #      tags: ${{ steps.meta.outputs.tags }}
 #      tag: ${{ steps.meta.outputs.version }}
 #      image_name: ${{ steps.image_name.outputs.name }}
@@ -74,27 +74,12 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
           debug: true
-#      - run: |
-#          if [[ '${{needs.setup.outputs.updated}}' == 'true' ]]; then
-#            echo "::notice::✅ Image is updated "
-#          else
-#            echo "::warning:: Image is outdated (${{steps.meta.outputs.checksum}} != ${{steps.checksum.outputs.checksum}})"
-#          fi
-
-#  echo:
-#    name: Dump Configuration
-#    needs: [setup]
-#    runs-on: ubuntu-latest
-#    steps:
-#      - run: |
-#          echo ""
-#          echo "${{ toJSON(needs.setup.outputs) }}"
-#
 
   build:
+    name: Build and Push Test Image
     needs: [setup]
-    #  && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
     if: needs.setup.outputs.updated != 'true'
+    #  && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -115,8 +100,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    name: Run Test Suite
     needs: [setup,build]
+    if: needs.setup.outputs.run_tests == 'true'  
+#      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
     runs-on: ubuntu-latest
     services:
       redis:
@@ -139,10 +126,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Dump 'Build' outputs
-        run: echo "${{ toJSON(needs.build.outputs) }}"
-      - name: Dump 'Setup' outputs
-        run: echo "${{ toJSON(needs.setup.outputs) }}"
       - name: Image meta
         id: info
         uses: ./.github/actions/image_meta
@@ -152,8 +135,12 @@ jobs:
           username: ${{ inputs.username }}
           password: ${{ inputs.password }}
           debug: true
+      - name: Dump 'Build' outputs
+        run: echo "${{ toJSON(needs.build.outputs) }}"
+      - name: Dump 'Setup' outputs
+        run: echo "${{ toJSON(needs.setup.outputs) }}"
       - name: Dump Image meta
-        run: echo "${{ toJSON(needs.info.outputs) }}"
+        run: echo "${{ toJSON(steps.info.outputs) }}"
       - name: Run tests
         run: |
           docker run --rm \
@@ -178,7 +165,7 @@ jobs:
 
   release:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: Release distribution image
+    name: Build and Push Distribution
     needs: [setup, test]
     runs-on: ubuntu-latest
     defaults:
