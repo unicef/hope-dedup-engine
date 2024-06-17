@@ -80,9 +80,15 @@ runs:
     -
       name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    - name: Build
+      with:
+        platforms: linux/amd64
+        driver: docker-container
+        driver-opts: 'image=moby/buildkit:v0.13.2'
+    -
+      name: Build
       shell: bash
       run: |
+          ls -al
           docker buildx build \
             --progress=plain \
             --platform=linux/amd64 \

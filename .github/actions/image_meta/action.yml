@@ -95,8 +95,9 @@ runs:
           echo "::error::⛔ Unable to get manifest from $url"
           exit 1
         fi
-        echo "::notice::✅ Successfully obtained manifest"
+        echo "::group::✅ Successfully obtained manifest"
         echo "::notice:: $manifest"
+        echo "::endgroup::"
         
         if [[ $manifest =~ "MANIFEST_UNKNOWN" ]]; then
           echo "::warning::⛔ Unknown Manifest"
@@ -106,7 +107,7 @@ runs:
         if [[ $manifest == *errors\":* ]];then
           code=$(echo $manifest | jq .errors[0].code)
           message=$(echo $manifest | jq .errors[0].message)
-          echo "::error title=$code::⛔ $message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
+          echo "::warning title=$code::⛔ $message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
           exit 0
         fi
 
@@ -142,8 +143,8 @@ runs:
         fi
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           echo "exists=false" >> "$GITHUB_OUTPUT"
-          echo "::group title=ERROR::⛔ Unknown Blob at $url"
-          echo "::error:: $blob"
+          echo "::group title=WARN::⛔ Unknown Blob at $url"
+          echo "::warning:: $blob"
           echo "::endgroup::"        
           exit 0
         fi

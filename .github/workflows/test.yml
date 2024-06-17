@@ -59,8 +59,10 @@ jobs:
           token: ${{ github.token }}
           filters: .github/file-filters.yml
       - id: checksum
+        name: Calculate Code Checksum
         uses: ./.github/actions/checksum
       - id: image_name
+        name: Set Image name
         run: |
           branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           ver="${branch/\//-}"
