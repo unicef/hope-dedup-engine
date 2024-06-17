@@ -90,13 +90,12 @@ runs:
       id: build_push
       with:
         context: .
+        image: ${{ inputs.image }}
         tags: ${{ inputs.image }}
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
         outputs: type=registry
-        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         build-args: |
             BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
             CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
@@ -104,7 +103,8 @@ runs:
             SOURCE_COMMIT=${{ steps.build_args.outputs.SOURCE_COMMIT }}
             GITHUB_SERVER_URL=${{ github.server_url }}
             GITHUB_REPOSITORY=${{ github.repository }}
-#        image: ${{ inputs.image }}
+#        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+#        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
 #        provenance: true
 #        sbom: true
 #        load: true
