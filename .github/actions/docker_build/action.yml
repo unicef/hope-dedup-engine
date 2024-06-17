@@ -54,15 +54,15 @@ outputs:
   image:
     description: 'Returns true if the image exists'
     value: ${{ inputs.image }}
-#  build_number:
-#    description: 'Returns build number for the current branch'
-#    value: ${{ steps.image_updated.outputs.build_number }}
-#  build_date:
-#    description: 'Returns tha image build date'
-#    value: ${{ steps.setup.outputs.date }}
-#  commit:
-#    description: 'Returns tha image build date'
-#    value: ${{ env.LAST_COMMIT_SHA }}
+  version:
+    description: 'Returns build number for the current branch'
+    value: ${{ steps.build_args.outputs.VERSION }}
+  build_date:
+    description: 'Returns tha image build date'
+    value: ${{ steps.build_args.outputs.BUILD_DATE }}
+  commit:
+    description: 'Returns tha image commit sha'
+    value: ${{ steps.build_args.outputs.SOURCE_COMMIT }}
 
 runs:
   using: 'composite'
@@ -96,10 +96,7 @@ runs:
         outputs: type=registry
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-#        labels: BuildNumber=${{ steps.setup.outputs.build_number }},
-#        build-args: ${{toJSON(steps.build_args.outputs.args)}}
         pull: true
-        push: true
         build-args: |
             BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
             CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
