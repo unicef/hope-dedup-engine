@@ -95,9 +95,10 @@ runs:
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
-        outputs: type=registry,type=docker
+        outputs: type=registry
         provenance: true
         sbom: true
+        load: true
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         build-args: |
