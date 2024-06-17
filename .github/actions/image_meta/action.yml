@@ -135,15 +135,14 @@ runs:
               --location \
               -H "Accept: application/vnd.docker.disribution.manifest.v2+json" \
               -H "Authorization: Bearer ${token}" \
-              $url )
+              $url)
         if [[ -z "$blob" ]]; then
           echo "::error title=ERROR::⛔ Empty Blob"
           exit 1
         fi
         if [[ $blob == *BLOB_UNKNOWN* ]];then
           echo "exists=false" >> "$GITHUB_OUTPUT"
-          echo "::group::"        
-          echo "::error title=ERROR::⛔ Unknown Blob at $url"
+          echo "::group title=ERROR::⛔ Unknown Blob at $url"
           echo "::error:: $blob"
           echo "::endgroup::"        
           exit 0
@@ -180,4 +179,10 @@ runs:
       if: ${{ inputs.debug == 'true' }}
       shell: bash
       run: |
+        echo "Image Meta for ${{ inputs.image }}"
         echo "${{ toJSON( steps.check.outputs) }}"
+        if [[ '${{steps.check.outputs.updated}}' == 'true' ]]; then
+          echo "::notice::✅ Image is updated "
+        else
+          echo "::warning:: Image is outdated (${{inputs.checksum}} != ${{steps.check.outputs.updated}})"
+        fi
