@@ -87,6 +87,7 @@ runs:
     - name: Build and push
 #      if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
       uses: docker/build-push-action@v6
+      id: build_push
       with:
         context: .
         image: ${{ inputs.image }}
@@ -94,11 +95,11 @@ runs:
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
-        multiPlatform: false
-        outputs: type=registry
+        outputs: type=registry,type=docker
+        provenance: true
+        sbom: true
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-        enableBuildKit: true
         build-args: |
             BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
             CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
@@ -110,9 +111,10 @@ runs:
       shell: bash
       run: |
         docker pull --platform linux/amd64 ${{ inputs.image }}
-        echo "::group:: ✅ Successfully built and pushed ${{ inputs.image }}"
         info=$(docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }})
         release=$(docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh)
+        echo "::group:: ✅ Successfully built and pushed ${{ inputs.image }}"
+        echo "::notice:: ${{steps.build_push.outputs.metadata}}"
         echo "::notice:: $info"
         echo "::notice:: $release"
         echo "::endgroup::"

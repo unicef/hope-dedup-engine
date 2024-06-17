@@ -107,7 +107,7 @@ runs:
           code=$(echo $manifest | jq .errors[0].code)
           message=$(echo $manifest | jq .errors[0].message)
           echo "::error title=$code::⛔ $message https://registry-1.docker.io/v2/${repo}/manifests/${tag}"
-          exit 1
+          exit 0
         fi
 
         check1=$(echo $manifest | jq 'try(.manifests[])')
