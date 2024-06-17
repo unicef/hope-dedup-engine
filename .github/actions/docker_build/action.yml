@@ -86,17 +86,19 @@ runs:
         driver-opts: 'image=moby/buildkit:v0.13.2'
     - name: Build and push
 #      if: ${{ steps.image_updated.outputs.updated != 'true' || inputs.force == 'true' }}
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
+        image: ${{ inputs.image }}
         tags: ${{ inputs.image }}
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
+        multiPlatform: false
         outputs: type=registry
         cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
         cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-        pull: true
+        enableBuildKit: true
         build-args: |
             BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
             CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
