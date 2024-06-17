@@ -4,3 +4,5 @@
 !pyproject.toml
 !pdm.lock
 !src
+!LICENSE
+!README.md

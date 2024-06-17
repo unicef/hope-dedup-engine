@@ -179,10 +179,11 @@ runs:
       if: ${{ inputs.debug == 'true' }}
       shell: bash
       run: |
-        echo "Image Meta for ${{ inputs.image }}"
-        echo "${{ toJSON( steps.check.outputs) }}"
+        echo "::group:: Image Meta for ${{ inputs.image }}"
+        echo "::notice:: ${{ toJSON( steps.check.outputs) }}"
         if [[ '${{steps.check.outputs.updated}}' == 'true' ]]; then
           echo "::notice::✅ Image is updated "
         else
-          echo "::warning:: Image is outdated (${{inputs.checksum}} != ${{steps.check.outputs.updated}})"
+          echo "::warning:: Image is outdated (${{inputs.checksum}} != ${{steps.check.outputs.checksum}})"
         fi
+        echo "::endgroup::"

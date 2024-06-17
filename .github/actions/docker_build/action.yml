@@ -110,9 +110,10 @@ runs:
     - name: Dump Image Info
       shell: bash
       run: |
-        echo "::group::"
-        echo "::notice::✅ Successfully built ${{ inputs.image }}"
         docker pull --platform linux/amd64 ${{ inputs.image }}
-        docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }}
-        docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh
+        echo "::group:: ✅ Successfully built and pushed ${{ inputs.image }}"
+        info=$(docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }})
+        release=$(docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh)
+        echo "::notice:: $info"
+        echo "::notice:: $release"
         echo "::endgroup::"
