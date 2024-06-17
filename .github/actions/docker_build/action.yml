@@ -134,7 +134,7 @@ runs:
 #        provenance: true
 #        sbom: true
 #        load: true
-    - run: echo "::notice:: ${{ toJSON(steps.build_push.outputs)}}"
+    - run: echo "======  ${{ toJson(steps.build_push.outputs) }} ==="
     - name: Dump Image Info
       shell: bash
       run: |
