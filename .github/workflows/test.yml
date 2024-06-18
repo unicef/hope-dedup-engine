@@ -81,8 +81,8 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/amd64
           push: true
-          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:dockercache
-          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:dockercache,mode=max,image-manifest=true
+          cache-from: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache
+          cache-to: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache,mode=max,image-manifest=true
           build-args: |
               BUILD_DATE=${{ steps.build_args.outputs.build_date }}
               CHECKSUM=${{ steps.build_args.outputs.checksum }}
