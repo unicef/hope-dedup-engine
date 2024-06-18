@@ -37,7 +37,7 @@ jobs:
       run_tests: ${{ steps.changes.outputs.run_tests }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.1.7
       - id: changes
         name: Check for file changes
         uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
@@ -47,7 +47,7 @@ jobs:
           filters: .github/file-filters.yml
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v5.5.1
         with:
           images: ${{ vars.DOCKER_IMAGE }}
           flavor: |
@@ -63,7 +63,7 @@ jobs:
       
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3.3.0
         with:
           platforms: linux/amd64
           driver: docker-container
@@ -82,10 +82,12 @@ jobs:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
           push: true
+          sbom: true
           cache-from: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache
           cache-to: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache,mode=max,image-manifest=true
           build-args: |
@@ -95,10 +97,10 @@ jobs:
               SOURCE_COMMIT=${{ steps.build_args.outputs.source_commit }}
               GITHUB_SERVER_URL=${{ github.server_url }}
               GITHUB_REPOSITORY=${{ github.repository }}
-#      - name: Push Blob to Registry
-#        shell: bash
-#        run: |
-#          echo ${{ steps.build_push.outputs }}
+      - name: Push Blob to Registry
+        shell: bash
+        run: |
+          echo ${{ steps.build_push.outputs }}
 
   #        outputs: type=registry
   #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
