@@ -47,6 +47,11 @@ jobs:
           filters: .github/file-filters.yml
       - name: Install regctl
         uses: regclient/actions/regctl-installer@main
+      - name: Prepare Build Args
+        id: build_args
+        uses: ./.github/actions/build_args
+        with:
+          debug: true
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5.5.1
@@ -54,11 +59,10 @@ jobs:
           images: ${{ vars.DOCKER_IMAGE }}
           flavor: |
             prefix=test-
-      - name: Prepare Build Args
-        id: build_args
-        uses: ./.github/actions/build_args
-        with:
-          debug: true
+          labels: |
+            CHECKSUM=${{ steps.build_args.outputs.checksum }}
+            BUILD_DATE=${{ steps.build_args.outputs.build_date }}
+            SOURCE_COMMIT=${{ steps.build_args.outputs.source_commit }}
       - run: |
           echo "=========="
           echo "${{ toJSON(steps.meta.outputs)}}"
@@ -89,10 +93,8 @@ jobs:
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
-          labels: "${{ steps.meta.outputs.labels }}\nlbl1=1\nlbl2=2"
-          annotations: ${{ steps.meta.outputs.annotations }}
-            a=1
-            b=1
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: "${{ steps.meta.outputs.annotations }}\na=1\nb=2"
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
