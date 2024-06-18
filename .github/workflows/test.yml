@@ -106,8 +106,10 @@ jobs:
         with:
           index-annotations: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
+          push: true
+          amend: false
           sources: |
-            ${{ github.repository }}@${{ steps.build_push.outputs.digest }}
+            ${{ steps.build_push.outputs.digest }}
   #        outputs: type=registry
   #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
   #        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
