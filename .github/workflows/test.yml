@@ -65,6 +65,8 @@ jobs:
       - name: "---"
         shell: bash
         run: |
+          echo ${{ steps.meta.outputs.annotations }}
+          echo ${{ steps.meta.outputs.tags }}
           regctl manifest get ${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }} -p linux/amd64
 
       - name: Set up Docker Buildx
@@ -86,8 +88,8 @@ jobs:
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}, lbl1=1, lbl2=2
-          annotations: ${{ steps.meta.outputs.annotations }}, a=1, b=1
+          labels: ${{ steps.meta.outputs.labels }}; lbl1=1; lbl2=2
+          annotations: ${{ steps.meta.outputs.annotations }}; a=1, b=1
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
