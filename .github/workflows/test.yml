@@ -93,8 +93,11 @@ jobs:
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: "${{ steps.meta.outputs.annotations }}\na=1\nb=2"
+          labels: "${{ steps.meta.outputs.labels }}\na=1\nb=2"
+          annotations: "${{ steps.meta.outputs.annotations }}
+          checksum=${{ steps.build_args.outputs.checksum }}
+          commit=${{ steps.build_args.outputs.source_commit }}
+          "
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
