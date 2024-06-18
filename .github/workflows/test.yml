@@ -33,24 +33,11 @@ jobs:
         shell: bash
     outputs:
       checksum: ${{ steps.checksum.outputs.checksum }}
-      test_image_name: ${{ steps.image_name.outputs.name }}
-      test_image_date: ${{ steps.meta.outputs.build_date }}
-      test_image_build_number: ${{ steps.meta.outputs.build_number }}
-      test_image_checksum: ${{ steps.meta.outputs.checksum }}
-      test_image_updated: ${{ steps.meta.outputs.updated }}
       version: ${{ steps.meta.outputs.version }}
-#      last_commit: ${{ steps.env.outputs.last_commit }}
-#      branch: ${{ steps.env.outputs.branch }}
-#      date: ${{ steps.env.outputs.date }}
-#      dist_image: ${{ steps.env.outputs.dist_image }}
-#      docker: ${{ steps.changes.outputs.docker_base }}
       run_tests: ${{ steps.changes.outputs.run_tests }}
-#      tags: ${{ steps.meta.outputs.tags }}
-#      tag: ${{ steps.meta.outputs.version }}
-#      image_name: ${{ steps.image_name.outputs.name }}
     steps:
-#      - run: git config --global --add safe.directory $(realpath .)
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Checkout code
+        uses: actions/checkout@v4
       - id: changes
         name: Check for file changes
         uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
@@ -58,170 +45,165 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
-      - id: checksum
-        name: Calculate Code Checksum
-        uses: ./.github/actions/checksum
-      - id: image_name
-        name: Set Image name
-        run: |
-          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
-          ver="${branch/\//-}"
-          echo "name=${{vars.DOCKER_IMAGE}}:test-$ver" >> $GITHUB_OUTPUT
-      - name: Image meta
+      - name: Docker meta
         id: meta
-        uses: ./.github/actions/image_meta
+        uses: docker/metadata-action@v5
+      - name: Prepare Build Args
+        id: build_args
+        uses: ./.github/actions/build_args
         with:
-          image: ${{steps.image_name.outputs.name}}
-          checksum: ${{steps.checksum.outputs.checksum}}
-          username: ${{ inputs.username }}
-          password: ${{ inputs.password }}
           debug: true
-
-  build:
-    name: Build and Push Test Image
-    needs: [setup]
-    if: needs.setup.outputs.updated != 'true'
-    #  && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        id: build_push
+        with:
+          context: .
+          tags: ${{ steps.meta.outputs.tags }}
+          target: ${{ inputs.target }}
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+              BUILD_DATE=${{ steps.build_args.outputs.build_date }}
+              CHECKSUM=${{ steps.build_args.outputs.checksum }}
+              VERSION=${{ steps.meta.outputs.version }}
+              SOURCE_COMMIT=${{ steps.build_args.outputs.source_commit }}
+              GITHUB_SERVER_URL=${{ github.server_url }}
+              GITHUB_REPOSITORY=${{ github.repository }}
+      - name: Push Blob to Registry
         shell: bash
-    outputs:
-      image: ${{ needs.setup.outputs.test_image_name }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - id: doit
-        uses: ./.github/actions/docker_build
-        with:
-          image: ${{needs.setup.outputs.test_image_name}}
-          checksum: ${{needs.setup.outputs.checksum}}
-          target: "python_dev_deps"
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  test:
-    name: Run Test Suite
-    needs: [setup,build]
-    if: needs.setup.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
-#      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
-    runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis
-      db:
-        image: postgres:14
-        env:
-          POSTGRES_DATABASE: dedupe
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USERNAME: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DOCKER_DEFAULT_PLATFORM: linux/amd64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Image meta
-        id: info
-        uses: ./.github/actions/image_meta
-        with:
-          checksum: "-"
-          image: ${{needs.build.outputs.image}}
-          username: ${{ inputs.username }}
-          password: ${{ inputs.password }}
-          debug: true
-      - name: Dump 'Build' outputs
-        run: echo "${{ toJSON(needs.build.outputs) }}"
-      - name: Dump 'Setup' outputs
-        run: echo "${{ toJSON(needs.setup.outputs) }}"
-      - name: Dump Image meta
-        run: echo "${{ toJSON(steps.info.outputs) }}"
-      - name: Run tests
         run: |
-          docker run --rm \
-            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/dedupe \
-            -e SECRET_KEY=secret_key \
-            -e CACHE_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=redis://redis:6379/0 \
-            --network host \
-            -v $PWD:/code/app \
-            -w /code/app \
-            -t ${{needs.build.outputs.image}} \
-            pytest tests -v --create-db -v --maxfail=10
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          env_vars: OS,PYTHON
-          fail_ci_if_error: true
-          files: coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: false
-          name: codecov-${{env.GITHUB_REF_NAME}}
+          echo ${{ steps.build_push.outputs }} 
 
-
-  trivy:
-    name: Check Image with Trivy
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: DockerHub login
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{needs.build.outputs.image}}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-#          format: 'table'
-#          exit-code: '0'
-#          ignore-unfixed: true
-#          vuln-type: 'os,library'
-#          severity: 'CRITICAL,HIGH'
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-
-  release:
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    name: Build and Push Distribution
-    needs: [setup, test]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    outputs:
-      image: ${{steps.image_name.outputs.name}}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Define target image name
-        id: image_name
-        run: |
-          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
-          ver="${branch/\//-}"
-          echo "name=${{vars.DOCKER_IMAGE}}:$ver" >> $GITHUB_OUTPUT
-      - id: doit
-        uses: ./.github/actions/docker_build
-        with:
-          image: ${{steps.image_name.outputs.name}}
-          checksum: ${{needs.setup.outputs.checksum}}
-          target: "dist"
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - run: |
-          echo "::notice:: ${{steps.image_name.outputs.name}} pushed to dockerhub"
+  #        outputs: type=registry
+  #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+  #        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
+  #        provenance: true
+  #        sbom: true
+  #        load: true#
+#  test:
+#    name: Run Test Suite
+#    needs: [setup,build]
+#    if: needs.setup.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
+##      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
+#    runs-on: ubuntu-latest
+#    services:
+#      redis:
+#        image: redis
+#      db:
+#        image: postgres:14
+#        env:
+#          POSTGRES_DATABASE: dedupe
+#          POSTGRES_PASSWORD: postgres
+#          POSTGRES_USERNAME: postgres
+#        ports:
+#          - 5432:5432
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
+#    env:
+#      DOCKER_DEFAULT_PLATFORM: linux/amd64
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#      - name: Image meta
+#        id: info
+#        uses: ./.github/actions/image_meta
+#        with:
+#          checksum: "-"
+#          image: ${{needs.build.outputs.image}}
+#          username: ${{ inputs.username }}
+#          password: ${{ inputs.password }}
+#          debug: true
+#      - name: Dump 'Build' outputs
+#        run: echo "${{ toJSON(needs.build.outputs) }}"
+#      - name: Dump 'Setup' outputs
+#        run: echo "${{ toJSON(needs.setup.outputs) }}"
+#      - name: Dump Image meta
+#        run: echo "${{ toJSON(steps.info.outputs) }}"
+#      - name: Run tests
+#        run: |
+#          docker run --rm \
+#            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/dedupe \
+#            -e SECRET_KEY=secret_key \
+#            -e CACHE_URL=redis://redis:6379/0 \
+#            -e CELERY_BROKER_URL=redis://redis:6379/0 \
+#            --network host \
+#            -v $PWD:/code/app \
+#            -w /code/app \
+#            -t ${{needs.build.outputs.image}} \
+#            pytest tests -v --create-db -v --maxfail=10
+#      - name: Upload coverage to Codecov
+#        uses: codecov/codecov-action@v4
+#        with:
+#          env_vars: OS,PYTHON
+#          fail_ci_if_error: true
+#          files: coverage.xml
+#          token: ${{ secrets.CODECOV_TOKEN }}
+#          verbose: false
+#          name: codecov-${{env.GITHUB_REF_NAME}}
+#
+#
+#  trivy:
+#    name: Check Image with Trivy
+#    runs-on: ubuntu-latest
+#    needs: [build]
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#      - name: DockerHub login
+#        uses: docker/login-action@v1
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#      - name: Run Trivy vulnerability scanner
+#        uses: aquasecurity/trivy-action@master
+#        with:
+#          image-ref: ${{needs.build.outputs.image}}
+#          format: 'sarif'
+#          output: 'trivy-results.sarif'
+##          format: 'table'
+##          exit-code: '0'
+##          ignore-unfixed: true
+##          vuln-type: 'os,library'
+##          severity: 'CRITICAL,HIGH'
+#      - name: Upload Trivy scan results to GitHub Security tab
+#        uses: github/codeql-action/upload-sarif@v2
+#        with:
+#          sarif_file: 'trivy-results.sarif'
+#
+#
+#  release:
+##    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+#    name: Build and Push Distribution
+#    needs: [setup, test]
+#    runs-on: ubuntu-latest
+#    defaults:
+#      run:
+#        shell: bash
+#    outputs:
+#      image: ${{steps.image_name.outputs.name}}
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#      - name: Define target image name
+#        id: image_name
+#        run: |
+#          branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+#          ver="${branch/\//-}"
+#          echo "name=${{vars.DOCKER_IMAGE}}:$ver" >> $GITHUB_OUTPUT
+#      - id: doit
+#        uses: ./.github/actions/docker_build
+#        with:
+#          image: ${{steps.image_name.outputs.name}}
+#          checksum: ${{needs.setup.outputs.checksum}}
+#          target: "dist"
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#      - run: |
+#          echo "::notice:: ${{steps.image_name.outputs.name}} pushed to dockerhub"
