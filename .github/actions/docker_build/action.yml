@@ -134,15 +134,18 @@ runs:
 #        load: true
     -
       shell: bash
-      run: echo "======  ${{ toJson(steps.build_push.outputs) }} ==="
+      run: echo "${{ steps.build_push.outputs}}" | jq
     - name: Dump Image Info
       shell: bash
       run: |
         docker pull --platform linux/amd64 ${{ inputs.image }}
-        info=$(docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }})
-        release=$(docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh)
-        echo "::group:: ✅ Successfully built and pushed ${{ inputs.image }}"
-        echo "::notice:: ${{steps.build_push.outputs.metadata}}"
-        echo "::notice:: $info"
-        echo "::notice:: $release"
-        echo "::endgroup::"
+        docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }}
+        docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh
+
+#        info=$(docker inspect --format='{{json .Config.Labels}}' ${{ inputs.image }})
+#        release=$(docker run --platform linux/amd64 -t ${{ inputs.image }} release-info.sh)
+#        echo "::group:: ✅ Successfully built and pushed ${{ inputs.image }}"
+#        echo "::notice:: ${{steps.build_push.outputs.metadata}}"
+#        echo "::notice:: $info"
+#        echo "::notice:: $release"
+#        echo "::endgroup::"
