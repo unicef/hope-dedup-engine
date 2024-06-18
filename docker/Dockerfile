@@ -134,9 +134,16 @@ LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
 LABEL distro="builder-test"
 
+#COPY pyproject.toml pdm.lock ./
+#COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
+COPY . /code
 WORKDIR /code
-COPY pyproject.toml pdm.lock ./
-COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
+
+RUN set -x \
+    && pip install -U pip pdm \
+    && mkdir -p $PKG_DIR \
+    && pdm sync --no-editable -v --no-self
+
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
  "commit": "$SOURCE_COMMIT",
@@ -146,13 +153,7 @@ RUN <<EOF cat> /RELEASE
 }
 EOF
 
-RUN set -x \
-    && pip install -U pip pdm \
-    && mkdir -p $PKG_DIR \
-    && pdm sync --no-editable -v --no-self
-
-
-FROM python_base AS python_prod_deps
+FROM build_deps AS python_prod_deps
 ARG PKG_DIR
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -172,37 +173,16 @@ LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
 LABEL distro="builder-prod"
 
-RUN set -x \
-    && buildDeps="build-essential \
-        cmake \
-        curl \
-        gcc \
-        libgdal-dev \
-        libgif-dev \
-        libjpeg-dev \
-        liblapack-dev \
-        libopenblas-dev \
-        libpng-dev  \
-        libpq-dev \
-        libwebp-dev \
-        libssl-dev \
-        libxml2-dev  \
-        python3-dev \
-        zlib1g-dev  \
-    " \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends $buildDeps \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-
-WORKDIR /code
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-COPY pyproject.toml pdm.lock /README.md /LICENSE ./
-COPY ./src /code/src
+#COPY pyproject.toml pdm.lock /README.md /LICENSE ./
+#COPY ./src /code/src
 
+COPY . /code
+WORKDIR /code
 
-RUN mkdir -p $PKG_DIR \
-    && pip install -U pdm \
+RUN set -x \
+    && pip install -U pip pdm \
+    && mkdir -p $PKG_DIR \
     && pdm sync --no-editable -v --prod
 
 
@@ -222,6 +202,9 @@ ENV GITHUB_SERVER_URL=$GITHUB_SERVER_URL
 ARG GITHUB_REPOSITORY
 ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
+
+WORKDIR /code
+COPY --chown=user:app --from=python_prod_deps /code /code
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
  "commit": "$SOURCE_COMMIT",
@@ -230,10 +213,6 @@ RUN <<EOF cat> /RELEASE
  "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
 EOF
-
-WORKDIR /code
-COPY --chown=user:app --from=python_prod_deps /code /code
-COPY --chown=user:app --from=python_prod_deps /RELEASE /RELEASE
 
 VOLUME /var/run/app/
 EXPOSE 8000

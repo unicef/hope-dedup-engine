@@ -165,6 +165,36 @@ jobs:
           verbose: false
           name: codecov-${{env.GITHUB_REF_NAME}}
 
+
+  trivy:
+    name: Check Image with Trivy
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: DockerHub login
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{needs.build.outputs.image}}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+#          format: 'table'
+#          exit-code: '0'
+#          ignore-unfixed: true
+#          vuln-type: 'os,library'
+#          severity: 'CRITICAL,HIGH'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+
   release:
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: Build and Push Distribution
@@ -188,38 +218,10 @@ jobs:
         uses: ./.github/actions/docker_build
         with:
           image: ${{steps.image_name.outputs.name}}
+          checksum: ${{needs.setup.outputs.checksum}}
           target: "dist"
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           echo "::notice:: ${{steps.image_name.outputs.name}} pushed to dockerhub"
-
-
-  trivy:
-    name: Check Image with Trivy
-    runs-on: ubuntu-latest
-    needs: [release]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: DockerHub login
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ needs.release.outputs.image }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-#          format: 'table'
-#          exit-code: '0'
-#          ignore-unfixed: true
-#          vuln-type: 'os,library'
-#          severity: 'CRITICAL,HIGH'
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'

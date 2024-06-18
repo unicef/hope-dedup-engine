@@ -114,13 +114,11 @@ runs:
       id: build_push
       with:
         context: .
-        image: ${{ inputs.image }}
         tags: ${{ inputs.image }}
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
         push: true
-        attestation: false
         build-args: |
             BUILD_DATE=${{ steps.build_args.outputs.BUILD_DATE }}
             CHECKSUM=${{ steps.build_args.outputs.CHECKSUM }}
