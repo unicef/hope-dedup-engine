@@ -5,7 +5,7 @@ from constance import config
 
 class DuplicateGroupsBuilder:
     @staticmethod
-    def build(checked: set[tuple[str, str, float]]) -> tuple[tuple[str, ...], ...]:
+    def build(checked: set[tuple[str, str, float]]) -> list[list[str]]:
         """
         Transform a set of tuples with distances into a tuple of grouped duplicate paths.
 
@@ -13,7 +13,7 @@ class DuplicateGroupsBuilder:
             checked (set[tuple[str, str, float]]): A set of tuples containing the paths and their distances.
 
         Returns:
-            tuple[tuple[str, ...], ...]: A tuple of grouped duplicate paths.
+            list[list[str]]: A list of grouped duplicate paths.
         """
         # Dictionary to store connections between paths where distances are less than the threshold
         groups = []
@@ -41,4 +41,4 @@ class DuplicateGroupsBuilder:
                         )
                 # Add the newly formed group to the list of groups
                 groups.append(new_group)
-        return tuple(map(tuple, groups))
+        return list(map(list, groups))
