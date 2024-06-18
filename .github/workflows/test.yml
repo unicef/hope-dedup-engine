@@ -45,6 +45,13 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
+      - name: Install regctl
+        uses: regclient/actions/regctl-installer@main
+      - name: "---"
+        shell: bash
+        run: |
+          regctl manifest get unicef/hope-dedupe-engine:test-feature-ci3 -p linux/amd64      
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5.5.1
@@ -60,7 +67,6 @@ jobs:
       - run: |
           echo "=========="
           echo "${{ toJSON(steps.meta.outputs)}}"
-      
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
@@ -81,8 +87,8 @@ jobs:
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
+          labels: ${{ steps.meta.outputs.labels }}, lbl1=1, lbl2=2
+          annotations: ${{ steps.meta.outputs.annotations }}, a=1, b=1
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
@@ -107,7 +113,6 @@ jobs:
           index-annotations: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
           push: true
-          amend: false
           sources: |
             ${{ steps.build_push.outputs.digest }}
   #        outputs: type=registry
