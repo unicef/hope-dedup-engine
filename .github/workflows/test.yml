@@ -49,19 +49,17 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_IMAGE }}
+          images: ${{ vars.DOCKER_IMAGE }}
+          flavor: |
+            prefix=test-
       - name: Prepare Build Args
         id: build_args
         uses: ./.github/actions/build_args
         with:
           debug: true
-#      - name: GitHub Actions Cache Docker layers
-#        uses: actions/cache@v3
-#        with:
-#          path: /tmp/.buildx-cache
-#          key: buildx-${{ steps.build_args.outputs.checksum }}
-#          restore-keys: |
-#            ${{ runner.os }}-buildx-${{ steps.build_args.outputs.checksum }}
+      - run: |
+          echo "=========="
+          echo "${{ toJSON(steps.meta.outputs)}}"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -77,7 +75,7 @@ jobs:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          target: ${{ inputs.target }}
+          target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
           push: true
@@ -90,10 +88,10 @@ jobs:
               SOURCE_COMMIT=${{ steps.build_args.outputs.source_commit }}
               GITHUB_SERVER_URL=${{ github.server_url }}
               GITHUB_REPOSITORY=${{ github.repository }}
-      - name: Push Blob to Registry
-        shell: bash
-        run: |
-          echo ${{ steps.build_push.outputs }} 
+#      - name: Push Blob to Registry
+#        shell: bash
+#        run: |
+#          echo ${{ steps.build_push.outputs }}
 
   #        outputs: type=registry
   #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
