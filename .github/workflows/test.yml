@@ -47,11 +47,6 @@ jobs:
           filters: .github/file-filters.yml
       - name: Install regctl
         uses: regclient/actions/regctl-installer@main
-      - name: "---"
-        shell: bash
-        run: |
-          regctl manifest get unicef/hope-dedupe-engine:test-feature-ci3 -p linux/amd64      
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5.5.1
@@ -67,6 +62,10 @@ jobs:
       - run: |
           echo "=========="
           echo "${{ toJSON(steps.meta.outputs)}}"
+      - name: "---"
+        shell: bash
+        run: |
+          regctl manifest get ${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }} -p linux/amd64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
