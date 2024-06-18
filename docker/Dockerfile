@@ -145,12 +145,7 @@ RUN set -x \
     && pdm sync --no-editable -v --no-self
 
 RUN <<EOF cat> /RELEASE
-{"version": "$VERSION",
- "commit": "$SOURCE_COMMIT",
- "date": "$BUILD_DATE",
- "checksum": "$CHECKSUM",
- "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
-}
+{"version": "$VERSION", "commit": "$SOURCE_COMMIT", "date": "$BUILD_DATE", "checksum": "$CHECKSUM", "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"}
 EOF
 
 FROM build_deps AS python_prod_deps
