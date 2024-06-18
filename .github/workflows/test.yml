@@ -88,7 +88,7 @@ jobs:
           platforms: linux/amd64
           push: true
           sbom: true
-          provenance: true          
+          provenance: true
           cache-from: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache
           cache-to: type=registry,ref=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}-cache,mode=max,image-manifest=true
           build-args: |
@@ -101,7 +101,7 @@ jobs:
       - name: Echo
         shell: bash
         run: |
-          echo "${{ toJSON(steps.build_push.outputs) }}" | jq
+          echo ${{ toJSON(steps.build_push.outputs) }}
       - uses: int128/docker-manifest-create-action@v2
         with:
           index-annotations: ${{ steps.meta.outputs.labels }}
