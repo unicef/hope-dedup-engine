@@ -33,6 +33,9 @@ outputs:
   version:
     description: 'Returns build number for the current branch'
     value: ${{ steps.meta.outputs.version }}
+  created:
+    description: 'Returns build number for the current branch'
+    value: ${{ !steps.meta.image_status.updated }}
 
 
 runs:
