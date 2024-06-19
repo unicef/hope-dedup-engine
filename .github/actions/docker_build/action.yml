@@ -65,7 +65,7 @@ runs:
         echo "BUILD_DATE=$build_date" >> $GITHUB_ENV
         
         if [[ "${{inputs.target}}" == "dist" ]]; then
-          echo "TAG_PREFIX=''" >> $GITHUB_ENV
+          echo "TAG_PREFIX=" >> $GITHUB_ENV
         else
           echo "TAG_PREFIX=test-" >> $GITHUB_ENV
         fi

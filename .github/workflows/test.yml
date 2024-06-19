@@ -162,7 +162,7 @@ jobs:
           target: 'dist'
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          checksum: ${{ steps.checksum.outputs.checksum }}
+          code_checksum: ${{ steps.checksum.outputs.checksum }}
 
 #
 #  setup:
