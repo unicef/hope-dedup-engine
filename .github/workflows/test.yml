@@ -52,20 +52,28 @@ jobs:
         shell: bash
     outputs:
       image_name: ${{steps.image_name.outputs.name}}
+      updated: ${{steps.image_status.outputs.updated}}
 
       version: ${{ steps.meta.outputs.version }}
       tags: ${{steps.meta.outputs.tags}}
       labels: ${{steps.meta.outputs.labels}}
       annotations: ${{steps.meta.outputs.annotations}}
-      source_commit: ${{steps.meta.outputs.tags['org.opencontainers.image.revision']}}
 
+      source_commit: ${{steps.meta.build_args.SOURCE_COMMIT}}
       checksum: ${{ steps.build_args.outputs.checksum }}
       build_date: ${{ steps.build_args.outputs.build_date }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.7
+      - name: Cache regclient
+        id: cache-regclient
+        uses: actions/cache@v4
+        with:
+          path: $HOME/.regctl
+          key: ${{ runner.os }}-regclient
       - name: Install regctl
+        if: steps.cache-regclient.outputs.cache-hit != 'true'
         uses: regclient/actions/regctl-installer@main
       - name: Prepare Build Args
         id: build_args
@@ -87,7 +95,8 @@ jobs:
       - name: "Check Image"
         id: image_status
         shell: bash
-        run: |        
+        run: |
+          echo "::notice::ℹ Checking checksum for ${{ steps.image_name.outputs.name }}"
           image_checksum=$(regctl image inspect -p linux/amd64 \
                             --format '{{index .Config.Labels "checksum"}}' \
                             ${{ steps.image_name.outputs.name }} )
@@ -104,6 +113,7 @@ jobs:
             echo "updated=false" >> $GITHUB_OUTPUT
           fi
 
+
   build:
     name: Build Test Image
     needs: [setup]
@@ -111,16 +121,16 @@ jobs:
     outputs:
       image_name: ${{ needs.setup.outputs.image_name }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.1.7
       - name: Info
-        if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
         run: |
           if [[ "${{needs.setup.outputs.updated}}" != "true" ]]; then 
             echo "::notice:: Rebuild due to image outdated"
           else
             echo "::notice:: Forced rebuild due to commit message ${{github.event.head_commit.message}}"
           fi
+      - name: Checkout code
+        if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+        uses: actions/checkout@v4.1.7
       - name: DockerHub login
         if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
         uses: docker/login-action@v3
@@ -137,8 +147,8 @@ jobs:
             image=moby/buildkit:v0.13.2
             network=host
       - name: Build and push
-        id: build_push
         if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+        id: build_push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -160,6 +170,31 @@ jobs:
               SOURCE_COMMIT=${{ needs.setup.outputs.source_commit }}
               GITHUB_SERVER_URL=${{ github.server_url }}
               GITHUB_REPOSITORY=${{ github.repository }}
+
+
+  trivy:
+    name: Check Image with Trivy
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: DockerHub login
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{needs.build.outputs.image}}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   test:
     name: Run Test Suite
@@ -214,35 +249,7 @@ jobs:
           name: codecov-${{env.GITHUB_REF_NAME}}
 #
 #
-#  trivy:
-#    name: Check Image with Trivy
-#    runs-on: ubuntu-latest
-#    needs: [build]
-#    steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v4
-#      - name: DockerHub login
-#        uses: docker/login-action@v1
-#        with:
-#          username: ${{ secrets.DOCKERHUB_USERNAME }}
-#          password: ${{ secrets.DOCKERHUB_TOKEN }}
-#      - name: Run Trivy vulnerability scanner
-#        uses: aquasecurity/trivy-action@master
-#        with:
-#          image-ref: ${{needs.build.outputs.image}}
-#          format: 'sarif'
-#          output: 'trivy-results.sarif'
-##          format: 'table'
-##          exit-code: '0'
-##          ignore-unfixed: true
-##          vuln-type: 'os,library'
-##          severity: 'CRITICAL,HIGH'
-#      - name: Upload Trivy scan results to GitHub Security tab
-#        uses: github/codeql-action/upload-sarif@v2
-#        with:
-#          sarif_file: 'trivy-results.sarif'
-#
-#
+
 #  release:
 ##    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
 #    name: Build and Push Distribution
