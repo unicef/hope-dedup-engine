@@ -71,10 +71,16 @@ jobs:
       - name: "---"
         shell: bash
         run: |
+          echo "========== Labels"
           echo "${{ steps.meta.outputs.labels }}"
+          echo "========== annotations"
           echo "${{ steps.meta.outputs.annotations }}"
+          echo "========== tags"
           echo "${{ steps.meta.outputs.tags }}"
+          echo "========== regctl manifest"
           regctl manifest get ${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }} -p linux/amd64
+          echo "========== regctl image inspect"
+          regctl image inspect -p linux/amd64 ${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }} | jq '.config.Labels'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
@@ -96,10 +102,7 @@ jobs:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: "${{ steps.meta.outputs.labels }}\na=1\nb=2"
-          annotations: "${{ steps.meta.outputs.annotations }} \
-          checksum=${{ steps.build_args.outputs.checksum }} \
-          commit=${{ steps.build_args.outputs.source_commit }} \
-          "
+          annotations: "${{ steps.meta.outputs.annotations }}\nchecksum=${{ steps.build_args.outputs.checksum }}\ncommit=${{ steps.build_args.outputs.source_commit }}"
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
           platforms: linux/amd64
