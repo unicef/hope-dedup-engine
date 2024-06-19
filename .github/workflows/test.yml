@@ -44,7 +44,7 @@ jobs:
           filters: .github/file-filters.yml
   setup:
     needs: [changes]
-    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:*')
+    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
