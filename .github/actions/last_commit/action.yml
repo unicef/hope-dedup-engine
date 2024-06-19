@@ -6,6 +6,9 @@ outputs:
   last_commit_sha:
     description: 'last_commit_sha'
     value: ${{ steps.result.outputs.last_commit_sha }}
+  last_commit_short_sha:
+    description: 'last_commit_short_sha'
+    value: ${{ steps.result.outputs.last_commit_short_sha }}
 
 runs:
   using: "composite"
@@ -22,4 +25,7 @@ runs:
         echo "LAST_COMMIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
     - id: result
       shell: bash
-      run: echo "last_commit_sha=${{env.LAST_COMMIT_SHA}}" >> $GITHUB_OUTPUT
+      run: |
+        raw=${{env.LAST_COMMIT_SHA}} 
+        echo "last_commit_sha=$raw" >> $GITHUB_OUTPUT
+        echo "last_commit_short_sha=${raw::8}" >> $GITHUB_OUTPUT
