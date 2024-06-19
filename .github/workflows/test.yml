@@ -60,7 +60,6 @@ jobs:
         uses: ./.github/actions/checksum
       - name: Build and Test
         id: build
-        secrets: inherit
         uses: ./.github/actions/docker_build
         with:
           target: 'python_dev_deps'
