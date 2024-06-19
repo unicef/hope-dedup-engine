@@ -125,8 +125,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
           name: codecov-${{env.GITHUB_REF_NAME}}
-#
-#
+
   trivy:
     name: Check Image with Trivy
     runs-on: ubuntu-latest
@@ -153,19 +152,24 @@ jobs:
     defaults:
       run:
         shell: bash
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      version: ${{ steps.build.outputs.version }}
+      created: ${{ steps.build.outputs.created }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.7
       - id: checksum
         uses: ./.github/actions/checksum
       - name: Build
+        id: build
         uses: ./.github/actions/docker_build
         with:
           image: ${{ vars.DOCKER_IMAGE }}
           target: 'dist'
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          code_checksum: ${{ steps.checksum.outputs.checksum }}
+          code_checksum: ${{ contains(github.event.head_commit.message, 'ci:build') && steps.checksum.outputs.checksum || '' }}
 
 #
 #  setup:
