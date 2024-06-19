@@ -63,6 +63,8 @@ jobs:
             CHECKSUM=${{ steps.build_args.outputs.checksum }}
             BUILD_DATE=${{ steps.build_args.outputs.build_date }}
             SOURCE_COMMIT=${{ steps.build_args.outputs.source_commit }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
       - run: |
           echo "=========="
           echo "${{ toJSON(steps.meta.outputs)}}"
@@ -94,9 +96,9 @@ jobs:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: "${{ steps.meta.outputs.labels }}\na=1\nb=2"
-          annotations: "${{ steps.meta.outputs.annotations }}
-          checksum=${{ steps.build_args.outputs.checksum }}
-          commit=${{ steps.build_args.outputs.source_commit }}
+          annotations: "${{ steps.meta.outputs.annotations }} \
+          checksum=${{ steps.build_args.outputs.checksum }} \
+          commit=${{ steps.build_args.outputs.source_commit }} \
           "
           target: 'python_dev_deps'
           file: ./docker/Dockerfile
@@ -117,13 +119,13 @@ jobs:
         shell: bash
         run: |
           echo "${{ toJSON(steps.build_push.outputs) }}"
-      - uses: int128/docker-manifest-create-action@v2
-        with:
-          index-annotations: ${{ steps.meta.outputs.labels }}
-          tags: ${{ steps.meta.outputs.tags }}
-          push: true
-          sources: |
-            ${{ steps.build_push.outputs.digest }}
+#      - uses: int128/docker-manifest-create-action@v2
+#        with:
+#          index-annotations: ${{ steps.meta.outputs.labels }}
+#          tags: ${{ steps.meta.outputs.tags }}
+#          push: true
+#          sources: |
+#            ${{ steps.build_push.outputs.digest }}
   #        outputs: type=registry
   #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
   #        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
