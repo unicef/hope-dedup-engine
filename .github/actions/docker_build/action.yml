@@ -29,7 +29,7 @@ defaults:
 outputs:
   image:
     description: 'Returns true if the image exists'
-    value: ${{ steps.image_name.outputs.image }}
+    value: ${{ steps.image_name.outputs.name }}
   version:
     description: 'Returns build number for the current branch'
     value: ${{ steps.meta.outputs.version }}
