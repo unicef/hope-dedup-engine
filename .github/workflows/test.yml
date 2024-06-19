@@ -112,11 +112,11 @@ jobs:
             image=moby/buildkit:v0.13.2
             network=host
       - name: Build and push
-        uses: docker/build-push-action@v6
         id: build_push
+        if: ${{ steps.image_status.updated != 'true' }}
         shell: bash
         run: echo "BUILDING...."
-#        if: ${{ steps.image_status.updated != 'true' }}
+#        uses: docker/build-push-action@v6
 #        with:
 #          context: .
 #          tags: ${{ steps.meta.outputs.tags }}
