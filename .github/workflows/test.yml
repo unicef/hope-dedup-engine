@@ -44,7 +44,7 @@ jobs:
           filters: .github/file-filters.yml
   setup:
     needs: [changes]
-    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
+    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:*')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -105,7 +105,7 @@ jobs:
     name: Build Test Image
     needs: [setup]
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.updated != 'true'
+    if: needs.setup.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.3.0
