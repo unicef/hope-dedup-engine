@@ -103,16 +103,13 @@ jobs:
             echo "::warning::🤬 Checksum: found '${image_checksum}' expected '${code_checksum}'"
             echo "updated=false" >> $GITHUB_OUTPUT
           fi
-      - name: DockerHub login
-        uses: docker/login-action@v3.2.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   build:
     name: Build Test Image
     needs: [setup]
     runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ needs.setup.outputs.image_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.7
@@ -145,7 +142,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          tags: ${{ needs.setup.outputs.tags }}
+          tags: ${{ needs.setup.outputs.image_name }}
           labels: "${{ needs.setup.outputs.labels }}\na=1\nb=2"
           annotations: "${{ needs.setup.outputs.annotations }}\nchecksum=${{ needs.setup.outputs.checksum }}\ncommit=${{ needs.setup.outputs.source_commit }}"
           target: 'python_dev_deps'
@@ -164,19 +161,6 @@ jobs:
               GITHUB_SERVER_URL=${{ github.server_url }}
               GITHUB_REPOSITORY=${{ github.repository }}
 
-#      - uses: int128/docker-manifest-create-action@v2
-#        with:
-#          index-annotations: ${{ steps.meta.outputs.labels }}
-#          tags: ${{ steps.meta.outputs.tags }}
-#          push: true
-#          sources: |
-#            ${{ steps.build_push.outputs.digest }}
-  #        outputs: type=registry
-  #        cache-from: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-  #        cache-to: "type=registry,ref=${{inputs.image}}-buildcache,mode=max"
-  #        provenance: true
-  #        sbom: true
-  #        load: true#
   test:
     name: Run Test Suite
     needs: [changes,setup,build]
@@ -203,21 +187,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Image meta
-        id: info
-        uses: ./.github/actions/image_meta
-        with:
-          checksum: "-"
-          image: ${{needs.build.outputs.image}}
-          username: ${{ inputs.username }}
-          password: ${{ inputs.password }}
-          debug: true
       - name: Dump 'Build' outputs
         run: echo "${{ toJSON(needs.build.outputs) }}"
       - name: Dump 'Setup' outputs
         run: echo "${{ toJSON(needs.setup.outputs) }}"
-      - name: Dump Image meta
-        run: echo "${{ toJSON(steps.info.outputs) }}"
       - name: Run tests
         run: |
           docker run --rm \
@@ -228,7 +201,7 @@ jobs:
             --network host \
             -v $PWD:/code/app \
             -w /code/app \
-            -t ${{needs.build.outputs.image}} \
+            -t ${{needs.build.outputs.image_name}} \
             pytest tests -v --create-db -v --maxfail=10
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
