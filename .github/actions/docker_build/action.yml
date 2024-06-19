@@ -58,9 +58,6 @@ runs:
     - id: checksum
       uses: ./.github/actions/checksum
 
-    - id: last_commit
-      uses: ./.github/actions/last_commit
-
     - shell: bash
       id: env
       run: |
@@ -84,6 +81,7 @@ runs:
       env:
         DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
     - name: "Image Name"
+      shell: bash
       id: image_name
       run: echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
     - name: "Check Image"
