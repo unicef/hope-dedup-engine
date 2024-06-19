@@ -43,13 +43,6 @@ jobs:
           token: ${{ github.token }}
           filters: .github/file-filters.yml
 
-  no_build:
-    if: needs.changes.outputs.run_tests != 'true' && !contains(github.event.head_commit.message, 'ci:build')
-    runs-on: ubuntu-latest
-    steps:
-      - shell: bash
-        run: echo "::notice:: Image updated skip build"
-
   build:
     if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
     needs: [changes]
