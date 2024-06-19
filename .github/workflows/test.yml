@@ -123,15 +123,10 @@ jobs:
     name: Check Image with Trivy
     runs-on: ubuntu-latest
     needs: [build]
-    if: needs.build.outputs.created == 'true'
+    if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-#      - name: DockerHub login
-#        uses: docker/login-action@v3
-#        with:
-#          username: ${{ secrets.DOCKERHUB_USERNAME }}
-#          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
