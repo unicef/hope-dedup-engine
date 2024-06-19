@@ -6,7 +6,7 @@ inputs:
     description: "Image name to build and push"
     required: true
     type: string
-    default: false
+    default: ${{ github.repository }}
   target:
     description: "Target Dockerfile Stage"
     type: string
@@ -75,14 +75,14 @@ runs:
       id: meta
       uses: docker/metadata-action@v5.5.1
       with:
-        images: ${{ vars.DOCKER_IMAGE }}
+        images: ${{ inputs.image }}
         flavor: |
           prefix=${{env.TAG_PREFIX}}
       env:
         DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
     - name: "Image Name"
       id: image_name
-      run: echo "name=${{ vars.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+      run: echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
     - name: "Check Image"
       id: image_status
       shell: bash
