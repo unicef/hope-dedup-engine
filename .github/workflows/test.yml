@@ -44,7 +44,7 @@ jobs:
           filters: .github/file-filters.yml
 
   build:
-    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:')
+    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -68,7 +68,8 @@ jobs:
           target: 'python_dev_deps'
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          code_checksum: ${{ steps.checksum.outputs.checksum }}
+          code_checksum: ${{ contains(github.event.head_commit.message, 'ci:build') && steps.checksum.outputs.checksum || '' }}
+#          code_checksum: ${{ steps.checksum.outputs.checksum }}
 
   test:
     name: Run Test Suite
