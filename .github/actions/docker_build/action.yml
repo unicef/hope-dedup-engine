@@ -99,12 +99,15 @@ runs:
         images: ${{ inputs.image }}
         flavor: |
           prefix=${{env.TAG_PREFIX}}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr,prefix=${{env.TAG_PREFIX}}pr
       env:
         DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
     - name: "Image Name"
       shell: bash
       id: image_name
-      run: echo "name=${{ inputs.image }}:${{env.TAG_PREFIX}}${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+      run: echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
     - name: "Check Image"
       id: image_status
       shell: bash
@@ -146,6 +149,7 @@ runs:
       run: |
         echo "::notice:: Dryrun build of ${{ steps.meta.outputs.tags }}"
         echo "Building image ${{ steps.meta.outputs.tags }}"
+        echo "    TAG_PREFIX ${{ env.TAG_PREFIX }}"
         echo "        target ${{ inputs.target }}"
         echo "      checksum ${{ inputs.code_checksum }}"
         echo "       version ${{ steps.meta.outputs.version }}"
