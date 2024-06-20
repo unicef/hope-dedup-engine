@@ -132,26 +132,23 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
+LABEL distro="builder-test"
 
+#COPY pyproject.toml pdm.lock ./
+#COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
+COPY . /code
 WORKDIR /code
-COPY pyproject.toml pdm.lock ./
-COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-RUN <<EOF cat> /RELEASE
-{"version": "$VERSION",
- "commit": "$SOURCE_COMMIT",
- "date": "$BUILD_DATE",
- "checksum": "$CHECKSUM",
- "source": "${GITHUB_SERVER_URL}/$${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
-}
-EOF
 
 RUN set -x \
     && pip install -U pip pdm \
     && mkdir -p $PKG_DIR \
     && pdm sync --no-editable -v --no-self
 
+RUN <<EOF cat> /RELEASE
+{"version": "$VERSION", "commit": "$SOURCE_COMMIT", "date": "$BUILD_DATE", "checksum": "$CHECKSUM", "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"}
+EOF
 
-FROM python_dev_deps AS python_prod_deps
+FROM build_deps AS python_prod_deps
 ARG PKG_DIR
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -169,15 +166,18 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
+LABEL distro="builder-prod"
 
-WORKDIR /code
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-COPY pyproject.toml pdm.lock ./
-COPY ./src /code/src
+#COPY pyproject.toml pdm.lock /README.md /LICENSE ./
+#COPY ./src /code/src
 
+COPY . /code
+WORKDIR /code
 
-RUN mkdir -p $PKG_DIR \
-    && pip install -U pdm \
+RUN set -x \
+    && pip install -U pip pdm \
+    && mkdir -p $PKG_DIR \
     && pdm sync --no-editable -v --prod
 
 
@@ -197,6 +197,9 @@ ENV GITHUB_SERVER_URL=$GITHUB_SERVER_URL
 ARG GITHUB_REPOSITORY
 ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
+
+WORKDIR /code
+COPY --chown=user:app --from=python_prod_deps /code /code
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
  "commit": "$SOURCE_COMMIT",
@@ -206,16 +209,13 @@ RUN <<EOF cat> /RELEASE
 }
 EOF
 
-WORKDIR /code
-COPY --chown=user:app --from=python_prod_deps /code /code
-COPY --chown=user:app --from=python_prod_deps /RELEASE /RELEASE
-
 VOLUME /var/run/app/
 EXPOSE 8000
 ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 CMD ["run"]
 
-LABEL maintainer="mnt@app.io"
+LABEL distro="final"
+LABEL maintainer="hope@app.io"
 LABEL org.opencontainers.image.authors="author@app.io"
 LABEL org.opencontainers.image.created="$BUILD_DATE"
 LABEL org.opencontainers.image.description="App runtime image"
@@ -223,8 +223,7 @@ LABEL org.opencontainers.image.documentation="https://github.com/saxix/trash"
 LABEL org.opencontainers.image.licenses="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${SOURCE_COMMIT:-master}/LICENSE"
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 LABEL org.opencontainers.image.source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
-LABEL org.opencontainers.image.title="App"
-LABEL org.opencontainers.image.url="https://app.io/"
-LABEL org.opencontainers.image.vendor="App ltd"
+LABEL org.opencontainers.image.title="Hope Deduplication Engine"
 LABEL org.opencontainers.image.version="$VERSION"
-
+#LABEL org.opencontainers.image.url="https://app.io/"
+#LABEL org.opencontainers.image.vendor="App ltd"

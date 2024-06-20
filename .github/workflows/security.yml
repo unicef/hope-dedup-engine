@@ -43,7 +43,7 @@ jobs:
           token: ${{ github.token }}
           filters: .github/file-filters.yml
 
-  flake8:
+  bandit:
     needs: changes
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false && needs.changes.outputs.lint
@@ -53,36 +53,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install requirements
-        run: pip install flake8 pycodestyle
-      - name: Check syntax
-        # Stop the build if there are Python syntax errors or undefined names
-        run: flake8 src/ --count --statistics --max-line-length=127
-
-      - name: Warnings
-        run: flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --extend-exclude=""
-  isort:
-    needs: changes
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false && needs.changes.outputs.lint
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.12'
-      - name: Install requirements
-        run: pip install isort
-      - name: iSort
-        run: isort src/ --check-only
-  black:
-    needs: changes
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false && needs.changes.outputs.lint
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.12'
-      - name: Install requirements
-        run: pip install black
-      - name: Black
-        run: black src/ --check
+        run: pip install bandit
+      - name: bandit
+        run: bandit src/
