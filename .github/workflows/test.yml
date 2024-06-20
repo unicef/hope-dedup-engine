@@ -83,7 +83,7 @@ jobs:
         id: build
         uses: ./.github/actions/docker_build
         with:
-          dryrun: ${{ env.ACT }}
+          dryrun: ${{ env.ACT || 'false' }}
           rebuild: ${{ contains(github.event.head_commit.message, 'ci:build') }}
           image: ${{ vars.DOCKER_IMAGE }}
           target: 'python_dev_deps'
@@ -178,7 +178,7 @@ jobs:
         id: build
         uses: ./.github/actions/docker_build
         with:
-          dryrun: ${{ env.ACT }}
+          dryrun: ${{ env.ACT || 'false' }}
           rebuild: ${{ contains(github.event.head_commit.message, 'ci:build') }}
           image: ${{ vars.DOCKER_IMAGE }}
           target: 'dist'
