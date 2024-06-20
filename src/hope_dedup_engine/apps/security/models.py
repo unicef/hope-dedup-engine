@@ -13,7 +13,9 @@ class ExternalSystem(models.Model):
 
 
 class User(SecurityMixin, AbstractUser):
-    external_system = models.ForeignKey(ExternalSystem, on_delete=models.SET_NULL, null=True, blank=True)
+    external_system = models.ForeignKey(
+        ExternalSystem, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     class Meta:
         abstract = False

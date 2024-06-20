@@ -39,5 +39,7 @@ def absolute_uri(url: str | None = None) -> str:
     return uri
 
 
-def absolute_reverse(name: str, args: Tuple[Any] | None = None, kwargs: Dict[str, Any] | None = None) -> str:
+def absolute_reverse(
+    name: str, args: Tuple[Any] | None = None, kwargs: Dict[str, Any] | None = None
+) -> str:
     return absolute_uri(reverse(name, args=args, kwargs=kwargs))

@@ -162,6 +162,13 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   release:
+    if:
+      contains('
+      refs/heads/develop
+      refs/heads/staging
+      refs/heads/master
+      ', github.ref) || contains(github.event.head_commit.message, 'ci:release')
+
     name: "Release Docker"
     needs: [ test ]
     runs-on: ubuntu-latest

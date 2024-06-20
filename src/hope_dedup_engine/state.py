@@ -38,7 +38,16 @@ class State(local):
         samesite: str | None = None,
     ) -> None:
         value = json.dumps(value)
-        self.cookies[key] = [value, max_age, expires, path, domain, secure, httponly, samesite]
+        self.cookies[key] = [
+            value,
+            max_age,
+            expires,
+            path,
+            domain,
+            secure,
+            httponly,
+            samesite,
+        ]
 
     def get_cookie(self, name: str) -> Optional[str]:
         return self.request.COOKIES.get(name)
