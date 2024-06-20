@@ -8,13 +8,12 @@ jobs:
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
-      - name: Define linked test image name
-        id: image_name
-        run: |
-          echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
-      - name: Clean up
+
+      - name: Delete Test Docker Image
         shell: bash
         run: |
+          echo "name=${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
+
           registry="https://registry-1.docker.io"
           name=${{steps.image_name.outputs.name}}
           curl -v -sSL -X DELETE "http://${registry}/v2/${name}/manifests/$(
@@ -26,13 +25,10 @@ jobs:
               | awk '$1 == "Docker-Content-Digest:" { print $2 }' \
               | tr -d $'\r' \
           )"
-      - name: Define linked image name
-        id: image_name
-        run: |
-          echo "name=${{vars.DOCKER_IMAGE}}:${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
-      - name: Clean up
+      - name: Delete linked Docker Image
         shell: bash
         run: |
+          echo "name=${{vars.DOCKER_IMAGE}}:${{steps.meta.outputs.version}}" >> $GITHUB_OUTPUT
           registry="https://registry-1.docker.io"
           name=${{steps.image_name.outputs.name}}
           curl -v -sSL -X DELETE "http://${registry}/v2/${name}/manifests/$(
