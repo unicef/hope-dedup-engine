@@ -175,3 +175,8 @@ runs:
             CHECKSUM=${{ inputs.code_checksum }}
             VERSION=${{ steps.meta.outputs.version }}
             SOURCE_COMMIT=${{ steps.last_commit.outputs.last_commit_short_sha }}
+    - name: Status
+      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild) && inputs.dryrun != 'true'
+      shell: bash
+      run: |
+        echo "::notice:: Image ${{ steps.meta.outputs.tags }} successfully built and pushed"
