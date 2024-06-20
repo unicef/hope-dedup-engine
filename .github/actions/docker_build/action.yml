@@ -17,8 +17,12 @@ inputs:
     description: 'DockerHub password '
     required: false
   code_checksum:
-    description: 'DockerHub password '
+    description: 'Current codde checksum'
     required: false
+  rebuild:
+    description: 'Always rebuild image, Ignore checksum'
+    required: false
+    default: false
 
 
 defaults:
@@ -28,17 +32,20 @@ defaults:
 
 outputs:
   image:
-    description: 'Returns true if the image exists'
+    description: 'Built image name'
     value: ${{ steps.image_name.outputs.name }}
   version:
-    description: 'Returns build number for the current branch'
+    description: 'Built image version'
     value: ${{ steps.meta.outputs.version }}
   created:
-    description: 'Returns build number for the current branch'
+    description: 'True if new image has been created'
     value: ${{ !steps.image_status.outputs.updated }}
   digest:
-    description: 'Returns build number for the current branch'
+    description: 'Built image digest'
     value: ${{ !steps.build_push.outputs.digest }}
+  imageId:
+    description: 'Built image ID'
+    value: ${{ !steps.build_push.outputs.imageId }}
 
 
 runs:
@@ -90,9 +97,7 @@ runs:
     - name: "Check Image"
       id: image_status
       shell: bash
-      run: |
-        force_build="${{ contains(github.event.head_commit.message, 'ci:build') }}"
-        
+      run: |        
         echo "::notice::ℹ Checking checksum for ${{ steps.image_name.outputs.name }}"
         image_checksum=$(regctl image inspect -p linux/amd64 \
                           --format '{{index .Config.Labels "checksum"}}' \
@@ -109,13 +114,12 @@ runs:
           echo "::warning::🤬 Checksum: found '${image_checksum}' expected '${code_checksum}'"
           echo "updated=false" >> $GITHUB_OUTPUT
         fi
-        if [[ $force_build == "true" ]]; then 
+        if [[ "${{inputs.rebuild}}" == "true" ]]; then 
             echo "FORCE_BUILD=true" >> $GITHUB_ENV
             echo "::warning::⚠ Forced build due to commit message"
         fi
     - name: Set up Docker BuildX
-#      if: steps.image_status.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
-      if: steps.image_status.outputs.updated != 'true' || env.FORCE_BUILD=='true'
+      if: steps.image_status.outputs.updated != 'true' || inputs.rebuild
       uses: docker/setup-buildx-action@v3.3.0
       with:
         platforms: linux/amd64
@@ -124,7 +128,7 @@ runs:
           image=moby/buildkit:v0.13.2
           network=host
     - name: Build and push
-      if: steps.image_status.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+      if: steps.image_status.outputs.updated != 'true' || inputs.rebuild
       id: build_push
       uses: docker/build-push-action@v6
       with:

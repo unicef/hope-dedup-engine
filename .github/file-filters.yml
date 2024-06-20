@@ -24,7 +24,9 @@ docker_base:
   - *dependencies
 
 run_tests:
-  -  *python
+  - *python
+  - *docker
+  - *dependencies
   - 'pytest.ini'
 
 migrations:
