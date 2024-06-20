@@ -1,6 +1,9 @@
 name: Test
 
 on:
+  create:
+    branches:
+      - releases/*
   push:
     branches:
       - develop
@@ -29,8 +32,9 @@ permissions:
 
 jobs:
   changes:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-
+    if: (github.event_name != 'pull_request' 
+            || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name) 
+            || github.event_name == 'create'
     runs-on: ubuntu-latest
     timeout-minutes: 1
     defaults:
@@ -97,7 +101,9 @@ jobs:
   test:
     name: Run Test Suite
     needs: [ changes,build ]
-    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
+    if: (needs.changes.outputs.run_tests == 'true' 
+        || contains(github.event.head_commit.message, 'ci:test')
+        || github.event_name == 'create')
     runs-on: ubuntu-latest
     services:
       redis:
@@ -150,7 +156,7 @@ jobs:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan')
+    if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan') || github.event_name == 'create'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -173,7 +179,7 @@ jobs:
       refs/heads/develop
       refs/heads/staging
       refs/heads/master
-      ', github.ref) || contains(github.event.head_commit.message, 'ci:release')
+      ', github.ref) || contains(github.event.head_commit.message, 'ci:release') || github.event_name == 'create'
 
     name: "Release Docker"
     needs: [ test ]
