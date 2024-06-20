@@ -11,8 +11,8 @@ on:
       - bugfix/*
       - hotfix/*
   pull_request:
-    branches: [develop, master]
-    types: [synchronize, opened, reopened, ready_for_review]
+    branches: [ develop, master ]
+    types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -42,10 +42,24 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
+      - name: info
+        shell: bash
+        run: |
+          force_build="${{ contains(github.event.head_commit.message, 'ci:build') }}"
+          force_scan="${{ contains(github.event.head_commit.message, 'ci:scan') }}"
+          force_test="${{ contains(github.event.head_commit.message, 'ci:test') }}"
+          
+          if [[ $force_build == "true" ]]; then
+            echo "::notice:: Forced build docker due to commit message"
+          elif [[ $force_test == "true" ]]; then
+            echo "::notice:: Forced python tests due to commit message"
+          elif [[ $force_scan == "true" ]]; then
+            echo "::notice:: Forced trivy scan due to commit message"
+          fi
 
   build:
     if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
-    needs: [changes]
+    needs: [ changes ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -69,11 +83,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           code_checksum: ${{ contains(github.event.head_commit.message, 'ci:build') && steps.checksum.outputs.checksum || '' }}
-#          code_checksum: ${{ steps.checksum.outputs.checksum }}
+  #          code_checksum: ${{ steps.checksum.outputs.checksum }}
 
   test:
     name: Run Test Suite
-    needs: [changes,build]
+    needs: [ changes,build ]
     if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:test')
     runs-on: ubuntu-latest
     services:
@@ -122,7 +136,7 @@ jobs:
   trivy:
     name: Check Image with Trivy
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [ build ]
     if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan')
     steps:
       - name: Checkout code
@@ -139,7 +153,7 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   release:
-    needs: [test]
+    needs: [ test ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:

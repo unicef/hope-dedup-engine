@@ -91,6 +91,8 @@ runs:
       id: image_status
       shell: bash
       run: |
+        force_build="${{ contains(github.event.head_commit.message, 'ci:build') }}"
+        
         echo "::notice::ℹ Checking checksum for ${{ steps.image_name.outputs.name }}"
         image_checksum=$(regctl image inspect -p linux/amd64 \
                           --format '{{index .Config.Labels "checksum"}}' \
@@ -107,8 +109,13 @@ runs:
           echo "::warning::🤬 Checksum: found '${image_checksum}' expected '${code_checksum}'"
           echo "updated=false" >> $GITHUB_OUTPUT
         fi
+        if [[ $force_build == "true" ]]; then 
+            echo "FORCE_BUILD=true" >> $GITHUB_ENV
+            echo "::warning::⚠ Forced build due to commit message"
+        fi
     - name: Set up Docker BuildX
-      if: steps.image_status.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+#      if: steps.image_status.outputs.updated != 'true' || contains(github.event.head_commit.message, 'ci:build')
+      if: steps.image_status.outputs.updated != 'true' || env.FORCE_BUILD=='true'
       uses: docker/setup-buildx-action@v3.3.0
       with:
         platforms: linux/amd64
