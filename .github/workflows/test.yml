@@ -146,6 +146,10 @@ jobs:
     name: Check Image with Trivy
     runs-on: ubuntu-latest
     needs: [ build ]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan')
     steps:
       - name: Checkout code
@@ -156,6 +160,8 @@ jobs:
           image-ref: ${{needs.build.outputs.image}}
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         with:

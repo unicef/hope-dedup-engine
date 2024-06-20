@@ -107,7 +107,9 @@ runs:
     - name: "Image Name"
       shell: bash
       id: image_name
-      run: echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+      run: |
+          echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "test_name=${{ inputs.image }}:test-${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
     - name: "Check Image"
       id: image_status
       shell: bash
@@ -170,7 +172,7 @@ runs:
         push: true
         sbom: true
         provenance: true
-        cache-from: type=registry,ref=${{ steps.image_name.outputs.name }}-cache
+        cache-from: type=registry,ref=${{ steps.image_name.outputs.name }}-cache,ref=${{ steps.image_name.outputs.test_name }}-cache
         cache-to: type=registry,ref=${{ steps.image_name.outputs.name }}-cache,mode=max,image-manifest=true
         build-args: |
             GITHUB_SERVER_URL=${{ github.server_url }}
