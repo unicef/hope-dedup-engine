@@ -135,7 +135,7 @@ runs:
             echo "::warning::⚠ Forced build due input parameter"
         fi
     - name: Set up Docker BuildX
-      if: steps.image_status.outputs.updated != 'true' || inputs.rebuild
+      if: steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true'
       uses: docker/setup-buildx-action@v3.3.0
       with:
         platforms: linux/amd64
@@ -144,7 +144,7 @@ runs:
           image=moby/buildkit:v0.13.2
           network=host
     - name: Build and push
-      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild) && inputs.dryrun == 'true'
+      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun == 'true'
       shell: bash
       run: |
         echo "::notice:: Dryrun build of ${{ steps.meta.outputs.tags }}"
@@ -156,7 +156,7 @@ runs:
         echo "        commit ${{ steps.last_commit.outputs.last_commit_short_sha }}"
 
     - name: Build and push
-      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild) && inputs.dryrun != 'true'
+      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun != 'true'
       id: build_push
       uses: docker/build-push-action@v6
       with:
@@ -180,7 +180,7 @@ runs:
             VERSION=${{ steps.meta.outputs.version }}
             SOURCE_COMMIT=${{ steps.last_commit.outputs.last_commit_short_sha }}
     - name: Status
-      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild) && inputs.dryrun != 'true'
+      if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun != 'true'
       shell: bash
       run: |
         echo "::notice:: Image ${{ steps.meta.outputs.tags }} successfully built and pushed"
