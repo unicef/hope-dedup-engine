@@ -10,9 +10,9 @@ on:
       - feature/*
       - bugfix/*
       - hotfix/*
-  pull_request:
-    branches: [ develop, master ]
-    types: [ synchronize, opened, reopened, ready_for_review ]
+#  pull_request:
+#    branches: [ develop, master ]
+#    types: [ synchronize, opened, reopened, ready_for_review ]
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -28,7 +28,6 @@ permissions:
 
 
 jobs:
-  if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 1
