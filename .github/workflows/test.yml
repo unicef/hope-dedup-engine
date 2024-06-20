@@ -58,7 +58,6 @@ jobs:
           fi
 
   build:
-    if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
     needs: [ changes ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -71,10 +70,13 @@ jobs:
       created: ${{ steps.build.outputs.created }}
     steps:
       - name: Checkout code
+        if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
         uses: actions/checkout@v4.1.7
       - id: checksum
+        if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
         uses: ./.github/actions/checksum
       - name: Build and Test
+        if: needs.changes.outputs.run_tests == 'true' || contains(github.event.head_commit.message, 'ci:build')
         id: build
         uses: ./.github/actions/docker_build
         with:
