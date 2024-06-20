@@ -104,15 +104,18 @@ runs:
     - name: "Image Name"
       shell: bash
       id: image_name
-      run: echo "name=${{ inputs.image }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+      run: echo "name=${{ inputs.image }}:${{env.TAG_PREFIX}}${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
     - name: "Check Image"
       id: image_status
       shell: bash
-      run: |        
+      run: | 
+        set +e
         echo "::notice::ℹ Checking checksum for ${{ steps.image_name.outputs.name }}"
-        image_checksum=$(regctl image inspect -p linux/amd64 \
+        image_checksum=$(regctl image inspect \
+                          -p linux/amd64 \
                           --format '{{index .Config.Labels "checksum"}}' \
-                          ${{ steps.image_name.outputs.name }} )
+                          -v fatal \
+                          ${{ steps.image_name.outputs.name }} 2>/dev/null)
         code_checksum="${{ inputs.code_checksum }}"
 
         if [[ -z "$image_checksum"  ]]; then
