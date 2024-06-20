@@ -36,6 +36,9 @@ outputs:
   created:
     description: 'Returns build number for the current branch'
     value: ${{ !steps.image_status.outputs.updated }}
+  digest:
+    description: 'Returns build number for the current branch'
+    value: ${{ !steps.build_push.outputs.digest }}
 
 
 runs:
