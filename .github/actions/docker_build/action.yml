@@ -164,8 +164,8 @@ runs:
       with:
         context: .
         tags: ${{ steps.meta.outputs.tags }}
-        labels: "${{ steps.meta.outputs.labels }}\na=1\nb=2"
-        annotations: "${{ steps.meta.outputs.annotations }}\nchecksum=${{ inputs.checksum }}"
+        labels: "${{ steps.meta.outputs.labels }}\nchecksum=${{ inputs.code_checksum }}\ndistro=${{ inputs.target }}"
+        annotations: "${{ steps.meta.outputs.annotations }}\nchecksum=${{ inputs.code_checksum }}\ndistro=${{ inputs.target }}"
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
@@ -178,6 +178,7 @@ runs:
             GITHUB_SERVER_URL=${{ github.server_url }}
             GITHUB_REPOSITORY=${{ github.repository }}
             BUILD_DATE=${{ env.BUILD_DATE }}
+            DISTRO=${{ inputs.target }}
             CHECKSUM=${{ inputs.code_checksum }}
             VERSION=${{ steps.meta.outputs.version }}
             SOURCE_COMMIT=${{ steps.last_commit.outputs.last_commit_short_sha }}
@@ -185,4 +186,6 @@ runs:
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun != 'true'
       shell: bash
       run: |
+        echo "${{ toJSON(steps.build_push.outputs) }}"        
+        regctl image inspect -p linux/amd64 ${{ steps.image_name.outputs.name }}
         echo "::notice:: Image ${{ steps.meta.outputs.tags }} successfully built and pushed"

@@ -211,7 +211,7 @@ jobs:
       - shell: bash
         run: |
           echo "${{ toJSON(steps.build.outputs) }}"
-#      - name: Generate artifact attestation
+#      - name: Generate artifact attestations
 #        uses: actions/attest-build-provenance@v1
 #        with:
 #          subject-name: ${{ steps.build.outputs.image }}
