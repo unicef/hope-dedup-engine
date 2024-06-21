@@ -22,12 +22,12 @@ jobs:
   dump:
     name: "[DEBUG] Echo Full Context"
     if: ${{ contains(github.event.head_commit.message, 'ci:debug') }}
-    runs-on: [ubuntu-latest, self-hosted]
+    runs-on: ubuntu-latest
     steps:
       - name: Inspect
         run: |
            echo "${{ contains('refs/heads/develop\nrefs/heads/staging\nrefs/heads/master\nrefs/heads/release', github.ref) }}
-           echo "${{ contains('refs/heads/develop\nrefs/heads/staging\nrefs/heads/master\nrefs/heads/release', github.ref) }}
+           echo "${{ contains('refs/heads/develop refs/heads/staging refs/heads/master refs/heads/release', github.ref) }}
 
       - name: Dump Env vars
         run: |
