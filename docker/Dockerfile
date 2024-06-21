@@ -210,7 +210,7 @@ WORKDIR /code
 COPY --chown=user:app --from=python_prod_deps /code/__pypackages__ /code/__pypackages__
 ENV PATH=${APATH}:${PATH} \
     PYTHONPATH=${APYTHONPATH} \
-    PYTHONDBUFFERED=1
+    PYTHONDBUFFERED=1 \
     PYTHONDONTWRITEBYTCODE=1
 
 RUN <<EOF cat> /RELEASE
