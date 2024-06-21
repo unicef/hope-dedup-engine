@@ -3,12 +3,15 @@ on:
   push:
     branches:
       - develop
-#      - master
-#      - staging
-#      - releases/*
-  pull_request:
-    branches: [develop, master]
-    types: [synchronize, opened, reopened, ready_for_review]
+      - master
+      - staging
+      - release/*
+      - feature/*
+      - bugfix/*
+      - hotfix/*
+#  pull_request:
+#    branches: [develop, master]
+#    types: [synchronize, opened, reopened, ready_for_review]
 
 defaults:
   run:
