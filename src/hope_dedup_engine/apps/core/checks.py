@@ -1,6 +1,7 @@
-from django.core.checks import Error, register
-from django.conf import settings
 from pathlib import Path
+
+from django.conf import settings
+from django.core.checks import Error, register
 
 
 @register()
