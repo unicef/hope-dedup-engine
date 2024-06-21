@@ -2,8 +2,18 @@
 name: Adds labels
 
 on:
-  pull_request:
-    types: [opened, synchronize, edited, ready_for_review]
+  push:
+    branches:
+      - develop
+      - master
+      - staging
+      - release/*
+      - feature/*
+      - bugfix/*
+      - hotfix/*
+#  pull_request:
+#    types: [opened, synchronize, edited, ready_for_review]
+
 
 jobs:
   label-pullrequest:
