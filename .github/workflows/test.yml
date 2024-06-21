@@ -55,7 +55,7 @@ jobs:
       - name: info
         shell: bash
         run: |
-          force_build="${{ contains(github.event.head_commit.message, 'ci:build') }}"
+          force_build="${{ contains(github.event.head_commit.message, 'ci:build') || contains(github.event.head_commit.message, 'ci:release')}}"
           force_scan="${{ contains(github.event.head_commit.message, 'ci:scan') }}"
           force_test="${{ contains(github.event.head_commit.message, 'ci:test') }}"
           
@@ -178,7 +178,7 @@ jobs:
         uses: ./.github/actions/docker_build
         with:
           dryrun: ${{ env.ACT || 'false' }}
-          rebuild: ${{ contains(github.event.head_commit.message, 'ci:build') }}
+          rebuild: ${{ env.BUILD == 'true'}}
           image: ${{ vars.DOCKER_IMAGE }}
           target: 'dist'
           username: ${{ secrets.DOCKERHUB_USERNAME }}
