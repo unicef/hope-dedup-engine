@@ -91,7 +91,7 @@ jobs:
         uses: ./.github/actions/docker_build
         with:
           dryrun: ${{ env.ACT || 'false' }}
-          rebuild: ${{ contains(github.event.head_commit.message, 'ci:build') }}
+          rebuild: ${{ contains(fromJSON('["ci:test", "ci:all", "ci:build"]'), github.event.head_commit.message) }}
           image: ${{ vars.DOCKER_IMAGE }}
           target: 'python_dev_deps'
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -102,7 +102,7 @@ jobs:
     name: Run Test Suite
     needs: [ changes,build ]
     if: (needs.changes.outputs.run_tests == 'true' 
-        || contains(github.event.head_commit.message, 'ci:test')
+        || contains(fromJSON('["ci:test", "ci:all"]'), github.event.head_commit.message) 
         || github.event_name == 'create')
     runs-on: ubuntu-latest
     services:
@@ -156,7 +156,9 @@ jobs:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    if: needs.build.outputs.created == 'true' || contains(github.event.head_commit.message, 'ci:scan') || github.event_name == 'create'
+    if: needs.build.outputs.created == 'true' 
+      || contains(fromJSON('["ci:scan", "ci:all", "ci:build"]'), github.event.head_commit.message) 
+      || github.event_name == 'create'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -177,7 +179,7 @@ jobs:
     if:
       contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) 
       || startsWith(github.ref, 'refs/heads/release')
-      || contains(github.event.head_commit.message, 'ci:release') 
+      || contains(fromJSON('["ci:release", "ci:all"]'), github.event.head_commit.message) 
       || github.event_name == 'create'
 
     name: "Release Docker"
