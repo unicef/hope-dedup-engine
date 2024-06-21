@@ -121,6 +121,8 @@ ARG VERSION
 ENV VERSION=$VERSION
 ARG BUILD_DATE
 ENV BUILD_DATE=$BUILD_DATE
+ARG DISTRO
+ENV DISTRO=$DISTRO
 ARG SOURCE_COMMIT
 ENV SOURCE_COMMIT=$SOURCE_COMMIT
 ARG GITHUB_SERVER_URL
@@ -132,7 +134,7 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
-LABEL distro="builder-test"
+LABEL distro="test"
 
 #COPY pyproject.toml pdm.lock ./
 #COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
@@ -145,7 +147,13 @@ RUN set -x \
     && pdm sync --no-editable -v --no-self
 
 RUN <<EOF cat> /RELEASE
-{"version": "$VERSION", "commit": "$SOURCE_COMMIT", "date": "$BUILD_DATE", "checksum": "$CHECKSUM", "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"}
+{"version": "$VERSION",
+ "commit": "$SOURCE_COMMIT",
+ "date": "$BUILD_DATE",
+ "distro": "test",
+ "checksum": "$CHECKSUM",
+ "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
+}
 EOF
 
 FROM build_deps AS python_prod_deps
@@ -199,11 +207,17 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 
 WORKDIR /code
-COPY --chown=user:app --from=python_prod_deps /code /code
+COPY --chown=user:app --from=python_prod_deps /code/__pypackages__ /code/__pypackages__
+ENV PATH=${APATH}:${PATH} \
+    PYTHONPATH=${APYTHONPATH} \
+    PYTHONDBUFFERED=1
+    PYTHONDONTWRITEBYTCODE=1
+
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
  "commit": "$SOURCE_COMMIT",
  "date": "$BUILD_DATE",
+ "distro": "dist",
  "checksum": "$CHECKSUM",
  "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
