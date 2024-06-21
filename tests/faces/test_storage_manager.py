@@ -1,6 +1,10 @@
 import pytest
 
-from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
+from hope_dedup_engine.apps.core.storage import (
+    CV2DNNStorage,
+    HDEAzureStorage,
+    HOPEAzureStorage,
+)
 from hope_dedup_engine.apps.faces.exceptions import StorageKeyError
 from hope_dedup_engine.apps.faces.managers.storage import StorageManager
 

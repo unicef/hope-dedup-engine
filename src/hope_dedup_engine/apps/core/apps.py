@@ -8,4 +8,5 @@ class Config(AppConfig):
     def ready(self) -> None:
         super().ready()
         from hope_dedup_engine.utils import flags  # noqa
+
         from . import checks  # noqa

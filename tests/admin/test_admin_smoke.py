@@ -95,12 +95,16 @@ def record(db, request):
     modeladmin = request.getfixturevalue("modeladmin")
     instance = modeladmin.model.objects.first()
     if not instance:
-        full_name = f"{modeladmin.model._meta.app_label}.{modeladmin.model._meta.object_name}"
+        full_name = (
+            f"{modeladmin.model._meta.app_label}.{modeladmin.model._meta.object_name}"
+        )
         factory = get_factory_for_model(modeladmin.model)
         try:
             instance = factory(**KWARGS.get(full_name, {}))
         except Exception as e:
-            raise Exception(f"Error creating fixture for {factory} using {KWARGS}") from e
+            raise Exception(
+                f"Error creating fixture for {factory} using {KWARGS}"
+            ) from e
     return instance
 
 
