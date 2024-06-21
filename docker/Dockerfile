@@ -208,6 +208,8 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 WORKDIR /code
 COPY --chown=user:app --from=python_prod_deps /code/__pypackages__ /code/__pypackages__
+COPY --chown=user:app --from=python_prod_deps /code/README.md /code/LICENSE /
+
 ENV PATH=${APATH}:${PATH} \
     PYTHONPATH=${APYTHONPATH} \
     PYTHONDBUFFERED=1 \
@@ -229,8 +231,8 @@ ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 CMD ["run"]
 
 LABEL distro="final"
-LABEL maintainer="hope@app.io"
-LABEL org.opencontainers.image.authors="author@app.io"
+LABEL maintainer="hope@unicef.org"
+LABEL org.opencontainers.image.authors="hope@unicef.org"
 LABEL org.opencontainers.image.created="$BUILD_DATE"
 LABEL org.opencontainers.image.description="App runtime image"
 LABEL org.opencontainers.image.documentation="https://github.com/saxix/trash"
