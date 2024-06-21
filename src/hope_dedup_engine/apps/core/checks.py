@@ -2,6 +2,7 @@ from django.core.checks import Error, register
 from django.conf import settings
 from pathlib import Path
 
+
 @register()
 def example_check(app_configs, **kwargs):
     errors = []
