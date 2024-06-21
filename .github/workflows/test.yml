@@ -176,7 +176,7 @@ jobs:
   release:
     if:
       contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) 
-      || startsWith('refs/heads/release', github.ref)
+      || startsWith(github.ref, 'refs/heads/release')
       || contains(github.event.head_commit.message, 'ci:release') 
       || github.event_name == 'create'
 
