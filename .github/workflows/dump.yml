@@ -26,8 +26,10 @@ jobs:
     steps:
       - name: Inspect
         run: |
+           echo ${{ github.ref }}
            echo ${{ contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master"]'), github.ref) }}
            echo ${{ contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) }}
+           echo ${{ contains('refs/heads/develop refs/heads/staging refs/heads/master refs/heads/release'), github.ref) }}
            echo ${{ startsWith('refs/heads/release', github.ref) }}
 
       - name: Dump Env vars
