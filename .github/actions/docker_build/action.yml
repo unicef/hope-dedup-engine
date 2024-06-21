@@ -43,13 +43,13 @@ outputs:
     value: ${{ steps.meta.outputs.version }}
   created:
     description: 'True if new image has been created'
-    value: ${{ !steps.image_status.outputs.updated }}
+    value: ${{ steps.status.outputs.created }}
   digest:
     description: 'Built image digest'
-    value: ${{ !steps.build_push.outputs.digest }}
+    value: ${{ steps.build_push.outputs.digest }}
   imageId:
     description: 'Built image ID'
-    value: ${{ !steps.build_push.outputs.imageId }}
+    value: ${{ steps.build_push.outputs.imageId }}
 
 
 runs:
@@ -183,9 +183,11 @@ runs:
             VERSION=${{ steps.meta.outputs.version }}
             SOURCE_COMMIT=${{ steps.last_commit.outputs.last_commit_short_sha }}
     - name: Status
+      id: status
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun != 'true'
       shell: bash
       run: |
         echo "${{ toJSON(steps.build_push.outputs) }}"        
         regctl image inspect -p linux/amd64 ${{ steps.image_name.outputs.name }}
         echo "::notice:: Image ${{ steps.meta.outputs.tags }} successfully built and pushed"
+        echo "created=true" >> $GITHUB_OUTPUT
