@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group
 
 import factory.fuzzy
 
-from hope_dedup_engine.apps.security.models import User, ExternalSystem
+from hope_dedup_engine.apps.security.models import ExternalSystem, User
 
 from .base import AutoRegisterModelFactory
 

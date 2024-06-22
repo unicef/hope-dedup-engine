@@ -40,7 +40,10 @@ REQUESTS = (
 
 @mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_anonymous_cannot_access(
-    anonymous_api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
+    anonymous_api_client: APIClient,
+    view_name: str,
+    method: HTTPMethod,
+    args: tuple[Any, ...],
 ) -> None:
     response = getattr(anonymous_api_client, method.lower())(reverse(view_name, args))
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -50,7 +53,9 @@ def test_anonymous_cannot_access(
 def test_authenticated_can_access(
     api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
-    response = getattr(api_client, method.lower())(reverse(view_name, args), format=JSON)
+    response = getattr(api_client, method.lower())(
+        reverse(view_name, args), format=JSON
+    )
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 

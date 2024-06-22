@@ -3,7 +3,11 @@ from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
-from hope_dedup_engine.apps.api.models.deduplication import Duplicate, IgnoredKeyPair, Image
+from hope_dedup_engine.apps.api.models.deduplication import (
+    Duplicate,
+    IgnoredKeyPair,
+    Image,
+)
 
 
 class TokenFactory(DjangoModelFactory):

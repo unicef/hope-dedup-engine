@@ -25,14 +25,22 @@ def environment():
     }
 
 
-@pytest.mark.parametrize("static_root", ["static", ""], ids=["static_missing", "static_existing"])
+@pytest.mark.parametrize(
+    "static_root", ["static", ""], ids=["static_missing", "static_existing"]
+)
 @pytest.mark.parametrize("static", [True, False], ids=["static", "no-static"])
 @pytest.mark.parametrize("verbosity", [1, 0], ids=["verbose", ""])
 @pytest.mark.parametrize("migrate", [True, False], ids=["migrate", ""])
-def test_upgrade_init(verbosity, migrate, monkeypatch, environment, static, static_root, tmp_path):
+def test_upgrade_init(
+    verbosity, migrate, monkeypatch, environment, static, static_root, tmp_path
+):
     static_root_path = tmp_path / static_root
     out = StringIO()
-    with mock.patch.dict(os.environ, {**environment, "STATIC_ROOT": str(static_root_path.absolute())}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {**environment, "STATIC_ROOT": str(static_root_path.absolute())},
+        clear=True,
+    ):
         call_command(
             "upgrade",
             static=static,
@@ -118,12 +126,18 @@ def test_env_raise(mocked_responses):
 
 
 def test_upgrade_exception(mocked_responses, environment):
-    with mock.patch("hope_dedup_engine.apps.core.management.commands.upgrade.call_command") as m:
+    with mock.patch(
+        "hope_dedup_engine.apps.core.management.commands.upgrade.call_command"
+    ) as m:
         m.side_effect = Exception
         with pytest.raises(SystemExit):
             call_command("upgrade")
 
     out = StringIO()
-    with mock.patch.dict(os.environ, {"ADMIN_EMAIL": "2222", "ADMIN_USER": "admin", **environment}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {"ADMIN_EMAIL": "2222", "ADMIN_USER": "admin", **environment},
+        clear=True,
+    ):
         with pytest.raises(SystemExit):
             call_command("upgrade", stdout=out, check=True, admin_email="")

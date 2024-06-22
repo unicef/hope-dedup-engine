@@ -20,11 +20,20 @@ from PIL import Image
 from pytest_mock import MockerFixture
 
 from docker import from_env
-from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage, HOPEAzureStorage
+from hope_dedup_engine.apps.core.storage import (
+    CV2DNNStorage,
+    HDEAzureStorage,
+    HOPEAzureStorage,
+)
 from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
 from hope_dedup_engine.apps.faces.managers.storage import StorageManager
-from hope_dedup_engine.apps.faces.services.duplication_detector import DuplicationDetector
-from hope_dedup_engine.apps.faces.services.image_processor import BlobFromImageConfig, ImageProcessor
+from hope_dedup_engine.apps.faces.services.duplication_detector import (
+    DuplicationDetector,
+)
+from hope_dedup_engine.apps.faces.services.image_processor import (
+    BlobFromImageConfig,
+    ImageProcessor,
+)
 
 
 @pytest.fixture
@@ -59,11 +68,20 @@ def mock_net_manager(mocker: MockerFixture) -> DNNInferenceManager:
 
 @pytest.fixture
 def mock_image_processor(
-    mocker: MockerFixture, mock_storage_manager, mock_net_manager, mock_open_context_manager
+    mocker: MockerFixture,
+    mock_storage_manager,
+    mock_net_manager,
+    mock_open_context_manager,
 ) -> ImageProcessor:
-    mocker.patch.object(BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE)
+    mocker.patch.object(
+        BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE
+    )
     mock_processor = ImageProcessor()
-    mocker.patch.object(mock_processor.storages.get_storage("images"), "open", return_value=mock_open_context_manager)
+    mocker.patch.object(
+        mock_processor.storages.get_storage("images"),
+        "open",
+        return_value=mock_open_context_manager,
+    )
     yield mock_processor
 
 
@@ -87,9 +105,13 @@ def mock_open_context_manager(image_bytes_io):
 @pytest.fixture
 def mock_net():
     mock_net = MagicMock(spec=cv2.dnn_Net)  # Mocking the neural network object
-    mock_detections = np.array([[FACE_DETECTIONS]], dtype=np.float32)  # Mocking the detections array
+    mock_detections = np.array(
+        [[FACE_DETECTIONS]], dtype=np.float32
+    )  # Mocking the detections array
     mock_expected_regions = FACE_REGIONS_VALID
-    mock_net.forward.return_value = mock_detections  # Setting up the forward method of the mock network
+    mock_net.forward.return_value = (
+        mock_detections  # Setting up the forward method of the mock network
+    )
     mock_imdecode = MagicMock(return_value=np.ones(IMAGE_SIZE, dtype=np.uint8))
     mock_resize = MagicMock(return_value=np.ones(RESIZED_IMAGE_SIZE, dtype=np.uint8))
     mock_blob = np.zeros(BLOB_SHAPE)
@@ -111,7 +133,10 @@ def docker_client():
 
 @pytest.fixture
 def mock_redis_client():
-    with patch("redis.Redis.set") as mock_set, patch("redis.Redis.delete") as mock_delete:
+    with (
+        patch("redis.Redis.set") as mock_set,
+        patch("redis.Redis.delete") as mock_delete,
+    ):
         yield mock_set, mock_delete
 
 
@@ -120,7 +145,9 @@ def mock_dd_find():
     with patch(
         "hope_dedup_engine.apps.faces.services.duplication_detector.DuplicationDetector.find_duplicates"
     ) as mock_find:
-        mock_find.return_value = (FILENAMES[:2],)  # Assuming the first two are duplicates based on mock data
+        mock_find.return_value = (
+            FILENAMES[:2],
+        )  # Assuming the first two are duplicates based on mock data
         yield mock_find
 
 

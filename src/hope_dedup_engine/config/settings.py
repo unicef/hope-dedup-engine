@@ -6,7 +6,6 @@ from . import env
 # BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
-DEVELOPMENT_DIR = PACKAGE_DIR.parent.parent
 
 DEBUG = env.bool("DEBUG")
 
@@ -129,7 +128,7 @@ WSGI_APPLICATION = "hope_dedup_engine.config.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [str(PACKAGE_DIR / "templates")],
+        "DIRS": [str(PACKAGE_DIR / "web/templates")],
         "APP_DIRS": False,
         "OPTIONS": {
             "loaders": [
