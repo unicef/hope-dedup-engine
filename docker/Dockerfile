@@ -228,8 +228,7 @@ EOF
 VOLUME /var/run/app/
 EXPOSE 8000
 CMD ["run"]
-ENTRYPOINT docker-entrypoint.sh
-#ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
+ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 
 LABEL distro="final"
 LABEL maintainer="hope@unicef.org"

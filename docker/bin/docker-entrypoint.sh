@@ -13,6 +13,7 @@ fi
 
 echo "MEDIA_ROOT  ${MEDIA_ROOT}"
 echo "STATIC_ROOT ${STATIC_ROOT}"
+echo "@ $0"
 
 case "$1" in
     setup)
