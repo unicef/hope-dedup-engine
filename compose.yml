@@ -1,6 +1,6 @@
 x-common: &common
-  platform: linux/amd64
   image: unicef/hope-dedupe-engine:release-0.1
+#  platform: linux/amd64
 #  build:
 #    context: .
 #    dockerfile: docker/Dockerfile
