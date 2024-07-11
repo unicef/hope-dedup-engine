@@ -8,6 +8,7 @@ authors = [
     {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
 ]
 requires-python = ">=3.12"
+
 dependencies = [
     "Django",
     "celery[redis]",
@@ -43,8 +44,16 @@ dependencies = [
     "requests>=2.32.3",
 ]
 
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
 [tool.pdm.build]
 includes = []
+
+[tool.pdm]
+distribution = true
 
 [tool.pdm.dev-dependencies]
 dev = [
