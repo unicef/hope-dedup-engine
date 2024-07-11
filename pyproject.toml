@@ -50,7 +50,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pdm.build]
-includes = ['src/hope_dedup_engine/web/templates']
+includes = ['src/hope_dedup_engine']
 
 [tool.pdm]
 distribution = true
