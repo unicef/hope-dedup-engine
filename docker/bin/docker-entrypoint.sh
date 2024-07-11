@@ -13,7 +13,6 @@ fi
 
 echo "MEDIA_ROOT  ${MEDIA_ROOT}"
 echo "STATIC_ROOT ${STATIC_ROOT}"
-echo "@ $0"
 
 case "$1" in
     setup)
@@ -21,10 +20,12 @@ case "$1" in
       django-admin upgrade
       ;;
     worker)
-      exec celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
+	    set -- tini -- "$@"
+      set -- gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
       ;;
     beat)
-      exec celery -A hope_dedup_engine.config.celery beat -E --loglevel=ERROR ---scheduler django_celery_beat.schedulers:DatabaseScheduler
+	    set -- tini -- "$@"
+      set -- gosu user:app celery -A hope_dedup_engine.config.celery beat --loglevel=ERROR --scheduler django_celery_beat.schedulers:DatabaseScheduler
       ;;
     run)
       django-admin check --deploy
@@ -32,7 +33,6 @@ case "$1" in
 	    set -- tini -- "$@"
   		set -- gosu user:app uwsgi --ini /conf/uwsgi.ini
 	    ;;
-	  *)
-	    exec "$@"
-	    ;;
 esac
+
+exec "$@"
