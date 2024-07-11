@@ -141,7 +141,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "django.core.files.storage.FileSystemStorage",
         setting("storages"),
     ),
-    "STATIC_ROOT": (str, None, setting("static-root")),
+    "STATIC_ROOT": (str, "", setting("static-root")),
     "STATIC_URL": (str, "/static/", setting("static-url")),
     "TIME_ZONE": (str, "UTC", setting("std-setting-TIME_ZONE")),
     "AZURE_ACCOUNT_NAME": (str, ""),
