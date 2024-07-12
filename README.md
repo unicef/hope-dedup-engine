@@ -8,6 +8,30 @@ ABOUT HOPE Deduplication Engine
 ![License](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Funicef%2Fhope-dedup-engine%2Fdevelop%2Fpyproject.toml&query=%24.project.license.text&label=license)
 
 
+## Docker
+
+Check mandatory environment variables
+
+    $ docker run -it -t  unicef/hope-dedupe-engine:release-0.1 django-admin env --check
+    
+
+Display current configuration
+
+    $ docker run -it -t  unicef/hope-dedupe-engine:release-0.1 django-admin env
+    
+
+Run server and support services
+
+    $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1
+    $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1 worker
+    $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1 beat
+    
+Use provided sample compose file
+
+    $ docker compose build
+    $ docker compose up
+    
+
 ## Help
 **Got a question?** We got answers.
 
