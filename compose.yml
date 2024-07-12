@@ -20,8 +20,10 @@ x-common: &common
     - SESSION_COOKIE_SECURE=False
     - SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
   volumes:
-    - .:/code
-    - /var/run/docker.sock:/var/run/docker.sock
+    - ./..:/code/app
+    - ./conf:/conf
+    - ./bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
+    - ./bin/release-info.sh:/usr/local/bin/release-info.sh
   restart: unless-stopped
   depends_on:
     db:

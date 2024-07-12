@@ -163,9 +163,14 @@ LOGGING = {
         },
     },
     "loggers": {
+        "environ": {
+            "handlers": ["console"],
+            "level": "CRITICAL",
+            "propagate": True,
+        },
         "": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": env("LOG_LEVEL"),
             "propagate": True,
         },
     },
