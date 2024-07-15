@@ -197,7 +197,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
                 filename: [np.array([0.1, 0.2, 0.3 + i * 0.001])]
                 for i, filename in enumerate(FILENAMES)
             },
-            (tuple(FILENAMES),),
+            [FILENAMES[i:] for i in range(len(FILENAMES) - 1)],
         ),
         (
             False,
@@ -217,22 +217,27 @@ def test_find_duplicates_successful(
 ):
     with (
         patch.object(
-            mock_dd.storages.get_storage("images"),
-            "open",
-            side_effect=image_bytes_io.fake_open,
-        ),
-        patch.object(
-            mock_dd.storages.get_storage("encoded"),
-            "open",
-            side_effect=image_bytes_io.fake_open,
-        ),
-        patch.object(
             mock_dd.storages,
             "get_storage",
             side_effect=lambda key: {
                 "encoded": mock_hde_azure_storage,
                 "images": mock_hope_azure_storage,
             }[key],
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "listdir",
+            return_value=([], FILENAMES),
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("encoded"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
         ),
         patch.object(mock_dd, "_has_encodings", return_value=has_encodings),
         patch.object(
@@ -244,9 +249,7 @@ def test_find_duplicates_successful(
         duplicates = mock_dd.find_duplicates()
 
         if has_encodings:
-            assert {frozenset(t) for t in duplicates} == {
-                frozenset(t) for t in expected_duplicates
-            }
+            assert duplicates == expected_duplicates
             mock_dd.image_processor.encode_face.assert_not_called()
             mock_dd._load_encodings_all.assert_called_once()
             # mock_hde_azure_storage.exists.assert_called_with(FILENAME_ENCODED_FORMAT.format(FILENAMES[-1]))

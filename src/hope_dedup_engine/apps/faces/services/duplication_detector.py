@@ -4,12 +4,10 @@ from typing import Any
 
 import face_recognition
 import numpy as np
+from constance import config
 
 from hope_dedup_engine.apps.faces.managers.storage import StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
-from hope_dedup_engine.apps.faces.utils.duplicate_groups_builder import (
-    DuplicateGroupsBuilder,
-)
 from hope_dedup_engine.apps.faces.validators import IgnorePairsValidator
 
 
@@ -73,13 +71,37 @@ class DuplicationDetector:
         try:
             _, files = self.storages.get_storage("encoded").listdir("")
             for file in files:
-                if self._has_encodings(filename := os.path.splitext(file)[0]):
+                filename = os.path.splitext(file)[0]
+                if file == self._encodings_filename(filename):
                     with self.storages.get_storage("encoded").open(file, "rb") as f:
                         data[filename] = np.load(f, allow_pickle=False)
         except Exception as e:
             self.logger.exception("Error loading encodings.")
             raise e
         return data
+
+    @property
+    def _existed_images_name(self) -> list[str]:
+        """
+        Return filenames from `self.filenames` that exist in the image storage, ensuring they have encodings.
+
+        Returns:
+            list[str]: List of existing filenames with encodings.
+        """
+        filenames: list = []
+        _, files = self.storages.get_storage("images").listdir("")
+        for filename in self.filenames:
+            if filename not in files:
+                self.logger.warning(
+                    "Image %s not found in the image storage.", filename
+                )
+            else:
+                filenames.append(filename)
+                if not self._has_encodings(filename):
+                    self.image_processor.encode_face(
+                        filename, self._encodings_filename(filename)
+                    )
+        return filenames
 
     def find_duplicates(self) -> list[list[str]]:
         """
@@ -90,26 +112,19 @@ class DuplicationDetector:
                                         the filenames of duplicate images.
         """
         try:
-            for filename in self.filenames:
-                if not self._has_encodings(filename):
-                    self.image_processor.encode_face(
-                        filename, self._encodings_filename(filename)
-                    )
+            duplicates: list[list[str]] = []
             encodings_all = self._load_encodings_all()
-
-            checked = set()
-            for path1, encodings1 in encodings_all.items():
+            for path1 in self._existed_images_name:
+                duplicate: list[str] = [path1]
+                encodings1 = encodings_all.get(path1)
                 for path2, encodings2 in encodings_all.items():
                     if all(
                         (
                             path1 < path2,
-                            not any(
-                                p in self.ignore_set
-                                for p in ((path1, path2), (path2, path1))
-                            ),
+                            (path1, path2) not in self.ignore_set,
                         )
                     ):
-                        min_distance = float("inf")
+                        min_distance = config.FACE_DISTANCE_THRESHOLD
                         for encoding1 in encodings1:
                             if (
                                 current_min := min(
@@ -119,9 +134,11 @@ class DuplicationDetector:
                                 )
                             ) < min_distance:
                                 min_distance = current_min
-                        checked.add((path1, path2, min_distance))
-
-            return DuplicateGroupsBuilder.build(checked)
+                        if min_distance < config.FACE_DISTANCE_THRESHOLD:
+                            duplicate.append(path2)
+                if len(duplicate) > 1:
+                    duplicates.append(duplicate)
+            return duplicates
         except Exception as e:
             self.logger.exception(
                 "Error finding duplicates for images %s", self.filenames
