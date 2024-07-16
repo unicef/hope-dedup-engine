@@ -14,7 +14,12 @@ class UniqueStorageMixin:
 
 
 class CV2DNNStorage(UniqueStorageMixin, FileSystemStorage):
-    pass
+    """
+    Storage for files that needs cv2dnn DeepNeuralNetwork module of the OpenCV library.
+    Here are placed:
+    - prototxt file
+    - caffemodel file
+    """
 
 
 class HDEAzureStorage(UniqueStorageMixin, AzureStorage):
@@ -44,4 +49,4 @@ class HOPEAzureStorage(HDEAzureStorage):
         raise RuntimeError("This storage cannot save files")
 
     def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
-        return ([], [])
+        return [], []

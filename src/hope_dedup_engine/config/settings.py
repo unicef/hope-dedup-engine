@@ -104,7 +104,7 @@ LANGUAGES = (
     ("ar", ugettext("Arabic")),
 )
 
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SITE_ID = 1
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
