@@ -29,7 +29,15 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
-        fields = "__all__"
+        fields = (
+            "id",
+            "deduplication_set",
+            "reference_pk",
+            "filename",
+            "created_by",
+            "created_at",
+            "updated_at",
+        )
         read_only_fields = "created_by", "created_at"
 
 
