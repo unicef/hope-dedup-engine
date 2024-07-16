@@ -36,7 +36,6 @@ class ImageSerializer(serializers.ModelSerializer):
             "filename",
             "created_by",
             "created_at",
-            "updated_at",
         )
         read_only_fields = "created_by", "created_at"
 

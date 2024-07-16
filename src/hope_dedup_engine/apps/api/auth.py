@@ -20,7 +20,7 @@ class UserAndDeduplicationSetAreOfTheSameSystem(BasePermission):
             return DeduplicationSet.objects.filter(
                 external_system=request.user.external_system, pk=deduplication_set_pk
             ).exists()
-        return False
+        return True
 
 
 class HDETokenAuthentication(TokenAuthentication):
