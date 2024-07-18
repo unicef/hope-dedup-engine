@@ -11,6 +11,16 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
+    "PROTOTXT_FILE_URL": (
+        "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt",
+        "URL to the deploy.prototxt file used for face detection with OpenCV DNN module",
+        str,
+    ),
+    "CAFFEMODEL_FILE_URL": (
+        "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/res10_300x300_ssd_iter_140000.caffemodel",  # noqa: E501
+        "URL to the res10_300x300_ssd_iter_140000.caffemodel file used for face detection  with OpenCV DNN module",
+        str,
+    ),
     "DNN_BACKEND": (
         cv2.dnn.DNN_BACKEND_OPENCV,
         "Specifies the computation backend to be used by OpenCV for deep learning inference.",
@@ -95,6 +105,8 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     "Face recognition settings": {
         "fields": (
+            "PROTOTXT_FILE_URL",
+            "CAFFEMODEL_FILE_URL",
             "DNN_BACKEND",
             "DNN_TARGET",
             "BLOB_FROM_IMAGE_SCALE_FACTOR",

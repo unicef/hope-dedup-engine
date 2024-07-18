@@ -22,7 +22,7 @@ class StorageManager:
         """
         self.storages: dict[str, HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage] = {
             "images": HOPEAzureStorage(),
-            "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
+            "cv2dnn": CV2DNNStorage(settings.CV2DNN_DIR),
             "encoded": HDEAzureStorage(),
         }
         for file in (settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE):

@@ -17,3 +17,10 @@ app.autodiscover_tasks(lambda: settings.INSTALLED_APPS, related_name="celery_tas
 @signals.celeryd_init.connect
 def init_sentry(**_kwargs: Any) -> None:
     sentry_sdk.set_tag("celery", True)
+
+
+@signals.worker_ready.connect
+def at_start(sender, **kwargs):
+    from hope_dedup_engine.apps.faces.celery_tasks import download_dnn_files
+
+    download_dnn_files.delay()

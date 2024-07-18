@@ -1,6 +1,6 @@
 from constance import config
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager
 
 
 def test_successful(mock_storage_manager, mock_net_manager):

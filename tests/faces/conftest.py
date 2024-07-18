@@ -25,8 +25,7 @@ from hope_dedup_engine.apps.core.storage import (
     HDEAzureStorage,
     HOPEAzureStorage,
 )
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 from hope_dedup_engine.apps.faces.services.duplication_detector import (
     DuplicationDetector,
 )

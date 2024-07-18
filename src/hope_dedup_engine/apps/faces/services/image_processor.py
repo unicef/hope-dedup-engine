@@ -11,8 +11,7 @@ import face_recognition
 import numpy as np
 from constance import config
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 
 
 @dataclass(frozen=True, slots=True)

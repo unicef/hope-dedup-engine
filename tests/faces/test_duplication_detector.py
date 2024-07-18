@@ -9,10 +9,8 @@ import pytest
 from constance import config
 from faces_const import FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
 
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
-from hope_dedup_engine.apps.faces.services.duplication_detector import (
-    DuplicationDetector,
-)
+from hope_dedup_engine.apps.faces.managers import StorageManager
+from hope_dedup_engine.apps.faces.services import DuplicationDetector
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
 
 

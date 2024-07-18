@@ -16,8 +16,7 @@ from faces_const import (
     FILENAME_ENCODED,
 )
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import (
     BlobFromImageConfig,
     FaceEncodingsConfig,

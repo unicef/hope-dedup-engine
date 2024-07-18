@@ -6,7 +6,7 @@ from hope_dedup_engine.apps.core.storage import (
     HOPEAzureStorage,
 )
 from hope_dedup_engine.apps.faces.exceptions import StorageKeyError
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import StorageManager
 
 
 def test_initialization(mock_storage_manager):
