@@ -158,7 +158,7 @@ class ImageProcessor:
             encodings: list[np.ndarray[np.float32, Any]] = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.error("No face regions detected in image %s", filename)
+                self.logger.warning("No face regions detected in image %s", filename)
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:

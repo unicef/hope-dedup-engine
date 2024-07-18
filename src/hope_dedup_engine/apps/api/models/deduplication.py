@@ -10,6 +10,10 @@ REFERENCE_PK_LENGTH = 100
 
 
 class DeduplicationSet(models.Model):
+    """
+    Bucket for entries we want to deduplicate
+    """
+
     class State(models.IntegerChoices):
         CLEAN = 0, "Clean"  # Deduplication set is created or already processed
         DIRTY = (
@@ -21,7 +25,7 @@ class DeduplicationSet(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     name = models.CharField(max_length=100)
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(
         choices=State.choices,
         default=State.CLEAN,
@@ -49,6 +53,10 @@ class DeduplicationSet(models.Model):
 
 
 class Image(models.Model):
+    """
+    # TODO: rename to Entity/Entry
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
@@ -64,10 +72,14 @@ class Image(models.Model):
 
 
 class Duplicate(models.Model):
+    """
+    Couple of similar entities
+    """
+
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
     first_filename = models.CharField(max_length=255)
-    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
     second_filename = models.CharField(max_length=255)
     score = models.FloatField()
 
