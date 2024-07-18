@@ -18,6 +18,7 @@ case "$1" in
     setup)
       django-admin check --deploy
       django-admin upgrade
+      exit 0
       ;;
     worker)
 	    set -- tini -- "$@"
