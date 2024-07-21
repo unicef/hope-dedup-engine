@@ -11,15 +11,10 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
-    "PROTOTXT_FILE_URL": (
-        "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt",
-        "URL to the deploy.prototxt file used for face detection with OpenCV DNN module",
-        str,
-    ),
-    "CAFFEMODEL_FILE_URL": (
-        "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/res10_300x300_ssd_iter_140000.caffemodel",  # noqa: E501
-        "URL to the res10_300x300_ssd_iter_140000.caffemodel file used for face detection  with OpenCV DNN module",
-        str,
+    "DNN_FILES_SOURCE": (
+        "azure",
+        "Specifies the source from which to download the DNN model files.",
+        "dnn_files_source",
     ),
     "DNN_BACKEND": (
         cv2.dnn.DNN_BACKEND_OPENCV,
@@ -105,8 +100,7 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     "Face recognition settings": {
         "fields": (
-            "PROTOTXT_FILE_URL",
-            "CAFFEMODEL_FILE_URL",
+            "DNN_FILES_SOURCE",
             "DNN_BACKEND",
             "DNN_TARGET",
             "BLOB_FROM_IMAGE_SCALE_FACTOR",
@@ -125,6 +119,12 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "email": [
         "django.forms.EmailField",
         {},
+    ],
+    "dnn_files_source": [
+        "django.forms.ChoiceField",
+        {
+            "choices": (("github", "GITHUB"), ("azure", "AZURE")),
+        },
     ],
     "dnn_backend": [
         "django.forms.ChoiceField",

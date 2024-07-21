@@ -35,7 +35,7 @@ class BlobFromImageConfig:
 
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
-        with open(settings.PROTOTXT_FILE, "r") as file:
+        with open(settings.DNN_FILES.get("prototxt").get("local_path"), "r") as file:
             if match := re.search(pattern, file.read()):
                 return {
                     "batch_size": int(match.group(1)),

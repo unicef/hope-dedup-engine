@@ -22,21 +22,17 @@ class CV2DNNStorage(UniqueStorageMixin, FileSystemStorage):
     """
 
 
-class HDEAzureStorage(UniqueStorageMixin, AzureStorage):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+class BaseAzureStorage(UniqueStorageMixin, AzureStorage):
+    def __init__(self, azure_container: str, *args: Any, **kwargs: Any) -> None:
         self.account_name = settings.AZURE_ACCOUNT_NAME
         self.account_key = settings.AZURE_ACCOUNT_KEY
         self.custom_domain = settings.AZURE_CUSTOM_DOMAIN
         self.connection_string = settings.AZURE_CONNECTION_STRING
+        self.azure_container = azure_container
         super().__init__(*args, **kwargs)
-        self.azure_container = settings.AZURE_CONTAINER_HDE
 
 
-class HOPEAzureStorage(HDEAzureStorage):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.azure_container = settings.AZURE_CONTAINER_HOPE
-
+class ReadOnlyAzureStorage(BaseAzureStorage):
     def delete(self, name: str) -> None:
         raise RuntimeError("This storage cannot delete files")
 
@@ -50,3 +46,18 @@ class HOPEAzureStorage(HDEAzureStorage):
 
     def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
         return [], []
+
+
+class HDEAzureStorage(BaseAzureStorage):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(settings.AZURE_CONTAINER_HDE, *args, **kwargs)
+
+
+class HOPEAzureStorage(ReadOnlyAzureStorage):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(settings.AZURE_CONTAINER_HOPE, *args, **kwargs)
+
+
+class DNNAzureStorage(ReadOnlyAzureStorage):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(settings.AZURE_CONTAINER_DNN, *args, **kwargs)

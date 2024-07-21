@@ -21,6 +21,6 @@ def init_sentry(**_kwargs: Any) -> None:
 
 @signals.worker_ready.connect
 def at_start(sender, **kwargs):
-    from hope_dedup_engine.apps.faces.celery_tasks import download_dnn_files
+    from hope_dedup_engine.apps.faces.celery_tasks import sync_dnn_files
 
-    download_dnn_files.delay()
+    sync_dnn_files.delay()

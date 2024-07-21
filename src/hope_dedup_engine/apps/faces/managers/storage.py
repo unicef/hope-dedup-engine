@@ -25,7 +25,10 @@ class StorageManager:
             "cv2dnn": CV2DNNStorage(settings.CV2DNN_DIR),
             "encoded": HDEAzureStorage(),
         }
-        for file in (settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE):
+        for file in (
+            settings.DNN_FILES.get("prototxt").get("local_path"),
+            settings.DNN_FILES.get("caffemodel").get("local_path"),
+        ):
             if not self.storages.get("cv2dnn").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 

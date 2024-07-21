@@ -1,13 +1,11 @@
 import hashlib
 import logging
 from functools import wraps
-from pathlib import Path
 from typing import Any
 
 from django.conf import settings
 
 import redis
-import requests
 
 from hope_dedup_engine.apps.faces.services.duplication_detector import (
     DuplicationDetector,
@@ -100,24 +98,3 @@ def _get_hash(filenames: tuple[str], ignore_pairs: tuple[tuple[str, str]]) -> st
     )
     ip_str = ",".join(f"{item1},{item2}" for item1, item2 in ip_sorted)
     return hashlib.sha256(f"{fn_str}{ip_str}".encode()).hexdigest()
-
-
-def download_file(url: str, local_path: Path, timeout: int = 3 * 60) -> bool:
-    """
-    Download a file from a URL to a local path.
-
-    Args:
-        url (str): The URL to download the file from.
-        local_path (Path): The local path to save the downloaded file.
-        timeout (int): The timeout in seconds for the HTTP request. Default is 3 minutes (180 seconds).
-
-    Returns:
-        bool: True if the file was downloaded successfully, False otherwise.
-    """
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=timeout) as r:
-        r.raise_for_status()
-        with local_path.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-    return True
