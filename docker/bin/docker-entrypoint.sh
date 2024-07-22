@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 export MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}"
 export STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}"
 export UWSGI_PROCESSES="${UWSGI_PROCESSES:-"4"}"
