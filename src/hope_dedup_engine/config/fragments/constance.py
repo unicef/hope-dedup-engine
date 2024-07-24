@@ -82,7 +82,7 @@ CONSTANCE_CONFIG = {
         "face_encodings_model",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.5,
+        0.4,
         """
         Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
         determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in

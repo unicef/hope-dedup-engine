@@ -80,7 +80,6 @@ class DuplicationDetector:
             raise e
         return data
 
-    @property
     def _existed_images_name(self) -> list[str]:
         """
         Return filenames from `self.filenames` that exist in the image storage, ensuring they have encodings.
@@ -113,8 +112,9 @@ class DuplicationDetector:
         """
         try:
             duplicates: list[list[str]] = []
+            existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
-            for path1 in self._existed_images_name:
+            for path1 in existed_images_name:
                 duplicate: list[str] = [path1]
                 encodings1 = encodings_all.get(path1)
                 for path2, encodings2 in encodings_all.items():

@@ -39,6 +39,7 @@ dependencies = [
     "unicef-security",
     "uwsgi>=2.0.25.1",
     "requests>=2.32.3",
+    "numpy>=1.26.4,<2.0.0",
 ]
 
 

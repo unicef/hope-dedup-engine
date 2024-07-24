@@ -22,8 +22,8 @@ class DNNInferenceManager:
             storage (CV2DNNStorage): The storage object from which to load the neural network model.
         """
         self.net = dnn.readNetFromCaffe(
-            storage.path(settings.DNN_FILES.get("prototxt").get("local_path")),
-            storage.path(settings.DNN_FILES.get("caffemodel").get("local_path")),
+            storage.path(settings.DNN_FILES.get("prototxt").get("filename")),
+            storage.path(settings.DNN_FILES.get("caffemodel").get("filename")),
         )
         self.net.setPreferableBackend(int(config.DNN_BACKEND))
         self.net.setPreferableTarget(int(config.DNN_TARGET))

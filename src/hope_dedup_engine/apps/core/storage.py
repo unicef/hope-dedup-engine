@@ -44,8 +44,8 @@ class ReadOnlyAzureStorage(BaseAzureStorage):
     def save(self, name: str, content: Any, max_length: int | None = None) -> None:
         raise RuntimeError("This storage cannot save files")
 
-    def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
-        return [], []
+    # def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
+    #     return [], []
 
 
 class HDEAzureStorage(BaseAzureStorage):
