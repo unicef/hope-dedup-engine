@@ -41,11 +41,11 @@ jobs:
       run:
         shell: bash
     outputs:
-      run_tests: ${{ steps.changes.outputs.run_tests }}
+      run_tests: ${{ steps.changed-files.outputs.run_tests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.7
-      - id: changes
+      - id: changed-files
         name: Check for file changes
         uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
         with:
@@ -66,7 +66,7 @@ jobs:
           elif [[ $force_scan == "true" ]]; then
             echo "::notice:: Forced trivy scan due to commit message"
           fi
-          if [[ $force_build == "true" || "${{needs.changes.outputs.run_tests}}" == "true" ]]; then 
+          if [[ $force_build == "true" || "${{steps.changed-files.outputs.run_tests}}" == "true" ]]; then 
               echo "BUILD=true" >> $GITHUB_ENV
           fi
 
