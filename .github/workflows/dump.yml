@@ -19,6 +19,16 @@ on:
 
 
 jobs:
+#  test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Dump Env vars
+#        run: |
+#          REF="refs/heads/release/0.1"
+#          deploy="${{ contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) }}"
+#          deploy="${{ endsWith(github.ref, '/release/0.1') }}"
+#          echo ${{ github.ref }}
+#          echo $deploy
   dump:
     name: "[DEBUG] Echo Full Context"
     if: ${{ contains(github.event.head_commit.message, 'ci:debug') }}

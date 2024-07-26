@@ -56,7 +56,6 @@ jobs:
         shell: bash
         run: |         
           github_ref="${{ github.ref }}"
-          deploy="${{ contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) }}"
           force_build="${{ contains(github.event.head_commit.message, 'ci:build') || contains(github.event.head_commit.message, 'ci:release')}}"
           force_scan="${{ contains(github.event.head_commit.message, 'ci:scan') }}"
           force_test="${{ contains(github.event.head_commit.message, 'ci:test') }}"
@@ -153,7 +152,10 @@ jobs:
 
   deployable:
     if:
-      contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) 
+      contains(github.ref, '/release/') 
+      || endsWith(github.ref, '/develop') 
+      || endsWith(github.ref, '/master') 
+      || endsWith(github.ref, '/stging') 
       || contains(github.event.head_commit.message, 'ci:release') 
       || contains(github.event.head_commit.message, 'ci:all') 
 
