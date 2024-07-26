@@ -155,7 +155,7 @@ jobs:
       contains(github.ref, '/release/') 
       || endsWith(github.ref, '/develop') 
       || endsWith(github.ref, '/master') 
-      || endsWith(github.ref, '/stging') 
+      || endsWith(github.ref, '/staging') 
       || contains(github.event.head_commit.message, 'ci:release') 
       || contains(github.event.head_commit.message, 'ci:all') 
 
