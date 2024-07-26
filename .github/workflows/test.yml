@@ -52,9 +52,13 @@ jobs:
           base: ${{ github.ref }}
           token: ${{ github.token }}
           filters: .github/file-filters.yml
+      - run:
+
       - name: info
         shell: bash
-        run: |
+        run: |         
+          github_ref="${{ github.ref }}"
+          deploy="${{ contains(fromJSON('["refs/heads/develop", "refs/heads/staging", "refs/heads/master", "refs/heads/release"]'), github.ref) }}"
           force_build="${{ contains(github.event.head_commit.message, 'ci:build') || contains(github.event.head_commit.message, 'ci:release')}}"
           force_scan="${{ contains(github.event.head_commit.message, 'ci:scan') }}"
           force_test="${{ contains(github.event.head_commit.message, 'ci:test') }}"

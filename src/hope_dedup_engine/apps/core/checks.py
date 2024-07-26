@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
 from django.core.checks import Error, register
 
 
 @register()
-def example_check(app_configs, **kwargs):
+def example_check(app_configs, **kwargs: Any):
     errors = []
     for t in settings.TEMPLATES:
         for d in t["DIRS"]:
