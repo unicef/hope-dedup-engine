@@ -112,6 +112,9 @@ class DuplicationDetector:
         """
         try:
             duplicates: list[list[str]] = []
+            duplicates_hashes: set[frozenset[str]] = {
+                frozenset(sublist) for sublist in duplicates
+            }
             existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
             for path1 in existed_images_name:
@@ -136,8 +139,17 @@ class DuplicationDetector:
                                 min_distance = current_min
                         if min_distance < config.FACE_DISTANCE_THRESHOLD:
                             duplicate.append(path2)
-                if len(duplicate) > 1:
+                if all(
+                    (
+                        len(duplicate) > 1,
+                        all(
+                            not frozenset(duplicate).issubset(sublist_set)
+                            for sublist_set in duplicates_hashes
+                        ),
+                    )
+                ):
                     duplicates.append(duplicate)
+                    duplicates_hashes.add(frozenset(duplicate))
             return duplicates
         except Exception as e:
             self.logger.exception(

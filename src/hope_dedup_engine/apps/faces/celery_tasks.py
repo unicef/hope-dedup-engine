@@ -42,7 +42,7 @@ def deduplicate(
 
 
 @shared_task(bind=True)
-def sync_dnn_files(self: Task) -> bool:
+def sync_dnn_files(self: Task, force: bool = False) -> bool:
     """
     Synchronizes DNN model files from the specified source to the local file system. It
     downloads the files if they do not exist locally.
@@ -52,6 +52,7 @@ def sync_dnn_files(self: Task) -> bool:
 
     Returns:
         bool: True if all files are present and correctly synchronized, False otherwise.
+        force (bool): If True, files will be downloaded regardless of their presence.
 
     Raises:
         Exception: If any error occurs during the file synchronization,
@@ -60,8 +61,8 @@ def sync_dnn_files(self: Task) -> bool:
     try:
         downloader = FileSyncManager(config.DNN_FILES_SOURCE).downloader
         return all(
-            Path(info["local_path"]).exists()
-            or downloader.sync(
+            (not Path(info["local_path"]).exists() or force)
+            and downloader.sync(
                 info.get("sources").get(config.DNN_FILES_SOURCE),
                 Path(info.get("local_path")),
             )
