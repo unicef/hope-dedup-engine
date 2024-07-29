@@ -42,7 +42,17 @@ RETRYING = "retrying"
 ALREADY_PROCESSING = "already processing"
 
 
+# drf-spectacular uses first non-empty docstring it finds in class mro. When there is no docstring in view class and
+# we are using base classes from drf-nested-routers we get documentation for typing.Generic class as resource
+# documentation. With the &nbsp; HTML entity we get an empty description for resource, but it looks a little bit
+# different when compared with "real" empty description. So we use this base class for all views to have the same look
+# for view classes with empty docstrings and different base classes.
+class EmptyDocString:
+    """&nbsp;"""
+
+
 class DeduplicationSetViewSet(
+    EmptyDocString,
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
@@ -95,6 +105,7 @@ class DeduplicationSetViewSet(
 
 
 class ImageViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Image],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -158,6 +169,7 @@ class UnwrapRequestDataMixin:
 # drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
 # UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkImageViewSet(
+    EmptyDocString,
     UnwrapRequestDataMixin,
     nested_viewsets.NestedViewSetMixin[Image],
     WrapRequestDataMixin,
@@ -197,6 +209,7 @@ class BulkImageViewSet(
 
 
 class DuplicateViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Duplicate],
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
@@ -215,6 +228,7 @@ class DuplicateViewSet(
 
 
 class IgnoredKeyPairViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[IgnoredKeyPair],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
