@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:c9c0f90616837ede2e90c0a7bbb4a2cc08d2eb9092d3505c7efe2ba9ce1065c5"
+content_hash = "sha256:1261b3d210c7cffb46864d1b21e310e75f20f0e69209857d86cd14e3517b1ab0"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -482,11 +482,12 @@ files = [
 
 [[package]]
 name = "django-admin-extra-buttons"
-version = "1.5.7"
-git = "https://github.com/vitali-yanushchyk-valor/django-admin-extra-buttons"
-revision = "0bd180c5a882a11025cbe587ea2376eb6b7c00a9"
+version = "1.5.8"
 summary = "Django mixin to easily add buttons to any ModelAdmin"
 groups = ["default"]
+files = [
+    {file = "django_admin_extra_buttons-1.5.8.tar.gz", hash = "sha256:48dc9d470ade3f5f29c80753af4d367c08947d02c9a5757aa7a9223eda6812c5"},
+]
 
 [[package]]
 name = "django-adminactions"
@@ -514,13 +515,10 @@ files = [
 [[package]]
 name = "django-celery-beat"
 version = "2.6.0"
-requires_python = ">=3.8"
-git = "https://github.com/celery/django-celery-beat"
-revision = "a50011def879c84dd361a85a329dd4f7923d1f0a"
 summary = "Database-backed Periodic Tasks."
 groups = ["default"]
 dependencies = [
-    "Django<5.2,>=2.2",
+    "Django<5.1,>=2.2",
     "backports-zoneinfo; python_version < \"3.9\"",
     "celery<6.0,>=5.2.3",
     "cron-descriptor>=1.2.32",
@@ -528,6 +526,9 @@ dependencies = [
     "importlib-metadata<5.0; python_version < \"3.8\"",
     "python-crontab>=2.3.4",
     "tzdata",
+]
+files = [
+    {file = "django-celery-beat-2.6.0.tar.gz", hash = "sha256:f75b2d129731f1214be8383e18fae6bfeacdb55dffb2116ce849222c0106f9ad"},
 ]
 
 [[package]]
@@ -542,6 +543,15 @@ dependencies = [
 files = [
     {file = "django_celery_results-2.5.1-py3-none-any.whl", hash = "sha256:0da4cd5ecc049333e4524a23fcfc3460dfae91aa0a60f1fae4b6b2889c254e01"},
     {file = "django_celery_results-2.5.1.tar.gz", hash = "sha256:3ecb7147f773f34d0381bac6246337ce4cf88a2ea7b82774ed48e518b67bb8fd"},
+]
+
+[[package]]
+name = "django-concurrency"
+version = "2.5"
+summary = "Optimistic lock implementation for Django. Prevents users from doing concurrent editing."
+groups = ["default"]
+files = [
+    {file = "django-concurrency-2.5.tar.gz", hash = "sha256:3eb0f17807ee1b967460d298c515018b30fb573413305dec5bbee775915dc979"},
 ]
 
 [[package]]
@@ -752,11 +762,12 @@ files = [
 
 [[package]]
 name = "dlib"
-version = "19.24.99"
-git = "https://github.com/vitali-yanushchyk-valor/dlib-setuptools-71.1.0"
-revision = "0cf79aeec183d3e7ba67486b318f8b092039adb0"
+version = "19.24.4"
 summary = "A toolkit for making real world machine learning and data analysis applications"
 groups = ["default"]
+files = [
+    {file = "dlib-19.24.4.tar.gz", hash = "sha256:f83dfdf6e85b91fc2b54ea5aad7932a5617cd61e9d13fc72055e22c7d9e264ff"},
+]
 
 [[package]]
 name = "docker"
@@ -2091,13 +2102,13 @@ files = [
 
 [[package]]
 name = "setuptools"
-version = "72.0.0"
+version = "71.1.0"
 requires_python = ">=3.8"
 summary = "Easily download, build, install, upgrade, and uninstall Python packages"
 groups = ["dev"]
 files = [
-    {file = "setuptools-72.0.0-py3-none-any.whl", hash = "sha256:98b4d786a12fadd34eabf69e8d014b84e5fc655981e4ff419994700434ace132"},
-    {file = "setuptools-72.0.0.tar.gz", hash = "sha256:5a0d9c6a2f332881a0153f629d8000118efd33255cfa802757924c53312c76da"},
+    {file = "setuptools-71.1.0-py3-none-any.whl", hash = "sha256:33874fdc59b3188304b2e7c80d9029097ea31627180896fb549c578ceb8a0855"},
+    {file = "setuptools-71.1.0.tar.gz", hash = "sha256:032d42ee9fb536e33087fb66cac5f840eb9391ed05637b3f2a76a7c8fb477936"},
 ]
 
 [[package]]

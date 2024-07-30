@@ -12,9 +12,12 @@ requires-python = ">=3.12"
 dependencies = [
     "Django",
     "celery[redis]",
+    "django-admin-extra-buttons",
     "django-adminactions",
     "django-adminfilters",
+    "django-celery-beat",
     "django-celery-results>=2.5.1",
+    "django-concurrency",
     "django-constance",
     "django-csp",
     "django-debug-toolbar",
@@ -37,10 +40,6 @@ dependencies = [
     "uwsgi>=2.0.25.1",
     "requests>=2.32.3",
     "numpy>=1.26.4,<2.0.0",
-    "django-admin-extra-buttons @ git+https://github.com/vitali-yanushchyk-valor/django-admin-extra-buttons",
-    "django-celery-beat @ git+https://github.com/celery/django-celery-beat",
-    "dlib @ git+https://github.com/vitali-yanushchyk-valor/dlib-setuptools-71.1.0",
-
 ]
 
 
