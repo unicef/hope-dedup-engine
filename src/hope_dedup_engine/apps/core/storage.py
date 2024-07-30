@@ -1,3 +1,23 @@
+"""
+Service use 3 Azure containers:
+- AZURE_CONTAINER_HDE: Writable container for encodings data.
+- AZURE_CONTAINER_HOPE: Read-only container for images from HOPE.
+- AZURE_CONTAINER_DNN: Read-only container for DNN files (deploy.prototxt and res10_300x300_ssd_iter_140000.caffemodel).
+
+Depending on the value of constance.config.DNN_FILES_SOURCE, the service fetches DNN files from either GitHub or
+AZURE_CONTAINER_DNN using a Celery task. At startup, if local DNN files are missing, the service triggers an automatic
+download.
+
+For manual interventions, access the admin panel at:
+Home › Faces › DNN files.
+
+Downloaded files are placed into the settings.CV2DNN_DIR folder. This folder must be accessible by both our backend and
+Celery workers.
+
+In the future, files within AZURE_CONTAINER_DNN may be automatically updated with new versions of our trained model via
+a dedicated pipeline.
+"""
+
 from typing import Any
 
 from django.conf import settings
@@ -43,9 +63,6 @@ class ReadOnlyAzureStorage(BaseAzureStorage):
 
     def save(self, name: str, content: Any, max_length: int | None = None) -> None:
         raise RuntimeError("This storage cannot save files")
-
-    # def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
-    #     return [], []
 
 
 class HDEAzureStorage(BaseAzureStorage):

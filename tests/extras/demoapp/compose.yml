@@ -1,6 +1,5 @@
 x-common: &common
-  # image: unicef/hope-dedupe-engine:release-0.1
-  image: vitaliyanu/hde:feature-dnn_files
+  image: unicef/hope-dedupe-engine:release-0.1
   environment:
     - ADMIN_EMAIL=adm@hde.org
     - ADMIN_PASSWORD=adm
@@ -20,7 +19,7 @@ x-common: &common
     - AZURE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
     - AZURE_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
     - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
-    - CV2DNN_DIR=cv2dnn/
+    - CV2DNN_DIR=cv2dnn
     - DEMO_IMAGES_PATH=demo_images
     - DNN_FILES_PATH=dnn_files
     - DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings

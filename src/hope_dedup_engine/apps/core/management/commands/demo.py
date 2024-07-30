@@ -1,10 +1,12 @@
 import logging
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any
 
 from django.conf import settings
 from django.core.management import BaseCommand
+from django.core.management.base import CommandError, SystemCheckError
 
 from hope_dedup_engine.config import env
 
@@ -66,9 +68,25 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f"Successfully uploaded files to container: {container_name}"
                     )
-            except Exception:
+            except (CommandError, SystemCheckError) as e:
+                self.halt(e)
+            except Exception as e:
                 logger.exception("Error processing container '%s'", container_name)
                 self.stdout.write(
                     self.style.ERROR(f"Error processing container {container_name}")
                 )
+                self.halt(e)
+
         self.stdout.write(self.style.SUCCESS("Finished uploading files."))
+
+    def halt(self, e: Exception) -> None:
+        """
+        Handle an exception by logging the error and exiting the program.
+
+        Args:
+            e (Exception): The exception that occurred.
+        """
+        self.stdout.write(str(e), style_func=self.style.ERROR)
+        self.stdout.write("\n\n***", style_func=self.style.ERROR)
+        self.stdout.write("SYSTEM HALTED", style_func=self.style.ERROR)
+        sys.exit(1)

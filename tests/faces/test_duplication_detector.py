@@ -195,7 +195,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
                 filename: [np.array([0.1, 0.2, 0.3 + i * 0.001])]
                 for i, filename in enumerate(FILENAMES)
             },
-            [FILENAMES[i:] for i in range(len(FILENAMES) - 1)],
+            [FILENAMES],
         ),
         (
             False,
@@ -242,7 +242,10 @@ def test_find_duplicates_successful(
             mock_dd, "_load_encodings_all", return_value=mock_encodings
         ) as mock_load_encodings,
         patch.object(mock_dd.image_processor, "encode_face"),
-        patch("face_recognition.face_distance", return_value=np.array([0.05])),
+        patch(
+            "face_recognition.face_distance",
+            return_value=np.array([config.FACE_DISTANCE_THRESHOLD - 0.04]),
+        ),
     ):
         duplicates = mock_dd.find_duplicates()
 
@@ -250,15 +253,34 @@ def test_find_duplicates_successful(
             assert duplicates == expected_duplicates
             mock_dd.image_processor.encode_face.assert_not_called()
             mock_dd._load_encodings_all.assert_called_once()
-            # mock_hde_azure_storage.exists.assert_called_with(FILENAME_ENCODED_FORMAT.format(FILENAMES[-1]))
         else:
             mock_load_encodings.assert_called_once()
             mock_dd.image_processor.encode_face.assert_called()
 
 
-def test_find_duplicates_exception_handling(mock_dd):
+def test_find_duplicates_exception_handling(
+    mock_dd, mock_hope_azure_storage, mock_hde_azure_storage, image_bytes_io
+):
     with (
         pytest.raises(Exception, match="Test exception"),
+        patch.object(
+            mock_dd.storages,
+            "get_storage",
+            side_effect=lambda key: {
+                "encoded": mock_hde_azure_storage,
+                "images": mock_hope_azure_storage,
+            }[key],
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "listdir",
+            return_value=([], FILENAMES),
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
+        ),
         patch.object(
             mock_dd, "_load_encodings_all", side_effect=Exception("Test exception")
         ),

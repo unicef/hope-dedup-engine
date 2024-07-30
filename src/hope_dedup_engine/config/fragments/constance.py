@@ -12,7 +12,7 @@ CONSTANCE_CONFIG = {
         str,
     ),
     "DNN_FILES_SOURCE": (
-        "azure",
+        "github",
         "Specifies the source from which to download the DNN model files.",
         "dnn_files_source",
     ),

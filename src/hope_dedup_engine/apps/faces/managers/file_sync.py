@@ -57,6 +57,9 @@ class GithubFileDownloader(FileDownloader):
 
 
 class AzureFileDownloader(FileDownloader):
+    def __init__(self, storage: DNNAzureStorage | None = None) -> None:
+        self.storage = storage or DNNAzureStorage()
+
     def sync(
         self, blob_name: str, local_path: Path, chunk_size: int = 128 * 1024
     ) -> bool:
@@ -75,13 +78,12 @@ class AzureFileDownloader(FileDownloader):
             FileNotFoundError: If the blob does not exist in Azure Blob Storage.
         """
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        azure_storage = DNNAzureStorage()
-        if not azure_storage.exists(blob_name):
+        if not self.storage.exists(blob_name):
             raise FileNotFoundError(
                 "File %s does not exist in Azure Blob Storage", blob_name
             )
 
-        with azure_storage.open(blob_name, "rb") as blob_file:
+        with self.storage.open(blob_name, "rb") as blob_file:
             with local_path.open("wb") as local_file:
                 for chunk in blob_file.chunks(chunk_size=chunk_size):
                     local_file.write(chunk)

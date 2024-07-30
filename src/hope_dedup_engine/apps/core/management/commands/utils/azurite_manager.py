@@ -9,7 +9,7 @@ from azure.storage.blob import BlobServiceClient, ContainerClient
 logger = logging.getLogger(__name__)
 
 
-class AzuriteManager:
+class AzuriteManager:  # pragma: no cover
     def __init__(self, container_name: str) -> None:
         """
         Initializes the AzuriteManager with the specified container and source path.
