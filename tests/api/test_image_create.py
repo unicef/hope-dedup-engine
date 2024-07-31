@@ -16,6 +16,7 @@ def test_can_create_image(
 ) -> None:
     previous_amount = Image.objects.filter(deduplication_set=deduplication_set).count()
     data = ImageSerializer(ImageFactory.build()).data
+    assert deduplication_set.state == DeduplicationSet.State.CLEAN
 
     response = api_client.post(
         reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON
@@ -25,6 +26,9 @@ def test_can_create_image(
         Image.objects.filter(deduplication_set=deduplication_set).count()
         == previous_amount + 1
     )
+
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.state == DeduplicationSet.State.DIRTY
 
 
 def test_cannot_create_image_between_systems(

@@ -36,11 +36,6 @@ from hope_dedup_engine.apps.api.serializers import (
 )
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
 
-MESSAGE = "message"
-STARTED = "started"
-RETRYING = "retrying"
-ALREADY_PROCESSING = "already processing"
-
 
 # drf-spectacular uses first non-empty docstring it finds in class mro. When there is no docstring in view class and
 # we are using base classes from drf-nested-routers we get documentation for typing.Generic class as resource
@@ -83,25 +78,10 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
-    @staticmethod
-    def _start_processing(deduplication_set: DeduplicationSet) -> None:
-        Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
-        start_processing(deduplication_set)
-
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
-        deduplication_set = DeduplicationSet.objects.get(pk=pk)
-        match deduplication_set.state:
-            case DeduplicationSet.State.CLEAN | DeduplicationSet.State.ERROR:
-                self._start_processing(deduplication_set)
-                return Response({MESSAGE: RETRYING})
-            case DeduplicationSet.State.DIRTY:
-                self._start_processing(deduplication_set)
-                return Response({MESSAGE: STARTED})
-            case DeduplicationSet.State.PROCESSING:
-                return Response(
-                    {MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST
-                )
+        start_processing(DeduplicationSet.objects.get(pk=pk))
+        return Response({"message": "started"})
 
 
 class ImageViewSet(

@@ -6,21 +6,29 @@ from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
 from testutils.factories.api import (
+    AllDuplicateFinder,
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredKeyPairFactory,
     ImageFactory,
+    NoDuplicateFinder,
     TokenFactory,
 )
 from testutils.factories.user import ExternalSystemFactory, UserFactory
 
-from hope_dedup_engine.apps.api.models import HDEToken
+from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
+from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.security.models import User
 
 register(ExternalSystemFactory)
 register(UserFactory)
 register(DeduplicationSetFactory, external_system=LazyFixture("external_system"))
 register(ImageFactory, deduplication_Set=LazyFixture("deduplication_set"))
+register(
+    ImageFactory,
+    _name="second_image",
+    deduplication_Set=LazyFixture("deduplication_set"),
+)
 register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredKeyPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 
@@ -60,3 +68,27 @@ def delete_model_data(mocker: MockerFixture) -> MagicMock:
 @fixture
 def start_processing(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")
+
+
+@fixture
+def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
+    finders = []
+    mock = mocker.patch("hope_dedup_engine.apps.api.deduplication.process.get_finders")
+    mock.return_value = finders
+    return finders
+
+
+@fixture
+def all_duplicates_finder(
+    deduplication_set: DeduplicationSet, duplicate_finders: list[DuplicateFinder]
+) -> DuplicateFinder:
+    finder = AllDuplicateFinder(deduplication_set)
+    duplicate_finders.append(finder)
+    return finder
+
+
+@fixture
+def no_duplicate_finder(duplicate_finders: list[DuplicateFinder]) -> DuplicateFinder:
+    finder = NoDuplicateFinder()
+    duplicate_finders.append(finder)
+    return finder

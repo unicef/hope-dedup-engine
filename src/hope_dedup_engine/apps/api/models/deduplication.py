@@ -78,10 +78,8 @@ class Duplicate(models.Model):
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    first_filename = models.CharField(max_length=255)
     second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    second_filename = models.CharField(max_length=255)
-    score = models.FloatField()
+    score = models.FloatField(default=0)
 
 
 class IgnoredKeyPair(models.Model):

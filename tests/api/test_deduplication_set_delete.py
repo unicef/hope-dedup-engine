@@ -10,7 +10,10 @@ from hope_dedup_engine.apps.security.models import User
 
 
 def test_can_delete_deduplication_set(
-    api_client: APIClient, user: User, deduplication_set: DeduplicationSet
+    api_client: APIClient,
+    user: User,
+    deduplication_set: DeduplicationSet,
+    delete_model_data: MagicMock,
 ) -> None:
     assert not deduplication_set.deleted
     assert deduplication_set.updated_by is None
@@ -27,6 +30,8 @@ def test_can_delete_deduplication_set(
     assert deduplication_set.deleted
     assert deduplication_set.updated_by == user
 
+    delete_model_data.assert_called_once_with(deduplication_set)
+
 
 def test_cannot_delete_deduplication_set_between_systems(
     another_system_api_client: APIClient,
@@ -39,3 +44,15 @@ def test_cannot_delete_deduplication_set_between_systems(
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert DeduplicationSet.objects.filter(deleted=False).count() == set_count
+
+
+def test_unauthorized_deletion_does_not_trigger_model_data_deletion(
+    another_system_api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    delete_model_data: MagicMock,
+) -> None:
+    response = another_system_api_client.delete(
+        reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,))
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    delete_model_data.assert_not_called()

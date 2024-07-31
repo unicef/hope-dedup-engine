@@ -1,11 +1,26 @@
 import requests
+from rest_framework import status
+from rest_framework.exceptions import APIException
 
+from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
+from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
-def start_processing(_: DeduplicationSet) -> None:
-    # TODO
-    pass
+class AlreadyProcessingError(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Deduplication set is being processed already, try again later."
+    default_code = "already_processing"
+
+
+def start_processing(deduplication_set: DeduplicationSet) -> None:
+    try:
+        lock = DeduplicationSetLock.for_deduplication_set(deduplication_set)
+        deduplication_set.state = DeduplicationSet.State.PROCESSING
+        deduplication_set.save()
+        find_duplicates.delay(str(deduplication_set.pk), str(lock))
+    except DeduplicationSetLock.LockNotOwnedException as e:
+        raise AlreadyProcessingError from e
 
 
 def delete_model_data(_: DeduplicationSet) -> None:
