@@ -22,10 +22,13 @@ class StorageManager:
         """
         self.storages: dict[str, HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage] = {
             "images": HOPEAzureStorage(),
-            "cv2dnn": CV2DNNStorage(settings.CV2DNN_PATH),
+            "cv2dnn": CV2DNNStorage(settings.CV2DNN_DIR),
             "encoded": HDEAzureStorage(),
         }
-        for file in (settings.PROTOTXT_FILE, settings.CAFFEMODEL_FILE):
+        for file in (
+            settings.DNN_FILES.get("prototxt").get("filename"),
+            settings.DNN_FILES.get("caffemodel").get("filename"),
+        ):
             if not self.storages.get("cv2dnn").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 

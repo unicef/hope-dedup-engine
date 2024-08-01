@@ -1,0 +1,131 @@
+x-common: &common
+  image: unicef/hope-dedupe-engine:release-0.1
+  environment:
+    - ADMIN_EMAIL=adm@hde.org
+    - ADMIN_PASSWORD=adm
+    - CACHE_URL=redis://redis:6379/1?client_class=django_redis.client.DefaultClient
+    - CELERY_BROKER_URL=redis://redis:6379/9
+    - CELERY_TASK_ALWAYS_EAGER=False
+    - CSRF_COOKIE_SECURE=False
+    - DATABASE_URL=postgres://hde:password@db:5432/hope_dedupe_engine
+    - PYTHONPATH=/code/app/src:/code/__pypackages__/3.12/lib
+    - SECRET_KEY=secret
+    - SECURE_SSL_REDIRECT=False
+    - SESSION_COOKIE_DOMAIN=
+    - SESSION_COOKIE_SECURE=False
+    - SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
+    - STATIC_ROOT=/var/hope_dedupe_engine/static
+    - AZURE_ACCOUNT_NAME=devstoreaccount1
+    - AZURE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+    - AZURE_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
+    - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - CV2DNN_DIR=cv2dnn
+    - DEMO_IMAGES_PATH=demo_images
+    - DNN_FILES_PATH=dnn_files
+    - DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings
+  volumes:
+    - cv2dnn_data:/code/cv2dnn
+    - ./demo_images:/code/demo_images
+    - ./dnn_files:/code/dnn_files
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+x-celery: &celery
+  <<: *common
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    backend:
+      condition: service_healthy
+
+services:
+  backend:
+    <<: *common
+    container_name: hde_app
+    ports:
+      - 8000:8000
+    command: >
+      /bin/sh -c "
+      chown -R user:app /code/cv2dnn && 
+      django-admin demo && 
+      exec docker-entrypoint.sh run
+      "
+    healthcheck:
+      # test: ["CMD", "echo > /dev/tcp/localhost/8000"]
+      test: ["CMD", "pidof", "uwsgi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery_worker:
+    <<: *celery
+    container_name: hde_worker
+    command: >
+      /bin/sh -c "
+      chown -R user:app /code/cv2dnn && 
+      exec docker-entrypoint.sh worker
+      "
+
+  celery_beat:
+    <<: *celery
+    container_name: hde_beat
+    command: >
+      /bin/sh -c "
+      chown -R user:app /code/cv2dnn && 
+      exec docker-entrypoint.sh beat
+      "
+
+  db:
+    image: postgres:16
+    container_name: hde_db
+    environment:
+      - POSTGRES_USER=hde
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=hope_dedupe_engine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - 5432:5432
+    restart: always
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "hde", "-d", "hope_dedupe_engine"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 5s
+      timeout: 4s
+      retries: 5
+
+  redis:
+    image: redis:7.2
+    container_name: hde_redis
+    ports:
+      - 6379:6379
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      start_period: 5s
+      start_interval: 1s
+      interval: 5s
+      timeout: 4s
+      retries: 5
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: hde_azurite
+    command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose --silent"
+    ports:
+      - "10000:10000" # Blob service
+    restart: always
+    volumes:
+      - azurite_data:/workspace
+
+volumes:
+  azurite_data:
+  cv2dnn_data:
+  postgres_data:
+  static_storage:

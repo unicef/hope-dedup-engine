@@ -149,7 +149,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "AZURE_ACCOUNT_KEY": (str, ""),
     "AZURE_CUSTOM_DOMAIN": (str, ""),
     "AZURE_CONNECTION_STRING": (str, ""),
-    "CV2DNN_PATH": (str, ""),
+    "CV2DNN_DIR": (str, "cv2dnn"),
 }
 
 

@@ -1,9 +1,10 @@
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from celery import states
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
+from constance import settings, test
 from faces_const import (
     CELERY_TASK_DELAYS,
     CELERY_TASK_NAME,
@@ -12,7 +13,7 @@ from faces_const import (
     IGNORE_PAIRS,
 )
 
-from hope_dedup_engine.apps.faces.celery_tasks import deduplicate
+from hope_dedup_engine.apps.faces.celery_tasks import deduplicate, sync_dnn_files
 from hope_dedup_engine.apps.faces.utils.celery_utils import _get_hash
 
 
@@ -86,3 +87,50 @@ def test_deduplicate_task_exception_handling(
         f"{CELERY_TASK_NAME}_{hash_value}"
     )  # Lock is released
     mock_find.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "force, file_exists, expected_call_count, result",
+    [
+        (False, False, 2, True),
+        (False, True, 0, False),
+        (True, False, 2, True),
+        (True, True, 2, True),
+    ],
+)
+def test_sync_dnn_files_success(
+    mock_file_sync_manager, force, file_exists, expected_call_count, result
+):
+    mock_file_sync_manager.downloader.sync.return_value = True
+    sources = [
+        ch[0]
+        for ch in settings.ADDITIONAL_FIELDS.get("dnn_files_source")[1].get("choices")
+    ]
+    for choice in sources:
+        with test.pytest.override_config(DNN_FILES_SOURCE=choice):
+            with patch(
+                "hope_dedup_engine.apps.faces.celery_tasks.Path.exists",
+                return_value=file_exists,
+            ):
+                is_downloaded = sync_dnn_files(force=force)
+
+    assert is_downloaded is result
+    assert (
+        mock_file_sync_manager.downloader.sync.call_count
+        == expected_call_count * len(sources)
+    )
+
+
+def test_sync_dnn_files_exception_handling(mock_file_sync_manager):
+    mock_file_sync_manager.downloader.sync.side_effect = Exception("Download error")
+    with (
+        patch(
+            "hope_dedup_engine.apps.faces.celery_tasks.sync_dnn_files.update_state"
+        ) as mock_update_state,
+        pytest.raises(Exception),
+    ):
+        sync_dnn_files()
+        mock_update_state.assert_called_once_with(
+            state=states.FAILURE,
+            meta={"exc_message": "Download error", "traceback": ANY},
+        )

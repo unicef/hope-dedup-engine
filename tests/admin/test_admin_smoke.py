@@ -23,6 +23,7 @@ GLOBAL_EXCLUDED_MODELS = RegexList(
     [
         r"django_celery_beat\.ClockedSchedule",
         r"contenttypes\.ContentType",
+        r"faces\.DummyModel",
         "authtoken",
         "social_django",
         "depot",

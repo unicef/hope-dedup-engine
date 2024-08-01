@@ -8,6 +8,7 @@ from faces_const import (
     BLOB_SHAPE,
     DEPLOY_PROTO_CONTENT,
     DEPLOY_PROTO_SHAPE,
+    DNN_FILE,
     FACE_DETECTIONS,
     FACE_REGIONS_VALID,
     FILENAMES,
@@ -22,11 +23,15 @@ from pytest_mock import MockerFixture
 from docker import from_env
 from hope_dedup_engine.apps.core.storage import (
     CV2DNNStorage,
+    DNNAzureStorage,
     HDEAzureStorage,
     HOPEAzureStorage,
 )
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
+from hope_dedup_engine.apps.faces.managers.file_sync import (
+    AzureFileDownloader,
+    GithubFileDownloader,
+)
 from hope_dedup_engine.apps.faces.services.duplication_detector import (
     DuplicationDetector,
 )
@@ -52,6 +57,37 @@ def mock_hde_azure_storage():
 @pytest.fixture
 def mock_hope_azure_storage():
     return MagicMock(spec=HOPEAzureStorage)
+
+
+@pytest.fixture
+def mock_dnn_azure_storage():
+    return MagicMock(spec=DNNAzureStorage)
+
+
+@pytest.fixture
+def github_dnn_file_downloader():
+    return GithubFileDownloader()
+
+
+@pytest.fixture
+def azure_dnn_file_downloader(mock_dnn_azure_storage):
+    return AzureFileDownloader(storage=mock_dnn_azure_storage)
+
+
+@pytest.fixture
+def mock_requests_get():
+    with patch("requests.get") as mock_get:
+        mock_response = mock_get.return_value.__enter__.return_value
+        mock_response.iter_content.return_value = DNN_FILE.get(
+            "content"
+        ) * DNN_FILE.get("chunks")
+        mock_response.raise_for_status = lambda: None
+        yield mock_get
+
+
+@pytest.fixture
+def local_path(tmp_path):
+    return tmp_path / DNN_FILE.get("name")
 
 
 @pytest.fixture
@@ -155,3 +191,14 @@ def mock_dd_find():
 def time_control():
     with freeze_time("2024-01-01") as frozen_time:
         yield frozen_time
+
+
+@pytest.fixture
+def mock_file_sync_manager():
+    with patch(
+        "hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager"
+    ) as MockFileSyncManager:
+        mock_manager_instance = MockFileSyncManager.return_value
+        mock_downloader = MagicMock()
+        mock_manager_instance.downloader = mock_downloader
+        yield mock_manager_instance
