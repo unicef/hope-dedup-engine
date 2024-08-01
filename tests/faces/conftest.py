@@ -181,9 +181,9 @@ def mock_dd_find():
     with patch(
         "hope_dedup_engine.apps.faces.services.duplication_detector.DuplicationDetector.find_duplicates"
     ) as mock_find:
-        mock_find.return_value = (
+        mock_find.return_value = [
             FILENAMES[:2],
-        )  # Assuming the first two are duplicates based on mock data
+        ]  # Assuming the first two are duplicates based on mock data
         yield mock_find
 
 
