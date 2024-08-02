@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Any
+from itertools import combinations
+from typing import Any, Generator
 
 import face_recognition
 import numpy as np
@@ -102,55 +103,41 @@ class DuplicationDetector:
                     )
         return filenames
 
-    def find_duplicates(self) -> list[list[str]]:
+    def find_duplicates(self) -> Generator[tuple[str, str, float], None, None]:
         """
-        Find and return a list of duplicate images based on face encodings.
+        Finds duplicate images based on facial encodings and yields pairs of image paths with their minimum distance.
 
-        Returns:
-            list[list[str]]: A list of lists, where each inner list contains
-                                        the filenames of duplicate images.
+        Yields:
+            Generator[tuple[str, str, float], None, None]: A generator yielding tuples containing:
+                - The first image path (str)
+                - The second image path (str)
+                - The minimum facial distance between the images, rounded to five decimal places (float)
+
+        Raises:
+            Exception: If an error occurs during processing, it logs the exception and re-raises it.
         """
         try:
-            duplicates: list[list[str]] = []
-            duplicates_hashes: set[frozenset[str]] = {
-                frozenset(sublist) for sublist in duplicates
-            }
+
             existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
-            for path1 in existed_images_name:
-                duplicate: list[str] = [path1]
+
+            for path1, path2 in combinations(existed_images_name, 2):
+                min_distance = config.FACE_DISTANCE_THRESHOLD
                 encodings1 = encodings_all.get(path1)
-                for path2, encodings2 in encodings_all.items():
-                    if all(
-                        (
-                            path1 < path2,
-                            (path1, path2) not in self.ignore_set,
+                encodings2 = encodings_all.get(path2)
+                if encodings1 is None or encodings2 is None:
+                    continue
+
+                for encoding1 in encodings1:
+                    if (
+                        current_min := min(
+                            face_recognition.face_distance(encodings2, encoding1)
                         )
-                    ):
-                        min_distance = config.FACE_DISTANCE_THRESHOLD
-                        for encoding1 in encodings1:
-                            if (
-                                current_min := min(
-                                    face_recognition.face_distance(
-                                        encodings2, encoding1
-                                    )
-                                )
-                            ) < min_distance:
-                                min_distance = current_min
-                        if min_distance < config.FACE_DISTANCE_THRESHOLD:
-                            duplicate.append(path2)
-                if all(
-                    (
-                        len(duplicate) > 1,
-                        all(
-                            not frozenset(duplicate).issubset(sublist_set)
-                            for sublist_set in duplicates_hashes
-                        ),
-                    )
-                ):
-                    duplicates.append(duplicate)
-                    duplicates_hashes.add(frozenset(duplicate))
-            return duplicates
+                    ) < min_distance:
+                        min_distance = current_min
+
+                if min_distance < config.FACE_DISTANCE_THRESHOLD:
+                    yield (path1, path2, round(min_distance, 5))
         except Exception as e:
             self.logger.exception(
                 "Error finding duplicates for images %s", self.filenames

@@ -32,7 +32,7 @@ def deduplicate(
     """
     try:
         dd = DuplicationDetector(filenames, ignore_pairs)
-        return dd.find_duplicates()
+        return list(dd.find_duplicates())
     except Exception as e:
         self.update_state(
             state=states.FAILURE,
