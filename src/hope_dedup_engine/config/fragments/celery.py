@@ -33,3 +33,5 @@ CELERY_RESULT_SERIALIZER = "json"
 
 CELERY_BROKER_CONNECTION_RETRY = False
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = False
+
+CELERY_IMPORTS = ("hope_dedup_engine.apps.api.deduplication.process",)

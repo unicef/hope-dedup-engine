@@ -11,6 +11,7 @@ def test_can_delete_image(
     api_client: APIClient, deduplication_set: DeduplicationSet, image: Image
 ) -> None:
     image_count = Image.objects.filter(deduplication_set=deduplication_set).count()
+    assert deduplication_set.state == DeduplicationSet.State.CLEAN
     response = api_client.delete(
         reverse(IMAGE_DETAIL_VIEW, (deduplication_set.pk, image.pk))
     )
@@ -19,6 +20,9 @@ def test_can_delete_image(
         Image.objects.filter(deduplication_set=deduplication_set).count()
         == image_count - 1
     )
+
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.state == DeduplicationSet.State.DIRTY
 
 
 def test_cannot_delete_image_between_systems(

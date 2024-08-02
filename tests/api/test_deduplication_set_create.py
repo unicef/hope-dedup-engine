@@ -20,6 +20,8 @@ def test_can_create_deduplication_set(api_client: APIClient) -> None:
     )
     assert response.status_code == status.HTTP_201_CREATED
     assert DeduplicationSet.objects.count() == previous_amount + 1
+    data = response.json()
+    assert data["state"] == DeduplicationSet.State.CLEAN.label
 
 
 @mark.parametrize(
