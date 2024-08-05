@@ -140,9 +140,9 @@ jobs:
           docker run --rm \
             -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/dedupe \
             -e SECRET_KEY=secret_key \
-            -e CACHE_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=redis://redis:6379/0 \
-            --network test_network \
+            -e CACHE_URL=redis://localhost:6379/0 \
+            -e CELERY_BROKER_URL=redis://localhost:6379/0 \
+            --network host \
             -v $PWD:/code/app \
             -w /code/app \
             -t ${{needs.build.outputs.image}} \
