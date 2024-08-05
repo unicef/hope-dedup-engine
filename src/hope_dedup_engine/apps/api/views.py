@@ -5,6 +5,7 @@ from uuid import UUID
 
 from django.db.models import QuerySet
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -31,6 +32,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
 from hope_dedup_engine.apps.api.serializers import (
     DeduplicationSetSerializer,
     DuplicateSerializer,
+    EmptySerializer,
     IgnoredKeyPairSerializer,
     ImageSerializer,
 )
@@ -78,6 +80,7 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
+    @extend_schema(request=EmptySerializer, responses=EmptySerializer)
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
         start_processing(DeduplicationSet.objects.get(pk=pk))
