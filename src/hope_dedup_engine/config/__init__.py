@@ -108,6 +108,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "django.core.files.storage.FileSystemStorage",
         setting("storages"),
     ),
+    "LOG_LEVEL": (str, "CRITICAL", setting("logging")),
     "MEDIA_ROOT": (str, None, setting("media-root")),
     "MEDIA_URL": (str, "/media/", setting("media-url")),
     "ROOT_TOKEN": (str, "", ""),
@@ -141,14 +142,14 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "django.core.files.storage.FileSystemStorage",
         setting("storages"),
     ),
-    "STATIC_ROOT": (str, None, setting("static-root")),
+    "STATIC_ROOT": (str, "", setting("static-root")),
     "STATIC_URL": (str, "/static/", setting("static-url")),
     "TIME_ZONE": (str, "UTC", setting("std-setting-TIME_ZONE")),
     "AZURE_ACCOUNT_NAME": (str, ""),
     "AZURE_ACCOUNT_KEY": (str, ""),
     "AZURE_CUSTOM_DOMAIN": (str, ""),
     "AZURE_CONNECTION_STRING": (str, ""),
-    "CV2DNN_PATH": (str, ""),
+    "CV2DNN_DIR": (str, "cv2dnn"),
 }
 
 

@@ -9,10 +9,8 @@ import pytest
 from constance import config
 from faces_const import FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
 
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
-from hope_dedup_engine.apps.faces.services.duplication_detector import (
-    DuplicationDetector,
-)
+from hope_dedup_engine.apps.faces.managers import StorageManager
+from hope_dedup_engine.apps.faces.services import DuplicationDetector
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
 
 
@@ -194,10 +192,24 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
         (
             True,
             {
-                filename: [np.array([0.1, 0.2, 0.3 + i * 0.001])]
-                for i, filename in enumerate(FILENAMES)
+                "test_file.jpg": [np.array([0.1, 0.2, 0.3])],
+                "test_file2.jpg": [np.array([0.1, 0.25, 0.35])],
+                "test_file3.jpg": [np.array([0.4, 0.5, 0.6])],
             },
-            (tuple(FILENAMES),),
+            [
+                (
+                    "test_file.jpg",
+                    "test_file2.jpg",
+                    0.36,
+                ),  # config.FACE_DISTANCE_THRESHOLD + 0.04
+                (
+                    "test_file.jpg",
+                    "test_file3.jpg",
+                    0.2,
+                ),  # config.FACE_DISTANCE_THRESHOLD - 0.2
+                # last pair will not be included in the result because the distance is greater than the threshold
+                # ("test_file2.jpg", "test_file3.jpg", 0.44), # config.FACE_DISTANCE_THRESHOLD + 0.04
+            ],
         ),
         (
             False,
@@ -217,15 +229,58 @@ def test_find_duplicates_successful(
 ):
     with (
         patch.object(
+            mock_dd.storages,
+            "get_storage",
+            side_effect=lambda key: {
+                "encoded": mock_hde_azure_storage,
+                "images": mock_hope_azure_storage,
+            }[key],
+        ),
+        patch.object(
             mock_dd.storages.get_storage("images"),
             "open",
             side_effect=image_bytes_io.fake_open,
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "listdir",
+            return_value=([], FILENAMES),
         ),
         patch.object(
             mock_dd.storages.get_storage("encoded"),
             "open",
             side_effect=image_bytes_io.fake_open,
         ),
+        patch.object(mock_dd, "_has_encodings", return_value=has_encodings),
+        patch.object(
+            mock_dd, "_load_encodings_all", return_value=mock_encodings
+        ) as mock_load_encodings,
+        patch.object(mock_dd.image_processor, "encode_face"),
+        patch(
+            "face_recognition.face_distance",
+            side_effect=[
+                np.array([config.FACE_DISTANCE_THRESHOLD - 0.04]),
+                np.array([config.FACE_DISTANCE_THRESHOLD - 0.2]),
+                np.array([config.FACE_DISTANCE_THRESHOLD + 0.04]),
+            ],
+        ),
+    ):
+        duplicates = list(mock_dd.find_duplicates())
+
+        if has_encodings:
+            assert duplicates == expected_duplicates
+            mock_dd.image_processor.encode_face.assert_not_called()
+            mock_dd._load_encodings_all.assert_called_once()
+        else:
+            mock_load_encodings.assert_called_once()
+            mock_dd.image_processor.encode_face.assert_called()
+
+
+def test_find_duplicates_exception_handling(
+    mock_dd, mock_hope_azure_storage, mock_hde_azure_storage, image_bytes_io
+):
+    with (
+        pytest.raises(Exception, match="Test exception"),
         patch.object(
             mock_dd.storages,
             "get_storage",
@@ -234,34 +289,20 @@ def test_find_duplicates_successful(
                 "images": mock_hope_azure_storage,
             }[key],
         ),
-        patch.object(mock_dd, "_has_encodings", return_value=has_encodings),
         patch.object(
-            mock_dd, "_load_encodings_all", return_value=mock_encodings
-        ) as mock_load_encodings,
-        patch.object(mock_dd.image_processor, "encode_face"),
-        patch("face_recognition.face_distance", return_value=np.array([0.05])),
-    ):
-        duplicates = mock_dd.find_duplicates()
-
-        if has_encodings:
-            assert {frozenset(t) for t in duplicates} == {
-                frozenset(t) for t in expected_duplicates
-            }
-            mock_dd.image_processor.encode_face.assert_not_called()
-            mock_dd._load_encodings_all.assert_called_once()
-            # mock_hde_azure_storage.exists.assert_called_with(FILENAME_ENCODED_FORMAT.format(FILENAMES[-1]))
-        else:
-            mock_load_encodings.assert_called_once()
-            mock_dd.image_processor.encode_face.assert_called()
-
-
-def test_find_duplicates_exception_handling(mock_dd):
-    with (
-        pytest.raises(Exception, match="Test exception"),
+            mock_dd.storages.get_storage("images"),
+            "listdir",
+            return_value=([], FILENAMES),
+        ),
+        patch.object(
+            mock_dd.storages.get_storage("images"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
+        ),
         patch.object(
             mock_dd, "_load_encodings_all", side_effect=Exception("Test exception")
         ),
         patch.object(mock_dd.logger, "exception") as mock_logger_exception,
     ):
-        mock_dd.find_duplicates()
+        list(mock_dd.find_duplicates())
         mock_logger_exception.assert_called_once()

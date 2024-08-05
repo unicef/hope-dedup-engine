@@ -6,7 +6,6 @@ from . import env
 # BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
-DEVELOPMENT_DIR = PACKAGE_DIR.parent.parent
 
 DEBUG = env.bool("DEBUG")
 
@@ -18,7 +17,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
-    # "unicef_security",
+    "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.humanize",
@@ -102,7 +101,7 @@ LANGUAGES = (
     ("ar", ugettext("Arabic")),
 )
 
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SITE_ID = 1
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
@@ -126,7 +125,7 @@ WSGI_APPLICATION = "hope_dedup_engine.config.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [str(PACKAGE_DIR / "templates")],
+        "DIRS": [str(PACKAGE_DIR / "web/templates")],
         "APP_DIRS": False,
         "OPTIONS": {
             "loaders": [
@@ -161,9 +160,14 @@ LOGGING = {
         },
     },
     "loggers": {
+        "environ": {
+            "handlers": ["console"],
+            "level": "CRITICAL",
+            "propagate": True,
+        },
         "": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": env("LOG_LEVEL"),
             "propagate": True,
         },
     },
@@ -181,6 +185,9 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_PORT = env("EMAIL_PORT", default=25)
 EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=False)
 EMAIL_USE_SSL = env("EMAIL_USE_SSL", default=False)
+DEDUPLICATION_SET_LAST_ACTION_TIMEOUT = env(
+    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT", default=60
+)
 
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa

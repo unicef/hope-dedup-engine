@@ -1,10 +1,13 @@
 import traceback
+from pathlib import Path
+
+from django.conf import settings
 
 from celery import Task, shared_task, states
+from constance import config
 
-from hope_dedup_engine.apps.faces.services.duplication_detector import (
-    DuplicationDetector,
-)
+from hope_dedup_engine.apps.faces.managers import FileSyncManager
+from hope_dedup_engine.apps.faces.services import DuplicationDetector
 from hope_dedup_engine.apps.faces.utils.celery_utils import task_lifecycle
 
 
@@ -29,7 +32,42 @@ def deduplicate(
     """
     try:
         dd = DuplicationDetector(filenames, ignore_pairs)
-        return dd.find_duplicates()
+        return list(dd.find_duplicates())
+    except Exception as e:
+        self.update_state(
+            state=states.FAILURE,
+            meta={"exc_message": str(e), "traceback": traceback.format_exc()},
+        )
+        raise e
+
+
+@shared_task(bind=True)
+def sync_dnn_files(self: Task, force: bool = False) -> bool:
+    """
+    Synchronizes DNN model files from the specified source to the local file system. It
+    downloads the files if they do not exist locally.
+
+    Args:
+        self (Task): The Celery task instance.
+
+    Returns:
+        bool: True if all files are present and correctly synchronized, False otherwise.
+        force (bool): If True, files will be downloaded regardless of their presence.
+
+    Raises:
+        Exception: If any error occurs during the file synchronization,
+                   the exception is raised after updating the task state to FAILURE.
+    """
+    try:
+        downloader = FileSyncManager(config.DNN_FILES_SOURCE).downloader
+        return all(
+            (not Path(info["local_path"]).exists() or force)
+            and downloader.sync(
+                info.get("sources").get(config.DNN_FILES_SOURCE),
+                Path(info.get("local_path")),
+            )
+            for _, info in settings.DNN_FILES.items()
+        )
     except Exception as e:
         self.update_state(
             state=states.FAILURE,

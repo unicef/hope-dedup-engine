@@ -13,9 +13,15 @@ def test_to_python_valid_case():
 @pytest.mark.parametrize(
     "input_value, expected_error_message",
     [
-        ("104.0, 177.0", "Enter a valid tuple of three float values separated by commas and spaces"),
+        (
+            "104.0, 177.0",
+            "Enter a valid tuple of three float values separated by commas and spaces",
+        ),
         ("104.0, 177.0, 256.0", "Each value must be between -255 and 255."),
-        ("104.0, abc, 123.0", "Enter a valid tuple of three float values separated by commas and spaces"),
+        (
+            "104.0, abc, 123.0",
+            "Enter a valid tuple of three float values separated by commas and spaces",
+        ),
     ],
 )
 def test_to_python_invalid_cases(input_value, expected_error_message):
@@ -27,7 +33,10 @@ def test_to_python_invalid_cases(input_value, expected_error_message):
 
 @pytest.mark.parametrize(
     "input_value, expected_output",
-    [((104.0, 177.0, 123.0), "104.0, 177.0, 123.0"), ("104.0, 177.0, 123.0", "104.0, 177.0, 123.0")],
+    [
+        ((104.0, 177.0, 123.0), "104.0, 177.0, 123.0"),
+        ("104.0, 177.0, 123.0", "104.0, 177.0, 123.0"),
+    ],
 )
 def test_prepare_value(input_value, expected_output):
     field = MeanValuesTupleField()

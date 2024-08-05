@@ -11,8 +11,7 @@ import face_recognition
 import numpy as np
 from constance import config
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +35,7 @@ class BlobFromImageConfig:
 
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
-        with open(settings.PROTOTXT_FILE, "r") as file:
+        with open(settings.DNN_FILES.get("prototxt").get("local_path"), "r") as file:
             if match := re.search(pattern, file.read()):
                 return {
                     "batch_size": int(match.group(1)),
@@ -158,7 +157,7 @@ class ImageProcessor:
             encodings: list[np.ndarray[np.float32, Any]] = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.error("No face regions detected in image %s", filename)
+                self.logger.warning("No face regions detected in image %s", filename)
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:

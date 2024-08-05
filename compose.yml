@@ -1,13 +1,30 @@
 x-common: &common
-  build:
-    context: .
-    dockerfile: docker/Dockerfile
-    target: dev
-  env_file:
-    - .env
+  image: unicef/hope-dedupe-engine:release-0.1
+#  platform: linux/amd64
+#  build:
+#    context: .
+#    dockerfile: docker/Dockerfile
+#    target: dist
+  environment:
+    - ADMIN_EMAIL=admin@gmail.com
+    - ADMIN_PASSWORD=123
+    - CACHE_URL=redis://redis:6379/1?client_class=django_redis.client.DefaultClient
+    - CELERY_BROKER_URL=redis://redis:6379/9
+    - CELERY_TASK_ALWAYS_EAGER=False
+    - CSRF_COOKIE_SECURE=False
+    - DATABASE_URL=postgres://hde:password@db:5432/hope_dedupe_engine
+    - PYTHONPATH=/code/app/src:/code/__pypackages__/3.12/lib
+    - SECRET_KEY=secret
+    - SECURE_SSL_REDIRECT=False
+    - SESSION_COOKIE_DOMAIN=
+    - SESSION_COOKIE_SECURE=False
+    - SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
+    - STATIC_ROOT=/var/hope_dedupe_engine/static
   volumes:
-    - .:/code
-    - /var/run/docker.sock:/var/run/docker.sock
+    - static_storage:/var/bitcaster/static
+    - .:/code/app
+    - ./docker/conf:/conf
+    - ./docker/bin/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
   restart: unless-stopped
   depends_on:
     db:
@@ -18,9 +35,10 @@ x-common: &common
 services:
   backend:
     <<: *common
+    container_name: hde_app
     ports:
       - 8000:8000
-    command: ["docker-entrypoint.sh", "dev"]
+    command: ["run"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
       interval: 10s
@@ -29,25 +47,28 @@ services:
 
   celery_worker:
     <<: *common
-    command: ["docker-entrypoint.sh", "worker"]
+    container_name: hde_worker
+    command: ["worker"]
 
   celery_beat:
     <<: *common
-    command: ["docker-entrypoint.sh", "beat"]
+    container_name: hde_beat
+    command: ["beat"]
 
   db:
     image: postgres:15
+    container_name: hde_db
+    platform: linux/amd64
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+      - PGUSER=hde
+      - POSTGRES_USER=hde
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=hope_dedupe_engine
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-    ports:
-      - 5432:5432
     restart: always
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD", "pg_isready", "-U", "hde", "-d", "hope_dedupe_engine"]
       start_period: 5s
       start_interval: 1s
       interval: 5s
@@ -56,6 +77,8 @@ services:
 
   redis:
     image: redis:7.2
+    container_name: hde_redis
+    platform: linux/amd64
     ports:
       - 6379:6379
     restart: always
@@ -69,13 +92,16 @@ services:
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
+    container_name: hde_azurite
+    platform: linux/amd64
     command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose"
     restart: always
     ports:
       - "10000:10000" # Blob service
     volumes:
-      - azurite_data:/workspace
+      - azurite_data:/var/lib/postgresql/data/
 
 volumes:
+  static_storage:
   postgres_data:
   azurite_data:

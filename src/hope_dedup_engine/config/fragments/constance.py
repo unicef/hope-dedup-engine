@@ -11,6 +11,11 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
+    "DNN_FILES_SOURCE": (
+        "github",
+        "Specifies the source from which to download the DNN model files.",
+        "dnn_files_source",
+    ),
     "DNN_BACKEND": (
         cv2.dnn.DNN_BACKEND_OPENCV,
         "Specifies the computation backend to be used by OpenCV for deep learning inference.",
@@ -77,7 +82,7 @@ CONSTANCE_CONFIG = {
         "face_encodings_model",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.5,
+        0.4,
         """
         Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
         determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in
@@ -95,6 +100,7 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     "Face recognition settings": {
         "fields": (
+            "DNN_FILES_SOURCE",
             "DNN_BACKEND",
             "DNN_TARGET",
             "BLOB_FROM_IMAGE_SCALE_FACTOR",
@@ -113,6 +119,12 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "email": [
         "django.forms.EmailField",
         {},
+    ],
+    "dnn_files_source": [
+        "django.forms.ChoiceField",
+        {
+            "choices": (("github", "GITHUB"), ("azure", "AZURE")),
+        },
     ],
     "dnn_backend": [
         "django.forms.ChoiceField",

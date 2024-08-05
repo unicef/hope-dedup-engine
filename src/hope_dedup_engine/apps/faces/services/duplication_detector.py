@@ -1,15 +1,14 @@
 import logging
 import os
-from typing import Any
+from itertools import combinations
+from typing import Any, Generator
 
 import face_recognition
 import numpy as np
+from constance import config
 
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
-from hope_dedup_engine.apps.faces.utils.duplicate_groups_builder import (
-    DuplicateGroupsBuilder,
-)
 from hope_dedup_engine.apps.faces.validators import IgnorePairsValidator
 
 
@@ -73,7 +72,8 @@ class DuplicationDetector:
         try:
             _, files = self.storages.get_storage("encoded").listdir("")
             for file in files:
-                if self._has_encodings(filename := os.path.splitext(file)[0]):
+                filename = os.path.splitext(file)[0]
+                if file == self._encodings_filename(filename):
                     with self.storages.get_storage("encoded").open(file, "rb") as f:
                         data[filename] = np.load(f, allow_pickle=False)
         except Exception as e:
@@ -81,47 +81,63 @@ class DuplicationDetector:
             raise e
         return data
 
-    def find_duplicates(self) -> list[list[str]]:
+    def _existed_images_name(self) -> list[str]:
         """
-        Find and return a list of duplicate images based on face encodings.
+        Return filenames from `self.filenames` that exist in the image storage, ensuring they have encodings.
 
         Returns:
-            list[list[str]]: A list of lists, where each inner list contains
-                                        the filenames of duplicate images.
+            list[str]: List of existing filenames with encodings.
         """
-        try:
-            for filename in self.filenames:
+        filenames: list = []
+        _, files = self.storages.get_storage("images").listdir("")
+        for filename in self.filenames:
+            if filename not in files:
+                self.logger.warning(
+                    "Image %s not found in the image storage.", filename
+                )
+            else:
+                filenames.append(filename)
                 if not self._has_encodings(filename):
                     self.image_processor.encode_face(
                         filename, self._encodings_filename(filename)
                     )
+        return filenames
+
+    def find_duplicates(self) -> Generator[tuple[str, str, float], None, None]:
+        """
+        Finds duplicate images based on facial encodings and yields pairs of image paths with their minimum distance.
+
+        Yields:
+            Generator[tuple[str, str, float], None, None]: A generator yielding tuples containing:
+                - The first image path (str)
+                - The second image path (str)
+                - The minimum facial distance between the images, rounded to five decimal places (float)
+
+        Raises:
+            Exception: If an error occurs during processing, it logs the exception and re-raises it.
+        """
+        try:
+
+            existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
 
-            checked = set()
-            for path1, encodings1 in encodings_all.items():
-                for path2, encodings2 in encodings_all.items():
-                    if all(
-                        (
-                            path1 < path2,
-                            not any(
-                                p in self.ignore_set
-                                for p in ((path1, path2), (path2, path1))
-                            ),
-                        )
-                    ):
-                        min_distance = float("inf")
-                        for encoding1 in encodings1:
-                            if (
-                                current_min := min(
-                                    face_recognition.face_distance(
-                                        encodings2, encoding1
-                                    )
-                                )
-                            ) < min_distance:
-                                min_distance = current_min
-                        checked.add((path1, path2, min_distance))
+            for path1, path2 in combinations(existed_images_name, 2):
+                min_distance = config.FACE_DISTANCE_THRESHOLD
+                encodings1 = encodings_all.get(path1)
+                encodings2 = encodings_all.get(path2)
+                if encodings1 is None or encodings2 is None:
+                    continue
 
-            return DuplicateGroupsBuilder.build(checked)
+                for encoding1 in encodings1:
+                    if (
+                        current_min := min(
+                            face_recognition.face_distance(encodings2, encoding1)
+                        )
+                    ) < min_distance:
+                        min_distance = current_min
+
+                if min_distance < config.FACE_DISTANCE_THRESHOLD:
+                    yield (path1, path2, round(min_distance, 5))
         except Exception as e:
             self.logger.exception(
                 "Error finding duplicates for images %s", self.filenames

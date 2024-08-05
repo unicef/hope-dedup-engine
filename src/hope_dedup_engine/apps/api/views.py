@@ -5,6 +5,7 @@ from uuid import UUID
 
 from django.db.models import QuerySet
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -31,18 +32,24 @@ from hope_dedup_engine.apps.api.models.deduplication import (
 from hope_dedup_engine.apps.api.serializers import (
     DeduplicationSetSerializer,
     DuplicateSerializer,
+    EmptySerializer,
     IgnoredKeyPairSerializer,
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
 
-MESSAGE = "message"
-STARTED = "started"
-RETRYING = "retrying"
-ALREADY_PROCESSING = "already processing"
+
+# drf-spectacular uses first non-empty docstring it finds in class mro. When there is no docstring in view class and
+# we are using base classes from drf-nested-routers we get documentation for typing.Generic class as resource
+# documentation. With the &nbsp; HTML entity we get an empty description for resource, but it looks a little bit
+# different when compared with "real" empty description. So we use this base class for all views to have the same look
+# for view classes with empty docstrings and different base classes.
+class EmptyDocString:
+    """&nbsp;"""
 
 
 class DeduplicationSetViewSet(
+    EmptyDocString,
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
@@ -73,28 +80,15 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
-    @staticmethod
-    def _start_processing(deduplication_set: DeduplicationSet) -> None:
-        Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
-        start_processing(deduplication_set)
-
+    @extend_schema(request=EmptySerializer, responses=EmptySerializer)
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
-        deduplication_set = DeduplicationSet.objects.get(pk=pk)
-        match deduplication_set.state:
-            case DeduplicationSet.State.CLEAN | DeduplicationSet.State.ERROR:
-                self._start_processing(deduplication_set)
-                return Response({MESSAGE: RETRYING})
-            case DeduplicationSet.State.DIRTY:
-                self._start_processing(deduplication_set)
-                return Response({MESSAGE: STARTED})
-            case DeduplicationSet.State.PROCESSING:
-                return Response(
-                    {MESSAGE: ALREADY_PROCESSING}, status=status.HTTP_400_BAD_REQUEST
-                )
+        start_processing(DeduplicationSet.objects.get(pk=pk))
+        return Response({"message": "started"})
 
 
 class ImageViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Image],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -158,6 +152,7 @@ class UnwrapRequestDataMixin:
 # drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
 # UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkImageViewSet(
+    EmptyDocString,
     UnwrapRequestDataMixin,
     nested_viewsets.NestedViewSetMixin[Image],
     WrapRequestDataMixin,
@@ -197,6 +192,7 @@ class BulkImageViewSet(
 
 
 class DuplicateViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Duplicate],
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
@@ -215,6 +211,7 @@ class DuplicateViewSet(
 
 
 class IgnoredKeyPairViewSet(
+    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[IgnoredKeyPair],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,

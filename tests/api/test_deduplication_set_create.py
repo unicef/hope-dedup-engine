@@ -15,9 +15,13 @@ def test_can_create_deduplication_set(api_client: APIClient) -> None:
     previous_amount = DeduplicationSet.objects.count()
     data = DeduplicationSetSerializer(DeduplicationSetFactory.build()).data
 
-    response = api_client.post(reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON)
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
+    )
     assert response.status_code == status.HTTP_201_CREATED
     assert DeduplicationSet.objects.count() == previous_amount + 1
+    data = response.json()
+    assert data["state"] == DeduplicationSet.State.CLEAN.label
 
 
 @mark.parametrize(
@@ -28,13 +32,17 @@ def test_can_create_deduplication_set(api_client: APIClient) -> None:
         ("name", "reference_pk"),
     ),
 )
-def test_missing_fields_handling(api_client: APIClient, omit: str | tuple[str, ...]) -> None:
+def test_missing_fields_handling(
+    api_client: APIClient, omit: str | tuple[str, ...]
+) -> None:
     data = DeduplicationSetSerializer(DeduplicationSetFactory.build()).data
     missing_fields = (omit,) if isinstance(omit, str) else omit
     for field in missing_fields:
         del data[field]
 
-    response = api_client.post(reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON)
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     errors = response.json()
     assert len(errors) == len(missing_fields)
@@ -53,7 +61,9 @@ def test_missing_fields_handling(api_client: APIClient, omit: str | tuple[str, .
 def test_invalid_values_handling(api_client: APIClient, field: str, value: Any) -> None:
     data = DeduplicationSetSerializer(DeduplicationSetFactory.build()).data
     data[field] = value
-    response = api_client.post(reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON)
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     errors = response.json()
     assert len(errors) == 1
