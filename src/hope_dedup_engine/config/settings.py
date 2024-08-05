@@ -73,7 +73,6 @@ STATIC_URL = env("STATIC_URL")
 # #
 # # STATICFILES_DIRS = []
 STATICFILES_FINDERS = [
-    # "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
 
@@ -94,8 +93,6 @@ LOGOUT_REDIRECT_URL = "/"
 
 TIME_ZONE = env("TIME_ZONE")
 
-# Language code for this installation. All choices can be found here:
-# http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = "en-us"
 ugettext: callable = lambda s: s  # noqa
 LANGUAGES = (
