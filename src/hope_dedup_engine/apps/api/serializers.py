@@ -60,3 +60,7 @@ class IgnoredKeyPairSerializer(serializers.ModelSerializer):
     class Meta:
         model = IgnoredKeyPair
         fields = "__all__"
+
+
+class EmptySerializer(serializers.Serializer):
+    pass
