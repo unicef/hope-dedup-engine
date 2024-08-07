@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -43,19 +43,17 @@ deduplication_sets_router.register(
     IGNORED_KEYS_LIST, IgnoredKeyPairViewSet, basename=IGNORED_KEYS_LIST
 )
 
-SCHEMA = "schema"
-
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(deduplication_sets_router.urls)),
-    path(f"{SCHEMA}/", SpectacularAPIView.as_view(), name="schema"),
-    path(
-        f"{SCHEMA}/swagger-ui/",
+    path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
+    re_path(
+        "^api/rest/swagger/$",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    path(
-        f"{SCHEMA}/redoc/",
+    re_path(
+        "^api/rest/redoc/$",
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
