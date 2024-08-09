@@ -24,7 +24,6 @@ class DeduplicationSet(models.Model):
         ERROR = 3, "Error"  # Error occurred
 
     id = models.UUIDField(primary_key=True, default=uuid4)
-    name = models.CharField(max_length=100)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(
         choices=State.choices,

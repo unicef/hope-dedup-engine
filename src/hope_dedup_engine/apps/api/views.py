@@ -50,6 +50,7 @@ class EmptyDocString:
 
 class DeduplicationSetViewSet(
     EmptyDocString,
+    mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,

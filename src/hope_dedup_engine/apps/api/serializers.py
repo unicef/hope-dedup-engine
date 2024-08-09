@@ -51,9 +51,13 @@ class EntrySerializer(serializers.Serializer):
         return getattr(duplicate, f"{self._prefix}_reference_pk")
 
 
-class DuplicateSerializer(serializers.Serializer):
+class DuplicateSerializer(serializers.ModelSerializer):
     first = EntrySerializer(prefix="first", source="*")
     second = EntrySerializer(prefix="second", source="*")
+
+    class Meta:
+        model = Duplicate
+        fields = "first", "second", "score"
 
 
 class IgnoredKeyPairSerializer(serializers.ModelSerializer):

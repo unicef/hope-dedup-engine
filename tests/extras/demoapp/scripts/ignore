@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+echo Ignore key pair >&2
+
+if [[ $# -ne 2 ]] ; then
+  show_required_args "first reference pk" "second reference pk"
+  exit 1
+fi
+
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/ignored_keys" first_reference_pk="$1" second_reference_pk="$2"
