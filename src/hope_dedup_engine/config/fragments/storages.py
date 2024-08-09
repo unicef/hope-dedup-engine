@@ -1,16 +1,28 @@
+from typing import Final
+
 from hope_dedup_engine.config import env
 
-AZURE_ACCOUNT_NAME = env("AZURE_ACCOUNT_NAME")
-AZURE_ACCOUNT_KEY = env("AZURE_ACCOUNT_KEY")
-AZURE_CUSTOM_DOMAIN = env("AZURE_CUSTOM_DOMAIN")
-AZURE_CONNECTION_STRING = env("AZURE_CONNECTION_STRING")
+AZURE_ACCOUNT: Final[dict[str, dict[str, str]]] = {
+    "HOPE": {
+        "NAME": env("AZURE_HOPE_ACCOUNT_NAME"),
+        "KEY": env("AZURE_HOPE_ACCOUNT_KEY"),
+        "CUSTOM_DOMAIN": env("AZURE_HOPE_CUSTOM_DOMAIN"),
+        "CONNECTION_STRING": env("AZURE_HOPE_CONNECTION_STRING"),
+    },
+    "DEDUP": {
+        "NAME": env("AZURE_DEDUP_ACCOUNT_NAME"),
+        "KEY": env("AZURE_DEDUP_ACCOUNT_KEY"),
+        "CUSTOM_DOMAIN": env("AZURE_DEDUP_CUSTOM_DOMAIN"),
+        "CONNECTION_STRING": env("AZURE_DEDUP_CONNECTION_STRING"),
+    },
+}
 
-AZURE_CONTAINER_HDE = "hde"
-AZURE_CONTAINER_HOPE = "hope"  # static-dde
-AZURE_CONTAINER_DNN = "dnn"  # model-dde
+AZURE_CONTAINER_HDE: Final[str] = "hde"
+AZURE_CONTAINER_HOPE: Final[str] = "hope"
+AZURE_CONTAINER_DNN: Final[str] = "dnn"
 
-CV2DNN_DIR = env("CV2DNN_DIR")
-DNN_FILES = {
+CV2DNN_DIR: Final[str] = env("CV2DNN_DIR")
+DNN_FILES: Final[dict[str, dict[str, str]]] = {
     "prototxt": {
         "filename": "deploy.prototxt",
         "sources": {

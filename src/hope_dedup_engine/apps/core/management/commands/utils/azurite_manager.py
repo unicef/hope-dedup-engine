@@ -18,7 +18,9 @@ class AzuriteManager:  # pragma: no cover
             container_name (str): The name of the Azure Blob Storage container.
         """
         self.service_client: BlobServiceClient = (
-            BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
+            BlobServiceClient.from_connection_string(
+                settings.AZURE_ACCOUNT["DEDUP"]["CONNECTION_STRING"]
+            )
         )
         self.container_client: ContainerClient = (
             self.service_client.get_container_client(container_name)
