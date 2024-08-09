@@ -62,6 +62,9 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
             duplicate.score /= weight_total
             duplicate.save()
 
+        deduplication_set.state = deduplication_set.State.CLEAN
+        deduplication_set.save()
+
         lock.release()
 
     except Exception as e:
