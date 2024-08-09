@@ -2,9 +2,9 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from django.conf import settings
-
 from azure.storage.blob import BlobServiceClient, ContainerClient
+
+from hope_dedup_engine.config import env
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,10 @@ class AzuriteManager:  # pragma: no cover
             container_name (str): The name of the Azure Blob Storage container.
         """
         self.service_client: BlobServiceClient = (
-            BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
+            BlobServiceClient.from_connection_string(
+                # account_url=
+                env("AZURITE_CONNECTION_STRING")
+            )
         )
         self.container_client: ContainerClient = (
             self.service_client.get_container_client(container_name)

@@ -145,11 +145,9 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "STATIC_ROOT": (str, "", setting("static-root")),
     "STATIC_URL": (str, "/static/", setting("static-url")),
     "TIME_ZONE": (str, "UTC", setting("std-setting-TIME_ZONE")),
-    "AZURE_ACCOUNT_NAME": (str, ""),
-    "AZURE_ACCOUNT_KEY": (str, ""),
-    "AZURE_CUSTOM_DOMAIN": (str, ""),
-    "AZURE_CONNECTION_STRING": (str, ""),
     "CV2DNN_DIR": (str, "cv2dnn"),
+    "DEMO_IMAGES_PATH": (str, "demo_images"),
+    "DNN_FILES_PATH": (str, "dnn_files"),
 }
 
 

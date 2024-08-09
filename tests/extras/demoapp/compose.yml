@@ -15,10 +15,14 @@ x-common: &common
     - SESSION_COOKIE_SECURE=False
     - SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
     - STATIC_ROOT=/var/hope_dedupe_engine/static
-    - AZURE_ACCOUNT_NAME=devstoreaccount1
-    - AZURE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-    - AZURE_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
-    - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - AZURE_HOPE_ACCOUNT_NAME=devstoreaccount1
+    - AZURE_HOPE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+    - AZURE_HOPE_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
+    - AZURE_HOPE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - AZURE_DEDUP_ACCOUNT_NAME=devstoreaccount1
+    - AZURE_DEDUP_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+    - AZURE_DEDUP_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
+    - AZURE_DEDUP_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     - CV2DNN_DIR=cv2dnn
     - DEMO_IMAGES_PATH=demo_images
     - DNN_FILES_PATH=dnn_files
@@ -52,7 +56,7 @@ services:
     command: >
       /bin/sh -c "
       chown -R user:app /code/cv2dnn && 
-      django-admin demo && 
+      django-admin demo &&
       exec docker-entrypoint.sh run
       "
     healthcheck:

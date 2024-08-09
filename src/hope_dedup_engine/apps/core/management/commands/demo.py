@@ -2,7 +2,7 @@ import logging
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from django.conf import settings
 from django.core.management import BaseCommand
@@ -15,8 +15,11 @@ from .utils.azurite_manager import AzuriteManager
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_DEMO_IMAGES = Path(__name__).resolve().parent / env("DEMO_IMAGES_PATH")
-DEFAULT_DNN_FILES = Path(__name__).resolve().parent / env("DNN_FILES_PATH")
+BASE_PATH: Final[Path] = (
+    Path(__file__).resolve().parents[6] / "tests" / "extras" / "demoapp"
+)
+DEFAULT_DEMO_IMAGES: Final[Path] = BASE_PATH / env("DEMO_IMAGES_PATH")
+DEFAULT_DNN_FILES: Final[Path] = BASE_PATH / env("DNN_FILES_PATH")
 
 
 class Command(BaseCommand):

@@ -61,10 +61,13 @@ def sync_dnn_files(self: Task, force: bool = False) -> bool:
     try:
         downloader = FileSyncManager(config.DNN_FILES_SOURCE).downloader
         return all(
-            (not Path(info["local_path"]).exists() or force)
-            and downloader.sync(
-                info.get("sources").get(config.DNN_FILES_SOURCE),
-                Path(info.get("local_path")),
+            (
+                downloader.sync(
+                    info.get("sources").get(config.DNN_FILES_SOURCE),
+                    Path(info["local_path"]),
+                )
+                if (not Path(info["local_path"]).exists() or force)
+                else True
             )
             for _, info in settings.DNN_FILES.items()
         )
