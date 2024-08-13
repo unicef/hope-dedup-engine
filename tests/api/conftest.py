@@ -5,13 +5,16 @@ from pytest import fixture
 from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
-from testutils.factories.api import (
+from testutils.duplicate_finders import (
     AllDuplicateFinder,
+    FailingDuplicateFinder,
+    NoDuplicateFinder,
+)
+from testutils.factories.api import (
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredKeyPairFactory,
     ImageFactory,
-    NoDuplicateFinder,
     TokenFactory,
 )
 from testutils.factories.user import ExternalSystemFactory, UserFactory
@@ -70,6 +73,13 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")
 
 
+@fixture(autouse=True)
+def send_notification(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch(
+        "hope_dedup_engine.apps.api.deduplication.process.send_notification"
+    )
+
+
 @fixture
 def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
     finders = []
@@ -82,13 +92,19 @@ def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
 def all_duplicates_finder(
     deduplication_set: DeduplicationSet, duplicate_finders: list[DuplicateFinder]
 ) -> DuplicateFinder:
-    finder = AllDuplicateFinder(deduplication_set)
-    duplicate_finders.append(finder)
+    duplicate_finders.append(finder := AllDuplicateFinder(deduplication_set))
     return finder
 
 
 @fixture
 def no_duplicate_finder(duplicate_finders: list[DuplicateFinder]) -> DuplicateFinder:
-    finder = NoDuplicateFinder()
-    duplicate_finders.append(finder)
+    duplicate_finders.append(finder := NoDuplicateFinder())
+    return finder
+
+
+@fixture
+def failing_duplicate_finder(
+    duplicate_finders: list[DuplicateFinder],
+) -> DuplicateFinder:
+    duplicate_finders.append(finder := FailingDuplicateFinder())
     return finder

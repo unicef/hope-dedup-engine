@@ -7,6 +7,7 @@ from hope_dedup_engine.apps.api.deduplication.registry import (
     get_finders,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.utils import send_notification
 
 
 def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
@@ -72,3 +73,5 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
         deduplication_set.error = str(e)
         deduplication_set.save()
         raise
+    finally:
+        send_notification(deduplication_set)

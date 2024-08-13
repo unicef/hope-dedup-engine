@@ -1,3 +1,7 @@
+from unittest.mock import MagicMock
+
+from pytest import mark, raises
+
 from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
 from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
@@ -63,3 +67,36 @@ def test_weight_is_taken_into_account(
         str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
     )
     assert deduplication_set.duplicate_set.first().score == 0.5
+
+
+@mark.parametrize(
+    ("notification_url", "notification_send"),
+    ((None, False), ("", False), ("https://example.com", True)),
+)
+def test_notification_sent_on_successful_run(
+    notification_url: str | None,
+    notification_send: bool,
+    deduplication_set: DeduplicationSet,
+    duplicate_finders: list[DuplicateFinder],
+    send_notification: MagicMock,
+) -> None:
+    deduplication_set.notification_url = notification_url
+    deduplication_set.save()
+    find_duplicates(
+        str(deduplication_set.pk),
+        str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
+    )
+    send_notification.assert_called_once_with(deduplication_set)
+
+
+def test_notification_sent_on_failure(
+    deduplication_set: DeduplicationSet,
+    failing_duplicate_finder: DuplicateFinder,
+    send_notification: MagicMock,
+) -> None:
+    with raises(Exception):
+        find_duplicates(
+            str(deduplication_set.pk),
+            str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
+        )
+    send_notification.assert_called_once_with(deduplication_set)
