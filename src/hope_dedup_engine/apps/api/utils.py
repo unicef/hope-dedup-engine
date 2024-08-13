@@ -2,8 +2,6 @@ import requests
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
-from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
@@ -14,6 +12,9 @@ class AlreadyProcessingError(APIException):
 
 
 def start_processing(deduplication_set: DeduplicationSet) -> None:
+    from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
+    from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
+
     try:
         lock = DeduplicationSetLock.for_deduplication_set(deduplication_set)
         deduplication_set.state = DeduplicationSet.State.PROCESSING
