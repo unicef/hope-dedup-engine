@@ -101,6 +101,13 @@ services:
     volumes:
       - azurite_data:/var/lib/postgresql/data/
 
+  flower:
+    <<: *common
+    container_name: hde_flower
+    command: ["celery", "flower", "-A", "hope_dedup_engine.config.celery", "--address=0.0.0.0", "--broker=redis://redis:6379/9"]
+    ports:
+      - 5555:5555
+
 volumes:
   static_storage:
   postgres_data:
