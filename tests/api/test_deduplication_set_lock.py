@@ -3,8 +3,8 @@ from time import sleep
 from pytest import fail, raises
 from pytest_django.fixtures import SettingsWrapper
 
+from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.utils import DeduplicationSetLock
 
 
 def test_basic_usage(deduplication_set: DeduplicationSet) -> None:
