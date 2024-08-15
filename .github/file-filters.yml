@@ -37,3 +37,7 @@ lint:
   -  *python
   - '.flake8'
   - 'pyproject.toml'
+
+documentation:
+  - added|modified: 'docs/**'
+  - exclude: 'docs/local/**'
