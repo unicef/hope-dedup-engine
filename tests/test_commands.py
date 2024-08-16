@@ -164,7 +164,10 @@ def test_upgrade_exception(mocked_responses, environment):
 
 def test_demo_handle_success(environment, mock_azurite_manager, mock_settings):
     out = StringIO()
-    with mock.patch.dict(os.environ, environment, clear=True):
+    with (
+        mock.patch.dict("os.environ", environment, clear=True),
+        mock.patch("pathlib.Path.exists", return_value=True),
+    ):
         call_command(
             "demo",
             demo_images="/path/to/demo/images",

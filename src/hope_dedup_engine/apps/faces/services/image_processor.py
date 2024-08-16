@@ -25,6 +25,7 @@ class BlobFromImageConfig:
     shape: dict[str, int] = field(init=False)
     scale_factor: float
     mean_values: tuple[float, float, float]
+    prototxt_path: str
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "shape", self._get_shape())
@@ -35,7 +36,7 @@ class BlobFromImageConfig:
 
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
-        with open(settings.DNN_FILES.get("prototxt").get("local_path"), "r") as file:
+        with open(self.prototxt_path, "r") as file:
             if match := re.search(pattern, file.read()):
                 return {
                     "batch_size": int(match.group(1)),
@@ -60,11 +61,14 @@ class ImageProcessor:
         Initialize the ImageProcessor with the required configurations.
         """
         self.storages = StorageManager()
-        self.net = DNNInferenceManager(self.storages.get_storage("cv2dnn")).get_model()
+        self.net = DNNInferenceManager(self.storages.get_storage("cv2")).get_model()
 
         self.blob_from_image_cfg = BlobFromImageConfig(
             scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR,
             mean_values=config.BLOB_FROM_IMAGE_MEAN_VALUES,
+            prototxt_path=self.storages.get_storage("cv2").path(
+                settings.DNN_FILES.get("prototxt").get("filename")
+            ),
         )
         self.face_encodings_cfg = FaceEncodingsConfig(
             num_jitters=config.FACE_ENCODINGS_NUM_JITTERS,

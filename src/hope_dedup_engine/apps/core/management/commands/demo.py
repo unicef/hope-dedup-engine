@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any, Final
 
-from django.conf import settings
 from django.core.management import BaseCommand
 from django.core.management.base import CommandError, SystemCheckError
 
@@ -20,6 +19,16 @@ BASE_PATH: Final[Path] = (
 )
 DEFAULT_DEMO_IMAGES: Final[Path] = BASE_PATH / env("DEMO_IMAGES_PATH")
 DEFAULT_DNN_FILES: Final[Path] = BASE_PATH / env("DNN_FILES_PATH")
+
+MESSAGES: Final[dict[str, str]] = {
+    "upload": "Starting upload of files...",
+    "not_exist": "Directory '%s' does not exist.",
+    "storage_success": "Files uploaded to storage '%s' successfully.",
+    "success": "Finished uploading files to storage.",
+    "failed": "Failed to upload files to storage '%s': %s",
+    "unexpected": "An unexpected error occurred while uploading files to storage '%s': %s",
+    "halted": "\n\n***\nSYSTEM HALTED",
+}
 
 
 class Command(BaseCommand):
@@ -47,40 +56,56 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: dict[str, Any]) -> None:
         """
-        The main logic for the command. Uploads files from the specified paths to Azure Blob Storage.
+        Main logic for handling the command to create containers and upload files to Azurite Storage.
 
         Args:
             *args (Any): Positional arguments passed to the command.
             **options (dict[str, Any]): Keyword arguments including command-line options.
+
+        Raises:
+            FileNotFoundError: If a specified directory does not exist.
+            CommandError: If a Django management command error occurs.
+            SystemCheckError: If a Django system check error occurs.
+            Exception: For any other unexpected errors that may arise during the execution of the command.
+
         """
-        storages = {
-            settings.AZURE_CONTAINER_HOPE: Path(options["demo_images"]),
-            settings.AZURE_CONTAINER_DNN: Path(options["dnn_files"]),
-            settings.AZURE_CONTAINER_HDE: None,
+        storages: dict[str, Path] = {
+            "hope": Path(options["demo_images"]),
+            "dnn": Path(options["dnn_files"]),
+            "encoded": None,
         }
+        self.stdout.write(self.style.WARNING(MESSAGES["upload"]))
+        logger.info(MESSAGES["upload"])
 
-        self.stdout.write(self.style.WARNING("Starting upload of files..."))
-        for container_name, images_src_path in storages.items():
-            try:
-                am = AzuriteManager(container_name)
-                if images_src_path:
+        try:
+            for storage_name, images_src_path in storages.items():
+                am = AzuriteManager(storage_name)
+                if images_src_path is None:
+                    continue
+                if images_src_path.exists():
                     am.upload_files(images_src_path)
-                    logger.info(
-                        "Uploaded files to container '%s' successfully.", container_name
-                    )
+                else:
                     self.stdout.write(
-                        f"Successfully uploaded files to container: {container_name}"
+                        self.style.ERROR(MESSAGES["not_exist"] % images_src_path)
                     )
-            except (CommandError, SystemCheckError) as e:
-                self.halt(e)
-            except Exception as e:
-                logger.exception("Error processing container '%s'", container_name)
-                self.stdout.write(
-                    self.style.ERROR(f"Error processing container {container_name}")
-                )
-                self.halt(e)
+                    logger.error(MESSAGES["not_exist"] % images_src_path)
+                    self.halt(
+                        FileNotFoundError(MESSAGES["not_exist"] % images_src_path)
+                    )
+                self.stdout.write(MESSAGES["storage_success"] % storage_name)
+                logger.info(MESSAGES["storage_success"] % storage_name)
+        except (CommandError, SystemCheckError) as e:
+            self.stdout.write(self.style.ERROR(MESSAGES["failed"] % (storage_name, e)))
+            logger.error(MESSAGES["failed"] % (storage_name, e))
+            self.halt(e)
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(MESSAGES["unexpected"] % (storage_name, e))
+            )
+            logger.exception(MESSAGES["unexpected"] % (storage_name, e))
+            self.halt(e)
 
-        self.stdout.write(self.style.SUCCESS("Finished uploading files."))
+        self.stdout.write(self.style.SUCCESS(MESSAGES["success"]))
 
     def halt(self, e: Exception) -> None:
         """
@@ -89,7 +114,7 @@ class Command(BaseCommand):
         Args:
             e (Exception): The exception that occurred.
         """
+        logger.exception(e)
         self.stdout.write(str(e), style_func=self.style.ERROR)
-        self.stdout.write("\n\n***", style_func=self.style.ERROR)
-        self.stdout.write("SYSTEM HALTED", style_func=self.style.ERROR)
+        self.stdout.write(MESSAGES["halted"], style_func=self.style.ERROR)
         sys.exit(1)
