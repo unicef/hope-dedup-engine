@@ -9,7 +9,6 @@ if TYPE_CHECKING:
         Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]
     ]
 
-
 DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.0/ref/settings"
 
 
@@ -179,8 +178,12 @@ class SmartEnv(Env):
             return None
         options = {}
         if "?" in raw_value:
-            value, options = raw_value.split("?", 1)
-            options = dict(parse.parse_qsl(options))
+            value, params = raw_value.split("?", 1)
+            args = params.split("&")
+            options = {}
+            for entry in args:
+                k, v = entry.split("=", 1)
+                options[k] = v
         else:
             value = raw_value
 

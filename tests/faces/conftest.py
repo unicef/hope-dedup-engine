@@ -21,12 +21,7 @@ from PIL import Image
 from pytest_mock import MockerFixture
 
 from docker import from_env
-from hope_dedup_engine.apps.core.storage import (
-    CV2DNNStorage,
-    DNNAzureStorage,
-    HDEAzureStorage,
-    HOPEAzureStorage,
-)
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
@@ -45,7 +40,7 @@ from hope_dedup_engine.apps.faces.services.image_processor import (
 def mock_storage_manager(mocker: MockerFixture) -> StorageManager:
     mocker.patch.object(CV2DNNStorage, "exists", return_value=True)
     mocker.patch.object(HDEAzureStorage, "exists", return_value=True)
-    mocker.patch.object(HOPEAzureStorage, "exists", return_value=True)
+    mocker.patch.object(HDEAzureStorage, "exists", return_value=True)
     yield StorageManager()
 
 
@@ -56,12 +51,12 @@ def mock_hde_azure_storage():
 
 @pytest.fixture
 def mock_hope_azure_storage():
-    return MagicMock(spec=HOPEAzureStorage)
+    return MagicMock(spec=HDEAzureStorage)
 
 
 @pytest.fixture
 def mock_dnn_azure_storage():
-    return MagicMock(spec=DNNAzureStorage)
+    return MagicMock(spec=HDEAzureStorage)
 
 
 @pytest.fixture

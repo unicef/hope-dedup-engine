@@ -1,16 +1,12 @@
 import pytest
 
-from hope_dedup_engine.apps.core.storage import (
-    CV2DNNStorage,
-    HDEAzureStorage,
-    HOPEAzureStorage,
-)
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage
 from hope_dedup_engine.apps.faces.exceptions import StorageKeyError
 from hope_dedup_engine.apps.faces.managers import StorageManager
 
 
 def test_initialization(mock_storage_manager):
-    assert isinstance(mock_storage_manager.storages["images"], HOPEAzureStorage)
+    assert isinstance(mock_storage_manager.storages["images"], HDEAzureStorage)
     assert isinstance(mock_storage_manager.storages["cv2dnn"], CV2DNNStorage)
     assert isinstance(mock_storage_manager.storages["encoded"], HDEAzureStorage)
 
@@ -28,7 +24,7 @@ def test_invalid_key(mock_storage_manager):
 @pytest.mark.parametrize(
     "test_input, expected_output",
     [
-        ("images", HOPEAzureStorage),
+        ("images", HDEAzureStorage),
         ("cv2dnn", CV2DNNStorage),
         ("encoded", HDEAzureStorage),
     ],

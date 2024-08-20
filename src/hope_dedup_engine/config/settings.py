@@ -62,7 +62,6 @@ AUTHENTICATION_BACKENDS = (
     *env("AUTHENTICATION_BACKENDS"),
 )
 
-
 # path
 MEDIA_ROOT = env("MEDIA_ROOT")
 MEDIA_URL = env("MEDIA_URL")
@@ -80,6 +79,9 @@ STORAGES = {
     "staticfiles": env.storage("FILE_STORAGE_STATIC"),
     "media": env.storage("FILE_STORAGE_MEDIA"),
     "hope": env.storage("FILE_STORAGE_HOPE"),
+    "cv2dnn": env.storage("FILE_STORAGE_DEFAULT"),
+    "encoded": env.storage("FILE_STORAGE_DEFAULT"),
+    "images": env.storage("FILE_STORAGE_DEFAULT"),
 }
 
 SECRET_KEY = env("SECRET_KEY")
@@ -108,15 +110,9 @@ INTERNAL_IPS = ["127.0.0.1", "localhost"]
 USE_I18N = True
 USE_TZ = True
 
-
 CACHE_URL = env("CACHE_URL")
 REDIS_URL = urlparse(CACHE_URL).hostname
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": CACHE_URL,
-    }
-}
+CACHES = {"default": env.cache_url("CACHE_URL")}
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
 ROOT_URLCONF = "hope_dedup_engine.config.urls"
@@ -174,7 +170,6 @@ LOGGING = {
 }
 
 AUTH_USER_MODEL = "security.User"
-
 
 DEFAULT_FROM_EMAIL = "hope@unicef.org"
 # EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend" # TODO: when ready, add djcelery_email

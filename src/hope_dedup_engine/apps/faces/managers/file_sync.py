@@ -2,8 +2,8 @@ from pathlib import Path
 
 import requests
 
-from hope_dedup_engine.apps.core.storage import DNNAzureStorage
 from hope_dedup_engine.apps.faces.exceptions import DownloaderKeyError
+from hope_dedup_engine.config import settings
 
 
 class FileDownloader:
@@ -57,8 +57,8 @@ class GithubFileDownloader(FileDownloader):
 
 
 class AzureFileDownloader(FileDownloader):
-    def __init__(self, storage: DNNAzureStorage | None = None) -> None:
-        self.storage = storage or DNNAzureStorage()
+    def __init__(self) -> None:
+        self.storage = settings.STORAGES["dnn"]
 
     def sync(
         self, blob_name: str, local_path: Path, chunk_size: int = 128 * 1024

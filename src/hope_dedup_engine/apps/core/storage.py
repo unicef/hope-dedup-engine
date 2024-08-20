@@ -23,6 +23,7 @@ from typing import Any
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 
+from azure.core.utils import parse_connection_string
 from storages.backends.azure_storage import AzureStorage
 
 
@@ -42,17 +43,38 @@ class CV2DNNStorage(UniqueStorageMixin, FileSystemStorage):
     """
 
 
-class BaseAzureStorage(UniqueStorageMixin, AzureStorage):
-    def __init__(self, azure_container: str, *args: Any, **kwargs: Any) -> None:
-        self.account_name = settings.AZURE_ACCOUNT_NAME
-        self.account_key = settings.AZURE_ACCOUNT_KEY
-        self.custom_domain = settings.AZURE_CUSTOM_DOMAIN
-        self.connection_string = settings.AZURE_CONNECTION_STRING
-        self.azure_container = azure_container
+class HDEAzureStorage(UniqueStorageMixin, AzureStorage):
+    # connection_string: str
+    # azure_container: str
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.kwargs = kwargs
         super().__init__(*args, **kwargs)
 
+    def get_default_settings(self):
+        return {
+            "account_key": self.kwargs.get("account_key"),
+            "account_name": self.kwargs.get("account_name"),
+            "api_version": self.kwargs.get("api_version", None),
+            "azure_container": self.kwargs.get("azure_container"),
+            "azure_ssl": self.kwargs.get("azure_ssl", True),
+            "cache_control": self.kwargs.get("cache_control", ""),
+            "connection_string": self.kwargs.get("connection_string"),
+            "custom_domain": self.kwargs.get("custom_domain"),
+            "default_content_type": "application/octet-stream",
+            "endpoint_suffix": self.kwargs.get("endpoint_suffix", "core.windows.net"),
+            "expiration_secs": self.kwargs.get("expiration_secs"),
+            "location": self.kwargs.get("location", ""),
+            "max_memory_size": self.kwargs.get("max_memory_size", 2 * 1024 * 1024),
+            "object_parameters": self.kwargs.get("object_parameters", {}),
+            "overwrite_files": self.kwargs.get("overwrite_files", False),
+            "sas_token": self.kwargs.get("sas_token"),
+            "timeout": self.kwargs.get("timeout", 20),
+            "token_credential": self.kwargs.get("token_credential"),
+            "upload_max_conn": self.kwargs.get("upload_max_conn", 2),
+        }
 
-class ReadOnlyAzureStorage(BaseAzureStorage):
+
+class ReadOnlyAzureStorage(HDEAzureStorage):
     def delete(self, name: str) -> None:
         raise RuntimeError("This storage cannot delete files")
 
@@ -65,16 +87,17 @@ class ReadOnlyAzureStorage(BaseAzureStorage):
         raise RuntimeError("This storage cannot save files")
 
 
-class HDEAzureStorage(BaseAzureStorage):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(settings.AZURE_CONTAINER_HDE, *args, **kwargs)
-
-
-class HOPEAzureStorage(ReadOnlyAzureStorage):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(settings.AZURE_CONTAINER_HOPE, *args, **kwargs)
-
-
-class DNNAzureStorage(ReadOnlyAzureStorage):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(settings.AZURE_CONTAINER_DNN, *args, **kwargs)
+#
+# class HDEAzureStorage(BaseAzureStorage):
+#     def __init__(self, *args: Any, **kwargs: Any) -> None:
+#         super().__init__(settings.AZURE_CONTAINER_HDE, *args, **kwargs)
+#
+#
+# class HOPEAzureStorage(ReadOnlyAzureStorage):
+#     def __init__(self, *args: Any, **kwargs: Any) -> None:
+#         super().__init__(settings.AZURE_CONTAINER_HOPE, *args, **kwargs)
+#
+#
+# class DNNAzureStorage(ReadOnlyAzureStorage):
+#     def __init__(self, *args: Any, **kwargs: Any) -> None:
+#         super().__init__(settings.AZURE_CONTAINER_DNN, *args, **kwargs)

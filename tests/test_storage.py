@@ -2,7 +2,7 @@ from django.core.files.base import ContentFile
 
 import pytest
 
-from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HOPEAzureStorage
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage
 
 
 def test_fs(tmp_path):
@@ -16,7 +16,7 @@ def test_fs(tmp_path):
 
 
 def test_azure(tmp_path):
-    s = HOPEAzureStorage()
+    s = HDEAzureStorage()
     with pytest.raises(RuntimeError):
         s.open("test", "rw")
     with pytest.raises(RuntimeError):

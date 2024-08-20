@@ -1,10 +1,7 @@
 from django.conf import settings
+from django.core.files.storage import Storage
 
-from hope_dedup_engine.apps.core.storage import (
-    CV2DNNStorage,
-    HDEAzureStorage,
-    HOPEAzureStorage,
-)
+from hope_dedup_engine.apps.core.storage import CV2DNNStorage, HDEAzureStorage
 from hope_dedup_engine.apps.faces.exceptions import StorageKeyError
 
 
@@ -20,10 +17,10 @@ class StorageManager:
         Raises:
             FileNotFoundError: If any of the required DNN model files do not exist in the storage.
         """
-        self.storages: dict[str, HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage] = {
-            "images": HOPEAzureStorage(),
-            "cv2dnn": CV2DNNStorage(settings.CV2DNN_DIR),
-            "encoded": HDEAzureStorage(),
+        self.storages: dict[str, CV2DNNStorage | HDEAzureStorage] = {
+            "images": settings.STORAGES["images"],
+            "cv2dnn": settings.STORAGES["cv2dnn"],
+            "encoded": settings.STORAGES["encoded"],
         }
         for file in (
             settings.DNN_FILES.get("prototxt").get("filename"),
@@ -32,9 +29,7 @@ class StorageManager:
             if not self.storages.get("cv2dnn").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 
-    def get_storage(
-        self, key: str
-    ) -> HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage:
+    def get_storage(self, key: str) -> Storage:
         """
         Get the storage object for the given key.
 
