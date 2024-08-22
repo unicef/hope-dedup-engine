@@ -18,7 +18,7 @@ def test_initialization(mock_storage_manager):
     )
     assert isinstance(
         mock_storage_manager.storages["encoded"],
-        AzureStorage,
+        FileSystemStorage,
     )
 
 

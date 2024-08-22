@@ -108,19 +108,9 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "storages.backends.azure_storage.AzureStorage",
         setting("storages"),
     ),
-    "FILE_STORAGE_ENCODED": (
-        str,
-        "storages.backends.azure_storage.AzureStorage",
-        setting("storages"),
-    ),
     "FILE_STORAGE_DNN": (
         str,
         "storages.backends.azure_storage.AzureStorage",
-        setting("storages"),
-    ),
-    "FILE_STORAGE_CV2": (
-        str,
-        "django.core.files.storage.FileSystemStorage",
         setting("storages"),
     ),
     "LOG_LEVEL": (str, "CRITICAL", setting("logging")),

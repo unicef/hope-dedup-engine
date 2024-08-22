@@ -175,7 +175,7 @@ def test_demo_handle_success(environment, mock_azurite_manager, mock_settings):
             stdout=out,
         )
     assert "error" not in str(out.getvalue())
-    assert mock_azurite_manager.call_count == 3
+    assert mock_azurite_manager.call_count == 2
     assert mock_azurite_manager.return_value.upload_files.call_count == 2
 
 

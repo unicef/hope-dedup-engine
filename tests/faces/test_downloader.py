@@ -7,6 +7,7 @@ from requests.exceptions import RequestException
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
+    FileDownloader,
     GithubFileDownloader,
 )
 
@@ -37,16 +38,19 @@ def test_github_sync_raises_exception(github_dnn_file_downloader, mock_requests_
 def test_azure_sync_success(azure_dnn_file_downloader):
     with (
         patch.object(
-            azure_dnn_file_downloader.remote_storage, "exists", return_value=True
+            azure_dnn_file_downloader.remote_storage,
+            "listdir",
+            return_value=([], [DNN_FILE["name"]]),
+        ),
+        patch.object(
+            azure_dnn_file_downloader.remote_storage, "size", return_value=1024
         ),
         patch("pathlib.Path.open", mock_open()) as mocked_file,
     ):
         result = azure_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["name"])
 
         assert result is True
-        azure_dnn_file_downloader.remote_storage.exists.assert_called_once_with(
-            DNN_FILE["name"]
-        )
+        azure_dnn_file_downloader.remote_storage.listdir.assert_called_once_with("")
         azure_dnn_file_downloader.remote_storage.open.assert_called_once_with(
             DNN_FILE["name"], "rb"
         )
@@ -54,15 +58,14 @@ def test_azure_sync_success(azure_dnn_file_downloader):
 
 
 def test_azure_sync_raises_filenotfounderror(azure_dnn_file_downloader):
-    azure_dnn_file_downloader.remote_storage.exists.return_value = False
+    with patch.object(
+        azure_dnn_file_downloader.remote_storage, "listdir", return_value=([], [])
+    ) as mock_listdir:
+        with pytest.raises(FileNotFoundError):
+            azure_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["name"])
 
-    with pytest.raises(FileNotFoundError):
-        azure_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["name"])
-
-    azure_dnn_file_downloader.remote_storage.exists.assert_called_once_with(
-        DNN_FILE["name"]
-    )
-    azure_dnn_file_downloader.remote_storage.open.assert_not_called()
+        mock_listdir.assert_called_once_with("")
+        azure_dnn_file_downloader.remote_storage.open.assert_not_called()
 
 
 def test_filesyncmanager_creates_correct_downloader():
@@ -96,3 +99,25 @@ def test_file_downloader_prepare_local_filepath_force(
     )
     assert result is not None
     mock_path_mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@pytest.mark.parametrize(
+    "downloaded, total, expect_call, expected_percent",
+    [
+        (50, 100, True, 50),
+        (50, 0, False, None),
+        (0, 100, True, 0),
+        (100, 100, True, 100),
+    ],
+)
+def test_report_progress(downloaded, total, expect_call, expected_percent, mocker):
+    mock_on_progress = mocker.Mock()
+
+    downloader = FileDownloader()
+
+    downloader._report_progress("test_file.txt", downloaded, total, mock_on_progress)
+
+    if expect_call:
+        mock_on_progress.assert_called_once_with("test_file.txt", expected_percent)
+    else:
+        mock_on_progress.assert_not_called()

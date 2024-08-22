@@ -76,14 +76,17 @@ STATICFILES_FINDERS = [
 ]
 
 STORAGES = {
+    # Local filesystem
+    # FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage?location=/var/hope_dedupe_engine/default # noqa
     "default": env.storage("FILE_STORAGE_DEFAULT"),
     "staticfiles": env.storage("FILE_STORAGE_STATIC"),
     "media": env.storage("FILE_STORAGE_MEDIA"),
-    "hope": env.storage("FILE_STORAGE_HOPE"),  # Azure BLOB (readonly HOPE images)
-    "encoded": env.storage("FILE_STORAGE_ENCODED"),  # Azure BLOB
-    "dnn": env.storage("FILE_STORAGE_DNN"),  # Azure BLOB
-    # Local Filesystem. Must have access from backend and celery.
-    "cv2": env.storage("FILE_STORAGE_CV2"),
+    # Azure BLOB (readonly HOPE images). Example in case use Azurite:
+    # FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
+    "hope": env.storage("FILE_STORAGE_HOPE"),
+    # Azure BLOB. Example in case use Azurite:
+    # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
+    "dnn": env.storage("FILE_STORAGE_DNN"),
 }
 
 SECRET_KEY = env("SECRET_KEY")

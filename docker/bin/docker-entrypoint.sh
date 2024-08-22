@@ -2,16 +2,23 @@
 
 export MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}"
 export STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}"
+export DEFAULT_ROOT="${DEFAULT_ROOT:-/var/run/app/default}"
 export UWSGI_PROCESSES="${UWSGI_PROCESSES:-"4"}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-"hope_dedup_engine.config.settings"}"
-mkdir -p "${MEDIA_ROOT}" "${STATIC_ROOT}" || echo "Cannot create dirs ${MEDIA_ROOT} ${STATIC_ROOT}"
+mkdir -p "${MEDIA_ROOT}" "${STATIC_ROOT}" "${DEFAULT_ROOT}" || echo "Cannot create dirs ${MEDIA_ROOT} ${STATIC_ROOT} ${DEFAULT_ROOT}"
 
 if [ -d "${STATIC_ROOT}" ];then
   chown -R user:app ${STATIC_ROOT}
 fi
 
+if [ -d "${DEFAULT_ROOT}" ];then
+  chown -R user:app ${DEFAULT_ROOT}
+fi
+
+
 echo "MEDIA_ROOT  ${MEDIA_ROOT}"
 echo "STATIC_ROOT ${STATIC_ROOT}"
+echo "DEFAULT_ROOT  ${DEFAULT_ROOT}"
 
 case "$1" in
     setup)

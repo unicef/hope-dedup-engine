@@ -19,9 +19,11 @@ class StorageManager:
             FileNotFoundError: If any of the required DNN model files do not exist in the storage.
         """
         self.storages: dict[str, AzureStorage | FileSystemStorage] = {
-            "cv2": FileSystemStorage(**settings.STORAGES.get("cv2").get("OPTIONS")),
+            "cv2": FileSystemStorage(**settings.STORAGES.get("default").get("OPTIONS")),
+            "encoded": FileSystemStorage(
+                **settings.STORAGES.get("default").get("OPTIONS")
+            ),
             "images": AzureStorage(**settings.STORAGES.get("hope").get("OPTIONS")),
-            "encoded": AzureStorage(**settings.STORAGES.get("encoded").get("OPTIONS")),
         }
 
         for file in (

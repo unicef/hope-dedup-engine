@@ -72,7 +72,6 @@ class Command(BaseCommand):
         storages: dict[str, Path] = {
             "hope": Path(options["demo_images"]),
             "dnn": Path(options["dnn_files"]),
-            "encoded": None,
         }
         self.stdout.write(self.style.WARNING(MESSAGES["upload"]))
         logger.info(MESSAGES["upload"])
