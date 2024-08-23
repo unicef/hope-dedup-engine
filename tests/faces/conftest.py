@@ -1,6 +1,8 @@
 from io import BytesIO
 from unittest.mock import MagicMock, mock_open, patch
 
+from django.core.files.storage import FileSystemStorage
+
 import cv2
 import numpy as np
 import pytest
@@ -19,14 +21,9 @@ from faces_const import (
 from freezegun import freeze_time
 from PIL import Image
 from pytest_mock import MockerFixture
+from storages.backends.azure_storage import AzureStorage
 
 from docker import from_env
-from hope_dedup_engine.apps.core.storage import (
-    CV2DNNStorage,
-    DNNAzureStorage,
-    HDEAzureStorage,
-    HOPEAzureStorage,
-)
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
@@ -43,35 +40,29 @@ from hope_dedup_engine.apps.faces.services.image_processor import (
 
 @pytest.fixture
 def mock_storage_manager(mocker: MockerFixture) -> StorageManager:
-    mocker.patch.object(CV2DNNStorage, "exists", return_value=True)
-    mocker.patch.object(HDEAzureStorage, "exists", return_value=True)
-    mocker.patch.object(HOPEAzureStorage, "exists", return_value=True)
+    mocker.patch.object(FileSystemStorage, "exists", return_value=True)
+    mocker.patch.object(AzureStorage, "exists", return_value=True)
     yield StorageManager()
 
 
 @pytest.fixture
-def mock_hde_azure_storage():
-    return MagicMock(spec=HDEAzureStorage)
+def mock_encoded_azure_storage(mocker: MockerFixture):
+    return MagicMock(spec=AzureStorage)
 
 
 @pytest.fixture
-def mock_hope_azure_storage():
-    return MagicMock(spec=HOPEAzureStorage)
+def mock_hope_azure_storage(mocker: MockerFixture):
+    return MagicMock(spec=AzureStorage)
 
 
 @pytest.fixture
-def mock_dnn_azure_storage():
-    return MagicMock(spec=DNNAzureStorage)
+def mock_dnn_azure_storage(mocker: MockerFixture):
+    return MagicMock(spec=AzureStorage)
 
 
 @pytest.fixture
 def github_dnn_file_downloader():
     return GithubFileDownloader()
-
-
-@pytest.fixture
-def azure_dnn_file_downloader(mock_dnn_azure_storage):
-    return AzureFileDownloader(storage=mock_dnn_azure_storage)
 
 
 @pytest.fixture
@@ -83,6 +74,17 @@ def mock_requests_get():
         ) * DNN_FILE.get("chunks")
         mock_response.raise_for_status = lambda: None
         yield mock_get
+
+
+@pytest.fixture
+def azure_dnn_file_downloader(mocker):
+    downloader = AzureFileDownloader()
+    mocker.patch.object(downloader.remote_storage, "exists", return_value=True)
+    mock_remote_file = MagicMock()
+    mocker.patch.object(
+        downloader.remote_storage, "open", return_value=mock_remote_file
+    )
+    return downloader
 
 
 @pytest.fixture

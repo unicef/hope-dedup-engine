@@ -1,32 +1,31 @@
 x-common: &common
-  image: unicef/hope-dedupe-engine:release-0.1
+  # image: unicef/hope-dedupe-engine:release-0.1
+  image: vitaliyanu/hde:release-0.1
+  platform: linux/amd64
   environment:
-    - ADMIN_EMAIL=adm@hde.org
-    - ADMIN_PASSWORD=adm
-    - CACHE_URL=redis://redis:6379/1?client_class=django_redis.client.DefaultClient
+    - ADMIN_EMAIL=admin@gmail.com
+    - ADMIN_PASSWORD=123
+    - CACHE_URL=redis://redis:6379/1
     - CELERY_BROKER_URL=redis://redis:6379/9
     - CELERY_TASK_ALWAYS_EAGER=False
     - CSRF_COOKIE_SECURE=False
     - DATABASE_URL=postgres://hde:password@db:5432/hope_dedupe_engine
-    - PYTHONPATH=/code/app/src:/code/__pypackages__/3.12/lib
-    - SECRET_KEY=secret
+    - DEFAULT_ROOT=/var/hope_dedupe_engine/default
+    - DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings
+    - FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage?location=/var/hope_dedupe_engine/default
+    - FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - MEDIA_ROOT=/var/hope_dedupe_engine/media
+    - PYTHONPATH=/code/__pypackages__/3.12/lib/
+    - SECRET_KEY=very-secret-key
     - SECURE_SSL_REDIRECT=False
     - SESSION_COOKIE_DOMAIN=
     - SESSION_COOKIE_SECURE=False
     - SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
     - STATIC_ROOT=/var/hope_dedupe_engine/static
-    - AZURE_ACCOUNT_NAME=devstoreaccount1
-    - AZURE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-    - AZURE_CUSTOM_DOMAIN=azurite:10000/devstoreaccount1
-    - AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
-    - CV2DNN_DIR=cv2dnn
-    - DEMO_IMAGES_PATH=demo_images
-    - DNN_FILES_PATH=dnn_files
-    - DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings
   volumes:
-    - cv2dnn_data:/code/cv2dnn
-    - ./demo_images:/code/demo_images
-    - ./dnn_files:/code/dnn_files
+    - ./demo_images:/code/__pypackages__/3.12/tests/extras/demoapp/demo_images
+    - ./dnn_files:/code/__pypackages__/3.12/tests/extras/demoapp/dnn_files
   restart: unless-stopped
   depends_on:
     db:
@@ -49,36 +48,12 @@ services:
     container_name: hde_app
     ports:
       - 8000:8000
-    command: >
-      /bin/sh -c "
-      chown -R user:app /code/cv2dnn && 
-      django-admin demo && 
-      exec docker-entrypoint.sh run
-      "
+    command: run
     healthcheck:
-      # test: ["CMD", "echo > /dev/tcp/localhost/8000"]
       test: ["CMD", "pidof", "uwsgi"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  celery_worker:
-    <<: *celery
-    container_name: hde_worker
-    command: >
-      /bin/sh -c "
-      chown -R user:app /code/cv2dnn && 
-      exec docker-entrypoint.sh worker
-      "
-
-  celery_beat:
-    <<: *celery
-    container_name: hde_beat
-    command: >
-      /bin/sh -c "
-      chown -R user:app /code/cv2dnn && 
-      exec docker-entrypoint.sh beat
-      "
 
   db:
     image: postgres:16
@@ -124,8 +99,21 @@ services:
     volumes:
       - azurite_data:/workspace
 
+  celery_worker:
+    <<: *celery
+    container_name: hde_worker
+    command: >
+      /bin/sh -c "
+        django-admin demo &&
+        docker-entrypoint.sh worker
+      "
+
+  celery_beat:
+    <<: *celery
+    container_name: hde_beat
+    command: beat
+
+
 volumes:
   azurite_data:
-  cv2dnn_data:
   postgres_data:
-  static_storage:

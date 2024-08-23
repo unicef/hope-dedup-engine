@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     ]
 
 
-DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.0/ref/settings"
+DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.1/ref/settings"
 
 
 def setting(anchor: str) -> str:
@@ -105,7 +105,12 @@ CONFIG: "Dict[str, ConfigItem]" = {
     ),
     "FILE_STORAGE_HOPE": (
         str,
-        "django.core.files.storage.FileSystemStorage",
+        "storages.backends.azure_storage.AzureStorage",
+        setting("storages"),
+    ),
+    "FILE_STORAGE_DNN": (
+        str,
+        "storages.backends.azure_storage.AzureStorage",
         setting("storages"),
     ),
     "LOG_LEVEL": (str, "CRITICAL", setting("logging")),
@@ -145,11 +150,8 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "STATIC_ROOT": (str, "", setting("static-root")),
     "STATIC_URL": (str, "/static/", setting("static-url")),
     "TIME_ZONE": (str, "UTC", setting("std-setting-TIME_ZONE")),
-    "AZURE_ACCOUNT_NAME": (str, ""),
-    "AZURE_ACCOUNT_KEY": (str, ""),
-    "AZURE_CUSTOM_DOMAIN": (str, ""),
-    "AZURE_CONNECTION_STRING": (str, ""),
-    "CV2DNN_DIR": (str, "cv2dnn"),
+    "DEMO_IMAGES_PATH": (str, "demo_images"),
+    "DNN_FILES_PATH": (str, "dnn_files"),
 }
 
 

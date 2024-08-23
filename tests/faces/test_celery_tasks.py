@@ -4,7 +4,7 @@ from unittest.mock import ANY, patch
 import pytest
 from celery import states
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
-from constance import settings, test
+from constance import test
 from faces_const import (
     CELERY_TASK_DELAYS,
     CELERY_TASK_NAME,
@@ -90,35 +90,20 @@ def test_deduplicate_task_exception_handling(
 
 
 @pytest.mark.parametrize(
-    "force, file_exists, expected_call_count, result",
+    "force, source",
     [
-        (False, False, 2, True),
-        (False, True, 0, False),
-        (True, False, 2, True),
-        (True, True, 2, True),
+        (False, "github"),
+        (True, "github"),
+        (False, "azure"),
+        (True, "azure"),
     ],
 )
-def test_sync_dnn_files_success(
-    mock_file_sync_manager, force, file_exists, expected_call_count, result
-):
+def test_sync_dnn_files_success(mock_file_sync_manager, force, source):
     mock_file_sync_manager.downloader.sync.return_value = True
-    sources = [
-        ch[0]
-        for ch in settings.ADDITIONAL_FIELDS.get("dnn_files_source")[1].get("choices")
-    ]
-    for choice in sources:
-        with test.pytest.override_config(DNN_FILES_SOURCE=choice):
-            with patch(
-                "hope_dedup_engine.apps.faces.celery_tasks.Path.exists",
-                return_value=file_exists,
-            ):
-                is_downloaded = sync_dnn_files(force=force)
-
-    assert is_downloaded is result
-    assert (
-        mock_file_sync_manager.downloader.sync.call_count
-        == expected_call_count * len(sources)
-    )
+    with test.pytest.override_config(DNN_FILES_SOURCE=source):
+        is_downloaded = sync_dnn_files(force=force)
+        assert is_downloaded is True
+        assert mock_file_sync_manager.downloader.sync.call_count == 2
 
 
 def test_sync_dnn_files_exception_handling(mock_file_sync_manager):

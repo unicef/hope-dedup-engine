@@ -220,7 +220,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
 )
 def test_find_duplicates_successful(
     mock_dd,
-    mock_hde_azure_storage,
+    mock_encoded_azure_storage,
     mock_hope_azure_storage,
     image_bytes_io,
     has_encodings,
@@ -232,7 +232,7 @@ def test_find_duplicates_successful(
             mock_dd.storages,
             "get_storage",
             side_effect=lambda key: {
-                "encoded": mock_hde_azure_storage,
+                "encoded": mock_encoded_azure_storage,
                 "images": mock_hope_azure_storage,
             }[key],
         ),
@@ -277,7 +277,7 @@ def test_find_duplicates_successful(
 
 
 def test_find_duplicates_exception_handling(
-    mock_dd, mock_hope_azure_storage, mock_hde_azure_storage, image_bytes_io
+    mock_dd, mock_hope_azure_storage, mock_encoded_azure_storage, image_bytes_io
 ):
     with (
         pytest.raises(Exception, match="Test exception"),
@@ -285,7 +285,7 @@ def test_find_duplicates_exception_handling(
             mock_dd.storages,
             "get_storage",
             side_effect=lambda key: {
-                "encoded": mock_hde_azure_storage,
+                "encoded": mock_encoded_azure_storage,
                 "images": mock_hope_azure_storage,
             }[key],
         ),

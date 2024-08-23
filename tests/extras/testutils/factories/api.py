@@ -22,7 +22,6 @@ class TokenFactory(DjangoModelFactory):
 
 
 class DeduplicationSetFactory(DjangoModelFactory):
-    name = fuzzy.FuzzyText()
     reference_pk = fuzzy.FuzzyText()
     external_system = SubFactory(ExternalSystemFactory)
     state = DeduplicationSet.State.CLEAN
