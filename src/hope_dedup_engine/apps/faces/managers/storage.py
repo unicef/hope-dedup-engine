@@ -1,11 +1,9 @@
 from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 
-from hope_dedup_engine.apps.core.storage import (
-    CV2DNNStorage,
-    HDEAzureStorage,
-    HOPEAzureStorage,
-)
-from hope_dedup_engine.apps.faces.exceptions import StorageKeyError
+from storages.backends.azure_storage import AzureStorage
+
+from hope_dedup_engine.apps.core.exceptions import StorageKeyError
 
 
 class StorageManager:
@@ -20,21 +18,22 @@ class StorageManager:
         Raises:
             FileNotFoundError: If any of the required DNN model files do not exist in the storage.
         """
-        self.storages: dict[str, HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage] = {
-            "images": HOPEAzureStorage(),
-            "cv2dnn": CV2DNNStorage(settings.CV2DNN_DIR),
-            "encoded": HDEAzureStorage(),
+        self.storages: dict[str, AzureStorage | FileSystemStorage] = {
+            "cv2": FileSystemStorage(**settings.STORAGES.get("default").get("OPTIONS")),
+            "encoded": FileSystemStorage(
+                **settings.STORAGES.get("default").get("OPTIONS")
+            ),
+            "images": AzureStorage(**settings.STORAGES.get("hope").get("OPTIONS")),
         }
+
         for file in (
             settings.DNN_FILES.get("prototxt").get("filename"),
             settings.DNN_FILES.get("caffemodel").get("filename"),
         ):
-            if not self.storages.get("cv2dnn").exists(file):
+            if not self.storages.get("cv2").exists(file):
                 raise FileNotFoundError(f"File {file} does not exist in storage.")
 
-    def get_storage(
-        self, key: str
-    ) -> HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage:
+    def get_storage(self, key: str) -> AzureStorage | FileSystemStorage:
         """
         Get the storage object for the given key.
 
@@ -42,7 +41,7 @@ class StorageManager:
             key (str): The key associated with the desired storage backend.
 
         Returns:
-            HOPEAzureStorage | CV2DNNStorage | HDEAzureStorage: The storage object associated with the given key.
+            AzureStorage | FileSystemStorage: The storage object associated with the given key.
 
         Raises:
             StorageKeyError: If the given key does not exist in the storages dictionary.

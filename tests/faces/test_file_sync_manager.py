@@ -1,6 +1,6 @@
 import pytest
 
-from hope_dedup_engine.apps.faces.exceptions import DownloaderKeyError
+from hope_dedup_engine.apps.core.exceptions import DownloaderKeyError
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,

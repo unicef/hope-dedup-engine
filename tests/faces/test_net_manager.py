@@ -4,7 +4,7 @@ from hope_dedup_engine.apps.faces.managers import DNNInferenceManager
 
 
 def test_successful(mock_storage_manager, mock_net_manager):
-    dnn_manager = DNNInferenceManager(mock_storage_manager.storages["cv2dnn"])
+    dnn_manager = DNNInferenceManager(mock_storage_manager.storages["cv2"])
     mock_net_manager.setPreferableBackend.assert_called_once_with(
         int(config.DNN_BACKEND)
     )

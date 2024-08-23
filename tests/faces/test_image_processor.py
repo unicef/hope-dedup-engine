@@ -52,6 +52,7 @@ def test_get_shape_valid(mock_prototxt_file):
         config = BlobFromImageConfig(
             scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
             mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+            prototxt_path="test.prototxt",
         )
         shape = config._get_shape()
         assert shape == DEPLOY_PROTO_SHAPE
@@ -63,6 +64,7 @@ def test_get_shape_invalid():
             BlobFromImageConfig(
                 scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
                 mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+                prototxt_path="test.prototxt",
             )
 
 
@@ -94,6 +96,22 @@ def test_get_face_detections_dnn_no_detections(mock_image_processor):
     ):
         face_regions = mock_image_processor._get_face_detections_dnn()
         assert len(face_regions) == 0
+
+
+def test_get_face_detections_dnn_exception(
+    mock_image_processor, mock_open_context_manager
+):
+    with (
+        patch.object(
+            mock_image_processor.storages.get_storage("images"),
+            "open",
+            return_value=mock_open_context_manager,
+        ),
+        patch.object(mock_open_context_manager, "read", return_value=b"fake_data"),
+        patch("cv2.imdecode", side_effect=TypeError("Test exception")),
+    ):
+        with pytest.raises(TypeError, match="Test exception"):
+            mock_image_processor._get_face_detections_dnn(FILENAME)
 
 
 @pytest.mark.parametrize("face_regions", (FACE_REGIONS_VALID, FACE_REGIONS_INVALID))

@@ -10,24 +10,27 @@ logger = logging.getLogger(__name__)
 
 
 class AzuriteManager:  # pragma: no cover
-    def __init__(self, container_name: str) -> None:
+    def __init__(self, storage_name: str) -> None:
         """
-        Initializes the AzuriteManager with the specified container and source path.
+        Initializes the AzuriteManager with the specified storage configuration.
 
         Args:
-            container_name (str): The name of the Azure Blob Storage container.
+            storage_name (str): The name of the storage configuration as defined in settings.STORAGES.
         """
-        self.service_client: BlobServiceClient = (
-            BlobServiceClient.from_connection_string(settings.AZURE_CONNECTION_STRING)
-        )
+        storage = settings.STORAGES.get(storage_name).get("OPTIONS", {})
         self.container_client: ContainerClient = (
-            self.service_client.get_container_client(container_name)
+            BlobServiceClient.from_connection_string(
+                storage.get("connection_string")
+            ).get_container_client(storage.get("azure_container"))
         )
         self._create_container()
 
     def _create_container(self) -> None:
         """
-        Creates the container if it does not already exist.
+        Creates container if it does not already exist.
+
+        Raises:
+            Exception: If the container creation fails for any reason.
         """
         try:
             if not self.container_client.exists():

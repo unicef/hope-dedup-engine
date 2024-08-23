@@ -1,5 +1,4 @@
 import traceback
-from pathlib import Path
 
 from django.conf import settings
 
@@ -44,27 +43,29 @@ def deduplicate(
 @shared_task(bind=True)
 def sync_dnn_files(self: Task, force: bool = False) -> bool:
     """
-    Synchronizes DNN model files from the specified source to the local file system. It
-    downloads the files if they do not exist locally.
+    A Celery task that synchronizes DNN files from the specified source to local storage.
 
     Args:
-        self (Task): The Celery task instance.
+        self (Task): The bound Celery task instance.
+        force (bool): If True, forces the re-download of files even if they already exist locally. Defaults to False.
 
     Returns:
-        bool: True if all files are present and correctly synchronized, False otherwise.
-        force (bool): If True, files will be downloaded regardless of their presence.
+        bool: True if all files were successfully synchronized, False otherwise.
 
     Raises:
-        Exception: If any error occurs during the file synchronization,
-                   the exception is raised after updating the task state to FAILURE.
+        Exception: If any error occurs during the synchronization process. The task state is updated to FAILURE,
+                   and the exception is re-raised with the associated traceback.
     """
+
     try:
         downloader = FileSyncManager(config.DNN_FILES_SOURCE).downloader
         return all(
-            (not Path(info["local_path"]).exists() or force)
-            and downloader.sync(
-                info.get("sources").get(config.DNN_FILES_SOURCE),
-                Path(info.get("local_path")),
+            (
+                downloader.sync(
+                    info.get("filename"),
+                    info.get("sources").get(config.DNN_FILES_SOURCE),
+                    force=force,
+                )
             )
             for _, info in settings.DNN_FILES.items()
         )
