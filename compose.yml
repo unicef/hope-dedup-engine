@@ -42,6 +42,7 @@ services:
     <<: *common
     ports:
       - 8000:8000
+    # command: ["tail", "-f", "/dev/null"]
     command: >
       /bin/sh -c "
       django-admin upgrade &&
@@ -97,6 +98,7 @@ services:
 
   celery-worker:
     <<: *common
+    # command: worker
     command: >
       /bin/sh -c "
       export C_FORCE_ROOT=1 &&
@@ -105,27 +107,18 @@ services:
 
   celery-beat:
     <<: *common
-    command: >
-      /bin/sh -c "
-      exec celery -A hope_dedup_engine.config.celery beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
-      "
+    entrypoint: ["sh", "-c", "exec docker-entrypoint.sh \"$0\" \"$@\""]
+    command: beat
 
-  # celery-flower:
-  #   <<: *common
-  #   ports:
-  #     - 5555:5555
-  #   command: >
-  #     /bin/sh -c "
-  #     exec celery flower -A hope_dedup_engine.config.celery --address=0.0.0.0
-  #     "
-
-
-  flower:
+  celery-flower:
     <<: *common
-    container_name: hde_flower
-    command: ["celery", "flower", "-A", "hope_dedup_engine.config.celery", "--address=0.0.0.0", "--broker=redis://redis:6379/9"]
     ports:
       - 5555:5555
+    command: >
+      /bin/sh -c "
+      exec celery -A hope_dedup_engine.config.celery flower --address=0.0.0.0
+      "
+
 
 volumes:
   azurite_data:
