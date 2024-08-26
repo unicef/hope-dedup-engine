@@ -113,6 +113,15 @@ services:
     container_name: hde_beat
     command: beat
 
+  celery-flower:
+    <<: *celery
+    ports:
+      - 5555:5555
+    command: >
+      /bin/sh -c "
+      exec celery -A hope_dedup_engine.config.celery flower --address=0.0.0.0
+      "
+
 
 volumes:
   azurite_data:
