@@ -1,6 +1,5 @@
 x-common: &common
-  # image: unicef/hope-dedupe-engine:release-0.1
-  image: vitaliyanu/hde:release-0.1
+  image: unicef/hope-dedupe-engine:release-0.1
   platform: linux/amd64
   environment:
     - ADMIN_EMAIL=admin@gmail.com
@@ -112,6 +111,15 @@ services:
     <<: *celery
     container_name: hde_beat
     command: beat
+
+  celery-flower:
+    <<: *celery
+    ports:
+      - 5555:5555
+    command: >
+      /bin/sh -c "
+      exec celery -A hope_dedup_engine.config.celery flower --address=0.0.0.0
+      "
 
 
 volumes:
