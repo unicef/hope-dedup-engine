@@ -27,6 +27,7 @@ case "$1" in
       exit 0
       ;;
     worker)
+      gosu user:app django-admin syncdnn
 	    set -- tini -- "$@"
       set -- gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
       ;;

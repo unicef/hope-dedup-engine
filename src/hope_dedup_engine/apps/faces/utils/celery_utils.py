@@ -3,15 +3,13 @@ import logging
 from functools import wraps
 from typing import Any
 
-from django.conf import settings
-
-import redis
+from django.core.cache import cache
 
 from hope_dedup_engine.apps.faces.services.duplication_detector import (
     DuplicationDetector,
 )
 
-redis_client = redis.Redis.from_url(settings.CELERY_BROKER_URL)
+redis_client = cache._cache.get_client()
 
 
 def task_lifecycle(name: str, ttl: int) -> callable:

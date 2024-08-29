@@ -2,7 +2,7 @@ x-common: &common
   image: unicef/hope-dedupe-engine:release-0.1
   platform: linux/amd64
   environment:
-    - ADMIN_EMAIL=admin@gmail.com
+    - ADMIN_EMAIL=adm@hde.org
     - ADMIN_PASSWORD=123
     - CACHE_URL=redis://redis:6379/1
     - CELERY_BROKER_URL=redis://redis:6379/9

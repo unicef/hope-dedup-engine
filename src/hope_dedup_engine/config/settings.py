@@ -62,7 +62,6 @@ AUTHENTICATION_BACKENDS = (
     *env("AUTHENTICATION_BACKENDS"),
 )
 
-
 # path
 MEDIA_ROOT = env("MEDIA_ROOT")
 MEDIA_URL = env("MEDIA_URL")
@@ -88,6 +87,8 @@ STORAGES = {
     # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
     "dnn": env.storage("FILE_STORAGE_DNN"),
 }
+DEFAULT_ROOT = env("DEFAULT_ROOT")
+STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
