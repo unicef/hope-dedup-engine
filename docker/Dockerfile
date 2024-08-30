@@ -213,7 +213,8 @@ COPY --chown=user:app --from=python_prod_deps /code/README.md /code/LICENSE /
 ENV PATH=${APATH}:${PATH} \
     PYTHONPATH=${APYTHONPATH} \
     PYTHONDBUFFERED=1 \
-    PYTHONDONTWRITEBYTCODE=1
+    PYTHONDONTWRITEBYTCODE=1 \
+    DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings"
 
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
