@@ -1,7 +1,9 @@
 from io import BytesIO
 from unittest.mock import MagicMock, mock_open, patch
 
+from django.contrib.auth import get_user_model
 from django.core.files.storage import FileSystemStorage
+from django.test import Client
 
 import cv2
 import numpy as np
@@ -204,3 +206,18 @@ def mock_file_sync_manager():
         mock_downloader = MagicMock()
         mock_manager_instance.downloader = mock_downloader
         yield mock_manager_instance
+
+
+@pytest.fixture
+def admin_user(db):
+    User = get_user_model()
+    return User.objects.create_superuser(
+        username="admin", password="admin", email="admin@example.com"
+    )
+
+
+@pytest.fixture
+def client(admin_user):
+    client = Client()
+    client.force_login(admin_user)
+    return client

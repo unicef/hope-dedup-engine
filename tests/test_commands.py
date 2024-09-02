@@ -18,6 +18,7 @@ def environment():
         "CELERY_BROKER_URL": "",
         "DATABASE_URL": "",
         "SECRET_KEY": "",
+        "DEFAULT_ROOT": "/tmp/default",
         "MEDIA_ROOT": "/tmp/media",
         "STATIC_ROOT": "/tmp/static",
         "SECURE_SSL_REDIRECT": "1",

@@ -29,6 +29,7 @@ EXPLICIT_SET = [
     "CELERY_BROKER_URL",
     "MEDIA_ROOT",
     "STATIC_ROOT",
+    "DEFAULT_ROOT",
 ]
 
 CONFIG: "Dict[str, ConfigItem]" = {
@@ -67,6 +68,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "postgres://127.0.0.1:5432/dedupe",
     ),
     "DEBUG": (bool, False, setting("debug"), True),
+    "DEFAULT_ROOT": (str, "", "Default root for stored locally files"),
     "EMAIL_BACKEND": (
         str,
         "django.core.mail.backends.smtp.EmailBackend",
@@ -87,7 +89,6 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "EMAIL_USE_TLS": (bool, False, setting("email-use-tls"), True),
     "EMAIL_USE_SSL": (bool, False, setting("email-use-ssl"), True),
     "EMAIL_TIMEOUT": (str, None, setting("email-timeout"), True),
-    "LOGGING_LEVEL": (str, "CRITICAL", setting("logging-level")),
     "FILE_STORAGE_DEFAULT": (
         str,
         "django.core.files.storage.FileSystemStorage",
@@ -114,6 +115,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
         setting("storages"),
     ),
     "LOG_LEVEL": (str, "CRITICAL", setting("logging")),
+    "LOGGING_LEVEL": (str, "CRITICAL", setting("logging-level")),
     "MEDIA_ROOT": (str, None, setting("media-root")),
     "MEDIA_URL": (str, "/media/", setting("media-url")),
     "ROOT_TOKEN": (str, "", ""),

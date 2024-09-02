@@ -12,7 +12,7 @@ CONSTANCE_CONFIG = {
         str,
     ),
     "DNN_FILES_SOURCE": (
-        "github",
+        "azure",
         "Specifies the source from which to download the DNN model files.",
         "dnn_files_source",
     ),
@@ -123,7 +123,8 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "dnn_files_source": [
         "django.forms.ChoiceField",
         {
-            "choices": (("github", "GITHUB"), ("azure", "AZURE")),
+            # "choices": (("github", "GITHUB"), ("azure", "AZURE")),
+            "choices": (("azure", "AZURE"),),
         },
     ],
     "dnn_backend": [

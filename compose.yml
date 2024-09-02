@@ -6,7 +6,7 @@ x-common: &common
   platform: linux/amd64
   environment:
     - DEBUG=true
-    - ADMIN_EMAIL=admin@gmail.com
+    - ADMIN_EMAIL=adm@hde.org
     - ADMIN_PASSWORD=123
     - CACHE_URL=redis://redis:6379/1
     - CELERY_BROKER_URL=redis://redis:6379/9
@@ -15,7 +15,7 @@ x-common: &common
     - DATABASE_URL=postgres://hde:password@db:5432/hope_dedupe_engine
     - DEFAULT_ROOT=/var/hope_dedupe_engine/default
     - DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings
-    - FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage?location=/var/hope_dedupe_engine/default
+    - FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage
     - FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     - FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     - MEDIA_ROOT=/var/hope_dedupe_engine/media
@@ -98,12 +98,15 @@ services:
 
   celery-worker:
     <<: *common
-    # command: worker
-    command: >
-      /bin/sh -c "
-      export C_FORCE_ROOT=1 &&
-      exec celery -A hope_dedup_engine.config.celery worker -E --loglevel=INFO --concurrency=4
-      "
+    entrypoint: ["sh", "-c", "exec docker-entrypoint.sh \"$0\" \"$@\""]
+    command: worker
+    # command: >
+    #   sh -c '
+    #   mkdir -p /var/hope_dedupe_engine/default &&
+    #   chown -R user:app /var/hope_dedupe_engine &&
+    #   gosu user:app django-admin syncdnn &&
+    #   gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=INFO --concurrency=4
+    #   '
 
   celery-beat:
     <<: *common
@@ -115,7 +118,7 @@ services:
     ports:
       - 5555:5555
     command: >
-      /bin/sh -c "
+      sh -c "
       exec celery -A hope_dedup_engine.config.celery flower --address=0.0.0.0
       "
 
