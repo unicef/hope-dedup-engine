@@ -30,6 +30,9 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     Image,
 )
 from hope_dedup_engine.apps.api.serializers import (
+    CreateDeduplicationSetSerializer,
+    CreateIgnoredKeyPairSerializer,
+    CreateImageSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
@@ -39,17 +42,7 @@ from hope_dedup_engine.apps.api.serializers import (
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
 
 
-# drf-spectacular uses first non-empty docstring it finds in class mro. When there is no docstring in view class and
-# we are using base classes from drf-nested-routers we get documentation for typing.Generic class as resource
-# documentation. With the &nbsp; HTML entity we get an empty description for resource, but it looks a little bit
-# different when compared with "real" empty description. So we use this base class for all views to have the same look
-# for view classes with empty docstrings and different base classes.
-class EmptyDocString:
-    """&nbsp;"""
-
-
 class DeduplicationSetViewSet(
-    EmptyDocString,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -81,15 +74,37 @@ class DeduplicationSetViewSet(
         instance.save()
         delete_model_data(instance)
 
-    @extend_schema(request=EmptySerializer, responses=EmptySerializer)
+    @extend_schema(
+        request=EmptySerializer,
+        responses=EmptySerializer,
+        description="Run duplicate search process for the deduplication set",
+    )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
         start_processing(DeduplicationSet.objects.get(pk=pk))
         return Response({"message": "started"})
 
+    @extend_schema(description="List all deduplication sets available to the user")
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=CreateDeduplicationSetSerializer,
+        description="Create new deduplication set",
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(description="Retrieve specific deduplication set")
+    def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(description="Delete specific deduplication set")
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().destroy(request, *args, **kwargs)
+
 
 class ImageViewSet(
-    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Image],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -122,6 +137,20 @@ class ImageViewSet(
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
+    @extend_schema(description="List all images for the deduplication set")
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=CreateImageSerializer, description="Add image to the deduplication set"
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(description="Delete image from the deduplication set")
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().destroy(request, *args, **kwargs)
+
 
 @dataclass
 class ListDataWrapper:
@@ -153,7 +182,6 @@ class UnwrapRequestDataMixin:
 # drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
 # UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkImageViewSet(
-    EmptyDocString,
     UnwrapRequestDataMixin,
     nested_viewsets.NestedViewSetMixin[Image],
     WrapRequestDataMixin,
@@ -183,6 +211,7 @@ class BulkImageViewSet(
             deduplication_set.updated_by = self.request.user
             deduplication_set.save()
 
+    @extend_schema(description="Delete all images from deduplication set")
     @action(detail=False, methods=(HTTPMethod.DELETE,))
     def clear(self, request: Request, deduplication_set_pk: str) -> Response:
         deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
@@ -191,9 +220,15 @@ class BulkImageViewSet(
         deduplication_set.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        request=CreateImageSerializer(many=True),
+        description="Add multiple images to the deduplication set",
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().create(request, *args, **kwargs)
+
 
 class DuplicateViewSet(
-    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[Duplicate],
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
@@ -210,9 +245,12 @@ class DuplicateViewSet(
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
+    @extend_schema(description="List all duplicates found in the deduplication set")
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(request, *args, **kwargs)
+
 
 class IgnoredKeyPairViewSet(
-    EmptyDocString,
     nested_viewsets.NestedViewSetMixin[IgnoredKeyPair],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -236,3 +274,14 @@ class IgnoredKeyPairViewSet(
         deduplication_set.state = DeduplicationSet.State.DIRTY
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
+
+    @extend_schema(description="List all ignored key pairs for the deduplication set")
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=CreateIgnoredKeyPairSerializer,
+        description="Add ignored key pair for the deduplication set",
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().create(request, *args, **kwargs)
