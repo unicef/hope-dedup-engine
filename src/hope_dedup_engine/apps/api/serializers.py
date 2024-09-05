@@ -26,6 +26,12 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
         )
 
 
+class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeduplicationSet
+        fields = ("reference_pk", "notification_url")
+
+
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
@@ -38,6 +44,15 @@ class ImageSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = "created_by", "created_at"
+
+
+class CreateImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = (
+            "reference_pk",
+            "filename",
+        )
 
 
 class EntrySerializer(serializers.Serializer):
@@ -64,6 +79,12 @@ class IgnoredKeyPairSerializer(serializers.ModelSerializer):
     class Meta:
         model = IgnoredKeyPair
         fields = "__all__"
+
+
+class CreateIgnoredKeyPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredKeyPair
+        fields = ("first_reference_pk", "second_reference_pk")
 
 
 class EmptySerializer(serializers.Serializer):
