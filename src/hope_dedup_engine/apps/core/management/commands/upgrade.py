@@ -26,7 +26,7 @@ class Command(BaseCommand):
             "--with-check",
             action="store_true",
             dest="check",
-            default=False,
+            default=True,
             help="Run checks",
         )
         parser.add_argument(

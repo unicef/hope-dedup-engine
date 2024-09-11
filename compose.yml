@@ -45,8 +45,8 @@ services:
     # command: ["tail", "-f", "/dev/null"]
     command: >
       /bin/sh -c "
+      django-admin demo --skip-checks &&
       django-admin upgrade &&
-      django-admin demo &&
       django-admin runserver 0.0.0.0:8000
       "
     healthcheck:

@@ -47,7 +47,12 @@ services:
     container_name: hde_app
     ports:
       - 8000:8000
-    command: run
+    command: >
+      /bin/sh -c "
+        django-admin demo --skip-checks &&
+        docker-entrypoint.sh run
+      "
+
     healthcheck:
       test: ["CMD", "pidof", "uwsgi"]
       interval: 10s
@@ -101,11 +106,7 @@ services:
   celery_worker:
     <<: *celery
     container_name: hde_worker
-    command: >
-      /bin/sh -c "
-        django-admin demo &&
-        docker-entrypoint.sh worker
-      "
+    command: worker
 
   celery_beat:
     <<: *celery

@@ -41,8 +41,8 @@ dependencies = [
     "requests>=2.32.3",
     "numpy>=1.26.4,<2.0.0",
     "flower>=2.0.1",
+    "setuptools>=74.1.2",
 ]
-
 
 [build-system]
 requires = ["pdm-backend"]
