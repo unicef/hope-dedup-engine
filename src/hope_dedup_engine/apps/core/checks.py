@@ -20,18 +20,18 @@ class ErrorCode:
 class StorageErrorCodes:  # pragma: no cover
     ENVIRONMENT_NOT_CONFIGURED = ErrorCode(
         id="hde.storage.E001",
-        message="Environment variable '{storage}' is improperly configured.",
-        hint="Set the environment variable '{storage}'.",
-    )
-    FILE_NOT_FOUND = ErrorCode(
-        id="hde.storage.E002",
-        message="File '{filename}' not found in {storage_name} Azure storage.",
-        hint="Check that the file '{filename}' exists in the storage.",
+        message="The environment variable '{storage}' is missing or improperly defined.",
+        hint="Set the environment variable '{storage}'.\n\tExample: {storage}=storages.backends.azure_storage.AzureStorage?account_name=<name>&account_key=<key>&azure_container=<container>&overwrite_files=True",  # noqa: E501
     )
     STORAGE_CHECK_FAILED = ErrorCode(
+        id="hde.storage.E002",
+        message="Failed to access Azure storage due to incorrect data in the '{storage_name}' environment variable.",
+        hint="Verify the '{storage_name}' variable and ensure that the provided parameters are accurate.\n\tExample: {storage_name}=storages.backends.azure_storage.AzureStorage?account_name=<name>&account_key=<key>&azure_container=<container>&overwrite_files=True",  # noqa: E501
+    )
+    FILE_NOT_FOUND = ErrorCode(
         id="hde.storage.E003",
-        message="Error while checking Azure storage: {storage_name}.",
-        hint="Check the {storage_name} storage settings.",
+        message="The file '{filename}' could not be found in the Azure storage specified by the environment variable '{storage_name}'.",  # noqa: E501
+        hint="Ensure that the file '{filename}' exists in the storage. For details, refer to the documentation.",
     )
 
 
@@ -101,7 +101,7 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
                                     hint=StorageErrorCodes.FILE_NOT_FOUND.hint.format(
                                         filename=filename
                                     ),
-                                    obj=f"{storage_name}/{filename}",
+                                    obj=filename,
                                     id=StorageErrorCodes.FILE_NOT_FOUND.id,
                                 )
                             )
