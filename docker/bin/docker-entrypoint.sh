@@ -19,11 +19,12 @@ fi
 echo "MEDIA_ROOT  ${MEDIA_ROOT}"
 echo "STATIC_ROOT ${STATIC_ROOT}"
 echo "DEFAULT_ROOT  ${DEFAULT_ROOT}"
+echo "Docker run command: $1"
 
 case "$1" in
     setup)
       django-admin check --deploy
-      django-admin upgrade
+      django-admin upgrade --no-static
       exit 0
       ;;
     worker)
@@ -37,7 +38,7 @@ case "$1" in
       ;;
     run)
       django-admin check --deploy || exit 1
-      django-admin upgrade || exit 1
+      django-admin upgrade --no-static || exit 1
 	    set -- tini -- "$@"
   		set -- gosu user:app uwsgi --ini /conf/uwsgi.ini
 	    ;;
