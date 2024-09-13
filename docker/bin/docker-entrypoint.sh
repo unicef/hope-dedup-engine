@@ -27,7 +27,7 @@ case "$1" in
       exit 0
       ;;
     worker)
-      gosu user:app django-admin syncdnn
+      gosu user:app django-admin syncdnn || exit 1
 	    set -- tini -- "$@"
       set -- gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
       ;;
@@ -36,8 +36,8 @@ case "$1" in
       set -- gosu user:app celery -A hope_dedup_engine.config.celery beat --loglevel=ERROR --scheduler django_celery_beat.schedulers:DatabaseScheduler
       ;;
     run)
-      django-admin check --deploy
-      django-admin upgrade
+      django-admin check --deploy || exit 1
+      django-admin upgrade || exit 1
 	    set -- tini -- "$@"
   		set -- gosu user:app uwsgi --ini /conf/uwsgi.ini
 	    ;;
