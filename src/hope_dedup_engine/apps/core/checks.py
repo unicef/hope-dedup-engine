@@ -52,7 +52,7 @@ def example_check(app_configs, **kwargs: Any):
     return errors
 
 
-@register()
+@register(deploy=True)
 def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: no cover
     """
     Checks if the necessary environment variables for Azure storage are configured
@@ -66,7 +66,12 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
         list[Error]: A list of Django Error objects, reporting missing environment variables,
                      missing files, or errors while accessing Azure storage containers.
     """
-    storages = ("FILE_STORAGE_DNN", "FILE_STORAGE_HOPE")
+    storages = (
+        "FILE_STORAGE_DNN",
+        "FILE_STORAGE_HOPE",
+        "FILE_STORAGE_STATIC",
+        "FILE_STORAGE_MEDIA",
+    )
 
     errors = [
         Error(
@@ -88,8 +93,9 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
         if options:
             try:
                 storage = AzureStorage(**options)
-                _, files = storage.listdir()
+                storage.client.exists()
                 if storage_name == "FILE_STORAGE_DNN":
+                    _, files = storage.listdir()
                     for _, info in settings.DNN_FILES.items():
                         filename = info.get("filename")
                         if filename not in files:

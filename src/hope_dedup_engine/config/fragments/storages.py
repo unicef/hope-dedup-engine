@@ -2,7 +2,7 @@ from typing import Final
 
 DNN_FILES: Final[dict[str, dict[str, str]]] = {
     "prototxt": {
-        "filename": "deploy.prototxt",
+        "filename": "deploy.prototxt.txt",
         "sources": {
             "github": "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt",  # noqa: E501
             "azure": "deploy.prototxt",

@@ -183,8 +183,10 @@ class SmartEnv(Env):
             return None
         options = {}
         if "?" in raw_value:
-            value, options = raw_value.split("?", 1)
-            options = dict(parse.parse_qsl(options))
+            value, args = raw_value.split("?", 1)
+            for entry in args.split("&"):
+                k, v = entry.split("=", 1)
+                options[k] = v
         else:
             value = raw_value
 
