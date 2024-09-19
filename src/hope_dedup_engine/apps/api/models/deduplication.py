@@ -1,4 +1,4 @@
-from typing import Any, override
+from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
@@ -6,7 +6,7 @@ from django.db import models
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
 
-REFERENCE_PK_LENGTH = 100
+REFERENCE_PK_LENGTH: Final[int] = 100
 
 
 class DeduplicationSet(models.Model):
@@ -24,6 +24,10 @@ class DeduplicationSet(models.Model):
         ERROR = 3, "Error"  # Error occurred
 
     id = models.UUIDField(primary_key=True, default=uuid4)
+    name = models.CharField(
+        max_length=128, unique=True, null=True, blank=True, db_index=True
+    )
+    description = models.TextField(null=True, blank=True)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(
         choices=State.choices,
@@ -31,7 +35,6 @@ class DeduplicationSet(models.Model):
     )
     deleted = models.BooleanField(null=False, blank=False, default=False)
     external_system = models.ForeignKey(ExternalSystem, on_delete=models.CASCADE)
-    error = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -49,6 +52,9 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"ID: {self.pk}" if not self.name else f"{self.name}"
 
 
 class Image(models.Model):
