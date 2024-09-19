@@ -5,12 +5,6 @@ from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
-    "NEW_USER_DEFAULT_GROUP": (
-        DEFAULT_GROUP_NAME,
-        "Group to assign to any new user",
-        str,
-    ),
     "DNN_FILES_SOURCE": (
         "azure",
         "Specifies the source from which to download the DNN model files.",
@@ -90,14 +84,26 @@ CONSTANCE_CONFIG = {
         """,
         float,
     ),
+    "DEDUPLICATION_SET_LOCK_ENABLED": (
+        True,
+        "Enable or disable the lock mechanism for deduplication sets",
+        bool,
+    ),
+    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT": (
+        120,
+        "Timeout in seconds for the last action on a deduplication set",
+        int,
+    ),
+    "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
+    "NEW_USER_DEFAULT_GROUP": (
+        DEFAULT_GROUP_NAME,
+        "Group to assign to any new user",
+        str,
+    ),
 }
 
 
 CONSTANCE_CONFIG_FIELDSETS = {
-    "User settings": {
-        "fields": ("NEW_USER_IS_STAFF", "NEW_USER_DEFAULT_GROUP"),
-        "collapse": False,
-    },
     "Face recognition settings": {
         "fields": (
             "DNN_FILES_SOURCE",
@@ -111,6 +117,17 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "FACE_ENCODINGS_MODEL",
             "FACE_DISTANCE_THRESHOLD",
         ),
+        "collapse": False,
+    },
+    "Task lock settings": {
+        "fields": (
+            "DEDUPLICATION_SET_LOCK_ENABLED",
+            "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT",
+        ),
+        "collapse": False,
+    },
+    "User settings": {
+        "fields": ("NEW_USER_IS_STAFF", "NEW_USER_DEFAULT_GROUP"),
         "collapse": False,
     },
 }

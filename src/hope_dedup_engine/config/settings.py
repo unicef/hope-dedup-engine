@@ -193,10 +193,6 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_PORT = env("EMAIL_PORT", default=25)
 EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=False)
 EMAIL_USE_SSL = env("EMAIL_USE_SSL", default=False)
-DEDUPLICATION_SET_LOCK_ENABLED = env("DEDUPLICATION_SET_LOCK_ENABLED", default=True)
-DEDUPLICATION_SET_LAST_ACTION_TIMEOUT = env(
-    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT", default=120
-)
 
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
