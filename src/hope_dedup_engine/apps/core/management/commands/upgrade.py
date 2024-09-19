@@ -64,7 +64,13 @@ class Command(BaseCommand):
             default=True,
             help="Do not run collectstatic",
         )
-
+        parser.add_argument(
+            "--with-worker-upgrade",
+            action="store_true",
+            dest="worker_upgrade",
+            default=False,
+            help="Run upgrade for celery worker",
+        )
         parser.add_argument(
             "--admin-email",
             action="store",
@@ -86,6 +92,7 @@ class Command(BaseCommand):
         self.prompt = not options["prompt"]
         self.static = options["static"]
         self.migrate = options["migrate"]
+        self.worker_upgrade = options["worker_upgrade"]
         self.debug = options["debug"]
 
         self.admin_email = str(options["admin_email"] or env("ADMIN_EMAIL", ""))
@@ -119,6 +126,10 @@ class Command(BaseCommand):
                 "stdout": self.stdout,
             }
             echo("Running upgrade", style_func=self.style.WARNING)
+
+            if self.worker_upgrade:
+                echo("Run upgrade for celery worker:")
+                call_command("workerupgrade")
 
             call_command("env", check=True)
 

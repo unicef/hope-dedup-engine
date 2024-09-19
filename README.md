@@ -48,11 +48,14 @@ The service uses the following storage backends:
     FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage
     ```
 - **FILE_STORAGE_DNN**:
-This backend is dedicated to storing DNN model files. Ensure that the following two files are present in this storage and that they have exactly these names:
-    1. *deploy.prototxt*: Defines the model architecture. Download it from the [model architecture link](https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt)
-    2. *res10_300x300_ssd_iter_140000.caffemodel*: Contains the pre-trained model weights. Download it from the [model weights link](https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/res10_300x300_ssd_iter_140000.caffemodel)
+This backend is dedicated to storing DNN model files. Ensure that the following two files are present in this storage:
+    1. *deploy.prototxt*: Defines the model architecture.
+    2. *res10_300x300_ssd_iter_140000.caffemodel*: Contains the pre-trained model weights.
 
-    These files can be updated in the future by a dedicated pipeline that handles model training. The storage configuration for this backend is as follows:
+    The current process involves downloading files from a [GitHub repository](https://github.com/sr6033/face-detection-with-OpenCV-and-DNN) and saving them to Azure Blob Storage **FILE_STORAGE_DNN** using command `django-admin upgrade --with-worker-upgrade`, or through dedicated command `django-admin workerupgrade`.
+    In the future, an automated pipeline related to model training could handle file updates.
+
+    The storage configuration for this backend is as follows:
     ```
     FILE_STORAGE_DNN="storages.backends.azure_storage.AzureStorage?account_name=<account_name>&account_key=<account_key>&overwrite_files=true&azure_container=dnn"
     ```
