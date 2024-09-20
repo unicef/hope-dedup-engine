@@ -1,6 +1,5 @@
-from django.conf import settings
-
 import requests
+from constance import config
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
@@ -21,7 +20,7 @@ def start_processing(deduplication_set: DeduplicationSet) -> None:
     try:
         lock = (
             DeduplicationSetLock.for_deduplication_set(deduplication_set)
-            if settings.DEDUPLICATION_SET_LOCK_ENABLED
+            if config.DEDUPLICATION_SET_LOCK_ENABLED
             else LOCK_IS_NOT_ENABLED
         )
         deduplication_set.state = DeduplicationSet.State.PROCESSING

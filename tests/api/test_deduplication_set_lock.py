@@ -1,5 +1,6 @@
 from time import sleep
 
+from constance.test.pytest import override_config
 from pytest import fail, raises
 from pytest_django.fixtures import SettingsWrapper
 
@@ -45,8 +46,8 @@ def test_lock_is_released_after_timeout(
     deduplication_set: DeduplicationSet, settings: SettingsWrapper
 ) -> None:
     timeout = 0.1
-    settings.DEDUPLICATION_SET_LAST_ACTION_TIMEOUT = timeout
-    lock = DeduplicationSetLock.for_deduplication_set(deduplication_set)
-    sleep(2 * timeout)
-    with raises(DeduplicationSetLock.LockNotOwnedException):
-        lock.refresh()
+    with override_config(DEDUPLICATION_SET_LAST_ACTION_TIMEOUT=timeout):
+        lock = DeduplicationSetLock.for_deduplication_set(deduplication_set)
+        sleep(2 * timeout)
+        with raises(DeduplicationSetLock.LockNotOwnedException):
+            lock.refresh()

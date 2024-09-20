@@ -3,9 +3,9 @@ from __future__ import annotations
 from base64 import b64decode, b64encode
 from typing import Final, Self
 
-from django.conf import settings
 from django.core.cache import cache
 
+from constance import config
 from redis.exceptions import LockNotOwnedError
 from redis.lock import Lock
 
@@ -32,7 +32,7 @@ class DeduplicationSetLock:
             name,
             blocking=False,
             thread_local=False,
-            timeout=settings.DEDUPLICATION_SET_LAST_ACTION_TIMEOUT,
+            timeout=config.DEDUPLICATION_SET_LAST_ACTION_TIMEOUT,
         )
 
         if token is None:
@@ -55,7 +55,7 @@ class DeduplicationSetLock:
 
     def refresh(self) -> None:
         try:
-            self.lock.extend(settings.DEDUPLICATION_SET_LAST_ACTION_TIMEOUT, True)
+            self.lock.extend(config.DEDUPLICATION_SET_LAST_ACTION_TIMEOUT, True)
         except LockNotOwnedError as e:
             raise self.LockNotOwnedException from e
 
