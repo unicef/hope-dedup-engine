@@ -5,7 +5,6 @@ from typing import Any, Generator
 
 import face_recognition
 import numpy as np
-from constance import config
 
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
@@ -20,7 +19,10 @@ class DuplicationDetector:
     logger: logging.Logger = logging.getLogger(__name__)
 
     def __init__(
-        self, filenames: tuple[str], ignore_pairs: tuple[tuple[str, str], ...] = tuple()
+        self,
+        filenames: tuple[str],
+        face_distance_threshold: float,
+        ignore_pairs: tuple[tuple[str, str], ...] = (),
     ) -> None:
         """
         Initialize the DuplicationDetector with the given filenames and ignore pairs.
@@ -31,9 +33,10 @@ class DuplicationDetector:
                 The pairs of filenames to ignore. Defaults to an empty tuple.
         """
         self.filenames = filenames
+        self.face_distance_threshold = face_distance_threshold
         self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
         self.storages = StorageManager()
-        self.image_processor = ImageProcessor()
+        self.image_processor = ImageProcessor(face_distance_threshold)
 
     def _encodings_filename(self, filename: str) -> str:
         """
@@ -122,7 +125,7 @@ class DuplicationDetector:
             encodings_all = self._load_encodings_all()
 
             for path1, path2 in combinations(existed_images_name, 2):
-                min_distance = config.FACE_DISTANCE_THRESHOLD
+                min_distance = self.face_distance_threshold
                 encodings1 = encodings_all.get(path1)
                 encodings2 = encodings_all.get(path2)
                 if encodings1 is None or encodings2 is None:
@@ -136,7 +139,7 @@ class DuplicationDetector:
                     ) < min_distance:
                         min_distance = current_min
 
-                if min_distance < config.FACE_DISTANCE_THRESHOLD:
+                if min_distance < self.face_distance_threshold:
                     yield (path1, path2, round(min_distance, 5))
         except Exception as e:
             self.logger.exception(

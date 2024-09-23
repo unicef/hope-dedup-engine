@@ -27,7 +27,8 @@ def test_duplicate_face_finder_uses_duplication_detector(
     found_pairs = tuple(finder.run())
 
     duplication_detector.assert_called_once_with(
-        (image.filename, second_image.filename), ()
+        (image.filename, second_image.filename),
+        deduplication_set.config.face_distance_threshold,
     )
     duplication_detector.return_value.find_duplicates.assert_called_once()
     assert len(found_pairs) == 1

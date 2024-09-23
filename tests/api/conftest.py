@@ -11,6 +11,7 @@ from testutils.duplicate_finders import (
     NoDuplicateFinder,
 )
 from testutils.factories.api import (
+    ConfigFactory,
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredKeyPairFactory,
@@ -26,7 +27,7 @@ from hope_dedup_engine.apps.security.models import User
 register(ExternalSystemFactory)
 register(UserFactory)
 register(DeduplicationSetFactory, external_system=LazyFixture("external_system"))
-register(ImageFactory, deduplication_Set=LazyFixture("deduplication_set"))
+register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(
     ImageFactory,
     _name="second_image",
@@ -34,6 +35,7 @@ register(
 )
 register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredKeyPairFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(ConfigFactory)
 
 
 @fixture

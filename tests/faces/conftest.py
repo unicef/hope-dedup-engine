@@ -14,6 +14,7 @@ from faces_const import (
     DEPLOY_PROTO_SHAPE,
     DNN_FILE,
     FACE_DETECTIONS,
+    FACE_DISTANCE_THRESHOLD,
     FACE_REGIONS_VALID,
     FILENAMES,
     IGNORE_PAIRS,
@@ -116,7 +117,7 @@ def mock_image_processor(
     mocker.patch.object(
         BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE
     )
-    mock_processor = ImageProcessor()
+    mock_processor = ImageProcessor(FACE_DISTANCE_THRESHOLD)
     mocker.patch.object(
         mock_processor.storages.get_storage("images"),
         "open",
@@ -160,7 +161,7 @@ def mock_net():
 
 @pytest.fixture
 def mock_dd(mock_image_processor, mock_net_manager, mock_storage_manager):
-    detector = DuplicationDetector(FILENAMES, IGNORE_PAIRS)
+    detector = DuplicationDetector(FILENAMES, FACE_DISTANCE_THRESHOLD, IGNORE_PAIRS)
     yield detector
 
 

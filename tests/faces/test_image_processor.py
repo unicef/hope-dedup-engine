@@ -10,6 +10,7 @@ from faces_const import (
     BLOB_FROM_IMAGE_MEAN_VALUES,
     BLOB_FROM_IMAGE_SCALE_FACTOR,
     DEPLOY_PROTO_SHAPE,
+    FACE_DISTANCE_THRESHOLD,
     FACE_REGIONS_INVALID,
     FACE_REGIONS_VALID,
     FILENAME,
@@ -43,7 +44,7 @@ def test_init_creates_expected_attributes(
         mock_image_processor.face_detection_confidence
         == config.FACE_DETECTION_CONFIDENCE
     )
-    assert mock_image_processor.distance_threshold == config.FACE_DISTANCE_THRESHOLD
+    assert mock_image_processor.distance_threshold == FACE_DISTANCE_THRESHOLD
     assert mock_image_processor.nms_threshold == config.NMS_THRESHOLD
 
 
