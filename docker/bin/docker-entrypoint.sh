@@ -23,8 +23,8 @@ echo "Docker run command: $1"
 
 case "$1" in
     setup)
-      django-admin check --deploy
-      django-admin upgrade --no-static
+      django-admin check --deploy || exit 1
+      django-admin upgrade --no-static || exit 1
       exit 0
       ;;
     worker)
