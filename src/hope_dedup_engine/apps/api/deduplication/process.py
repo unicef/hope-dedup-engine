@@ -78,9 +78,8 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
         if lock_enabled:
             lock.release()
 
-    except Exception as e:
+    except Exception:
         deduplication_set.state = DeduplicationSet.State.ERROR
-        deduplication_set.error = str(e)
         deduplication_set.save()
         raise
     finally:
