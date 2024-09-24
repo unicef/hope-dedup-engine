@@ -38,7 +38,6 @@ case "$1" in
       ;;
     run)
       django-admin check --deploy || exit 1
-      django-admin upgrade --no-static || exit 1
 	    set -- tini -- "$@"
   		set -- gosu user:app uwsgi --ini /conf/uwsgi.ini
 	    ;;
