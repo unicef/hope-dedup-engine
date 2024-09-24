@@ -7,7 +7,12 @@ from django.core.exceptions import ValidationError
 import numpy as np
 import pytest
 from constance import config
-from faces_const import FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
+from faces_const import (
+    FACE_DISTANCE_THRESHOLD,
+    FILENAME,
+    FILENAME_ENCODED_FORMAT,
+    FILENAMES,
+)
 
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services import DuplicationDetector
@@ -65,7 +70,7 @@ def test_init_successful(mock_dd):
 def test_get_pairs_to_ignore_success(
     mock_storage_manager, mock_image_processor, ignore_input, expected_output
 ):
-    dd = DuplicationDetector(FILENAMES, ignore_input)
+    dd = DuplicationDetector(FILENAMES, FACE_DISTANCE_THRESHOLD, ignore_input)
     assert dd.ignore_set == expected_output
 
 
@@ -86,7 +91,7 @@ def test_get_pairs_to_ignore_exception_handling(
     mock_storage_manager, mock_image_processor, ignore_input
 ):
     with pytest.raises(ValidationError):
-        DuplicationDetector(filenames=FILENAMES, ignore_pairs=ignore_input)
+        DuplicationDetector(FILENAMES, 0.2, ignore_pairs=ignore_input)
 
 
 def test_encodings_filename(mock_dd):

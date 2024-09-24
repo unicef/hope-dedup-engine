@@ -4,6 +4,7 @@ from testutils.factories import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
+    Config,
     Duplicate,
     IgnoredKeyPair,
     Image,
@@ -17,11 +18,19 @@ class TokenFactory(DjangoModelFactory):
         model = HDEToken
 
 
+class ConfigFactory(DjangoModelFactory):
+    face_distance_threshold = fuzzy.FuzzyFloat(low=0.1, high=1.0)
+
+    class Meta:
+        model = Config
+
+
 class DeduplicationSetFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
     external_system = SubFactory(ExternalSystemFactory)
     state = DeduplicationSet.State.CLEAN
     notification_url = fuzzy.FuzzyText(prefix="https://")
+    config = SubFactory(ConfigFactory)
 
     class Meta:
         model = DeduplicationSet

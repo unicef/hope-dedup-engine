@@ -8,6 +8,7 @@ IGNORE_PAIRS: Final[list[list[str, str]]] = [
     ["ignore_file.jpg", "ignore_file2.jpg"],
     ["ignore_file4.jpg", "ignore_file3.jpg"],
 ]
+FACE_DISTANCE_THRESHOLD = 0.4
 
 DNN_FILE = {
     "name": FILENAME,

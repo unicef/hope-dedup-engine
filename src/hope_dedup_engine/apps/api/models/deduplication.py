@@ -9,6 +9,10 @@ from hope_dedup_engine.apps.security.models import ExternalSystem
 REFERENCE_PK_LENGTH: Final[int] = 100
 
 
+class Config(models.Model):
+    face_distance_threshold = models.FloatField(null=True)
+
+
 class DeduplicationSet(models.Model):
     """
     Bucket for entries we want to deduplicate
@@ -52,6 +56,7 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
+    config = models.OneToOneField(Config, null=True, on_delete=models.SET_NULL)
 
     def __str__(self) -> str:
         return f"ID: {self.pk}" if not self.name else f"{self.name}"

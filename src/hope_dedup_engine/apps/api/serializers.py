@@ -4,14 +4,24 @@ from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
+    Config,
     Duplicate,
     IgnoredKeyPair,
     Image,
 )
 
+CONFIG = "config"
+
+
+class ConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Config
+        exclude = ("id",)
+
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
     state = serializers.CharField(source="get_state_display", read_only=True)
+    config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
@@ -25,11 +35,22 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
             "updated_by",
         )
 
+    def create(self, validated_data) -> DeduplicationSet:
+        config_data = validated_data.get(CONFIG) and validated_data.pop(CONFIG)
+        config = Config.objects.create(**config_data) if config_data else None
+        return DeduplicationSet.objects.create(config=config, **validated_data)
+
+
+class CreateConfigSerializer(ConfigSerializer):
+    pass
+
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+    config = CreateConfigSerializer(required=False)
+
     class Meta:
         model = DeduplicationSet
-        fields = ("reference_pk", "notification_url")
+        fields = ("config", "reference_pk", "notification_url")
 
 
 class ImageSerializer(serializers.ModelSerializer):
