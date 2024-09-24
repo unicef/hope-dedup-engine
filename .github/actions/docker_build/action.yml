@@ -147,7 +147,7 @@ runs:
         driver-opts: |
           image=moby/buildkit:v0.13.2
           network=host
-    - name: Build and push
+    - name: Build and push info
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun == 'true'
       shell: bash
       run: |
