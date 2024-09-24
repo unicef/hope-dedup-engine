@@ -169,7 +169,7 @@ class Command(BaseCommand):
             else:
                 admin = User.objects.filter(is_superuser=True).first()
             if not admin:
-                raise CommandError("Create an admin user")
+                raise CommandError("Failure: Error when creating an admin user!")
 
             from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 
