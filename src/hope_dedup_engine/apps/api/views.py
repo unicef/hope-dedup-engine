@@ -3,9 +3,10 @@ from http import HTTPMethod
 from typing import Any
 from uuid import UUID
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -228,6 +229,9 @@ class BulkImageViewSet(
         return super().create(request, *args, **kwargs)
 
 
+REFERENCE_PK = "reference_pk"
+
+
 class DuplicateViewSet(
     nested_viewsets.NestedViewSetMixin[Duplicate],
     mixins.ListModelMixin,
@@ -245,7 +249,25 @@ class DuplicateViewSet(
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
-    @extend_schema(description="List all duplicates found in the deduplication set")
+    def get_queryset(self) -> QuerySet[Duplicate]:
+        queryset = super().get_queryset()
+        if reference_pk := self.request.query_params.get(REFERENCE_PK):
+            return queryset.filter(
+                Q(first_reference_pk=reference_pk) | Q(second_reference_pk=reference_pk)
+            )
+        return queryset
+
+    @extend_schema(
+        description="List all duplicates found in the deduplication set",
+        parameters=[
+            OpenApiParameter(
+                REFERENCE_PK,
+                OpenApiTypes.STR,
+                OpenApiParameter.QUERY,
+                description="Filters results by reference pk",
+            )
+        ],
+    )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
