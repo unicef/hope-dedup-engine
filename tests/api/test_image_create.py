@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from api_const import IMAGE_LIST_VIEW, JSON
 from pytest import mark
 from rest_framework import status
@@ -12,7 +14,9 @@ from hope_dedup_engine.apps.security.models import User
 
 
 def test_can_create_image(
-    api_client: APIClient, deduplication_set: DeduplicationSet
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    requests_get_mock: MagicMock,
 ) -> None:
     previous_amount = Image.objects.filter(deduplication_set=deduplication_set).count()
     data = ImageSerializer(ImageFactory.build()).data
@@ -83,7 +87,10 @@ def test_missing_filename_handling(
 
 
 def test_deduplication_set_is_updated(
-    api_client: APIClient, user: User, deduplication_set: DeduplicationSet
+    api_client: APIClient,
+    user: User,
+    deduplication_set: DeduplicationSet,
+    requests_get_mock: MagicMock,
 ) -> None:
     assert deduplication_set.updated_by is None
 

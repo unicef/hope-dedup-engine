@@ -4,9 +4,13 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 
+import requests
+import sentry_sdk
+
 from hope_dedup_engine.apps.security.models import ExternalSystem
 
 REFERENCE_PK_LENGTH: Final[int] = 100
+REQUEST_TIMEOUT: Final[int] = 5
 
 
 class Config(models.Model):
@@ -33,9 +37,10 @@ class DeduplicationSet(models.Model):
     )
     description = models.TextField(null=True, blank=True)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
-    state = models.IntegerField(
+    state_value = models.IntegerField(
         choices=State.choices,
         default=State.CLEAN,
+        db_column="state",
     )
     deleted = models.BooleanField(null=False, blank=False, default=False)
     external_system = models.ForeignKey(ExternalSystem, on_delete=models.CASCADE)
@@ -57,6 +62,24 @@ class DeduplicationSet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.OneToOneField(Config, null=True, on_delete=models.SET_NULL)
+
+    @property
+    def state(self) -> State:
+        return self.State(self.state_value)
+
+    @state.setter
+    def state(self, value: State) -> None:
+        if value != self.state_value or value == self.State.CLEAN:
+            self.state_value = value
+            if self.notification_url:
+                self.send_notification()
+
+    def send_notification(self) -> None:
+        try:
+            with requests.get(self.notification_url, timeout=REQUEST_TIMEOUT) as r:
+                r.raise_for_status
+        except requests.RequestException as e:
+            sentry_sdk.capture_exception(e)
 
     def __str__(self) -> str:
         return f"ID: {self.pk}" if not self.name else f"{self.name}"

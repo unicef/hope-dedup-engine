@@ -13,6 +13,7 @@ def test_previous_results_are_removed_before_processing(
     deduplication_set: DeduplicationSet,
     duplicate: Duplicate,
     duplicate_finders: list[DuplicateFinder],
+    requests_get_mock: MagicMock,
 ) -> None:
     assert deduplication_set.duplicate_set.count()
     find_duplicates(
@@ -27,6 +28,7 @@ def test_duplicates_are_stored(
     image: Image,
     second_image: Image,
     all_duplicates_finder: DuplicateFinder,
+    requests_get_mock: MagicMock,
 ) -> None:
     assert not deduplication_set.duplicate_set.count()
     find_duplicates(
@@ -41,6 +43,7 @@ def test_ignored_key_pairs(
     image: Image,
     second_image: Image,
     all_duplicates_finder: DuplicateFinder,
+    requests_get_mock: MagicMock,
 ) -> None:
     assert not deduplication_set.duplicate_set.count()
     ignored_key_pair = deduplication_set.ignoredkeypair_set.create(
@@ -61,6 +64,7 @@ def test_weight_is_taken_into_account(
     second_image: Image,
     all_duplicates_finder: DuplicateFinder,
     no_duplicate_finder: DuplicateFinder,
+    requests_get_mock: MagicMock,
 ) -> None:
     find_duplicates(
         str(deduplication_set.pk),
@@ -70,33 +74,49 @@ def test_weight_is_taken_into_account(
 
 
 @mark.parametrize(
-    ("notification_url", "notification_send"),
-    ((None, False), ("", False), ("https://example.com", True)),
+    (
+        "deduplication_set__notification_url",
+        "deduplication_set__state",
+        "notification_send",
+        "new_state",
+    ),
+    [
+        (None, 0, False, 0),
+        ("", 0, False, 0),
+        ("https://example.com", 0, True, 1),
+        ("https://example.com", 1, True, 1),
+    ],
 )
 def test_notification_sent_on_successful_run(
-    notification_url: str | None,
     notification_send: bool,
+    new_state: int,
     deduplication_set: DeduplicationSet,
     duplicate_finders: list[DuplicateFinder],
     send_notification: MagicMock,
+    requests_get_mock: MagicMock,
 ) -> None:
-    deduplication_set.notification_url = notification_url
-    deduplication_set.save()
+    deduplication_set.state = new_state
     find_duplicates(
         str(deduplication_set.pk),
         str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
     )
-    send_notification.assert_called_once_with(deduplication_set)
+
+    if notification_send:
+        send_notification.assert_called_once()
+    else:
+        send_notification.assert_not_called()
 
 
 def test_notification_sent_on_failure(
     deduplication_set: DeduplicationSet,
     failing_duplicate_finder: DuplicateFinder,
     send_notification: MagicMock,
+    requests_get_mock: MagicMock,
 ) -> None:
     with raises(Exception):
         find_duplicates(
             str(deduplication_set.pk),
             str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
         )
-    send_notification.assert_called_once_with(deduplication_set)
+        assert deduplication_set.state == deduplication_set.State.ERROR
+        send_notification.assert_called_once()

@@ -1,4 +1,3 @@
-import requests
 from constance import config
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -33,11 +32,3 @@ def start_processing(deduplication_set: DeduplicationSet) -> None:
 def delete_model_data(_: DeduplicationSet) -> None:
     # TODO
     pass
-
-
-REQUEST_TIMEOUT = 5
-
-
-def send_notification(deduplication_set: DeduplicationSet) -> None:
-    if url := deduplication_set.notification_url:
-        requests.get(url, timeout=REQUEST_TIMEOUT)
