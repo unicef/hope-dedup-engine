@@ -6,7 +6,8 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
     Config,
     Duplicate,
-    IgnoredKeyPair,
+    IgnoredFilenamePair,
+    IgnoredReferencePkPair,
     Image,
 )
 
@@ -55,10 +56,19 @@ class DuplicateFactory(DjangoModelFactory):
         model = Duplicate
 
 
-class IgnoredKeyPairFactory(DjangoModelFactory):
+class IgnoredFilenamePairFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
-    first_reference_pk = fuzzy.FuzzyText()
-    second_reference_pk = fuzzy.FuzzyText()
+    first = fuzzy.FuzzyText()
+    second = fuzzy.FuzzyText()
 
     class Meta:
-        model = IgnoredKeyPair
+        model = IgnoredFilenamePair
+
+
+class IgnoredReferencePkPairFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+    first = fuzzy.FuzzyText()
+    second = fuzzy.FuzzyText()
+
+    class Meta:
+        model = IgnoredReferencePkPair

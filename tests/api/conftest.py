@@ -14,7 +14,8 @@ from testutils.factories.api import (
     ConfigFactory,
     DeduplicationSetFactory,
     DuplicateFactory,
-    IgnoredKeyPairFactory,
+    IgnoredFilenamePairFactory,
+    IgnoredReferencePkPairFactory,
     ImageFactory,
     TokenFactory,
 )
@@ -34,7 +35,10 @@ register(
     deduplication_Set=LazyFixture("deduplication_set"),
 )
 register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredKeyPairFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(
+    IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set")
+)
 register(ConfigFactory)
 
 
