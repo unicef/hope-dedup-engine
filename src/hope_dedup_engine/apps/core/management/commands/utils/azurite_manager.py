@@ -10,12 +10,17 @@ logger = logging.getLogger(__name__)
 
 
 class AzuriteManager:  # pragma: no cover
-    def __init__(self, storage_name: str) -> None:
+    def __init__(
+        self, storage_name: str, container_options: dict | None = None
+    ) -> None:
         """
         Initializes the AzuriteManager with the specified storage configuration.
 
         Args:
-            storage_name (str): The name of the storage configuration as defined in settings.STORAGES.
+            storage_name (str):
+                The name of the storage configuration as defined in settings.STORAGES.
+            container_options (dict, optional):
+                Additional options to configure the Azure Blob Storage container. Defaults to an empty dictionary.
         """
         storage = settings.STORAGES.get(storage_name).get("OPTIONS", {})
         self.container_client: ContainerClient = (
@@ -23,18 +28,23 @@ class AzuriteManager:  # pragma: no cover
                 storage.get("connection_string")
             ).get_container_client(storage.get("azure_container"))
         )
-        self._create_container()
+        self._create_container(container_options)
 
-    def _create_container(self) -> None:
+    def _create_container(self, options: dict | None = None) -> None:
         """
-        Creates container if it does not already exist.
+        Creates a container if it does not already exist.
+
+        Args:
+            options (dict, optional):
+                Additional options to configure the container creation. Defaults to an empty dictionary.
 
         Raises:
             Exception: If the container creation fails for any reason.
         """
+        options = options or {}
         try:
             if not self.container_client.exists():
-                self.container_client.create_container()
+                self.container_client.create_container(**options)
                 logger.info(
                     "Container '%s' created successfully.",
                     self.container_client.container_name,
