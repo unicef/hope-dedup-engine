@@ -13,14 +13,14 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ModelAdmin):
         "id",
         "name",
         "reference_pk",
-        "state",
+        "state_value",
         "created_at",
         "updated_at",
         "deleted",
     )
     readonly_fields = (
         "id",
-        "state",
+        "state_value",
         "external_system",
         "created_at",
         "created_by",
@@ -30,7 +30,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ModelAdmin):
     )
     search_fields = ("name",)
     list_filter = (
-        ("state", ChoicesFieldComboFilter),
+        ("state_value", ChoicesFieldComboFilter),
         ("created_at", DateRangeFilter),
         ("updated_at", DateRangeFilter),
         DjangoLookupFilter,

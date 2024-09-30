@@ -20,12 +20,12 @@ class ConfigSerializer(serializers.ModelSerializer):
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
-    state = serializers.CharField(source="get_state_display", read_only=True)
+    state = serializers.CharField(source="get_state_value_display", read_only=True)
     config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted",)
+        exclude = ("deleted", "state_value")
         read_only_fields = (
             "external_system",
             "created_at",

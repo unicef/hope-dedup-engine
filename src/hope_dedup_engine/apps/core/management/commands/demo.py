@@ -23,6 +23,7 @@ DEFAULT_DNN_FILES: Final[Path] = BASE_PATH / env("DNN_FILES_PATH")
 MESSAGES: Final[dict[str, str]] = {
     "upload": "Starting upload of files...",
     "not_exist": "Directory '%s' does not exist.",
+    "container_success": "Container '%s' created successfully.",
     "storage_success": "Files uploaded to storage '%s' successfully.",
     "success": "Finished uploading files to storage.",
     "failed": "Failed to upload files to storage '%s': %s",
@@ -31,7 +32,7 @@ MESSAGES: Final[dict[str, str]] = {
 }
 
 
-class Command(BaseCommand):
+class Command(BaseCommand):  # pragma: no cover
     help = "Create demo app"
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -79,6 +80,7 @@ class Command(BaseCommand):
         try:
             for storage_name, images_src_path in storages.items():
                 am = AzuriteManager(storage_name)
+                self.stdout.write(MESSAGES["container_success"] % storage_name)
                 if images_src_path is None:
                     continue
                 if images_src_path.exists():

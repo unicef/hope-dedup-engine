@@ -36,7 +36,7 @@ class StorageErrorCodes:  # pragma: no cover
 
 
 @register()
-def example_check(app_configs, **kwargs: Any):
+def example_check(app_configs, **kwargs: Any):  # pragma: no cover
     errors = []
     for t in settings.TEMPLATES:
         for d in t["DIRS"]:
