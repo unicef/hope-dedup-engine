@@ -5,7 +5,7 @@ x-common: &common
     target: python_dev_deps
   platform: linux/amd64
   environment:
-    - DEBUG=true
+    # - DEBUG=true
     - ADMIN_EMAIL=adm@hde.org
     - ADMIN_PASSWORD=123
     - CACHE_URL=redis://redis:6379/1
@@ -18,6 +18,8 @@ x-common: &common
     - FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage
     - FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     - FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - FILE_STORAGE_MEDIA=storages.backends.azure_storage.AzureStorage?azure_container=media&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    - FILE_STORAGE_STATIC=storages.backends.azure_storage.AzureStorage?azure_container=static&overwrite_files=True&custom_domain=localhost:10000/&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
     - MEDIA_ROOT=/var/hope_dedupe_engine/media
     - PYTHONPATH=/code/src/:/code/__pypackages__/3.12/lib/
     - SECRET_KEY=very-secret-key
@@ -98,15 +100,15 @@ services:
 
   celery-worker:
     <<: *common
-    entrypoint: ["sh", "-c", "exec docker-entrypoint.sh \"$0\" \"$@\""]
-    command: worker
-    # command: >
-    #   sh -c '
-    #   mkdir -p /var/hope_dedupe_engine/default &&
-    #   chown -R user:app /var/hope_dedupe_engine &&
-    #   gosu user:app django-admin syncdnn &&
-    #   gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=INFO --concurrency=4
-    #   '
+    # entrypoint: ["sh", "-c", "exec docker-entrypoint.sh \"$0\" \"$@\""]
+    # command: worker
+    command: >
+      sh -c '
+      mkdir -p /var/hope_dedupe_engine/default &&
+      chown -R user:app /var/hope_dedupe_engine &&
+      gosu user:app django-admin syncdnn &&
+      gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=WARNING --concurrency=4
+      '
 
   celery-beat:
     <<: *common
