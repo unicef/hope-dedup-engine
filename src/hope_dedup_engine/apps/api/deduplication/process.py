@@ -18,12 +18,40 @@ def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
 def _save_duplicates(
     finder: DuplicateFinder,
     deduplication_set: DeduplicationSet,
-    ignored_key_pairs: frozenset[tuple[str, str]],
     lock_enabled: bool,
     lock: DeduplicationSetLock,
 ) -> None:
+    reference_pk_to_filename_mapping = dict(
+        deduplication_set.image_set.values_list("reference_pk", "filename")
+    )
+    ignored_filename_pairs = frozenset(
+        map(
+            tuple,
+            map(
+                sorted,
+                deduplication_set.ignoredfilenamepair_set.values_list(
+                    "first", "second"
+                ),
+            ),
+        )
+    )
+
+    ignored_reference_pk_pairs = frozenset(
+        deduplication_set.ignoredreferencepkpair_set.values_list("first", "second")
+    )
+
     for first, second, score in map(_sort_keys, finder.run()):
-        if (first, second) not in ignored_key_pairs:
+        first_filename, second_filename = sorted(
+            (
+                reference_pk_to_filename_mapping[first],
+                reference_pk_to_filename_mapping[second],
+            )
+        )
+        ignored = (first, second) in ignored_reference_pk_pairs or (
+            first_filename,
+            second_filename,
+        ) in ignored_filename_pairs
+        if not ignored:
             duplicate, _ = Duplicate.objects.get_or_create(
                 deduplication_set=deduplication_set,
                 first_reference_pk=first,
@@ -54,17 +82,9 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
         # clean results
         Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
 
-        ignored_key_pairs = frozenset(
-            deduplication_set.ignoredkeypair_set.values_list(
-                "first_reference_pk", "second_reference_pk"
-            )
-        )
-
         weight_total = 0
         for finder in get_finders(deduplication_set):
-            _save_duplicates(
-                finder, deduplication_set, ignored_key_pairs, lock_enabled, lock
-            )
+            _save_duplicates(finder, deduplication_set, lock_enabled, lock)
             weight_total += finder.weight
 
         for duplicate in deduplication_set.duplicate_set.all():

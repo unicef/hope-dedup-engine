@@ -115,21 +115,36 @@ class Duplicate(models.Model):
     score = models.FloatField(default=0)
 
 
-class IgnoredKeyPair(models.Model):
+class IgnoredPair(models.Model):
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
 
     class Meta:
-        unique_together = (
-            "deduplication_set",
-            "first_reference_pk",
-            "second_reference_pk",
-        )
+        abstract = True
 
     @override
     def save(self, **kwargs: Any) -> None:
-        self.first_reference_pk, self.second_reference_pk = sorted(
-            (self.first_reference_pk, self.second_reference_pk)
-        )
+        self.first, self.second = sorted((self.first, self.second))
         super().save(**kwargs)
+
+
+UNIQUE_FOR_IGNORED_PAIR = (
+    "deduplication_set",
+    "first",
+    "second",
+)
+
+
+class IgnoredReferencePkPair(IgnoredPair):
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+
+    class Meta:
+        unique_together = UNIQUE_FOR_IGNORED_PAIR
+
+
+class IgnoredFilenamePair(IgnoredPair):
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+
+    class Meta:
+        unique_together = UNIQUE_FOR_IGNORED_PAIR

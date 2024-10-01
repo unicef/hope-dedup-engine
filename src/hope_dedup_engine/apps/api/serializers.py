@@ -6,7 +6,8 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
     Config,
     Duplicate,
-    IgnoredKeyPair,
+    IgnoredFilenamePair,
+    IgnoredReferencePkPair,
     Image,
 )
 
@@ -96,16 +97,32 @@ class DuplicateSerializer(serializers.ModelSerializer):
         fields = "first", "second", "score"
 
 
-class IgnoredKeyPairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredKeyPair
-        fields = "__all__"
+CREATE_PAIR_FIELDS = "first", "second"
+PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
 
 
-class CreateIgnoredKeyPairSerializer(serializers.ModelSerializer):
+class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
     class Meta:
-        model = IgnoredKeyPair
-        fields = ("first_reference_pk", "second_reference_pk")
+        model = IgnoredReferencePkPair
+        fields = PAIR_FIELDS
+
+
+class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredReferencePkPair
+        fields = CREATE_PAIR_FIELDS
+
+
+class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = PAIR_FIELDS
+
+
+class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = CREATE_PAIR_FIELDS
 
 
 class EmptySerializer(serializers.Serializer):

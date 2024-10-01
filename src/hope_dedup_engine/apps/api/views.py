@@ -27,17 +27,20 @@ from hope_dedup_engine.apps.api.const import (
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
     Duplicate,
-    IgnoredKeyPair,
+    IgnoredFilenamePair,
+    IgnoredReferencePkPair,
     Image,
 )
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
-    CreateIgnoredKeyPairSerializer,
+    CreateIgnoredFilenamePairSerializer,
+    CreateIgnoredReferencePkPairSerializer,
     CreateImageSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
-    IgnoredKeyPairSerializer,
+    IgnoredFilenamePairSerializer,
+    IgnoredReferencePkPairSerializer,
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
@@ -272,8 +275,8 @@ class DuplicateViewSet(
         return super().list(request, *args, **kwargs)
 
 
-class IgnoredKeyPairViewSet(
-    nested_viewsets.NestedViewSetMixin[IgnoredKeyPair],
+class IgnoredPairViewSet[T](
+    nested_viewsets.NestedViewSetMixin[T],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
@@ -284,8 +287,6 @@ class IgnoredKeyPairViewSet(
         AssignedToExternalSystem,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
-    serializer_class = IgnoredKeyPairSerializer
-    queryset = IgnoredKeyPair.objects.all()
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
@@ -297,13 +298,38 @@ class IgnoredKeyPairViewSet(
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
-    @extend_schema(description="List all ignored key pairs for the deduplication set")
+
+class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
+    serializer_class = IgnoredFilenamePairSerializer
+    queryset = IgnoredFilenamePair.objects.all()
+
+    @extend_schema(
+        description="List all ignored filename pairs for the deduplication set"
+    )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
-        request=CreateIgnoredKeyPairSerializer,
-        description="Add ignored key pair for the deduplication set",
+        request=CreateIgnoredFilenamePairSerializer,
+        description="Add ignored filename pair for the deduplication set",
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().create(request, *args, **kwargs)
+
+
+class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
+    serializer_class = IgnoredReferencePkPairSerializer
+    queryset = IgnoredReferencePkPair.objects.all()
+
+    @extend_schema(
+        description="List all ignored reference pk pairs for the deduplication set"
+    )
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=CreateIgnoredReferencePkPairSerializer,
+        description="Add ignored reference pk pair for the deduplication set",
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)

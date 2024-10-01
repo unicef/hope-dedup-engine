@@ -13,14 +13,16 @@ from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET,
     DEDUPLICATION_SET_LIST,
     DUPLICATE_LIST,
-    IGNORED_KEYS_LIST,
+    IGNORED_FILENAME_LIST,
+    IGNORED_REFERENCE_PK_LIST,
     IMAGE_LIST,
 )
 from hope_dedup_engine.apps.api.views import (
     BulkImageViewSet,
     DeduplicationSetViewSet,
     DuplicateViewSet,
-    IgnoredKeyPairViewSet,
+    IgnoredFilenamePairViewSet,
+    IgnoredReferencePkPairViewSet,
     ImageViewSet,
 )
 
@@ -40,7 +42,12 @@ deduplication_sets_router.register(
     DUPLICATE_LIST, DuplicateViewSet, basename=DUPLICATE_LIST
 )
 deduplication_sets_router.register(
-    IGNORED_KEYS_LIST, IgnoredKeyPairViewSet, basename=IGNORED_KEYS_LIST
+    IGNORED_FILENAME_LIST, IgnoredFilenamePairViewSet, basename=IGNORED_FILENAME_LIST
+)
+deduplication_sets_router.register(
+    IGNORED_REFERENCE_PK_LIST,
+    IgnoredReferencePkPairViewSet,
+    basename=IGNORED_REFERENCE_PK_LIST,
 )
 
 urlpatterns = [

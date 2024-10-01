@@ -38,7 +38,7 @@ def test_duplicates_are_stored(
     assert deduplication_set.duplicate_set.count()
 
 
-def test_ignored_key_pairs(
+def test_ignored_reference_pk_pairs(
     deduplication_set: DeduplicationSet,
     image: Image,
     second_image: Image,
@@ -46,15 +46,34 @@ def test_ignored_key_pairs(
     requests_get_mock: MagicMock,
 ) -> None:
     assert not deduplication_set.duplicate_set.count()
-    ignored_key_pair = deduplication_set.ignoredkeypair_set.create(
-        first_reference_pk=image.reference_pk,
-        second_reference_pk=second_image.reference_pk,
+    ignored_reference_pk_pair = deduplication_set.ignoredreferencepkpair_set.create(
+        first=image.reference_pk,
+        second=second_image.reference_pk,
     )
     find_duplicates(
         str(deduplication_set.pk),
         str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
     )
-    ignored_key_pair.delete()
+    ignored_reference_pk_pair.delete()
+    assert not deduplication_set.duplicate_set.count()
+
+
+def test_ignored_filename_pairs(
+    deduplication_set: DeduplicationSet,
+    image: Image,
+    second_image: Image,
+    all_duplicates_finder: DuplicateFinder,
+) -> None:
+    assert not deduplication_set.duplicate_set.count()
+    ignored_filename_pair = deduplication_set.ignoredfilenamepair_set.create(
+        first=image.filename,
+        second=second_image.filename,
+    )
+    find_duplicates(
+        str(deduplication_set.pk),
+        str(DeduplicationSetLock.for_deduplication_set(deduplication_set)),
+    )
+    ignored_filename_pair.delete()
     assert not deduplication_set.duplicate_set.count()
 
 
