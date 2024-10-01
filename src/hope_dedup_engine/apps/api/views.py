@@ -43,7 +43,7 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredReferencePkPairSerializer,
     ImageSerializer,
 )
-from hope_dedup_engine.apps.api.utils import delete_model_data, start_processing
+from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
 
 
 class DeduplicationSetViewSet(

@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.utils import AlreadyProcessingError
+from hope_dedup_engine.apps.api.utils.process import AlreadyProcessingError
 
 
 @mark.parametrize(
@@ -23,7 +23,6 @@ def test_can_trigger_deduplication_set_processing_in_any_state(
     api_client: APIClient,
     start_processing: MagicMock,
     deduplication_set: DeduplicationSet,
-    requests_get_mock: MagicMock,
 ) -> None:
     response = api_client.post(
         reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,))

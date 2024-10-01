@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from api_const import IMAGE_DETAIL_VIEW
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -13,7 +11,6 @@ def test_can_delete_image(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,
     image: Image,
-    requests_get_mock: MagicMock,
 ) -> None:
     image_count = Image.objects.filter(deduplication_set=deduplication_set).count()
     assert deduplication_set.state == DeduplicationSet.State.CLEAN
@@ -50,7 +47,6 @@ def test_deduplication_set_is_updated(
     user: User,
     deduplication_set: DeduplicationSet,
     image: Image,
-    requests_get_mock: MagicMock,
 ) -> None:
     assert deduplication_set.updated_by is None
     response = api_client.delete(
