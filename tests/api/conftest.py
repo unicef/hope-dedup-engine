@@ -79,15 +79,11 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")
 
 
-@fixture
-def requests_get_mock(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.api.models.deduplication.requests.get")
-
-
 @fixture(autouse=True)
-def send_notification(deduplication_set):
-    deduplication_set.send_notification = MagicMock()
-    return deduplication_set.send_notification
+def send_notification(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch(
+        "hope_dedup_engine.apps.api.models.deduplication.send_notification"
+    )
 
 
 @fixture

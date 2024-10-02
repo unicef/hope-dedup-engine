@@ -4,13 +4,10 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 
-import requests
-import sentry_sdk
-
+from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.security.models import ExternalSystem
 
 REFERENCE_PK_LENGTH: Final[int] = 100
-REQUEST_TIMEOUT: Final[int] = 5
 
 
 class Config(models.Model):
@@ -71,15 +68,7 @@ class DeduplicationSet(models.Model):
     def state(self, value: State) -> None:
         if value != self.state_value or value == self.State.CLEAN:
             self.state_value = value
-            if self.notification_url:
-                self.send_notification()
-
-    def send_notification(self) -> None:
-        try:
-            with requests.get(self.notification_url, timeout=REQUEST_TIMEOUT) as r:
-                r.raise_for_status
-        except requests.RequestException as e:
-            sentry_sdk.capture_exception(e)
+            send_notification(self.notification_url)
 
     def __str__(self) -> str:
         return f"ID: {self.pk}" if not self.name else f"{self.name}"
