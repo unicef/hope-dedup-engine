@@ -64,7 +64,13 @@ class Command(BaseCommand):
             default=True,
             help="Do not run collectstatic",
         )
-
+        parser.add_argument(
+            "--with-dnn-setup",
+            action="store_true",
+            dest="dnn_setup",
+            default=False,
+            help="Run DNN setup for celery worker",
+        )
         parser.add_argument(
             "--admin-email",
             action="store",
@@ -86,6 +92,7 @@ class Command(BaseCommand):
         self.prompt = not options["prompt"]
         self.static = options["static"]
         self.migrate = options["migrate"]
+        self.dnn_setup = options["dnn_setup"]
         self.debug = options["debug"]
 
         self.admin_email = str(options["admin_email"] or env("ADMIN_EMAIL", ""))
@@ -124,6 +131,9 @@ class Command(BaseCommand):
 
             if self.run_check:
                 call_command("check", deploy=True, verbosity=self.verbosity - 1)
+            if self.dnn_setup:
+                echo("Run DNN setup for celery worker.")
+                call_command("dnnsetup", verbosity=self.verbosity - 1)
             if self.static:
                 static_root = Path(env("STATIC_ROOT"))
                 echo(

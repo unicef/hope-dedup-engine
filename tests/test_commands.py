@@ -59,6 +59,7 @@ def test_upgrade_init(
             migrate=migrate,
             stdout=out,
             check=False,
+            dnn_setup=False,
             verbosity=verbosity,
         )
     assert "error" not in str(out.getvalue())
@@ -72,7 +73,13 @@ def test_upgrade(verbosity, migrate, monkeypatch, environment):
     out = StringIO()
     SuperUserFactory()
     with mock.patch.dict(os.environ, environment, clear=True):
-        call_command("upgrade", stdout=out, check=False, verbosity=verbosity)
+        call_command(
+            "upgrade",
+            stdout=out,
+            check=False,
+            dnn_setup=False,
+            verbosity=verbosity,
+        )
     assert "error" not in str(out.getvalue())
 
 
@@ -98,7 +105,14 @@ def test_upgrade_admin(db, mocked_responses, environment, admin):
 
     out = StringIO()
     with mock.patch.dict(os.environ, environment, clear=True):
-        call_command("upgrade", stdout=out, check=False, admin_email=email)
+        call_command(
+            "upgrade",
+            stdout=out,
+            check=False,
+            dnn_setup=False,
+            static=False,
+            admin_email=email,
+        )
 
 
 @pytest.mark.parametrize("verbosity", [0, 1], ids=["0", "1"])
