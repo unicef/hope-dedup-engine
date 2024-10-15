@@ -117,18 +117,20 @@ def test_upgrade_admin(db, mocked_responses, environment, admin):
 
 
 def test_upgrade_exception(mocked_responses, environment):
-    with mock.patch(
-        "hope_dedup_engine.apps.core.management.commands.upgrade.call_command"
-    ) as m:
+    with (
+        mock.patch.dict(
+            os.environ,
+            {"ADMIN_EMAIL": "2222", "ADMIN_USER": "admin", **environment},
+            clear=True,
+        ),
+        mock.patch(
+            "hope_dedup_engine.apps.core.management.commands.upgrade.call_command"
+        ) as m,
+    ):
         m.side_effect = Exception
         with pytest.raises(SystemExit):
             call_command("upgrade")
 
-    out = StringIO()
-    with mock.patch.dict(
-        os.environ,
-        {"ADMIN_EMAIL": "2222", "ADMIN_USER": "admin", **environment},
-        clear=True,
-    ):
+        out = StringIO()
         with pytest.raises(SystemExit):
             call_command("upgrade", stdout=out, check=True, admin_email="")
