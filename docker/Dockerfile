@@ -121,6 +121,8 @@ ARG VERSION
 ENV VERSION=$VERSION
 ARG BUILD_DATE
 ENV BUILD_DATE=$BUILD_DATE
+ARG DISTRO
+ENV DISTRO=$DISTRO
 ARG SOURCE_COMMIT
 ENV SOURCE_COMMIT=$SOURCE_COMMIT
 ARG GITHUB_SERVER_URL
@@ -132,7 +134,7 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
-LABEL distro="builder-test"
+LABEL distro="test"
 
 #COPY pyproject.toml pdm.lock ./
 #COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
@@ -145,7 +147,13 @@ RUN set -x \
     && pdm sync --no-editable -v --no-self
 
 RUN <<EOF cat> /RELEASE
-{"version": "$VERSION", "commit": "$SOURCE_COMMIT", "date": "$BUILD_DATE", "checksum": "$CHECKSUM", "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"}
+{"version": "$VERSION",
+ "commit": "$SOURCE_COMMIT",
+ "date": "$BUILD_DATE",
+ "distro": "test",
+ "checksum": "$CHECKSUM",
+ "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
+}
 EOF
 
 FROM build_deps AS python_prod_deps
@@ -199,11 +207,20 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 
 WORKDIR /code
-COPY --chown=user:app --from=python_prod_deps /code /code
+COPY --chown=user:app --from=python_prod_deps /code/__pypackages__ /code/__pypackages__
+COPY --chown=user:app --from=python_prod_deps /code/README.md /code/LICENSE /
+
+ENV PATH=${APATH}:${PATH} \
+    PYTHONPATH=${APYTHONPATH} \
+    PYTHONDBUFFERED=1 \
+    PYTHONDONTWRITEBYTCODE=1 \
+    DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings"
+
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
  "commit": "$SOURCE_COMMIT",
  "date": "$BUILD_DATE",
+ "distro": "dist",
  "checksum": "$CHECKSUM",
  "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
@@ -211,19 +228,18 @@ EOF
 
 VOLUME /var/run/app/
 EXPOSE 8000
-ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 CMD ["run"]
+ENTRYPOINT exec docker-entrypoint.sh "$0" "$@"
 
 LABEL distro="final"
-LABEL maintainer="hope@app.io"
-LABEL org.opencontainers.image.authors="author@app.io"
+LABEL maintainer="hope@unicef.org"
+LABEL org.opencontainers.image.authors="hope@unicef.org"
 LABEL org.opencontainers.image.created="$BUILD_DATE"
-LABEL org.opencontainers.image.description="App runtime image"
-LABEL org.opencontainers.image.documentation="https://github.com/saxix/trash"
+LABEL org.opencontainers.image.description="HOPE Deduplication Engine"
+LABEL org.opencontainers.image.documentation="https://github.com/unicef/hope-dedup-engine"
 LABEL org.opencontainers.image.licenses="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${SOURCE_COMMIT:-master}/LICENSE"
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 LABEL org.opencontainers.image.source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 LABEL org.opencontainers.image.title="Hope Deduplication Engine"
 LABEL org.opencontainers.image.version="$VERSION"
-#LABEL org.opencontainers.image.url="https://app.io/"
-#LABEL org.opencontainers.image.vendor="App ltd"
+LABEL org.opencontainers.image.vendor="UNICEF"

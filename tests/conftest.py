@@ -17,15 +17,25 @@ def pytest_configure(config):
     os.environ.update(DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings")
     os.environ.setdefault("MEDIA_ROOT", "/tmp/static/")
     os.environ.setdefault("STATIC_ROOT", "/tmp/media/")
+    os.environ.setdefault("DEFAULT_ROOT", "/tmp/default/")
+
     os.environ.setdefault("TEST_EMAIL_SENDER", "sender@example.com")
     os.environ.setdefault("TEST_EMAIL_RECIPIENT", "recipient@example.com")
 
     os.environ["MAILJET_API_KEY"] = "11"
     os.environ["MAILJET_SECRET_KEY"] = "11"
-    os.environ["FILE_STORAGE_DEFAULT"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
-    os.environ["FILE_STORAGE_STATIC"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/static/"
-    os.environ["FILE_STORAGE_MEDIA"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
-    os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+    os.environ["FILE_STORAGE_DEFAULT"] = (
+        "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
+    )
+    os.environ["FILE_STORAGE_STATIC"] = (
+        "django.core.files.storage.FileSystemStorage?location=/tmp/hde/static/"
+    )
+    os.environ["FILE_STORAGE_MEDIA"] = (
+        "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
+    )
+    os.environ["FILE_STORAGE_HOPE"] = (
+        "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+    )
     os.environ["SOCIAL_AUTH_REDIRECT_IS_HTTPS"] = "0"
     os.environ["CELERY_TASK_ALWAYS_EAGER"] = "0"
     os.environ["SECURE_HSTS_PRELOAD"] = "0"

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+echo Set deduplication set id >&2
+
+if [[ $# -ne 1 ]] ; then
+  show_required_args "deduplication set id"
+  exit 1
+fi
+
+set_variable DEDUPLICATION_SET_ID "$1"

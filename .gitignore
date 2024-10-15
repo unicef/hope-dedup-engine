@@ -4,6 +4,7 @@
 *.egg-info
 __pycache__/
 *.py[cod]
+__pypackages__/
 
 !tests/.coveragerc
 !.dockerignore
@@ -32,5 +33,3 @@ act.*
 !.pylintrc
 !.isort.cfg
 !.git
-
-

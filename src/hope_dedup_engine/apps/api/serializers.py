@@ -4,18 +4,29 @@ from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
+    Config,
     Duplicate,
-    IgnoredKeyPair,
+    IgnoredFilenamePair,
+    IgnoredReferencePkPair,
     Image,
 )
 
+CONFIG = "config"
+
+
+class ConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Config
+        exclude = ("id",)
+
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
-    state = serializers.CharField(source="get_state_display", read_only=True)
+    state = serializers.CharField(source="get_state_value_display", read_only=True)
+    config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted",)
+        exclude = ("deleted", "state_value")
         read_only_fields = (
             "external_system",
             "created_at",
@@ -25,17 +36,49 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
             "updated_by",
         )
 
+    def create(self, validated_data) -> DeduplicationSet:
+        config_data = validated_data.get(CONFIG) and validated_data.pop(CONFIG)
+        config = Config.objects.create(**config_data) if config_data else None
+        return DeduplicationSet.objects.create(config=config, **validated_data)
+
+
+class CreateConfigSerializer(ConfigSerializer):
+    pass
+
+
+class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+    config = CreateConfigSerializer(required=False)
+
+    class Meta:
+        model = DeduplicationSet
+        fields = ("config", "reference_pk", "notification_url")
+
 
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
-        fields = "__all__"
+        fields = (
+            "id",
+            "deduplication_set",
+            "reference_pk",
+            "filename",
+            "created_by",
+            "created_at",
+        )
         read_only_fields = "created_by", "created_at"
+
+
+class CreateImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = (
+            "reference_pk",
+            "filename",
+        )
 
 
 class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
-    filename = serializers.SerializerMethodField()
 
     def __init__(self, prefix: str, *args: Any, **kwargs: Any) -> None:
         self._prefix = prefix
@@ -44,16 +87,43 @@ class EntrySerializer(serializers.Serializer):
     def get_reference_pk(self, duplicate: Duplicate) -> int:
         return getattr(duplicate, f"{self._prefix}_reference_pk")
 
-    def get_filename(self, duplicate: Duplicate) -> str:
-        return getattr(duplicate, f"{self._prefix}_filename")
 
-
-class DuplicateSerializer(serializers.Serializer):
+class DuplicateSerializer(serializers.ModelSerializer):
     first = EntrySerializer(prefix="first", source="*")
     second = EntrySerializer(prefix="second", source="*")
 
-
-class IgnoredKeyPairSerializer(serializers.ModelSerializer):
     class Meta:
-        model = IgnoredKeyPair
-        fields = "__all__"
+        model = Duplicate
+        fields = "first", "second", "score"
+
+
+CREATE_PAIR_FIELDS = "first", "second"
+PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
+
+
+class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredReferencePkPair
+        fields = PAIR_FIELDS
+
+
+class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredReferencePkPair
+        fields = CREATE_PAIR_FIELDS
+
+
+class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = PAIR_FIELDS
+
+
+class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = CREATE_PAIR_FIELDS
+
+
+class EmptySerializer(serializers.Serializer):
+    pass

@@ -8,6 +8,24 @@ IGNORE_PAIRS: Final[list[list[str, str]]] = [
     ["ignore_file.jpg", "ignore_file2.jpg"],
     ["ignore_file4.jpg", "ignore_file3.jpg"],
 ]
+FACE_DISTANCE_THRESHOLD = 0.4
+
+DNN_FILE = {
+    "name": FILENAME,
+    "content": [b"Hello, world!"],
+    "timeout": 3 * 60,
+    "chunks": 3,
+    "url": "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt",
+}
+
+DNN_FILES_TIMEOUT: Final[int] = (3 * 60,)
+DNN_FILES_CHUNK_SIZE: Final[int] = (128 * 1024,)
+DNN_FILES_BINARY_ITERABLE_FILE: Final[list[bytes]] = [b"Hello, world!"] * 3
+DNN_GITHUB_URL: Final[str] = (
+    "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt"
+)
+DNN_FILENAME: Final[str] = "deploy.prototxt"
+
 
 CELERY_TASK_NAME: Final[str] = "Deduplicate"
 CELERY_TASK_TTL: Final[int] = 1 * 60 * 60

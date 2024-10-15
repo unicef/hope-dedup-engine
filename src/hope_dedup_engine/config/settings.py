@@ -6,7 +6,6 @@ from . import env
 # BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
-DEVELOPMENT_DIR = PACKAGE_DIR.parent.parent
 
 DEBUG = env.bool("DEBUG")
 
@@ -18,7 +17,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "hope_dedup_engine.apps.security.apps.Config",
-    # "unicef_security",
+    "unicef_security",
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.humanize",
@@ -44,6 +43,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.apps.api",
     "hope_dedup_engine.apps.faces",
     "storages",
+    "smart_env",
 )
 
 MIDDLEWARE = (
@@ -63,7 +63,6 @@ AUTHENTICATION_BACKENDS = (
     *env("AUTHENTICATION_BACKENDS"),
 )
 
-
 # path
 MEDIA_ROOT = env("MEDIA_ROOT")
 MEDIA_URL = env("MEDIA_URL")
@@ -73,16 +72,24 @@ STATIC_URL = env("STATIC_URL")
 # #
 # # STATICFILES_DIRS = []
 STATICFILES_FINDERS = [
-    # "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
 
 STORAGES = {
+    # Local filesystem
+    # FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage?location=/var/hope_dedupe_engine/default # noqa
     "default": env.storage("FILE_STORAGE_DEFAULT"),
     "staticfiles": env.storage("FILE_STORAGE_STATIC"),
     "media": env.storage("FILE_STORAGE_MEDIA"),
+    # Azure BLOB (readonly HOPE images). Example in case use Azurite:
+    # FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
     "hope": env.storage("FILE_STORAGE_HOPE"),
+    # Azure BLOB. Example in case use Azurite:
+    # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
+    "dnn": env.storage("FILE_STORAGE_DNN"),
 }
+DEFAULT_ROOT = env("DEFAULT_ROOT")
+STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
@@ -94,8 +101,6 @@ LOGOUT_REDIRECT_URL = "/"
 
 TIME_ZONE = env("TIME_ZONE")
 
-# Language code for this installation. All choices can be found here:
-# http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = "en-us"
 ugettext: callable = lambda s: s  # noqa
 LANGUAGES = (
@@ -105,7 +110,7 @@ LANGUAGES = (
     ("ar", ugettext("Arabic")),
 )
 
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SITE_ID = 1
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
@@ -129,7 +134,7 @@ WSGI_APPLICATION = "hope_dedup_engine.config.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [str(PACKAGE_DIR / "templates")],
+        "DIRS": [str(PACKAGE_DIR / "web/templates")],
         "APP_DIRS": False,
         "OPTIONS": {
             "loaders": [
@@ -164,9 +169,14 @@ LOGGING = {
         },
     },
     "loggers": {
+        "environ": {
+            "handlers": ["console"],
+            "level": "CRITICAL",
+            "propagate": True,
+        },
         "": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": env("LOG_LEVEL"),
             "propagate": True,
         },
     },

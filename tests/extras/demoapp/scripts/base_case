@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+if [[ $# -ne 1 ]] ; then
+  show_required_args "deduplication set reference pk"
+  exit 1
+fi
+
+./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
+
+./create_image Aaron_Eckhart_0001.jpg
+./create_image Aaron_Guiel_0001.jpg
+./create_image Aaron_Peirsol_0001.jpg
+./create_image Aaron_Peirsol_0002.jpg
+./create_image Cathy_Freeman_0001.jpg
+./create_image Cathy_Freeman_0002.jpg
+./create_image without_face.jpg
+./create_image Ziwang_Xu_0001.jpg
+./create_image Zoe_Ball_0001.jpg
+
+./process_deduplication_set
+
+./show_duplicates

@@ -11,8 +11,7 @@ import face_recognition
 import numpy as np
 from constance import config
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +25,7 @@ class BlobFromImageConfig:
     shape: dict[str, int] = field(init=False)
     scale_factor: float
     mean_values: tuple[float, float, float]
+    prototxt_path: str
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "shape", self._get_shape())
@@ -36,7 +36,7 @@ class BlobFromImageConfig:
 
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
-        with open(settings.PROTOTXT_FILE, "r") as file:
+        with open(self.prototxt_path, "r") as file:
             if match := re.search(pattern, file.read()):
                 return {
                     "batch_size": int(match.group(1)),
@@ -56,23 +56,26 @@ class ImageProcessor:
 
     logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(self) -> None:
+    def __init__(self, face_distance_threshold: float) -> None:
         """
         Initialize the ImageProcessor with the required configurations.
         """
         self.storages = StorageManager()
-        self.net = DNNInferenceManager(self.storages.get_storage("cv2dnn")).get_model()
+        self.net = DNNInferenceManager(self.storages.get_storage("cv2")).get_model()
 
         self.blob_from_image_cfg = BlobFromImageConfig(
             scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR,
             mean_values=config.BLOB_FROM_IMAGE_MEAN_VALUES,
+            prototxt_path=self.storages.get_storage("cv2").path(
+                settings.DNN_FILES.get("prototxt").get("filename")
+            ),
         )
         self.face_encodings_cfg = FaceEncodingsConfig(
             num_jitters=config.FACE_ENCODINGS_NUM_JITTERS,
             model=config.FACE_ENCODINGS_MODEL,
         )
         self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
-        self.distance_threshold: float = config.FACE_DISTANCE_THRESHOLD
+        self.distance_threshold: float = face_distance_threshold
         self.nms_threshold: float = config.NMS_THRESHOLD
 
     def _get_face_detections_dnn(
@@ -158,7 +161,7 @@ class ImageProcessor:
             encodings: list[np.ndarray[np.float32, Any]] = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.error("No face regions detected in image %s", filename)
+                self.logger.warning("No face regions detected in image %s", filename)
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:

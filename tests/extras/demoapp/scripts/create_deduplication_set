@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+echo Create deduplication set >&2
+
+if [[ $# -ne 1 ]] ; then
+  show_required_args "reference pk"
+  exit 1
+fi
+
+call_api POST deduplication_sets reference_pk="$1"
