@@ -2,7 +2,7 @@ import os
 from io import StringIO
 from unittest import mock
 
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 
 import pytest
 from testutils.factories import SuperUserFactory
@@ -23,6 +23,7 @@ def environment():
         "STATIC_ROOT": "/tmp/static",
         "SECURE_SSL_REDIRECT": "1",
         "SESSION_COOKIE_SECURE": "1",
+        "DJANGO_SETTINGS_MODULE": "hope_dedup_engine.config.settings",
     }
 
 
@@ -113,40 +114,6 @@ def test_upgrade_admin(db, mocked_responses, environment, admin):
             static=False,
             admin_email=email,
         )
-
-
-@pytest.mark.parametrize("verbosity", [0, 1], ids=["0", "1"])
-@pytest.mark.parametrize("develop", [0, 1], ids=["0", "1"])
-@pytest.mark.parametrize("diff", [0, 1], ids=["0", "1"])
-@pytest.mark.parametrize("config", [0, 1], ids=["0", "1"])
-@pytest.mark.parametrize("check", [0, 1], ids=["0", "1"])
-def test_env(mocked_responses, verbosity, develop, diff, config, check):
-    out = StringIO()
-    environ = {
-        "ADMIN_URL_PREFIX": "test",
-        "SECURE_SSL_REDIRECT": "1",
-        "SECRET_KEY": "a" * 120,
-        "SESSION_COOKIE_SECURE": "1",
-    }
-    with mock.patch.dict(os.environ, environ, clear=True):
-        call_command(
-            "env",
-            ignore_errors=True if check == 1 else False,
-            stdout=out,
-            verbosity=verbosity,
-            develop=develop,
-            diff=diff,
-            config=config,
-            check=check,
-        )
-        assert "error" not in str(out.getvalue())
-
-
-def test_env_raise(mocked_responses):
-    environ = {"ADMIN_URL_PREFIX": "test"}
-    with mock.patch.dict(os.environ, environ, clear=True):
-        with pytest.raises(CommandError):
-            call_command("env", ignore_errors=False, check=True)
 
 
 def test_upgrade_exception(mocked_responses, environment):

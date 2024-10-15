@@ -42,6 +42,7 @@ dependencies = [
     "numpy>=1.26.4,<2.0.0",
     "flower>=2.0.1",
     "setuptools>=74.1.2",
+    "django-smart-env>=0.1.0",
 ]
 
 [build-system]

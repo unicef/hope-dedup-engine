@@ -43,6 +43,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.apps.api",
     "hope_dedup_engine.apps.faces",
     "storages",
+    "smart_env",
 )
 
 MIDDLEWARE = (
