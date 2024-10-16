@@ -29,7 +29,7 @@ class Group(Enum):
 CONFIG: "Dict[str, ConfigItem]" = {
     "ADMIN_EMAIL": (
         str,
-        SmartEnv.NOTSET,
+        "",
         "admin",
         True,
         "Initial user created at first deploy",
@@ -100,7 +100,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
         False,
         f"{celery_doc}#broker-transport-options",
     ),
-    "CSRF_COOKIE_SECURE": (bool, True, False, setting("csrf-cookie-secure")),
+    "CSRF_COOKIE_SECURE": (bool, True, False, False, setting("csrf-cookie-secure")),
     "DATABASE_URL": (
         str,
         SmartEnv.NOTSET,
