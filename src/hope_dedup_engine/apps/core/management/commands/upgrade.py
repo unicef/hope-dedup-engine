@@ -174,12 +174,8 @@ class Command(BaseCommand):
                         verbosity=self.verbosity - 1,
                         interactive=False,
                     )
-
-                admin = User.objects.get(email=self.admin_email)
             else:
-                admin = User.objects.filter(is_superuser=True).first()
-            if not admin:
-                raise CommandError("Failure: Error when creating an admin user!")
+                echo("No admin email provided, skip superuser creation")
 
             from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 
