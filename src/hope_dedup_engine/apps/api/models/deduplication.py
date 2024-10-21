@@ -2,6 +2,7 @@ from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from hope_dedup_engine.apps.api.utils.notification import send_notification
@@ -11,7 +12,17 @@ REFERENCE_PK_LENGTH: Final[int] = 100
 
 
 class Config(models.Model):
-    face_distance_threshold = models.FloatField(null=True)
+    face_distance_threshold = models.FloatField(
+        null=True,
+        validators=[MinValueValidator(0.1), MaxValueValidator(1.0)],
+    )
+
+    def __str__(self) -> str:
+        return " | ".join(
+            f"{field.name}: {getattr(self, field.name)}"
+            for field in self._meta.fields
+            if field.name not in ("id",)
+        )
 
 
 class DeduplicationSet(models.Model):
