@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from .config import ConfigAdmin  # noqa
 from .deduplicationset import DeduplicationSetAdmin  # noqa
 from .duplicate import DuplicateAdmin  # noqa
 from .hdetoken import HDETokenAdmin  # noqa
