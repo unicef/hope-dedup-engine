@@ -10,33 +10,51 @@ from faces_const import (
     BLOB_FROM_IMAGE_MEAN_VALUES,
     BLOB_FROM_IMAGE_SCALE_FACTOR,
     DEPLOY_PROTO_SHAPE,
+    FACE_DISTANCE_THRESHOLD,
     FACE_REGIONS_INVALID,
     FACE_REGIONS_VALID,
     FILENAME,
     FILENAME_ENCODED,
 )
 
-from hope_dedup_engine.apps.faces.managers.net import DNNInferenceManager
-from hope_dedup_engine.apps.faces.managers.storage import StorageManager
-from hope_dedup_engine.apps.faces.services.image_processor import BlobFromImageConfig, FaceEncodingsConfig
+from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
+from hope_dedup_engine.apps.faces.services.image_processor import (
+    BlobFromImageConfig,
+    FaceEncodingsConfig,
+)
 
 
-def test_init_creates_expected_attributes(mock_net_manager: DNNInferenceManager, mock_image_processor):
+def test_init_creates_expected_attributes(
+    mock_net_manager: DNNInferenceManager, mock_image_processor
+):
     assert isinstance(mock_image_processor.storages, StorageManager)
     assert mock_image_processor.net is mock_net_manager
     assert isinstance(mock_image_processor.blob_from_image_cfg, BlobFromImageConfig)
-    assert mock_image_processor.blob_from_image_cfg.scale_factor == config.BLOB_FROM_IMAGE_SCALE_FACTOR
+    assert (
+        mock_image_processor.blob_from_image_cfg.scale_factor
+        == config.BLOB_FROM_IMAGE_SCALE_FACTOR
+    )
     assert isinstance(mock_image_processor.face_encodings_cfg, FaceEncodingsConfig)
-    assert mock_image_processor.face_encodings_cfg.num_jitters == config.FACE_ENCODINGS_NUM_JITTERS
+    assert (
+        mock_image_processor.face_encodings_cfg.num_jitters
+        == config.FACE_ENCODINGS_NUM_JITTERS
+    )
     assert mock_image_processor.face_encodings_cfg.model == config.FACE_ENCODINGS_MODEL
-    assert mock_image_processor.face_detection_confidence == config.FACE_DETECTION_CONFIDENCE
-    assert mock_image_processor.distance_threshold == config.FACE_DISTANCE_THRESHOLD
+    assert (
+        mock_image_processor.face_detection_confidence
+        == config.FACE_DETECTION_CONFIDENCE
+    )
+    assert mock_image_processor.distance_threshold == FACE_DISTANCE_THRESHOLD
     assert mock_image_processor.nms_threshold == config.NMS_THRESHOLD
 
 
 def test_get_shape_valid(mock_prototxt_file):
     with patch("builtins.open", mock_prototxt_file):
-        config = BlobFromImageConfig(scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR, mean_values=BLOB_FROM_IMAGE_MEAN_VALUES)
+        config = BlobFromImageConfig(
+            scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
+            mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+            prototxt_path="test.prototxt",
+        )
         shape = config._get_shape()
         assert shape == DEPLOY_PROTO_SHAPE
 
@@ -44,16 +62,24 @@ def test_get_shape_valid(mock_prototxt_file):
 def test_get_shape_invalid():
     with patch("builtins.open", mock_open(read_data="invalid_prototxt_content")):
         with pytest.raises(ValidationError):
-            BlobFromImageConfig(scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR, mean_values=BLOB_FROM_IMAGE_MEAN_VALUES)
+            BlobFromImageConfig(
+                scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
+                mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+                prototxt_path="test.prototxt",
+            )
 
 
-def test_get_face_detections_dnn_with_detections(mock_image_processor, mock_net, mock_open_context_manager):
+def test_get_face_detections_dnn_with_detections(
+    mock_image_processor, mock_net, mock_open_context_manager
+):
     dnn, imdecode, resize, _, expected_regions = mock_net
     with (
         patch("cv2.imdecode", imdecode),
         patch("cv2.resize", resize),
         patch.object(
-            mock_image_processor.storages.get_storage("images"), "open", return_value=mock_open_context_manager
+            mock_image_processor.storages.get_storage("images"),
+            "open",
+            return_value=mock_open_context_manager,
         ),
         patch.object(mock_image_processor, "net", dnn),
     ):
@@ -66,19 +92,41 @@ def test_get_face_detections_dnn_with_detections(mock_image_processor, mock_net,
 
 
 def test_get_face_detections_dnn_no_detections(mock_image_processor):
-    with (patch.object(mock_image_processor, "_get_face_detections_dnn", return_value=[]),):
+    with (
+        patch.object(mock_image_processor, "_get_face_detections_dnn", return_value=[]),
+    ):
         face_regions = mock_image_processor._get_face_detections_dnn()
         assert len(face_regions) == 0
+
+
+def test_get_face_detections_dnn_exception(
+    mock_image_processor, mock_open_context_manager
+):
+    with (
+        patch.object(
+            mock_image_processor.storages.get_storage("images"),
+            "open",
+            return_value=mock_open_context_manager,
+        ),
+        patch.object(mock_open_context_manager, "read", return_value=b"fake_data"),
+        patch("cv2.imdecode", side_effect=TypeError("Test exception")),
+    ):
+        with pytest.raises(TypeError, match="Test exception"):
+            mock_image_processor._get_face_detections_dnn(FILENAME)
 
 
 @pytest.mark.parametrize("face_regions", (FACE_REGIONS_VALID, FACE_REGIONS_INVALID))
 def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
     with (
         patch.object(
-            mock_image_processor.storages.get_storage("images"), "open", side_effect=image_bytes_io.fake_open
+            mock_image_processor.storages.get_storage("images"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
         ) as mocked_image_open,
         patch.object(
-            mock_image_processor.storages.get_storage("encoded"), "open", side_effect=image_bytes_io.fake_open
+            mock_image_processor.storages.get_storage("encoded"),
+            "open",
+            side_effect=image_bytes_io.fake_open,
         ) as mocked_encoded_open,
         patch.object(
             mock_image_processor, "_get_face_detections_dnn", return_value=face_regions
@@ -109,11 +157,15 @@ def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
         (str("face_encodings"), "Test face_encodings exception"),
     ),
 )
-def test_encode_face_exception_handling(mock_image_processor, mock_net, method: str, exception_str):
+def test_encode_face_exception_handling(
+    mock_image_processor, mock_net, method: str, exception_str
+):
     dnn, imdecode, *_ = mock_net
     with (
         pytest.raises(Exception, match=exception_str),
-        patch.object(face_recognition, method, side_effect=Exception(exception_str)) as mock_exception,
+        patch.object(
+            face_recognition, method, side_effect=Exception(exception_str)
+        ) as mock_exception,
         patch.object(mock_image_processor, "net", dnn),
         patch("cv2.imdecode", imdecode),
         patch.object(mock_image_processor.logger, "exception") as mock_logger_exception,

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+if [[ $# -ne 1 ]] ; then
+  show_required_args "deduplication set reference pk"
+  exit 1
+fi
+
+./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
+
+./create_image Aaron_Eckhart_0001.jpg
+./create_image Aaron_Guiel_0001.jpg
+./create_image Aaron_Peirsol_0001.jpg
+./create_image Aaron_Peirsol_0002.jpg
+./create_image Cathy_Freeman_0001.jpg
+./create_image Cathy_Freeman_0002.jpg
+./create_image without_face.jpg
+./create_image Ziwang_Xu_0001.jpg
+./create_image Zoe_Ball_0001.jpg
+
+./ignore Aaron_Eckhart_0001.jpg Aaron_Guiel_0001.jpg
+./ignore Aaron_Eckhart_0001.jpg Aaron_Peirsol_0001.jpg
+./ignore Aaron_Eckhart_0001.jpg Aaron_Peirsol_0002.jpg
+./ignore Aaron_Eckhart_0001.jpg Cathy_Freeman_0001.jpg
+./ignore Aaron_Eckhart_0001.jpg Cathy_Freeman_0002.jpg
+./ignore Aaron_Eckhart_0001.jpg without_face.jpg
+./ignore Aaron_Eckhart_0001.jpg Ziwang_Xu_0001.jpg
+./ignore Aaron_Eckhart_0001.jpg Zoe_Ball_0001.jpg
+./ignore Aaron_Guiel_0001.jpg Aaron_Peirsol_0001.jpg
+./ignore Aaron_Guiel_0001.jpg Aaron_Peirsol_0002.jpg
+./ignore Aaron_Guiel_0001.jpg Cathy_Freeman_0001.jpg
+./ignore Aaron_Guiel_0001.jpg Cathy_Freeman_0002.jpg
+./ignore Aaron_Guiel_0001.jpg without_face.jpg
+./ignore Aaron_Guiel_0001.jpg Ziwang_Xu_0001.jpg
+./ignore Aaron_Guiel_0001.jpg Zoe_Ball_0001.jpg
+./ignore Aaron_Peirsol_0001.jpg Aaron_Peirsol_0002.jpg
+./ignore Aaron_Peirsol_0001.jpg Cathy_Freeman_0001.jpg
+./ignore Aaron_Peirsol_0001.jpg Cathy_Freeman_0002.jpg
+./ignore Aaron_Peirsol_0001.jpg without_face.jpg
+./ignore Aaron_Peirsol_0001.jpg Ziwang_Xu_0001.jpg
+./ignore Aaron_Peirsol_0001.jpg Zoe_Ball_0001.jpg
+./ignore Aaron_Peirsol_0002.jpg Cathy_Freeman_0001.jpg
+./ignore Aaron_Peirsol_0002.jpg Cathy_Freeman_0002.jpg
+./ignore Aaron_Peirsol_0002.jpg without_face.jpg
+./ignore Aaron_Peirsol_0002.jpg Ziwang_Xu_0001.jpg
+./ignore Aaron_Peirsol_0002.jpg Zoe_Ball_0001.jpg
+./ignore Cathy_Freeman_0001.jpg Cathy_Freeman_0002.jpg
+./ignore Cathy_Freeman_0001.jpg without_face.jpg
+./ignore Cathy_Freeman_0001.jpg Ziwang_Xu_0001.jpg
+./ignore Cathy_Freeman_0001.jpg Zoe_Ball_0001.jpg
+./ignore Cathy_Freeman_0002.jpg without_face.jpg
+./ignore Cathy_Freeman_0002.jpg Ziwang_Xu_0001.jpg
+./ignore Cathy_Freeman_0002.jpg Zoe_Ball_0001.jpg
+./ignore without_face.jpg Ziwang_Xu_0001.jpg
+./ignore without_face.jpg Zoe_Ball_0001.jpg
+./ignore Ziwang_Xu_0001.jpg Zoe_Ball_0001.jpg
+
+./process_deduplication_set
+
+./show_duplicates
