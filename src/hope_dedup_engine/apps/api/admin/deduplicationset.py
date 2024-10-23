@@ -10,6 +10,7 @@ from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.process import start_processing
+from hope_dedup_engine.utils.security import is_root
 
 
 @register(DeduplicationSet)
@@ -45,11 +46,12 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @button(label="Process")
+    @button(permission=is_root)
     def process(self, request: HttpRequest, pk: str) -> HttpResponseRedirect:
         dd = DeduplicationSet.objects.get(pk=pk)
         start_processing(dd)
         self.message_user(
-            request, f"Processing for deduplication set '{dd}' has been started."
+            request,
+            f"Processing for deduplication set '{dd}' has been started.",
         )
         return HttpResponseRedirect(reverse("admin:api_deduplicationset_changelist"))

@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Tuple, TypeAlias, Union
+from uuid import uuid4
 
 from smart_env import SmartEnv
 
@@ -173,8 +174,14 @@ CONFIG: "Dict[str, ConfigItem]" = {
         setting("media-root"),
     ),
     "MEDIA_URL": (str, "/media/", "/media", False, setting("media-root")),  # nosec
-    "ROOT_TOKEN_HEADER": (str, "x-root-token", "x-root-token"),
-    "ROOT_TOKEN": (str, ""),
+    "ROOT_ACCESS_TOKEN": (str, uuid4().hex, uuid4().hex, False, "Root access token"),
+    "ROOT_TOKEN_HEADER": (
+        str,
+        "x-root-token",
+        "x-root-token",
+        False,
+        "Root token header",
+    ),
     "SECRET_KEY": (
         str,
         "",
