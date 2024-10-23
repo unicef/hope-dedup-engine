@@ -67,7 +67,7 @@ CONSTANCE_CONFIG = {
         int,
     ),
     "FACE_ENCODINGS_MODEL": (
-        "small",
+        "large",
         """
         Specifies the model type used for encoding face landmarks. It can be either 'small' which is faster and
         detects only 5 key facial landmarks, or 'large' which is more precise and identifies 68 key facial landmarks

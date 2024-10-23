@@ -44,8 +44,8 @@ DEPLOY_PROTO_SHAPE: Final[dict[str, int]] = {
 }
 FACE_REGIONS_INVALID: Final[list[list[tuple[int, int, int, int]]]] = [[], [(0, 0, 10)]]
 FACE_REGIONS_VALID: Final[list[tuple[int, int, int, int]]] = [
-    (10, 10, 20, 20),
-    (30, 30, 40, 40),
+    (40, 40, 80, 80),
+    (120, 120, 160, 160),
 ]
 BLOB_FROM_IMAGE_SCALE_FACTOR: Final[float] = 1.0
 BLOB_FROM_IMAGE_MEAN_VALUES: Final[tuple[float, float, float]] = (104.0, 177.0, 123.0)
@@ -56,8 +56,8 @@ FACE_DETECTIONS: Final[list[tuple[float]]] = [
     (0, 0, 0.15, 0.1, 0.1, 0.2, 0.2),  # with confidence 0.15 -> invalid detection
 ]
 IMAGE_SIZE: Final[tuple[int, int, int]] = (
-    100,
-    100,
+    400,
+    400,
     3,
 )  # Size of the image after decoding (h, w, number of channels)
 RESIZED_IMAGE_SIZE: Final[tuple[int, int, int]] = (

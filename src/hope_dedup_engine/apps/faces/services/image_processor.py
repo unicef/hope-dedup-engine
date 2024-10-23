@@ -11,6 +11,7 @@ import face_recognition
 import numpy as np
 from constance import config
 
+from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 
 
@@ -97,19 +98,18 @@ class ImageProcessor:
                 # Decode image from binary buffer to 3D numpy array (height, width, channels of BlueGreeRed color space)
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             (h, w) = image.shape[:2]
+            _h, _w = (
+                self.blob_from_image_cfg.shape["height"],
+                self.blob_from_image_cfg.shape["width"],
+            )
+            if h < _h or w < _w:
+                raise NotCompliantImageError(
+                    f"Image {filename} too small: '{h}x{w}'. It needs to be at least '{_h}x{_w}'."
+                )
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
-                image=cv2.resize(
-                    image,
-                    dsize=(
-                        self.blob_from_image_cfg.shape["height"],
-                        self.blob_from_image_cfg.shape["width"],
-                    ),
-                ),
-                size=(
-                    self.blob_from_image_cfg.shape["height"],
-                    self.blob_from_image_cfg.shape["width"],
-                ),
+                image=cv2.resize(image, dsize=(_h, _w)),
+                size=(_h, _w),
                 scalefactor=self.blob_from_image_cfg.scale_factor,
                 mean=self.blob_from_image_cfg.mean_values,
             )
@@ -161,7 +161,9 @@ class ImageProcessor:
             encodings: list[np.ndarray[np.float32, Any]] = []
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.warning("No face regions detected in image %s", filename)
+                raise NotCompliantImageError(
+                    f"No face regions detected in image '{filename}'."
+                )
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:
