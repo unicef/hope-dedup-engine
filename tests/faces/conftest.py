@@ -129,7 +129,7 @@ def mock_image_processor(
 @pytest.fixture
 def image_bytes_io():
     img_byte_arr = BytesIO()
-    image = Image.new("RGB", (100, 100), color="red")
+    image = Image.new("RGB", (300, 300), color="red")
     image.save(img_byte_arr, format="JPEG")
     img_byte_arr.seek(0)
     img_byte_arr.fake_open = lambda *_: BytesIO(img_byte_arr.getvalue())
