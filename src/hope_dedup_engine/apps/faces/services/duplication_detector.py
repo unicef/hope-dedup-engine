@@ -125,22 +125,26 @@ class DuplicationDetector:
             encodings_all = self._load_encodings_all()
 
             for path1, path2 in combinations(existed_images_name, 2):
-                min_distance = self.face_distance_threshold
                 encodings1 = encodings_all.get(path1)
                 encodings2 = encodings_all.get(path2)
                 if encodings1 is None or encodings2 is None:
                     continue
 
+                min_distance = None
                 for encoding1 in encodings1:
-                    if (
-                        current_min := min(
-                            face_recognition.face_distance(encodings2, encoding1)
-                        )
-                    ) < min_distance:
+                    distances = face_recognition.face_distance(encodings2, encoding1)
+                    current_min = min(distances) if np.any(distances) else float("inf")
+                    if min_distance is None or current_min < min_distance:
                         min_distance = current_min
+
+                if min_distance is not None:
+                    print(
+                        f"Minimum distance between {path1} and {path2}: {min_distance}"
+                    )
 
                 if min_distance < self.face_distance_threshold:
                     yield (path1, path2, round(min_distance, 5))
+
         except Exception as e:
             self.logger.exception(
                 "Error finding duplicates for images %s", self.filenames

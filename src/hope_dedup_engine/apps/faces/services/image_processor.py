@@ -163,12 +163,13 @@ class ImageProcessor:
             if not face_regions:
                 self.logger.warning("No face regions detected in image %s", filename)
             else:
+
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:
                         top, right, bottom, left = region
                         face_encodings = face_recognition.face_encodings(
                             image,
-                            [(top, right, bottom, left)],
+                            [(right, bottom, left, top)],
                             num_jitters=self.face_encodings_cfg.num_jitters,
                             model=self.face_encodings_cfg.model,
                         )
