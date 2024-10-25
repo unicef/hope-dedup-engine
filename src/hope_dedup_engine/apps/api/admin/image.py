@@ -1,7 +1,8 @@
 from django.contrib.admin import ModelAdmin, register
 
+from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.dates import DateRangeFilter
-from adminfilters.filters import DjangoLookupFilter, RelatedFieldComboFilter
+from adminfilters.filters import DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import Image
@@ -17,7 +18,7 @@ class ImageAdmin(AdminFiltersMixin, ModelAdmin):
     )
 
     list_filter = (
-        ("deduplication_set", RelatedFieldComboFilter),
+        ("deduplication_set", AutoCompleteFilter),
         ("created_at", DateRangeFilter),
         DjangoLookupFilter,
     )
@@ -27,6 +28,3 @@ class ImageAdmin(AdminFiltersMixin, ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
-
-    def has_delete_permission(self, request, obj=None):
-        return obj is not None

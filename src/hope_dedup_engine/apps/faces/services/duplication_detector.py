@@ -133,16 +133,14 @@ class DuplicationDetector:
                 min_distance = None
                 for encoding1 in encodings1:
                     distances = face_recognition.face_distance(encodings2, encoding1)
-                    current_min = min(distances) if np.any(distances) else float("inf")
+                    current_min = min(distances) if np.any(distances) else 0
                     if min_distance is None or current_min < min_distance:
                         min_distance = current_min
 
-                if min_distance is not None:
-                    print(
-                        f"Minimum distance between {path1} and {path2}: {min_distance}"
-                    )
-
-                if min_distance < self.face_distance_threshold:
+                if (
+                    min_distance is not None
+                    and min_distance < self.face_distance_threshold
+                ):
                     yield (path1, path2, round(min_distance, 5))
 
         except Exception as e:
