@@ -189,7 +189,6 @@ class ImageProcessor:
                     f"No face regions detected in image '{filename}'."
                 )
             else:
-
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:
                         top, right, bottom, left = region
