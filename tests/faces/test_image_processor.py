@@ -131,7 +131,6 @@ def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
         patch.object(
             mock_image_processor, "_get_face_detections_dnn", return_value=face_regions
         ) as mock_get_face_detections_dnn,
-        patch.object(face_recognition, "load_image_file") as mock_load_image_file,
         patch.object(face_recognition, "face_encodings") as mock_face_encodings,
     ):
         mock_image_processor.encode_face(FILENAME, FILENAME_ENCODED)
@@ -139,7 +138,6 @@ def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
         mock_get_face_detections_dnn.assert_called_once()
         mocked_image_open.assert_called_with(FILENAME, "rb")
         assert mocked_image_open.side_effect == image_bytes_io.fake_open
-        mock_load_image_file.assert_called()
 
         if face_regions == FACE_REGIONS_VALID:
             mocked_encoded_open.assert_called_with(FILENAME_ENCODED, "wb")
@@ -152,10 +150,7 @@ def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
 
 @pytest.mark.parametrize(
     "method, exception_str",
-    (
-        (str("load_image_file"), "Test load_image_file exception"),
-        (str("face_encodings"), "Test face_encodings exception"),
-    ),
+    ((str("face_encodings"), "Test face_encodings exception"),),
 )
 def test_encode_face_exception_handling(
     mock_image_processor, mock_net, method: str, exception_str
