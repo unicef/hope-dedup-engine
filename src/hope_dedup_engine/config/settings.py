@@ -44,6 +44,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.apps.faces",
     "storages",
     "smart_env",
+    "django_celery_boost",
 )
 
 MIDDLEWARE = (
