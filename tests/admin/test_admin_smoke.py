@@ -183,7 +183,7 @@ def test_admin_delete(app, modeladmin, record, monkeypatch):
         pytest.skip("No 'delete' permission")
 
 
-@pytest.mark.skip_buttons("security.UserAdmin:link_user_data")
+@pytest.mark.skip_buttons("api.DeduplicationSetAdmin:process")
 def test_admin_buttons(app, modeladmin, button_handler, record, monkeypatch):
     from admin_extra_buttons.handlers import LinkHandler
 

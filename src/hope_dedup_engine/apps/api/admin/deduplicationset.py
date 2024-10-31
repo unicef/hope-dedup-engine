@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.contrib.admin import ModelAdmin, register
 from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import reverse
@@ -10,6 +12,7 @@ from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.process import start_processing
+from hope_dedup_engine.utils.security import can_reprocess
 
 
 @register(DeduplicationSet)
@@ -45,11 +48,12 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @button(label="Process")
-    def process(self, request: HttpRequest, pk: str) -> HttpResponseRedirect:
-        dd = DeduplicationSet.objects.get(pk=pk)
-        start_processing(dd)
+    @button(permission=can_reprocess)
+    def process(self, request: HttpRequest, pk: UUID) -> HttpResponseRedirect:
+        obj = self.get_object(request, pk)
+        start_processing(obj)
         self.message_user(
-            request, f"Processing for deduplication set '{dd}' has been started."
+            request,
+            f"Processing for deduplication set '{obj}' has been started.",
         )
         return HttpResponseRedirect(reverse("admin:api_deduplicationset_changelist"))
