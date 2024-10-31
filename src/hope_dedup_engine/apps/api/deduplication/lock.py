@@ -12,7 +12,6 @@ from redis.lock import Lock
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 DELIMITER: Final[str] = "|"
-LOCK_IS_NOT_ENABLED = "LOCK_IS_NOT_ENABLED"
 
 
 class DeduplicationSetLock:

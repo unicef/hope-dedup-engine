@@ -1,9 +1,8 @@
-from constance import config
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from hope_dedup_engine.apps.api.deduplication.lock import LOCK_IS_NOT_ENABLED
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.jobs import DedupJob
 
 
 class AlreadyProcessingError(APIException):
@@ -14,17 +13,9 @@ class AlreadyProcessingError(APIException):
 
 def start_processing(deduplication_set: DeduplicationSet) -> None:
     from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
-    from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 
     try:
-        lock = (
-            DeduplicationSetLock.for_deduplication_set(deduplication_set)
-            if config.DEDUPLICATION_SET_LOCK_ENABLED
-            else LOCK_IS_NOT_ENABLED
-        )
-        deduplication_set.state = DeduplicationSet.State.PROCESSING
-        deduplication_set.save()
-        find_duplicates.delay(str(deduplication_set.pk), str(lock))
+        DedupJob.objects.create(deduplication_set=deduplication_set).queue()
     except DeduplicationSetLock.LockNotOwnedException as e:
         raise AlreadyProcessingError from e
 

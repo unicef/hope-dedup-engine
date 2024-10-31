@@ -7,7 +7,7 @@ from hope_dedup_engine.apps.api.deduplication.registry import (
     DuplicateKeyPair,
     get_finders,
 )
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Duplicate
 
 
 def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
@@ -67,17 +67,21 @@ HOUR = 60 * 60
 
 
 @shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
-def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
-    deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_id)
+def find_duplicates(dedup_job_id: int, version: int) -> None:
+    dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
     try:
         lock_enabled = config.DEDUPLICATION_SET_LOCK_ENABLED
         lock = (
-            DeduplicationSetLock.from_string(serialized_lock) if lock_enabled else None
+            DeduplicationSetLock.from_string(dedup_job.serialized_lock)
+            if lock_enabled
+            else None
         )
 
         if lock_enabled:
             # refresh lock in case we spent much time waiting in queue
             lock.refresh()
+
+        deduplication_set = dedup_job.deduplication_set
 
         # clean results
         Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
@@ -95,6 +99,7 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
         deduplication_set.save()
 
     except Exception:
+        deduplication_set = dedup_job.deduplication_set
         deduplication_set.state = DeduplicationSet.State.ERROR
         deduplication_set.save()
         raise
