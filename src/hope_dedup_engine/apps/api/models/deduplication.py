@@ -18,7 +18,7 @@ class Config(models.Model):
     )
 
     def __str__(self) -> str:
-        return " | ".join(
+        return f"{self.pk}: " + " | ".join(
             f"{field.name}: {getattr(self, field.name)}"
             for field in self._meta.fields
             if field.name not in ("id",)

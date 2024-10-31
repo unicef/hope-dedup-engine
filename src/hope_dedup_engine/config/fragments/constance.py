@@ -40,7 +40,7 @@ CONSTANCE_CONFIG = {
         "tuple_field",
     ),
     "FACE_DETECTION_CONFIDENCE": (
-        0.5,
+        0.7,
         """
         Specifies the minimum confidence score required for a detected face to be considered valid. Detections
         with confidence scores below this threshold are discarded as likely false positives.
@@ -67,7 +67,7 @@ CONSTANCE_CONFIG = {
         int,
     ),
     "FACE_ENCODINGS_MODEL": (
-        "small",
+        "large",
         """
         Specifies the model type used for encoding face landmarks. It can be either 'small' which is faster and
         detects only 5 key facial landmarks, or 'large' which is more precise and identifies 68 key facial landmarks
@@ -76,11 +76,12 @@ CONSTANCE_CONFIG = {
         "face_encodings_model",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.4,
+        0.26,
         """
-        Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
-        determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in
-        stricter matching, while higher values allow for more lenient matches.
+        Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
+        This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
+        as it establishes the similarity limit. Lower values result in stricter matching, while higher values allow
+        for more lenient matches.
         """,
         float,
     ),

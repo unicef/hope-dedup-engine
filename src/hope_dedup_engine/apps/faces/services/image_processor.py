@@ -11,6 +11,7 @@ import face_recognition
 import numpy as np
 from constance import config
 
+from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 
 
@@ -97,19 +98,19 @@ class ImageProcessor:
                 # Decode image from binary buffer to 3D numpy array (height, width, channels of BlueGreeRed color space)
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             (h, w) = image.shape[:2]
+            _h, _w = (
+                self.blob_from_image_cfg.shape["height"],
+                self.blob_from_image_cfg.shape["width"],
+            )
+            if h < _h or w < _w:
+                raise NotCompliantImageError(
+                    f"Image {filename} too small: '{h}x{w}'. It needs to be at least '{_h}x{_w}'."
+                )
+
             # Create a blob (4D tensor) from the image
             blob = cv2.dnn.blobFromImage(
-                image=cv2.resize(
-                    image,
-                    dsize=(
-                        self.blob_from_image_cfg.shape["height"],
-                        self.blob_from_image_cfg.shape["width"],
-                    ),
-                ),
-                size=(
-                    self.blob_from_image_cfg.shape["height"],
-                    self.blob_from_image_cfg.shape["width"],
-                ),
+                image=cv2.resize(image, dsize=(_h, _w)),
+                size=(_h, _w),
                 scalefactor=self.blob_from_image_cfg.scale_factor,
                 mean=self.blob_from_image_cfg.mean_values,
             )
@@ -147,6 +148,30 @@ class ImageProcessor:
             raise e
         return face_regions
 
+    def _preprocess_image(self, filename: str) -> np.ndarray:
+        """
+        This function retrieves an image from the 'images' storage, reads it as an array of bytes,
+        and decodes it into a color image.
+
+        The image's color space is first converted from BGR (Blue, Green, Red) to YUV. Histogram equalization is then
+        applied to the Y channel (luminance) to enhance the contrast of the image.
+
+        Finally, the image is converted to RGB color space for further processing.
+
+        Args:
+        filename (str): The filename of the image to preprocess.
+
+        Returns:
+        np.ndarray: The preprocessed image as a NumPy array in RGB format.
+        """
+        with self.storages.get_storage("images").open(filename, "rb") as img_file:
+            img_array = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
+        image = cv2.cvtColor(
+            cv2.imdecode(img_array, cv2.IMREAD_COLOR), cv2.COLOR_BGR2YUV
+        )
+        image[:, :, 0] = cv2.equalizeHist(image[:, :, 0])
+        return cv2.cvtColor(image, cv2.COLOR_YUV2RGB)
+
     def encode_face(self, filename: str, encodings_filename: str) -> None:
         """
         Encode faces detected in an image and save the encodings to storage.
@@ -156,19 +181,20 @@ class ImageProcessor:
             encodings_filename (str): The filename to save the face encodings.
         """
         try:
-            with self.storages.get_storage("images").open(filename, "rb") as img_file:
-                image = face_recognition.load_image_file(img_file)
             encodings: list[np.ndarray[np.float32, Any]] = []
+            image = self._preprocess_image(filename)
             face_regions = self._get_face_detections_dnn(filename)
             if not face_regions:
-                self.logger.warning("No face regions detected in image %s", filename)
+                raise NotCompliantImageError(
+                    f"No face regions detected in image '{filename}'."
+                )
             else:
                 for region in face_regions:
                     if isinstance(region, (list, tuple)) and len(region) == 4:
                         top, right, bottom, left = region
                         face_encodings = face_recognition.face_encodings(
                             image,
-                            [(top, right, bottom, left)],
+                            [(right, bottom, left, top)],
                             num_jitters=self.face_encodings_cfg.num_jitters,
                             model=self.face_encodings_cfg.model,
                         )

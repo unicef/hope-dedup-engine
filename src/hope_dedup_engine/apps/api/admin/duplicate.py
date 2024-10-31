@@ -1,10 +1,7 @@
 from django.contrib.admin import ModelAdmin, register
 
-from adminfilters.filters import (
-    DjangoLookupFilter,
-    NumberFilter,
-    RelatedFieldComboFilter,
-)
+from adminfilters.autocomplete import AutoCompleteFilter
+from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import Duplicate
@@ -20,7 +17,7 @@ class DuplicateAdmin(AdminFiltersMixin, ModelAdmin):
         "second_reference_pk",
     )
     list_filter = (
-        ("deduplication_set", RelatedFieldComboFilter),
+        ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
         DjangoLookupFilter,
     )

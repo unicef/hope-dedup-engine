@@ -205,12 +205,12 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
                 (
                     "test_file.jpg",
                     "test_file2.jpg",
-                    0.36,
-                ),  # config.FACE_DISTANCE_THRESHOLD + 0.04
+                    0.22,
+                ),  # config.FACE_DISTANCE_THRESHOLD - 0.04
                 (
                     "test_file.jpg",
                     "test_file3.jpg",
-                    0.2,
+                    0.06,
                 ),  # config.FACE_DISTANCE_THRESHOLD - 0.2
                 # last pair will not be included in the result because the distance is greater than the threshold
                 # ("test_file2.jpg", "test_file3.jpg", 0.44), # config.FACE_DISTANCE_THRESHOLD + 0.04

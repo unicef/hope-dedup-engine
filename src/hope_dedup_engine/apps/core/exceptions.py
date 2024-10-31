@@ -16,3 +16,12 @@ class DownloaderKeyError(Exception):
     def __init__(self, key: str) -> None:
         self.key = key
         super().__init__(f"Downloader key '{key}' does not exist.")
+
+
+class NotCompliantImageError(Exception):
+    """
+    Exception raised when an image is not compliant with the expected parameters.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
