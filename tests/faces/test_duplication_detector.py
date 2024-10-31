@@ -7,12 +7,7 @@ from django.core.exceptions import ValidationError
 import numpy as np
 import pytest
 from constance import config
-from faces_const import (
-    FACE_DISTANCE_THRESHOLD,
-    FILENAME,
-    FILENAME_ENCODED_FORMAT,
-    FILENAMES,
-)
+from faces_const import DS_CONFIG, FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
 
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services import DuplicationDetector
@@ -25,16 +20,20 @@ def test_init_successful(mock_dd):
     assert isinstance(mock_dd.image_processor, ImageProcessor)
     assert (
         mock_dd.image_processor.face_detection_confidence
-        == config.FACE_DETECTION_CONFIDENCE
+        == DS_CONFIG["detection"]["confidence"]
     )
-    assert mock_dd.image_processor.distance_threshold == config.FACE_DISTANCE_THRESHOLD
+    assert (
+        mock_dd.image_processor.distance_threshold
+        == DS_CONFIG["duplicates"]["tolerance"]
+    )
     assert mock_dd.image_processor.nms_threshold == config.NMS_THRESHOLD
     assert (
         mock_dd.image_processor.face_encodings_cfg.num_jitters
-        == config.FACE_ENCODINGS_NUM_JITTERS
+        == DS_CONFIG["recognition"]["num_jitters"]
     )
     assert (
-        mock_dd.image_processor.face_encodings_cfg.model == config.FACE_ENCODINGS_MODEL
+        mock_dd.image_processor.face_encodings_cfg.model
+        == DS_CONFIG["recognition"]["model"]
     )
     assert (
         mock_dd.image_processor.blob_from_image_cfg.scale_factor
@@ -70,7 +69,7 @@ def test_init_successful(mock_dd):
 def test_get_pairs_to_ignore_success(
     mock_storage_manager, mock_image_processor, ignore_input, expected_output
 ):
-    dd = DuplicationDetector(FILENAMES, FACE_DISTANCE_THRESHOLD, ignore_input)
+    dd = DuplicationDetector(FILENAMES, DS_CONFIG, ignore_input)
     assert dd.ignore_set == expected_output
 
 
@@ -91,7 +90,7 @@ def test_get_pairs_to_ignore_exception_handling(
     mock_storage_manager, mock_image_processor, ignore_input
 ):
     with pytest.raises(ValidationError):
-        DuplicationDetector(FILENAMES, 0.2, ignore_pairs=ignore_input)
+        DuplicationDetector(FILENAMES, DS_CONFIG, ignore_pairs=ignore_input)
 
 
 def test_encodings_filename(mock_dd):
@@ -205,15 +204,14 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
                 (
                     "test_file.jpg",
                     "test_file2.jpg",
-                    0.22,
+                    round(DS_CONFIG["duplicates"]["tolerance"] - 0.04, 5),
                 ),  # config.FACE_DISTANCE_THRESHOLD - 0.04
                 (
                     "test_file.jpg",
                     "test_file3.jpg",
-                    0.06,
-                ),  # config.FACE_DISTANCE_THRESHOLD - 0.2
+                    round(DS_CONFIG["duplicates"]["tolerance"] - 0.1, 5),
+                ),  # config.FACE_DISTANCE_THRESHOLD + 0.04
                 # last pair will not be included in the result because the distance is greater than the threshold
-                # ("test_file2.jpg", "test_file3.jpg", 0.44), # config.FACE_DISTANCE_THRESHOLD + 0.04
             ],
         ),
         (
@@ -223,7 +221,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
         ),
     ],
 )
-def test_find_duplicates_successful(
+def test_find_duplicates_successfull(
     mock_dd,
     mock_encoded_azure_storage,
     mock_hope_azure_storage,
@@ -264,9 +262,9 @@ def test_find_duplicates_successful(
         patch(
             "face_recognition.face_distance",
             side_effect=[
-                np.array([config.FACE_DISTANCE_THRESHOLD - 0.04]),
-                np.array([config.FACE_DISTANCE_THRESHOLD - 0.2]),
-                np.array([config.FACE_DISTANCE_THRESHOLD + 0.04]),
+                np.array([DS_CONFIG["duplicates"]["tolerance"] - 0.04]),
+                np.array([DS_CONFIG["duplicates"]["tolerance"] - 0.1]),
+                np.array([DS_CONFIG["duplicates"]["tolerance"] + 0.04]),
             ],
         ),
     ):

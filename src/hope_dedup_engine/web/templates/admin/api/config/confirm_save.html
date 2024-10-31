@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <h1>Confirmation of saving changes</h1>
+  <p>This Config entry is related to entries in DeduplicationSet. Are you absolutely sure you want to save your changes?</p>
+  <form method="post" action=".">{% csrf_token %}
+    <input type="submit" value="Yes, save changes" />
+    <a href="{% url 'admin:api_config_changelist' %}">Cancel</a>
+  </form>
+{% endblock %}

@@ -57,7 +57,10 @@ class ImageProcessor:
 
     logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(self, face_distance_threshold: float) -> None:
+    def __init__(
+        self,
+        ds_config: dict[str, Any] = None,
+    ) -> None:
         """
         Initialize the ImageProcessor with the required configurations.
         """
@@ -72,11 +75,13 @@ class ImageProcessor:
             ),
         )
         self.face_encodings_cfg = FaceEncodingsConfig(
-            num_jitters=config.FACE_ENCODINGS_NUM_JITTERS,
-            model=config.FACE_ENCODINGS_MODEL,
+            num_jitters=ds_config.get("recognition").get("num_jitters"),
+            model=ds_config.get("recognition").get("model"),
         )
-        self.face_detection_confidence: float = config.FACE_DETECTION_CONFIDENCE
-        self.distance_threshold: float = face_distance_threshold
+        self.face_detection_confidence: float = ds_config.get("detection").get(
+            "confidence"
+        )
+        self.distance_threshold: float = ds_config.get("duplicates").get("tolerance")
         self.nms_threshold: float = config.NMS_THRESHOLD
 
     def _get_face_detections_dnn(

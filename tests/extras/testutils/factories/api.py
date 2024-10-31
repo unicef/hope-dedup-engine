@@ -1,10 +1,10 @@
-from factory import SubFactory, fuzzy
+from factory import SubFactory, fuzzy, post_generation
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
-    Config,
     Duplicate,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
@@ -20,10 +20,23 @@ class TokenFactory(DjangoModelFactory):
 
 
 class ConfigFactory(DjangoModelFactory):
-    face_distance_threshold = fuzzy.FuzzyFloat(low=0.1, high=1.0)
+    name = fuzzy.FuzzyText()
 
     class Meta:
         model = Config
+
+    @post_generation
+    def settings(self, create, extracted, **kwargs):
+        self.settings = {
+            "detection": {"confidence": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()},
+            "duplicates": {"tolerance": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()},
+            "recognition": {
+                "model": fuzzy.FuzzyChoice(["small", "large"]).fuzz(),
+                "num_jitters": fuzzy.FuzzyInteger(1, 10).fuzz(),
+            },
+        }
+        if create:
+            self.save()
 
 
 class DeduplicationSetFactory(DjangoModelFactory):

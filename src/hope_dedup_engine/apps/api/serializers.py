@@ -1,23 +1,31 @@
 from typing import Any
 
+from jsonschema import Draft202012Validator
+from jsonschema import ValidationError as JSONSchemaValidationError
 from rest_framework import serializers
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import Config, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
-    Config,
     Duplicate,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
 )
-
-CONFIG = "config"
+from hope_dedup_engine.apps.api.utils.config_schema import settings_schema
 
 
 class ConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = Config
         exclude = ("id",)
+
+    def validate_settings(self, value):
+        validator = Draft202012Validator(settings_schema)
+        try:
+            validator.validate(value)
+        except JSONSchemaValidationError as e:
+            raise serializers.ValidationError(f"Settings validation error: {e.message}")
+        return value
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -36,22 +44,16 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
             "updated_by",
         )
 
-    def create(self, validated_data) -> DeduplicationSet:
-        config_data = validated_data.get(CONFIG) and validated_data.pop(CONFIG)
-        config = Config.objects.create(**config_data) if config_data else None
-        return DeduplicationSet.objects.create(config=config, **validated_data)
-
 
 class CreateConfigSerializer(ConfigSerializer):
     pass
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
-    config = CreateConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        fields = ("config", "reference_pk", "notification_url")
+        fields = ("reference_pk", "notification_url")
 
 
 class ImageSerializer(serializers.ModelSerializer):
