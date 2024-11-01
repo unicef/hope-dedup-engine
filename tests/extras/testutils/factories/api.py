@@ -1,8 +1,10 @@
+from typing import Any
+
 from factory import SubFactory, fuzzy, post_generation
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
     Duplicate,
@@ -85,3 +87,14 @@ class IgnoredReferencePkPairFactory(DjangoModelFactory):
 
     class Meta:
         model = IgnoredReferencePkPair
+
+
+class DedupJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = DedupJob
+
+    @post_generation
+    def post(job: DedupJob, *_: Any, **__: Any) -> None:
+        job.acquire_lock()

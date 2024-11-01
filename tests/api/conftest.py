@@ -12,6 +12,7 @@ from testutils.duplicate_finders import (
 )
 from testutils.factories.api import (
     ConfigFactory,
+    DedupJobFactory,
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredFilenamePairFactory,
@@ -44,6 +45,7 @@ register(
     IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set")
 )
 register(ConfigFactory)
+register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 
 
 @fixture

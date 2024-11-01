@@ -17,12 +17,15 @@ class DedupJob(CeleryTaskModel):
         "hope_dedup_engine.apps.api.deduplication.process.find_duplicates"
     )
 
-    def queue(self, use_version: bool = True) -> str | None:
+    def acquire_lock(self) -> None:
         if config.DEDUPLICATION_SET_LOCK_ENABLED:
             self.serialized_lock = str(
                 DeduplicationSetLock.for_deduplication_set(self.deduplication_set)
             )
             self.save()
+
+    def queue(self, use_version: bool = True) -> str | None:
+        self.acquire_lock()
 
         self.deduplication_set.state = DeduplicationSet.State.PROCESSING
         self.deduplication_set.save()
