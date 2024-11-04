@@ -1,5 +1,9 @@
 from ..settings import env  # type: ignore[attr-defined]
 
+SOCIAL_AUTH_SECRET = env.str("AZURE_CLIENT_SECRET", default="")
+SOCIAL_AUTH_TENANT_ID = env("AZURE_TENANT_ID", default="")
+SOCIAL_AUTH_KEY = env.str("AZURE_CLIENT_KEY", default="")
+
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = [
     "username",
     "first_name",

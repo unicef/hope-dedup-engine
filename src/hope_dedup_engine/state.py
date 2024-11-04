@@ -67,6 +67,7 @@ class State(local):
 
     @contextlib.contextmanager
     def set(self, **kwargs: "Dict[str,Any]") -> "Iterator[None]":
+
         pre = {}
         for k, v in kwargs.items():
             if hasattr(self, k):

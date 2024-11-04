@@ -2,7 +2,7 @@ from django.forms import CharField, ValidationError
 
 
 class MeanValuesTupleField(CharField):
-    def to_python(self, value: str) -> tuple[float, float, float]:
+    def to_python(self, value: str) -> tuple[float, ...]:
         try:
             values = tuple(map(float, value.split(", ")))
             if len(values) != 3:

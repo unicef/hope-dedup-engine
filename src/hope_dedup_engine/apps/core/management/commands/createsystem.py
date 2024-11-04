@@ -3,7 +3,7 @@ from django.core.management import BaseCommand
 from hope_dedup_engine.apps.core.models import ExternalSystem
 
 
-class Command(BaseCommand):
+class Command(BaseCommand):  # pragma: no cover
     help = "Creates external system"
 
     def add_arguments(self, parser):

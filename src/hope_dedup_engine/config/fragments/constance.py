@@ -5,11 +5,10 @@ from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
-    "NEW_USER_DEFAULT_GROUP": (
-        DEFAULT_GROUP_NAME,
-        "Group to assign to any new user",
-        str,
+    "DNN_FILES_SOURCE": (
+        "azure",
+        "Specifies the source from which to download the DNN model files.",
+        "dnn_files_source",
     ),
     "DNN_BACKEND": (
         cv2.dnn.DNN_BACKEND_OPENCV,
@@ -77,7 +76,7 @@ CONSTANCE_CONFIG = {
         "face_encodings_model",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.5,
+        0.4,
         """
         Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
         determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in
@@ -85,16 +84,29 @@ CONSTANCE_CONFIG = {
         """,
         float,
     ),
+    "DEDUPLICATION_SET_LOCK_ENABLED": (
+        True,
+        "Enable or disable the lock mechanism for deduplication sets",
+        bool,
+    ),
+    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT": (
+        120,
+        "Timeout in seconds for the last action on a deduplication set",
+        int,
+    ),
+    "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
+    "NEW_USER_DEFAULT_GROUP": (
+        DEFAULT_GROUP_NAME,
+        "Group to assign to any new user",
+        str,
+    ),
 }
 
 
 CONSTANCE_CONFIG_FIELDSETS = {
-    "User settings": {
-        "fields": ("NEW_USER_IS_STAFF", "NEW_USER_DEFAULT_GROUP"),
-        "collapse": False,
-    },
     "Face recognition settings": {
         "fields": (
+            "DNN_FILES_SOURCE",
             "DNN_BACKEND",
             "DNN_TARGET",
             "BLOB_FROM_IMAGE_SCALE_FACTOR",
@@ -107,12 +119,30 @@ CONSTANCE_CONFIG_FIELDSETS = {
         ),
         "collapse": False,
     },
+    "Task lock settings": {
+        "fields": (
+            "DEDUPLICATION_SET_LOCK_ENABLED",
+            "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT",
+        ),
+        "collapse": False,
+    },
+    "User settings": {
+        "fields": ("NEW_USER_IS_STAFF", "NEW_USER_DEFAULT_GROUP"),
+        "collapse": False,
+    },
 }
 
 CONSTANCE_ADDITIONAL_FIELDS = {
     "email": [
         "django.forms.EmailField",
         {},
+    ],
+    "dnn_files_source": [
+        "django.forms.ChoiceField",
+        {
+            # "choices": (("github", "GITHUB"), ("azure", "AZURE")),
+            "choices": (("azure", "AZURE"),),
+        },
     ],
     "dnn_backend": [
         "django.forms.ChoiceField",

@@ -3,7 +3,9 @@ import typing
 import factory
 from factory.base import FactoryMetaClass
 
-TAutoRegisterModelFactory = typing.TypeVar("TAutoRegisterModelFactory", bound="AutoRegisterModelFactory")
+TAutoRegisterModelFactory = typing.TypeVar(
+    "TAutoRegisterModelFactory", bound="AutoRegisterModelFactory"
+)
 
 factories_registry: dict[str, TAutoRegisterModelFactory] = {}
 
@@ -15,5 +17,7 @@ class AutoRegisterFactoryMetaClass(FactoryMetaClass):
         return new_class
 
 
-class AutoRegisterModelFactory(factory.django.DjangoModelFactory, metaclass=AutoRegisterFactoryMetaClass):
+class AutoRegisterModelFactory(
+    factory.django.DjangoModelFactory, metaclass=AutoRegisterFactoryMetaClass
+):
     pass

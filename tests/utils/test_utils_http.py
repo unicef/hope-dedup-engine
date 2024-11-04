@@ -4,7 +4,12 @@ from unittest import mock
 import pytest
 
 from hope_dedup_engine.state import state
-from hope_dedup_engine.utils.http import absolute_reverse, absolute_uri, get_server_host, get_server_url
+from hope_dedup_engine.utils.http import (
+    absolute_reverse,
+    absolute_uri,
+    get_server_host,
+    get_server_url,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
