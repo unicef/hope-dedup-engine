@@ -1,5 +1,6 @@
 import logging
 import os
+from collections.abc import Callable
 from itertools import combinations
 from typing import Any, Generator
 
@@ -107,7 +108,9 @@ class DuplicationDetector:
                     )
         return filenames
 
-    def find_duplicates(self) -> Generator[tuple[str, str, float], None, None]:
+    def find_duplicates(
+        self, tracker: Callable[[int], None] | None = None
+    ) -> Generator[tuple[str, str, float], None, None]:
         """
         Finds duplicate images based on facial encodings and yields pairs of image paths with their minimum distance.
 
@@ -125,7 +128,8 @@ class DuplicationDetector:
             existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
 
-            for path1, path2 in combinations(existed_images_name, 2):
+            total_pairs = (n := len(existed_images_name)) * (n - 1) // 2
+            for i, (path1, path2) in enumerate(combinations(existed_images_name, 2), 1):
                 encodings1 = encodings_all.get(path1)
                 encodings2 = encodings_all.get(path2)
                 if encodings1 is None or encodings2 is None:
@@ -143,6 +147,9 @@ class DuplicationDetector:
                     and min_distance < self.face_distance_threshold
                 ):
                     yield (path1, path2, round(min_distance, 5))
+
+                if tracker:
+                    tracker(100 * i // total_pairs)
 
         except Exception as e:
             self.logger.exception(

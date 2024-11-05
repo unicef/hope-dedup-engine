@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from functools import partial
+
 from celery import shared_task
 from constance import config
 
@@ -8,6 +11,7 @@ from hope_dedup_engine.apps.api.deduplication.registry import (
     get_finders,
 )
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.utils.progress import track_progress_multi
 
 
 def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
@@ -20,6 +24,7 @@ def _save_duplicates(
     deduplication_set: DeduplicationSet,
     lock_enabled: bool,
     lock: DeduplicationSetLock,
+    tracker: Callable[[int], None],
 ) -> None:
     reference_pk_to_filename_mapping = dict(
         deduplication_set.image_set.values_list("reference_pk", "filename")
@@ -40,7 +45,7 @@ def _save_duplicates(
         deduplication_set.ignoredreferencepkpair_set.values_list("first", "second")
     )
 
-    for first, second, score in map(_sort_keys, finder.run()):
+    for first, second, score in map(_sort_keys, finder.run(tracker)):
         first_filename, second_filename = sorted(
             (
                 reference_pk_to_filename_mapping[first],
@@ -66,6 +71,11 @@ def _save_duplicates(
 HOUR = 60 * 60
 
 
+def update_job_progress(job: DedupJob, progress: int) -> None:
+    job.progress = progress
+    job.save()
+
+
 @shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
 def find_duplicates(dedup_job_id: int, version: int) -> None:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
@@ -87,8 +97,11 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
         Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
 
         weight_total = 0
-        for finder in get_finders(deduplication_set):
-            _save_duplicates(finder, deduplication_set, lock_enabled, lock)
+        for finder, tracker in zip(
+            get_finders(deduplication_set),
+            track_progress_multi(partial(update_job_progress, dedup_job)),
+        ):
+            _save_duplicates(finder, deduplication_set, lock_enabled, lock, tracker)
             weight_total += finder.weight
 
         for duplicate in deduplication_set.duplicate_set.all():

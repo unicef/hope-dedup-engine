@@ -12,6 +12,7 @@ class DedupJob(CeleryTaskModel):
         "DeduplicationSet", on_delete=models.CASCADE, related_name="jobs"
     )
     serialized_lock = models.CharField(max_length=128, null=True, editable=False)
+    progress = models.IntegerField(default=0)
 
     celery_task_name = (
         "hope_dedup_engine.apps.api.deduplication.process.find_duplicates"

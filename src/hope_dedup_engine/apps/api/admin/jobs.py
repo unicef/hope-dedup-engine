@@ -6,5 +6,5 @@ from hope_dedup_engine.apps.api.models.jobs import DedupJob
 
 
 @admin.register(DedupJob)
-class AsyncJobAdmin(CeleryTaskModelAdmin):
-    pass
+class DedupJobAdmin(CeleryTaskModelAdmin):
+    list_display = ["deduplication_set_id", "progress"]

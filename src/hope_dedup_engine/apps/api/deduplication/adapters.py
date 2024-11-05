@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import Any
 
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateKeyPair
@@ -12,9 +12,12 @@ class DuplicateFaceFinder:
     weight = 1
 
     def __init__(self, deduplication_set: DeduplicationSet):
+        self.tracker = None
         self.deduplication_set = deduplication_set
 
-    def run(self) -> Generator[DuplicateKeyPair, None, None]:
+    def run(
+        self, tracker: Callable[[int], None] | None = None
+    ) -> Generator[DuplicateKeyPair, None, None]:
         filename_to_reference_pk = {
             filename: reference_pk
             for reference_pk, filename in self.deduplication_set.image_set.values_list(
@@ -28,7 +31,9 @@ class DuplicateFaceFinder:
         detector = DuplicationDetector(
             tuple[str](filename_to_reference_pk.keys()), ds_config
         )
-        for first_filename, second_filename, distance in detector.find_duplicates():
+        for first_filename, second_filename, distance in detector.find_duplicates(
+            tracker
+        ):
             yield filename_to_reference_pk[first_filename], filename_to_reference_pk[
                 second_filename
             ], 1 - distance
