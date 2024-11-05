@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from itertools import combinations
 
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateKeyPair
@@ -11,7 +11,9 @@ class AllDuplicateFinder:
     def __init__(self, deduplication_set: DeduplicationSet) -> None:
         self.deduplication_set = deduplication_set
 
-    def run(self) -> Generator[DuplicateKeyPair, None, None]:
+    def run(
+        self, _: Callable[[int], None] | None = None
+    ) -> Generator[DuplicateKeyPair, None, None]:
         reference_pks = self.deduplication_set.image_set.values_list(
             "reference_pk", flat=True
         ).order_by("reference_pk")
@@ -22,7 +24,9 @@ class AllDuplicateFinder:
 class NoDuplicateFinder:
     weight = 1
 
-    def run(self) -> Generator[DuplicateKeyPair, None, None]:
+    def run(
+        self, _: Callable[[int], None] | None = None
+    ) -> Generator[DuplicateKeyPair, None, None]:
         # empty generator
         return
         yield
@@ -31,5 +35,7 @@ class NoDuplicateFinder:
 class FailingDuplicateFinder:
     weight = 1
 
-    def run(self) -> Generator[DuplicateKeyPair, None, None]:
+    def run(
+        self, _: Callable[[int], None] | None = None
+    ) -> Generator[DuplicateKeyPair, None, None]:
         raise Exception
