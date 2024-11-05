@@ -14,7 +14,10 @@ pytestmark = pytest.mark.django_db
 def environment():
     return {
         "ADMIN_EMAIL": "",
+        "ADMIN_PASSWORD": "",
+        "ALLOWED_HOSTS": "",
         "CACHE_URL": "test",
+        "CSRF_COOKIE_SECURE": "1",
         "CELERY_BROKER_URL": "",
         "DATABASE_URL": "",
         "SECRET_KEY": "",

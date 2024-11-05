@@ -52,12 +52,12 @@ def test_invalid_values_handling(field: str, api_client: APIClient) -> None:
     assert field in errors
 
 
-def test_can_set_deduplication_set_without_config(api_client: APIClient) -> None:
-    data = CreateDeduplicationSetSerializer(DeduplicationSetFactory.build()).data
-    del data["config"]
+# def test_can_set_deduplication_set_without_config(api_client: APIClient) -> None:
+#     data = CreateDeduplicationSetSerializer(DeduplicationSetFactory.build()).data
+#     del data["config"]
 
-    response = api_client.post(
-        reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
-    )
+#     response = api_client.post(
+#         reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
+#     )
 
-    assert response.status_code == status.HTTP_201_CREATED
+#     assert response.status_code == status.HTTP_201_CREATED

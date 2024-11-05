@@ -1,5 +1,7 @@
 from typing import Final
 
+from factory import fuzzy
+
 FILENAME: Final[str] = "test_file.jpg"
 FILENAME_ENCODED: Final[str] = "test_file.jpg.npy"
 FILENAME_ENCODED_FORMAT: Final[str] = "{}.npy"
@@ -8,7 +10,15 @@ IGNORE_PAIRS: Final[list[list[str, str]]] = [
     ["ignore_file.jpg", "ignore_file2.jpg"],
     ["ignore_file4.jpg", "ignore_file3.jpg"],
 ]
-FACE_DISTANCE_THRESHOLD = 0.26
+
+DS_CONFIG = {
+    "detection": {"confidence": 0.5},
+    "duplicates": {"tolerance": round(fuzzy.FuzzyFloat(0.1, 1.0).fuzz(), 5)},
+    "recognition": {
+        "model": fuzzy.FuzzyChoice(["small", "large"]).fuzz(),
+        "num_jitters": round(fuzzy.FuzzyInteger(1, 10).fuzz(), 5),
+    },
+}
 
 DNN_FILE = {
     "name": FILENAME,

@@ -2,27 +2,12 @@ from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.security.models import ExternalSystem
 
 REFERENCE_PK_LENGTH: Final[int] = 100
-
-
-class Config(models.Model):
-    face_distance_threshold = models.FloatField(
-        null=True,
-        validators=[MinValueValidator(0.1), MaxValueValidator(1.0)],
-    )
-
-    def __str__(self) -> str:
-        return f"{self.pk}: " + " | ".join(
-            f"{field.name}: {getattr(self, field.name)}"
-            for field in self._meta.fields
-            if field.name not in ("id",)
-        )
 
 
 class DeduplicationSet(models.Model):
@@ -69,7 +54,7 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
-    config = models.OneToOneField(Config, null=True, on_delete=models.SET_NULL)
+    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
     @property
     def state(self) -> State:

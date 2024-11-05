@@ -1,7 +1,5 @@
-from random import random
 from unittest.mock import MagicMock
 
-from constance.test.unittest import override_config
 from pytest import fixture
 from pytest_mock import MockerFixture
 
@@ -37,7 +35,7 @@ def test_duplicate_face_finder_uses_duplication_detector(
 
     duplication_detector.assert_called_once_with(
         (image.filename, second_image.filename),
-        deduplication_set.config.face_distance_threshold,
+        deduplication_set.config.settings,
     )
     duplication_detector.return_value.find_duplicates.assert_called_once()
     assert len(found_pairs) == 1
@@ -59,18 +57,8 @@ def test_duplication_detector_is_initiated_with_correct_face_distance_threshold_
 ) -> None:
     # deduplication set face_distance_threshold config value is used
     _run_duplicate_face_finder(deduplication_set)
-    duplication_detector.assert_called_once_with(
-        (), deduplication_set.config.face_distance_threshold
-    )
-    face_distance_threshold = random()
-    with override_config(FACE_DISTANCE_THRESHOLD=face_distance_threshold):
-        # value from global config is used when face_distance_threshold is not set in deduplication set config
-        duplication_detector.reset_mock()
-        deduplication_set.config.face_distance_threshold = None
-        _run_duplicate_face_finder(deduplication_set)
-        duplication_detector.assert_called_once_with((), face_distance_threshold)
-        # value from global config is used when deduplication set has no config
-        duplication_detector.reset_mock()
-        deduplication_set.config = None
-        _run_duplicate_face_finder(deduplication_set)
-        duplication_detector.assert_called_once_with((), face_distance_threshold)
+    duplication_detector.assert_called_once_with((), deduplication_set.config.settings)
+    duplication_detector.reset_mock()
+    deduplication_set.config = None
+    _run_duplicate_face_finder(deduplication_set)
+    duplication_detector.assert_called_once_with((), {})

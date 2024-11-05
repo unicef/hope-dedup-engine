@@ -10,7 +10,7 @@ from faces_const import (
     BLOB_FROM_IMAGE_MEAN_VALUES,
     BLOB_FROM_IMAGE_SCALE_FACTOR,
     DEPLOY_PROTO_SHAPE,
-    FACE_DISTANCE_THRESHOLD,
+    DS_CONFIG,
     FACE_REGIONS_INVALID,
     FACE_REGIONS_VALID,
     FILENAME,
@@ -37,14 +37,19 @@ def test_init_creates_expected_attributes(
     assert isinstance(mock_image_processor.face_encodings_cfg, FaceEncodingsConfig)
     assert (
         mock_image_processor.face_encodings_cfg.num_jitters
-        == config.FACE_ENCODINGS_NUM_JITTERS
+        == DS_CONFIG["recognition"]["num_jitters"]
     )
-    assert mock_image_processor.face_encodings_cfg.model == config.FACE_ENCODINGS_MODEL
+    assert (
+        mock_image_processor.face_encodings_cfg.model
+        == DS_CONFIG["recognition"]["model"]
+    )
     assert (
         mock_image_processor.face_detection_confidence
-        == config.FACE_DETECTION_CONFIDENCE
+        == DS_CONFIG["detection"]["confidence"]
     )
-    assert mock_image_processor.distance_threshold == FACE_DISTANCE_THRESHOLD
+    assert (
+        mock_image_processor.distance_threshold == DS_CONFIG["duplicates"]["tolerance"]
+    )
     assert mock_image_processor.nms_threshold == config.NMS_THRESHOLD
 
 

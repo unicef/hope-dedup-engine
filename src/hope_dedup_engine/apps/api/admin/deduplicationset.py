@@ -22,6 +22,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
         "name",
         "reference_pk",
         "state_value",
+        "config",
         "created_at",
         "updated_at",
         "deleted",

@@ -21,7 +21,7 @@ class DuplicationDetector:
     def __init__(
         self,
         filenames: tuple[str],
-        face_distance_threshold: float,
+        ds_config: dict[str, Any] = None,
         ignore_pairs: tuple[tuple[str, str], ...] = (),
     ) -> None:
         """
@@ -29,14 +29,15 @@ class DuplicationDetector:
 
         Args:
             filenames (tuple[str]): The filenames of the images to process.
+            ds_config (dict[str, Any], optional): The configuration settings for the deduplication set.
             ignore_pairs (tuple[tuple[str, str]], optional):
                 The pairs of filenames to ignore. Defaults to an empty tuple.
         """
         self.filenames = filenames
-        self.face_distance_threshold = face_distance_threshold
+        self.face_distance_threshold = ds_config.get("duplicates").get("tolerance")
         self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
         self.storages = StorageManager()
-        self.image_processor = ImageProcessor(face_distance_threshold)
+        self.image_processor = ImageProcessor(ds_config)
 
     def _encodings_filename(self, filename: str) -> str:
         """
