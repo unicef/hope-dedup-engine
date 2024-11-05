@@ -3,12 +3,15 @@ on:
   push:
     branches:
       - develop
-#      - master
-#      - staging
-#      - releases/*
-  pull_request:
-    branches: [develop, master]
-    types: [synchronize, opened, reopened, ready_for_review]
+      - master
+      - staging
+      - release/*
+      - feature/*
+      - bugfix/*
+      - hotfix/*
+#  pull_request:
+#    branches: [develop, master]
+#    types: [synchronize, opened, reopened, ready_for_review]
 
 defaults:
   run:
@@ -61,7 +64,7 @@ jobs:
           # Github token of the repository (automatically created by Github)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information.
           # File or directory to run bandit on
-          # path: # optional, default is .
+          path: src # optional, default is .
           # Report only issues of a given severity level or higher. Can be LOW, MEDIUM or HIGH. Default is UNDEFINED (everything)
           # level: # optional, default is UNDEFINED
           # Report only issues of a given confidence level or higher. Can be LOW, MEDIUM or HIGH. Default is UNDEFINED (everything)

@@ -7,7 +7,7 @@ from api_const import (
     BULK_IMAGE_LIST_VIEW,
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
-    IGNORED_KEYS_LIST_VIEW,
+    IGNORED_REFERENCE_PK_LIST_VIEW,
     IMAGE_DETAIL_VIEW,
     IMAGE_LIST_VIEW,
     JSON,
@@ -33,14 +33,17 @@ REQUESTS = (
     (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
     (IMAGE_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
     (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
-    (IGNORED_KEYS_LIST_VIEW, HTTPMethod.GET, (PK,)),
-    (IGNORED_KEYS_LIST_VIEW, HTTPMethod.POST, (PK,)),
+    (IGNORED_REFERENCE_PK_LIST_VIEW, HTTPMethod.GET, (PK,)),
+    (IGNORED_REFERENCE_PK_LIST_VIEW, HTTPMethod.POST, (PK,)),
 )
 
 
 @mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_anonymous_cannot_access(
-    anonymous_api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
+    anonymous_api_client: APIClient,
+    view_name: str,
+    method: HTTPMethod,
+    args: tuple[Any, ...],
 ) -> None:
     response = getattr(anonymous_api_client, method.lower())(reverse(view_name, args))
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -50,7 +53,9 @@ def test_anonymous_cannot_access(
 def test_authenticated_can_access(
     api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:
-    response = getattr(api_client, method.lower())(reverse(view_name, args), format=JSON)
+    response = getattr(api_client, method.lower())(
+        reverse(view_name, args), format=JSON
+    )
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 

@@ -1,6 +1,6 @@
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Payment Gateway API",
-    "DESCRIPTION": "Payment Gateway to integrate HOPE with FSP",
+    "TITLE": "Deduplication Engine API",
+    "DESCRIPTION": "Deduplication Engine to run deduplication for different datasets",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": True,
     "SWAGGER_UI_DIST": "SIDECAR",

@@ -1,6 +1,7 @@
 # This is used by the action https://github.com/dorny/paths-filter
 docker: &docker
-  - added|modified: './docker/**'
+  - added|modified: './docker/**/*'
+  - added|modified: './docker/*'
 
 dependencies: &dependencies
   - 'pdm.lock'

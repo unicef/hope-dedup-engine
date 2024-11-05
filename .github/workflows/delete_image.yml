@@ -1,39 +1,30 @@
-name: Branch Deleted
+name: Delete Outdated Docker Image
 on: delete
 jobs:
-  delete:
-    if: github.event.ref_type == 'branch'
+  delete_branch:
+    if: github.event.ref_type == 'branch' || github.event.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+      - shell: bash
+        run: |
+          ref="${{github.ref}}"
+          tag=$(echo $ref | sed -e "s#refs/heads/##g" | sed -e s#/#-##g)
+          echo "ref=$ref" >> $GITHUB_ENV
+          echo "dist_tag=$tag" >> $GITHUB_ENV
+          echo "test_tag=test-${tag}" >> $GITHUB_ENV
+      - uses: ./.github/actions/delete_docker
+        if: github.event.ref_type == 'tag'
+        with:
+          image: ${{vars.DOCKER_IMAGE}}
+          tag: ${{ env.dist_tag }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Delete Test Docker Image
-        shell: bash
-        run: |
-          name="${{vars.DOCKER_IMAGE}}:test-${{steps.meta.outputs.version}}"
-          registry="https://registry-1.docker.io"
-          curl -v -sSL -X DELETE "http://${registry}/v2/${name}/manifests/$(
-              curl -sSL -I \
-                  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-                  "http://${registry}/v2/${name}/manifests/$(
-                      curl -sSL "http://${registry}/v2/${name}/tags/list" | jq -r '.tags[0]'
-                  )" \
-              | awk '$1 == "Docker-Content-Digest:" { print $2 }' \
-              | tr -d $'\r' \
-          )"
-      - name: Delete linked Docker Image
-        shell: bash
-        run: |
-          name="${{vars.DOCKER_IMAGE}}:${{steps.meta.outputs.version}}"
-          registry="https://registry-1.docker.io"
-          curl -v -sSL -X DELETE "http://${registry}/v2/${name}/manifests/$(
-              curl -sSL -I \
-                  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-                  "http://${registry}/v2/${name}/manifests/$(
-                      curl -sSL "http://${registry}/v2/${name}/tags/list" | jq -r '.tags[0]'
-                  )" \
-              | awk '$1 == "Docker-Content-Digest:" { print $2 }' \
-              | tr -d $'\r' \
-          )"
+      - uses: ./.github/actions/delete_docker
+        with:
+          image: ${{vars.DOCKER_IMAGE}}
+          tag: ${{ env.test_tag }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}

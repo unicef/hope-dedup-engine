@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+echo Show dupicates >&2
+
+call_api GET "deduplication_sets/$DEDUPLICATION_SET_ID/duplicates"

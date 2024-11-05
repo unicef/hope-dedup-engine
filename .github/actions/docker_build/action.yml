@@ -43,13 +43,13 @@ outputs:
     value: ${{ steps.meta.outputs.version }}
   created:
     description: 'True if new image has been created'
-    value: ${{ !steps.image_status.outputs.updated }}
+    value: ${{ steps.status.outputs.created }}
   digest:
     description: 'Built image digest'
-    value: ${{ !steps.build_push.outputs.digest }}
+    value: ${{ steps.build_push.outputs.digest }}
   imageId:
     description: 'Built image ID'
-    value: ${{ !steps.build_push.outputs.imageId }}
+    value: ${{ steps.build_push.outputs.imageId }}
 
 
 runs:
@@ -122,8 +122,10 @@ runs:
                           -v fatal \
                           ${{ steps.image_name.outputs.name }} 2>/dev/null)
         code_checksum="${{ inputs.code_checksum }}"
-
-        if [[ -z "$image_checksum"  ]]; then
+        if [[ "${{ contains(github.event.head_commit.message, 'ci:all') }}" == "true" ]];then
+          echo "::warning::🤔 Forced rebuild"
+          echo "updated=false" >> $GITHUB_OUTPUT        
+        elif [[ -z "$image_checksum"  ]]; then
           echo "::warning::🤔 No image checksum found"
           echo "updated=false" >> $GITHUB_OUTPUT
         elif [[ $image_checksum == $code_checksum ]]; then
@@ -145,7 +147,7 @@ runs:
         driver-opts: |
           image=moby/buildkit:v0.13.2
           network=host
-    - name: Build and push
+    - name: Build and push info
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun == 'true'
       shell: bash
       run: |
@@ -164,8 +166,8 @@ runs:
       with:
         context: .
         tags: ${{ steps.meta.outputs.tags }}
-        labels: "${{ steps.meta.outputs.labels }}\na=1\nb=2"
-        annotations: "${{ steps.meta.outputs.annotations }}\nchecksum=${{ inputs.checksum }}"
+        labels: "${{ steps.meta.outputs.labels }}\nchecksum=${{ inputs.code_checksum }}\ndistro=${{ inputs.target }}"
+        annotations: "${{ steps.meta.outputs.annotations }}\nchecksum=${{ inputs.code_checksum }}\ndistro=${{ inputs.target }}"
         target: ${{ inputs.target }}
         file: ./docker/Dockerfile
         platforms: linux/amd64
@@ -178,11 +180,16 @@ runs:
             GITHUB_SERVER_URL=${{ github.server_url }}
             GITHUB_REPOSITORY=${{ github.repository }}
             BUILD_DATE=${{ env.BUILD_DATE }}
+            DISTRO=${{ inputs.target }}
             CHECKSUM=${{ inputs.code_checksum }}
             VERSION=${{ steps.meta.outputs.version }}
             SOURCE_COMMIT=${{ steps.last_commit.outputs.last_commit_short_sha }}
     - name: Status
+      id: status
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun != 'true'
       shell: bash
       run: |
+        echo "${{ toJSON(steps.build_push.outputs) }}"        
+        regctl image inspect -p linux/amd64 ${{ steps.image_name.outputs.name }}
         echo "::notice:: Image ${{ steps.meta.outputs.tags }} successfully built and pushed"
+        echo "created=true" >> $GITHUB_OUTPUT

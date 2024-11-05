@@ -1,13 +1,18 @@
-from hope_dedup_engine.config import env
+from typing import Final
 
-AZURE_ACCOUNT_NAME = env("AZURE_ACCOUNT_NAME")
-AZURE_ACCOUNT_KEY = env("AZURE_ACCOUNT_KEY")
-AZURE_CUSTOM_DOMAIN = env("AZURE_CUSTOM_DOMAIN")
-AZURE_CONNECTION_STRING = env("AZURE_CONNECTION_STRING")
-
-AZURE_CONTAINER_HDE = "hde"
-AZURE_CONTAINER_HOPE = "hope"
-
-CV2DNN_PATH = env("CV2DNN_PATH")
-PROTOTXT_FILE = f"{CV2DNN_PATH}deploy.prototxt"
-CAFFEMODEL_FILE = f"{CV2DNN_PATH}res10_300x300_ssd_iter_140000.caffemodel"
+DNN_FILES: Final[dict[str, dict[str, str]]] = {
+    "prototxt": {
+        "filename": "deploy.prototxt.txt",
+        "sources": {
+            "github": "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/deploy.prototxt.txt",  # noqa: E501
+            "azure": "deploy.prototxt.txt",
+        },
+    },
+    "caffemodel": {
+        "filename": "res10_300x300_ssd_iter_140000.caffemodel",
+        "sources": {
+            "github": "https://raw.githubusercontent.com/sr6033/face-detection-with-OpenCV-and-DNN/master/res10_300x300_ssd_iter_140000.caffemodel",  # noqa: E501
+            "azure": "res10_300x300_ssd_iter_140000.caffemodel",
+        },
+    },
+}
