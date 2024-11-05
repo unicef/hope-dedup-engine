@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:9ca78853e306e245544b961ba5f90ebef6c59c8021963a029c4713b55197ad80"
+content_hash = "sha256:af360b12fc908c108a5ddb105b8b43c689b284a2ef1ac1167c0473b093029aeb"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -610,6 +610,22 @@ dependencies = [
 files = [
     {file = "django_celery_beat-2.7.0-py3-none-any.whl", hash = "sha256:851c680d8fbf608ca5fecd5836622beea89fa017bc2b3f94a5b8c648c32d84b1"},
     {file = "django_celery_beat-2.7.0.tar.gz", hash = "sha256:8482034925e09b698c05ad61c36ed2a8dbc436724a3fe119215193a4ca6dc967"},
+]
+
+[[package]]
+name = "django-celery-boost"
+version = "0.2.0"
+requires_python = ">=3.10"
+summary = "Django Abstract Model to work with Celery"
+groups = ["default"]
+dependencies = [
+    "celery>=5.4.0",
+    "django-admin-extra-buttons>=1.5.8",
+    "django-concurrency>=2.6",
+]
+files = [
+    {file = "django_celery_boost-0.2.0-py3-none-any.whl", hash = "sha256:a229a71b2a5bd1be1ba338005a64af81a3e1c159f5e553b8a211a47aa11ead1d"},
+    {file = "django_celery_boost-0.2.0.tar.gz", hash = "sha256:7399a46d4c361abbe96acb1f00f53bc96eaec4f1928f3f83fd0de85c0984ebda"},
 ]
 
 [[package]]
