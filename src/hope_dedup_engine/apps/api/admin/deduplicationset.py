@@ -50,7 +50,9 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
         return False
 
     @button(permission=can_reprocess)
-    def process(self, request: HttpRequest, pk: UUID) -> HttpResponseRedirect:
+    def process(
+        self, request: HttpRequest, pk: UUID
+    ) -> HttpResponseRedirect:  # pragma: no cover
         obj = self.get_object(request, pk)
         start_processing(obj)
         self.message_user(

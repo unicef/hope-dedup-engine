@@ -11,7 +11,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     IgnoredReferencePkPair,
     Image,
 )
-from hope_dedup_engine.apps.api.utils.config_schema import settings_schema
+from src.hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 class ConfigSerializer(serializers.ModelSerializer):
@@ -20,7 +20,7 @@ class ConfigSerializer(serializers.ModelSerializer):
         exclude = ("id",)
 
     def validate_settings(self, value):
-        validator = Draft202012Validator(settings_schema)
+        validator = Draft202012Validator(SchemaManager.get_or_create())
         try:
             validator.validate(value)
         except JSONSchemaValidationError as e:

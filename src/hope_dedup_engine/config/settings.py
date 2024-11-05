@@ -45,6 +45,7 @@ INSTALLED_APPS = (
     "storages",
     "smart_env",
     "django_celery_boost",
+    "django_svelte_jsoneditor",
 )
 
 MIDDLEWARE = (
