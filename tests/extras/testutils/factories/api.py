@@ -1,5 +1,3 @@
-from typing import Any
-
 from factory import SubFactory, fuzzy, post_generation
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
@@ -94,7 +92,3 @@ class DedupJobFactory(DjangoModelFactory):
 
     class Meta:
         model = DedupJob
-
-    @post_generation
-    def post(job: DedupJob, *_: Any, **__: Any) -> None:
-        job.acquire_lock()

@@ -15,8 +15,6 @@ from hope_dedup_engine.apps.api.utils.process import AlreadyProcessingError
     (
         DeduplicationSet.State.CLEAN,
         DeduplicationSet.State.DIRTY,
-        DeduplicationSet.State.PROCESSING,
-        DeduplicationSet.State.ERROR,
     ),
 )
 def test_can_trigger_deduplication_set_processing_in_any_state(

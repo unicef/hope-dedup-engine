@@ -2,15 +2,14 @@ from collections.abc import Callable
 from functools import partial
 
 from celery import shared_task
-from constance import config
 
-from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
 from hope_dedup_engine.apps.api.deduplication.registry import (
     DuplicateFinder,
     DuplicateKeyPair,
     get_finders,
 )
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.api.utils.progress import track_progress_multi
 
 
@@ -22,8 +21,6 @@ def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
 def _save_duplicates(
     finder: DuplicateFinder,
     deduplication_set: DeduplicationSet,
-    lock_enabled: bool,
-    lock: DeduplicationSetLock,
     tracker: Callable[[int], None],
 ) -> None:
     reference_pk_to_filename_mapping = dict(
@@ -64,8 +61,6 @@ def _save_duplicates(
             )
             duplicate.score += score * finder.weight
             duplicate.save()
-        if lock_enabled:
-            lock.refresh()
 
 
 HOUR = 60 * 60
@@ -80,18 +75,11 @@ def update_job_progress(job: DedupJob, progress: int) -> None:
 def find_duplicates(dedup_job_id: int, version: int) -> None:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
     try:
-        lock_enabled = config.DEDUPLICATION_SET_LOCK_ENABLED
-        lock = (
-            DeduplicationSetLock.from_string(dedup_job.serialized_lock)
-            if lock_enabled
-            else None
-        )
-
-        if lock_enabled:
-            # refresh lock in case we spent much time waiting in queue
-            lock.refresh()
-
         deduplication_set = dedup_job.deduplication_set
+
+        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.save()
+        send_notification(deduplication_set.notification_url)
 
         # clean results
         Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
@@ -101,7 +89,7 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
             get_finders(deduplication_set),
             track_progress_multi(partial(update_job_progress, dedup_job)),
         ):
-            _save_duplicates(finder, deduplication_set, lock_enabled, lock, tracker)
+            _save_duplicates(finder, deduplication_set, tracker)
             weight_total += finder.weight
 
         for duplicate in deduplication_set.duplicate_set.all():
@@ -111,12 +99,5 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
         deduplication_set.state = deduplication_set.State.CLEAN
         deduplication_set.save()
 
-    except Exception:
-        deduplication_set = dedup_job.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.ERROR
-        deduplication_set.save()
-        raise
-
     finally:
-        if lock_enabled:
-            lock.release()
+        send_notification(dedup_job.deduplication_set.notification_url)

@@ -88,7 +88,7 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 @fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch(
-        "hope_dedup_engine.apps.api.models.deduplication.send_notification"
+        "hope_dedup_engine.apps.api.deduplication.process.send_notification"
     )
 
 

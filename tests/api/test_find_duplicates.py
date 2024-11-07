@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from pytest import raises
 
@@ -85,7 +85,7 @@ def test_notification_sent_on_successful_run(
 ) -> None:
     send_notification.reset_mock()  # remove notification for CREATE state
     find_duplicates(dedup_job.pk, dedup_job.version)
-    send_notification.assert_called_once_with(deduplication_set.notification_url)
+    send_notification.assert_has_calls(2 * [call(deduplication_set.notification_url)])
 
 
 def test_notification_sent_on_failure(
@@ -98,5 +98,5 @@ def test_notification_sent_on_failure(
     with raises(Exception):
         find_duplicates(dedup_job.pk, dedup_job.version)
     deduplication_set.refresh_from_db()
-    assert deduplication_set.state == deduplication_set.State.ERROR
-    send_notification.assert_called_once_with(deduplication_set.notification_url)
+    assert deduplication_set.state == deduplication_set.State.DIRTY
+    send_notification.assert_has_calls(2 * [call(deduplication_set.notification_url)])

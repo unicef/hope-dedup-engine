@@ -4,7 +4,6 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 
-from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.security.models import ExternalSystem
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -21,8 +20,6 @@ class DeduplicationSet(models.Model):
             1,
             "Dirty",
         )  # Images are added to deduplication set, but not yet processed
-        PROCESSING = 2, "Processing"  # Images are being processed
-        ERROR = 3, "Error"  # Error occurred
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     name = models.CharField(
@@ -30,7 +27,7 @@ class DeduplicationSet(models.Model):
     )
     description = models.TextField(null=True, blank=True)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
-    state_value = models.IntegerField(
+    state = models.IntegerField(
         choices=State.choices,
         default=State.CLEAN,
         db_column="state",
@@ -55,16 +52,6 @@ class DeduplicationSet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
-
-    @property
-    def state(self) -> State:
-        return self.State(self.state_value)
-
-    @state.setter
-    def state(self, value: State) -> None:
-        if value != self.state_value or value == self.State.CLEAN:
-            self.state_value = value
-            send_notification(self.notification_url)
 
     def __str__(self) -> str:
         return f"ID: {self.pk}" if not self.name else f"{self.name}"

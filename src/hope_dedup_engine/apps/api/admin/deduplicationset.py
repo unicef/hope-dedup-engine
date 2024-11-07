@@ -21,7 +21,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
         "id",
         "name",
         "reference_pk",
-        "state_value",
+        "state",
         "config",
         "created_at",
         "updated_at",
@@ -29,7 +29,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
     )
     readonly_fields = (
         "id",
-        "state_value",
+        "state",
         "external_system",
         "created_at",
         "created_by",
@@ -39,7 +39,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ExtraButtonsMixin, ModelAdmin):
     )
     search_fields = ("name",)
     list_filter = (
-        ("state_value", ChoicesFieldComboFilter),
+        ("state", ChoicesFieldComboFilter),
         ("created_at", DateRangeFilter),
         ("updated_at", DateRangeFilter),
         DjangoLookupFilter,

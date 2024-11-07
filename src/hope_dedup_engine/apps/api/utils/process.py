@@ -12,12 +12,8 @@ class AlreadyProcessingError(APIException):
 
 
 def start_processing(deduplication_set: DeduplicationSet) -> None:
-    from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
-
-    try:
-        DedupJob.objects.create(deduplication_set=deduplication_set).queue()
-    except DeduplicationSetLock.LockNotOwnedException as e:
-        raise AlreadyProcessingError from e
+    job, _ = DedupJob.objects.get_or_create(deduplication_set=deduplication_set)
+    job.queue()
 
 
 def delete_model_data(_: DeduplicationSet) -> None:
