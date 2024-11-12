@@ -1,6 +1,6 @@
 from collections.abc import Callable, Generator
-from typing import Any
 
+from hope_dedup_engine.apps.api.deduplication.config import ConfigDefaults
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateKeyPair
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.faces.services.duplication_detector import (
@@ -24,12 +24,12 @@ class DuplicateFaceFinder:
                 "reference_pk", "filename"
             )
         }
-        ds_config: dict[str, Any] = (
-            self.deduplication_set.config and self.deduplication_set.config.settings
-        ) or {}
+        cfg = ConfigDefaults()
+        if self.deduplication_set.config:
+            cfg.apply_config_overrides(self.deduplication_set.config.settings)
         # ignored key pairs are not handled correctly in DuplicationDetector
         detector = DuplicationDetector(
-            tuple[str](filename_to_reference_pk.keys()), ds_config
+            tuple[str](filename_to_reference_pk.keys()), cfg=cfg
         )
         for first_filename, second_filename, distance in detector.find_duplicates(
             tracker

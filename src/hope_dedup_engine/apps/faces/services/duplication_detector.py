@@ -7,6 +7,7 @@ from typing import Any, Generator
 import face_recognition
 import numpy as np
 
+from hope_dedup_engine.apps.api.deduplication.config import ConfigDefaults
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
 from hope_dedup_engine.apps.faces.validators import IgnorePairsValidator
@@ -22,7 +23,7 @@ class DuplicationDetector:
     def __init__(
         self,
         filenames: tuple[str],
-        ds_config: dict[str, Any] = None,
+        cfg: ConfigDefaults,
         ignore_pairs: tuple[tuple[str, str], ...] = (),
     ) -> None:
         """
@@ -30,15 +31,17 @@ class DuplicationDetector:
 
         Args:
             filenames (tuple[str]): The filenames of the images to process.
-            ds_config (dict[str, Any], optional): The configuration settings for the deduplication set.
+            cfg (ConfigDefaults): The configuration settings.
             ignore_pairs (tuple[tuple[str, str]], optional):
                 The pairs of filenames to ignore. Defaults to an empty tuple.
         """
         self.filenames = filenames
-        self.face_distance_threshold = ds_config.get("duplicates").get("tolerance")
+        self.face_distance_threshold = cfg.duplicates.tolerance
         self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
         self.storages = StorageManager()
-        self.image_processor = ImageProcessor(ds_config)
+        self.image_processor = ImageProcessor(
+            cfg_detection=cfg.detection, cfg_recognition=cfg.recognition
+        )
 
     def _encodings_filename(self, filename: str) -> str:
         """
