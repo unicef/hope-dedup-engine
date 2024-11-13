@@ -5,77 +5,49 @@ from django.core.exceptions import ValidationError
 import face_recognition
 import numpy as np
 import pytest
-from constance import config
-from faces_const import (
-    BLOB_FROM_IMAGE_MEAN_VALUES,
-    BLOB_FROM_IMAGE_SCALE_FACTOR,
-    DEPLOY_PROTO_SHAPE,
-    DS_CONFIG,
-    FACE_REGIONS_INVALID,
-    FACE_REGIONS_VALID,
-    FILENAME,
-    FILENAME_ENCODED,
-)
+from faces_const import DEPLOY_PROTO_SHAPE, FILENAME, FILENAME_ENCODED
 
+from hope_dedup_engine.apps.api.deduplication.config import (
+    DetectionConfig,
+    RecognitionConfig,
+)
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
-from hope_dedup_engine.apps.faces.services.image_processor import (
-    BlobFromImageConfig,
-    FaceEncodingsConfig,
-)
+from hope_dedup_engine.apps.faces.services.image_processor import BlobFromImageConfig
 
 
-def test_init_creates_expected_attributes(
-    mock_net_manager: DNNInferenceManager, mock_image_processor
+def test_init_successful(
+    mock_net_manager: DNNInferenceManager, mock_image_processor, mock_config_defaults
 ):
     assert isinstance(mock_image_processor.storages, StorageManager)
     assert mock_image_processor.net is mock_net_manager
+    assert isinstance(mock_image_processor.cfg_detection, DetectionConfig)
+    assert isinstance(mock_image_processor.cfg_recognition, RecognitionConfig)
     assert isinstance(mock_image_processor.blob_from_image_cfg, BlobFromImageConfig)
-    assert (
-        mock_image_processor.blob_from_image_cfg.scale_factor
-        == config.BLOB_FROM_IMAGE_SCALE_FACTOR
-    )
-    assert isinstance(mock_image_processor.face_encodings_cfg, FaceEncodingsConfig)
-    assert (
-        mock_image_processor.face_encodings_cfg.num_jitters
-        == DS_CONFIG["recognition"]["num_jitters"]
-    )
-    assert (
-        mock_image_processor.face_encodings_cfg.model
-        == DS_CONFIG["recognition"]["model"]
-    )
-    assert (
-        mock_image_processor.face_detection_confidence
-        == DS_CONFIG["detection"]["confidence"]
-    )
-    assert (
-        mock_image_processor.distance_threshold == DS_CONFIG["duplicates"]["tolerance"]
-    )
-    assert mock_image_processor.nms_threshold == config.NMS_THRESHOLD
 
 
-def test_get_shape_valid(mock_prototxt_file):
+def test_get_shape_valid(mock_prototxt_file, mock_config_defaults):
     with patch("builtins.open", mock_prototxt_file):
         config = BlobFromImageConfig(
-            scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
-            mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+            scale_factor=mock_config_defaults.detection.blob_from_image_scale_factor,
+            mean_values=mock_config_defaults.detection.blob_from_image_mean_values,
             prototxt_path="test.prototxt",
         )
         shape = config._get_shape()
         assert shape == DEPLOY_PROTO_SHAPE
 
 
-def test_get_shape_invalid():
+def test_get_shape_invalid(mock_config_defaults):
     with patch("builtins.open", mock_open(read_data="invalid_prototxt_content")):
         with pytest.raises(ValidationError):
             BlobFromImageConfig(
-                scale_factor=BLOB_FROM_IMAGE_SCALE_FACTOR,
-                mean_values=BLOB_FROM_IMAGE_MEAN_VALUES,
+                scale_factor=mock_config_defaults.detection.blob_from_image_scale_factor,
+                mean_values=mock_config_defaults.detection.blob_from_image_mean_values,
                 prototxt_path="test.prototxt",
-            )
+            )._get_shape()
 
 
 def test_get_face_detections_dnn_with_detections(
-    mock_image_processor, mock_net, mock_open_context_manager
+    mock_image_processor, mock_net, mock_open_context_manager, mock_config_defaults
 ):
     dnn, imdecode, resize, _, expected_regions = mock_net
     with (
@@ -120,8 +92,15 @@ def test_get_face_detections_dnn_exception(
             mock_image_processor._get_face_detections_dnn(FILENAME)
 
 
-@pytest.mark.parametrize("face_regions", (FACE_REGIONS_VALID, FACE_REGIONS_INVALID))
-def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
+@pytest.mark.parametrize("face_regions_validity", ["valid", "invalid"])
+def test_encode_face(
+    mock_image_processor, image_bytes_io, mock_face_detections, face_regions_validity
+):
+    __, face_regions_valid, face_regions_invalid = mock_face_detections
+    face_regions = (
+        face_regions_valid if face_regions_validity == "valid" else face_regions_invalid
+    )
+
     with (
         patch.object(
             mock_image_processor.storages.get_storage("images"),
@@ -144,7 +123,7 @@ def test_encode_face(mock_image_processor, image_bytes_io, face_regions):
         mocked_image_open.assert_called_with(FILENAME, "rb")
         assert mocked_image_open.side_effect == image_bytes_io.fake_open
 
-        if face_regions == FACE_REGIONS_VALID:
+        if face_regions_validity == "valid":
             mocked_encoded_open.assert_called_with(FILENAME_ENCODED, "wb")
             assert mocked_encoded_open.side_effect == image_bytes_io.fake_open
             mock_face_encodings.assert_called()

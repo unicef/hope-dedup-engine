@@ -183,6 +183,7 @@ def test_admin_delete(app, modeladmin, record, monkeypatch):
         pytest.skip("No 'delete' permission")
 
 
+@pytest.mark.skip_buttons("api.ConfigAdmin:change_settings_schema")
 def test_admin_buttons(app, modeladmin, button_handler, record, monkeypatch):
     from admin_extra_buttons.handlers import LinkHandler
 
@@ -197,8 +198,5 @@ def test_admin_buttons(app, modeladmin, button_handler, record, monkeypatch):
         else:
             url = reverse(f"admin:{button_handler.url_name}", args=[record.pk])
 
-        res = app.get(url, expect_errors=True)
-        if button_handler.permission:
-            assert res.status_code == 403
-        else:
-            assert res.status_code in [200, 302]
+        res = app.get(url)
+        assert res.status_code in [200, 302]

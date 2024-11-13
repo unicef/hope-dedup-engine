@@ -25,6 +25,9 @@ class BlobFromImageConfig:
     mean_values: tuple[float, float, float]
     prototxt_path: str
 
+    def __post_init__(self):
+        object.__setattr__(self, "shape", self._get_shape())
+
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
         with open(self.prototxt_path, "r") as file:
