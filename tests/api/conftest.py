@@ -12,6 +12,7 @@ from testutils.duplicate_finders import (
 )
 from testutils.factories.api import (
     ConfigFactory,
+    DedupJobFactory,
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredFilenamePairFactory,
@@ -19,11 +20,7 @@ from testutils.factories.api import (
     ImageFactory,
     TokenFactory,
 )
-from testutils.factories.user import (
-    ExternalSystemFactory,
-    SuperUserFactory,
-    UserFactory,
-)
+from testutils.factories.user import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
 from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
@@ -44,6 +41,7 @@ register(
     IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set")
 )
 register(ConfigFactory)
+register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 
 
 @fixture
@@ -86,7 +84,7 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 @fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch(
-        "hope_dedup_engine.apps.api.models.deduplication.send_notification"
+        "hope_dedup_engine.apps.api.deduplication.process.send_notification"
     )
 
 
@@ -118,12 +116,3 @@ def failing_duplicate_finder(
 ) -> DuplicateFinder:
     duplicate_finders.append(finder := FailingDuplicateFinder())
     return finder
-
-
-@fixture()
-def app(django_app_factory, mocked_responses):
-    django_app = django_app_factory(csrf_checks=False)
-    admin_user = SuperUserFactory(username="superuser")
-    django_app.set_user(admin_user)
-    django_app._user = admin_user
-    return django_app

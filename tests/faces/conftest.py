@@ -13,9 +13,6 @@ from faces_const import (
     DEPLOY_PROTO_CONTENT,
     DEPLOY_PROTO_SHAPE,
     DNN_FILE,
-    DS_CONFIG,
-    FACE_DETECTIONS,
-    FACE_REGIONS_VALID,
     FILENAMES,
     IGNORE_PAIRS,
     IMAGE_SIZE,
@@ -25,6 +22,7 @@ from freezegun import freeze_time
 from PIL import Image
 from pytest_mock import MockerFixture
 from storages.backends.azure_storage import AzureStorage
+from testutils.factories.api import ConfigDefaultsFactory
 
 from docker import from_env
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
@@ -108,16 +106,24 @@ def mock_net_manager(mocker: MockerFixture) -> DNNInferenceManager:
 
 
 @pytest.fixture
+def mock_config_defaults():
+    return ConfigDefaultsFactory()
+
+
+@pytest.fixture
 def mock_image_processor(
     mocker: MockerFixture,
     mock_storage_manager,
+    mock_config_defaults,
     mock_net_manager,
     mock_open_context_manager,
 ) -> ImageProcessor:
     mocker.patch.object(
         BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE
     )
-    mock_processor = ImageProcessor(DS_CONFIG)
+    mock_processor = ImageProcessor(
+        mock_config_defaults.detection, mock_config_defaults.recognition
+    )
     mocker.patch.object(
         mock_processor.storages.get_storage("images"),
         "open",
@@ -144,12 +150,32 @@ def mock_open_context_manager(image_bytes_io):
 
 
 @pytest.fixture
-def mock_net():
+def mock_face_detections(mock_config_defaults):
+    conf = mock_config_defaults.detection.confidence
+    face_detections = np.array(
+        [
+            [
+                [
+                    (0, 0, conf + 0.01, 0.1, 0.1, 0.2, 0.2),
+                    (0, 0, conf + 0.1, 0.3, 0.3, 0.4, 0.4),
+                    (0, 0, conf - 0.01, 0.1, 0.1, 0.2, 0.2),
+                ]
+            ]
+        ],
+        dtype=np.float32,
+    )
+    face_regions_valid = [
+        (120, 120, 160, 160),
+        (40, 40, 80, 80),
+    ]
+    face_regions_invalid = [[], [(0, 0, 10)]]
+    yield face_detections, face_regions_valid, face_regions_invalid
+
+
+@pytest.fixture
+def mock_net(mock_face_detections):
     mock_net = MagicMock(spec=cv2.dnn_Net)  # Mocking the neural network object
-    mock_detections = np.array(
-        [[FACE_DETECTIONS]], dtype=np.float32
-    )  # Mocking the detections array
-    mock_expected_regions = FACE_REGIONS_VALID
+    mock_detections, mock_expected_regions, _ = mock_face_detections
     mock_net.forward.return_value = (
         mock_detections  # Setting up the forward method of the mock network
     )
@@ -160,8 +186,10 @@ def mock_net():
 
 
 @pytest.fixture
-def mock_dd(mock_image_processor, mock_net_manager, mock_storage_manager):
-    detector = DuplicationDetector(FILENAMES, DS_CONFIG, IGNORE_PAIRS)
+def mock_dd(
+    mock_image_processor, mock_net_manager, mock_storage_manager, mock_config_defaults
+):
+    detector = DuplicationDetector(FILENAMES, mock_config_defaults, IGNORE_PAIRS)
     yield detector
 
 
