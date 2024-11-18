@@ -11,7 +11,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     IgnoredReferencePkPair,
     Image,
 )
-from src.hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
+from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 class ConfigSerializer(serializers.ModelSerializer):

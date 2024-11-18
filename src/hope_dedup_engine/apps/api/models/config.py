@@ -1,8 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 from hope_dedup_engine.apps.api.validators import DefaultValidatingValidator
-from src.hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 class Config(models.Model):
