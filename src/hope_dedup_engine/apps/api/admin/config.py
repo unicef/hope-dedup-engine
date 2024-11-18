@@ -15,9 +15,9 @@ from django_svelte_jsoneditor.widgets import SvelteJSONEditorWidget
 
 from hope_dedup_engine.apps.api.forms import EditSchemaForm
 from hope_dedup_engine.apps.api.models import Config
+from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 from hope_dedup_engine.apps.api.validators import DefaultValidatingValidator
 from hope_dedup_engine.utils.security import is_root
-from src.hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 @register(Config)
