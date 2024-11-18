@@ -1,8 +1,14 @@
-from factory import SubFactory, fuzzy, post_generation
+from factory import Factory, Faker, LazyFunction, SubFactory, fuzzy, post_generation
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.deduplication.config import (
+    ConfigDefaults,
+    DetectionConfig,
+    DuplicatesConfig,
+    RecognitionConfig,
+)
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
     Duplicate,
@@ -85,3 +91,52 @@ class IgnoredReferencePkPairFactory(DjangoModelFactory):
 
     class Meta:
         model = IgnoredReferencePkPair
+
+
+class DedupJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = DedupJob
+
+
+class DetectionConfigFactory(Factory):
+    class Meta:
+        model = DetectionConfig
+
+    dnn_files_source = Faker("word")
+    dnn_backend = fuzzy.FuzzyInteger(0, 5)
+    dnn_target = fuzzy.FuzzyInteger(0, 5)
+    blob_from_image_scale_factor = fuzzy.FuzzyFloat(0.5, 1.5)
+    blob_from_image_mean_values = LazyFunction(lambda: (104.0, 177.0, 123.0))
+    confidence = fuzzy.FuzzyFloat(0.1, 1.0)
+    nms_threshold = fuzzy.FuzzyFloat(0.1, 1.0)
+
+
+class RecognitionConfigFactory(Factory):
+    class Meta:
+        model = RecognitionConfig
+
+    num_jitters = fuzzy.FuzzyInteger(0, 5)
+    model = fuzzy.FuzzyChoice(["small", "large"])
+    preprocessors = []
+
+
+class DuplicatesConfigFactory(Factory):
+    class Meta:
+        model = DuplicatesConfig
+
+    tolerance = fuzzy.FuzzyFloat(0.1, 1.0)
+
+
+class ConfigDefaultsFactory(Factory):
+    class Meta:
+        model = ConfigDefaults
+
+    detection = SubFactory(DetectionConfigFactory)
+    recognition = SubFactory(RecognitionConfigFactory)
+    duplicates = SubFactory(DuplicatesConfigFactory)
+
+    # @post_generation
+    # def apply_overrides(self, create, extracted, **kwargs):
+    #         self.apply_config_overrides(extracted)

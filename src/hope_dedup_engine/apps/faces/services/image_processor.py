@@ -9,16 +9,13 @@ from django.core.exceptions import ValidationError
 import cv2
 import face_recognition
 import numpy as np
-from constance import config
 
+from hope_dedup_engine.apps.api.deduplication.config import (
+    DetectionConfig,
+    RecognitionConfig,
+)
 from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
-
-
-@dataclass(frozen=True, slots=True)
-class FaceEncodingsConfig:
-    num_jitters: int
-    model: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,12 +25,8 @@ class BlobFromImageConfig:
     mean_values: tuple[float, float, float]
     prototxt_path: str
 
-    def __post_init__(self) -> None:
+    def __post_init__(self):
         object.__setattr__(self, "shape", self._get_shape())
-        mean_values = self.mean_values
-        if isinstance(mean_values, str):
-            mean_values = tuple(map(float, mean_values.split(", ")))
-        object.__setattr__(self, "mean_values", mean_values)
 
     def _get_shape(self) -> dict[str, int]:
         pattern = r"input_shape\s*\{\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*dim:\s*(\d+)\s*\}"
@@ -59,7 +52,8 @@ class ImageProcessor:
 
     def __init__(
         self,
-        ds_config: dict[str, Any] = None,
+        cfg_detection: DetectionConfig,
+        cfg_recognition: RecognitionConfig,
     ) -> None:
         """
         Initialize the ImageProcessor with the required configurations.
@@ -67,22 +61,15 @@ class ImageProcessor:
         self.storages = StorageManager()
         self.net = DNNInferenceManager(self.storages.get_storage("cv2")).get_model()
 
+        self.cfg_detection = cfg_detection
+        self.cfg_recognition = cfg_recognition
         self.blob_from_image_cfg = BlobFromImageConfig(
-            scale_factor=config.BLOB_FROM_IMAGE_SCALE_FACTOR,
-            mean_values=config.BLOB_FROM_IMAGE_MEAN_VALUES,
+            scale_factor=self.cfg_detection.blob_from_image_scale_factor,
+            mean_values=self.cfg_detection.blob_from_image_mean_values,
             prototxt_path=self.storages.get_storage("cv2").path(
                 settings.DNN_FILES.get("prototxt").get("filename")
             ),
         )
-        self.face_encodings_cfg = FaceEncodingsConfig(
-            num_jitters=ds_config.get("recognition").get("num_jitters"),
-            model=ds_config.get("recognition").get("model"),
-        )
-        self.face_detection_confidence: float = ds_config.get("detection").get(
-            "confidence"
-        )
-        self.distance_threshold: float = ds_config.get("duplicates").get("tolerance")
-        self.nms_threshold: float = config.NMS_THRESHOLD
 
     def _get_face_detections_dnn(
         self, filename: str
@@ -129,7 +116,7 @@ class ImageProcessor:
             for i in range(detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
                 # Filter out weak detections by ensuring the confidence is greater than the minimum confidence
-                if confidence > self.face_detection_confidence:
+                if confidence > self.cfg_detection.confidence:
                     box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype(
                         "int"
                     )
@@ -138,10 +125,10 @@ class ImageProcessor:
             if boxes:
                 # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
                 indices = cv2.dnn.NMSBoxes(
-                    boxes,
-                    confidences,
-                    self.face_detection_confidence,
-                    self.nms_threshold,
+                    bboxes=boxes,
+                    scores=confidences,
+                    score_threshold=self.cfg_detection.confidence,
+                    nms_threshold=self.cfg_detection.nms_threshold,
                 )
                 if indices is not None:
                     for i in indices:
@@ -200,8 +187,8 @@ class ImageProcessor:
                         face_encodings = face_recognition.face_encodings(
                             image,
                             [(right, bottom, left, top)],
-                            num_jitters=self.face_encodings_cfg.num_jitters,
-                            model=self.face_encodings_cfg.model,
+                            num_jitters=self.cfg_recognition.num_jitters,
+                            model=self.cfg_recognition.model,
                         )
                         encodings.extend(face_encodings)
                     else:

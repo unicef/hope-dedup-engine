@@ -7,7 +7,9 @@ from factory import fuzzy
 from testutils.factories.api import ConfigFactory, DeduplicationSetFactory
 
 
-def test_response_change_redirects_to_confirm_save_if_related_objects_exist(app):
+def test_response_change_redirects_to_confirm_save_if_related_objects_exist(
+    admin_client,
+):
     config_instance = ConfigFactory.create()
     deduplication_sets = DeduplicationSetFactory.create_batch(2, config=config_instance)
     change_url = reverse("admin:api_config_change", args=[config_instance.pk])
@@ -19,13 +21,13 @@ def test_response_change_redirects_to_confirm_save_if_related_objects_exist(app)
         ),
     }
 
-    response = app.post(change_url, form_data)
+    response = admin_client.post(change_url, form_data)
     assert response.status_code == 302
-    assert response.location == confirm_url
+    assert response.url == confirm_url
 
-    response = response.follow()
+    response = admin_client.get(confirm_url)
     assert response.status_code == 200
-    assert response.request.path == confirm_url
+    assert response.wsgi_request.path == confirm_url
 
     messages = [str(msg) for msg in get_messages(response.context["request"])]
     assert all(

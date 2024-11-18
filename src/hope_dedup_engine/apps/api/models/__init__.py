@@ -5,3 +5,4 @@ from hope_dedup_engine.apps.api.models.deduplication import (  # noqa: F401
     Duplicate,
     Image,
 )
+from hope_dedup_engine.apps.api.models.jobs import DedupJob  # noqa: F401

@@ -11,7 +11,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     IgnoredReferencePkPair,
     Image,
 )
-from hope_dedup_engine.apps.api.utils.config_schema import settings_schema
+from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 class ConfigSerializer(serializers.ModelSerializer):
@@ -20,7 +20,7 @@ class ConfigSerializer(serializers.ModelSerializer):
         exclude = ("id",)
 
     def validate_settings(self, value):
-        validator = Draft202012Validator(settings_schema)
+        validator = Draft202012Validator(SchemaManager.get_or_create())
         try:
             validator.validate(value)
         except JSONSchemaValidationError as e:
@@ -29,12 +29,12 @@ class ConfigSerializer(serializers.ModelSerializer):
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
-    state = serializers.CharField(source="get_state_value_display", read_only=True)
+    state = serializers.CharField(source="get_state_display", read_only=True)
     config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted", "state_value")
+        exclude = ("deleted",)
         read_only_fields = (
             "external_system",
             "created_at",

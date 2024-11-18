@@ -1,12 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from jsonschema import ValidationError as JSONSchemaValidationError
-
-from hope_dedup_engine.apps.api.utils.config_schema import (
-    DefaultValidatingValidator,
-    settings_schema,
-)
+from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
+from hope_dedup_engine.apps.api.validators import DefaultValidatingValidator
 
 
 class Config(models.Model):
@@ -20,6 +16,7 @@ class Config(models.Model):
 
     def clean(self) -> None:
         try:
-            DefaultValidatingValidator(settings_schema).validate(self.settings)
-        except JSONSchemaValidationError as e:
+            schema = SchemaManager.get_or_create()
+            DefaultValidatingValidator(schema).validate(self.settings)
+        except Exception as e:
             raise ValidationError({"settings": e.message})

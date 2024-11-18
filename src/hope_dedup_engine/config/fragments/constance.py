@@ -37,7 +37,7 @@ CONSTANCE_CONFIG = {
         Remember that mean values are also applied to scaling factor. Both scaling factor and mean values
         must be the same for the training and inference to get the correct results.
         """,
-        "tuple_field",
+        str,
     ),
     "FACE_DETECTION_CONFIDENCE": (
         0.7,
@@ -85,16 +85,6 @@ CONSTANCE_CONFIG = {
         """,
         float,
     ),
-    "DEDUPLICATION_SET_LOCK_ENABLED": (
-        True,
-        "Enable or disable the lock mechanism for deduplication sets",
-        bool,
-    ),
-    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT": (
-        120,
-        "Timeout in seconds for the last action on a deduplication set",
-        int,
-    ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
         DEFAULT_GROUP_NAME,
@@ -117,13 +107,6 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "FACE_ENCODINGS_NUM_JITTERS",
             "FACE_ENCODINGS_MODEL",
             "FACE_DISTANCE_THRESHOLD",
-        ),
-        "collapse": False,
-    },
-    "Task lock settings": {
-        "fields": (
-            "DEDUPLICATION_SET_LOCK_ENABLED",
-            "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT",
         ),
         "collapse": False,
     },
@@ -163,5 +146,4 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             "choices": (("small", "SMALL"), ("large", "LARGE")),
         },
     ],
-    "tuple_field": ["hope_dedup_engine.apps.faces.forms.MeanValuesTupleField", {}],
 }
