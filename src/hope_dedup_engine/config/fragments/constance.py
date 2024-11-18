@@ -37,7 +37,7 @@ CONSTANCE_CONFIG = {
         Remember that mean values are also applied to scaling factor. Both scaling factor and mean values
         must be the same for the training and inference to get the correct results.
         """,
-        "tuple_field",
+        str,
     ),
     "FACE_DETECTION_CONFIDENCE": (
         0.7,
@@ -146,5 +146,4 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             "choices": (("small", "SMALL"), ("large", "LARGE")),
         },
     ],
-    "tuple_field": ["hope_dedup_engine.apps.faces.forms.MeanValuesTupleField", {}],
 }
