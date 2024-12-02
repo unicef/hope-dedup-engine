@@ -8,6 +8,7 @@ authors = [
     {name = "Domenico DiNicola", email = "dom.dinicola@gmail.com"},
 ]
 requires-python = ">=3.12"
+license = {text = "MIT"}
 
 dependencies = [
     "Django",
@@ -49,6 +50,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.36",
+    "mkdocs-awesome-pages-plugin>=2.9.3",
+    "mkdocstrings-python",
+    "mkdocs-gen-files>=0.5.0",
+]
 
 distribution = [
     "uwsgi>=2.0.27",
