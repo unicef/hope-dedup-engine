@@ -1,0 +1,9 @@
+nav:
+  - index.md
+  - settings.md
+  - Setup service: setup.md
+  - REST API: API.md
+  - Duplicated Image Detection: did
+  - Troubleshooting: troubleshooting.md
+  - Demo Application: demo.md
+  - Development: development.md
