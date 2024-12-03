@@ -1045,9 +1045,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-distribution = [
-    { name = "uwsgi" },
-]
 docs = [
     { name = "mkdocs" },
     { name = "mkdocs-awesome-pages-plugin" },
@@ -1136,7 +1133,6 @@ requires-dist = [
     { name = "social-auth-core" },
     { name = "unicef-security" },
     { name = "uwsgi", specifier = ">=2.0.25.1" },
-    { name = "uwsgi", marker = "extra == 'distribution'", specifier = ">=2.0.27" },
 ]
 
 [package.metadata.requires-dev]
