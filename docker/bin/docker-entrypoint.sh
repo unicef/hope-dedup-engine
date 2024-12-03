@@ -8,11 +8,11 @@ export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-"hope_dedup_engine.conf
 mkdir -p "${MEDIA_ROOT}" "${STATIC_ROOT}" "${DEFAULT_ROOT}" || echo "Cannot create dirs ${MEDIA_ROOT} ${STATIC_ROOT} ${DEFAULT_ROOT}"
 
 if [ -d "${STATIC_ROOT}" ];then
-  chown -R user:app ${STATIC_ROOT}
+  chown -R hope:unicef ${STATIC_ROOT}
 fi
 
 if [ -d "${DEFAULT_ROOT}" ];then
-  chown -R user:app ${DEFAULT_ROOT}
+  chown -R hope:unicef ${DEFAULT_ROOT}
 fi
 
 
@@ -28,18 +28,18 @@ case "$1" in
       exit 0
       ;;
     worker)
-      gosu user:app django-admin syncdnn || exit 1
+      gosu hope:unicef django-admin syncdnn || exit 1
 	    set -- tini -- "$@"
-      set -- gosu user:app celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
+      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
       ;;
     beat)
 	    set -- tini -- "$@"
-      set -- gosu user:app celery -A hope_dedup_engine.config.celery beat --loglevel=ERROR --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery beat --loglevel=ERROR --scheduler django_celery_beat.schedulers:DatabaseScheduler
       ;;
     run)
       django-admin check --deploy || exit 1
 	    set -- tini -- "$@"
-  		set -- gosu user:app uwsgi --ini /conf/uwsgi.ini
+      set -- gosu hope:unicef uwsgi --ini /conf/uwsgi.ini
 	    ;;
 esac
 
