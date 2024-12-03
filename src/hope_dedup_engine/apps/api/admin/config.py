@@ -4,7 +4,7 @@ from typing import Any
 from django.contrib import messages
 from django.contrib.admin import ModelAdmin, register, site
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -14,7 +14,8 @@ from admin_extra_buttons.mixins import ExtraButtonsMixin
 from django_svelte_jsoneditor.widgets import SvelteJSONEditorWidget
 
 from hope_dedup_engine.apps.api.forms import EditSchemaForm
-from hope_dedup_engine.apps.api.models import Config
+from hope_dedup_engine.apps.api.models import Config, DeduplicationSet
+from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 from hope_dedup_engine.apps.api.validators import DefaultValidatingValidator
 from hope_dedup_engine.utils.security import is_root
@@ -64,7 +65,8 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
             confirm_url = reverse("admin:confirm_save_config", args=[obj.pk])
             self.message_user(
                 request,
-                f"Related deduplication sets {dd_set} was found. Please confirm saving.",
+                f"Related deduplication sets {dd_set} was found. "
+                f"Confirming your save will mark them as '{DeduplicationSet.State.DIRTY.label}'.",
                 level=messages.WARNING,
             )
             return redirect(confirm_url)
@@ -74,12 +76,18 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
         obj = self.get_object(request, object_id)
         if request.method == "POST":
             form_data = request.session.get("unsaved_data", None)
+
             if form_data:
-                for field, value in form_data.items():
-                    if field == "settings":
-                        value = json.loads(value)
-                    setattr(obj, field, value)
-                obj.save()
+                with transaction.atomic():
+                    deduplication_sets = obj.deduplicationset_set.select_for_update()
+                    deduplication_sets.update(state=DeduplicationSet.State.DIRTY)
+                    for ds in deduplication_sets:
+                        send_notification(ds.notification_url)
+                    for field, value in form_data.items():
+                        if field == "settings":
+                            value = json.loads(value)
+                        setattr(obj, field, value)
+                    obj.save()
 
             return redirect(reverse("admin:api_config_changelist"))
 
