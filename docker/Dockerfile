@@ -127,8 +127,7 @@ LABEL distro="test"
 COPY . /code
 WORKDIR /code
 
-RUN pip install uv
-#  uwsgi
+RUN pip install uv uwsgi
 
 RUN --mount=type=cache,target=/root/.uv-cache \
     uv sync -v \
@@ -172,15 +171,14 @@ COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
 COPY . /code
 WORKDIR /code
 
-RUN pip install uv
-# uwsgi
+RUN pip install uv uwsgi
 
 RUN --mount=type=cache,target=/root/.uv-cache \
     uv sync -v \
         --cache-dir=/root/.uv-cache \
         --python=/usr/local/bin/python \
         --python-preference=system \
-        --no-dev --no-editable --frozen --extra distribution
+        --no-dev --no-editable --frozen
 
 
 # ------------- dist -------------
