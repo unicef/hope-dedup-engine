@@ -73,9 +73,9 @@ plugins:
       default_handler: python
   - awesome-pages
   - search
-  - gen-files:
-      scripts:
-        - docs/_scripts/get_settings.py
+  # - gen-files:
+  #     scripts:
+  #       - docs/_scripts/get_settings.py
 watch:
   - src/
 
