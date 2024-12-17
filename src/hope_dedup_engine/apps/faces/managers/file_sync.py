@@ -20,7 +20,10 @@ class FileDownloader:
         Initializes the FileDownloader with a local storage backend.
         """
         self.local_storage = FileSystemStorage(
-            **settings.STORAGES.get("default").get("OPTIONS")
+            **settings.STORAGES.get("default").get("OPTIONS"),
+        )
+        self.local_storage.base_location = (
+            Path(self.local_storage.base_location) / ".deepface/weights"
         )
 
     def sync(

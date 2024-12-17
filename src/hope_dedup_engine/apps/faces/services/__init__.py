@@ -1,1 +1,1 @@
-from .duplication_detector import DuplicationDetector  # noqa: F401
+from .facial import FacialDetector  # noqa: F401

@@ -178,7 +178,7 @@ RUN --mount=type=cache,target=/root/.uv-cache \
         --cache-dir=/root/.uv-cache \
         --python=/usr/local/bin/python \
         --python-preference=system \
-        --no-dev --no-editable --frozen
+        --no-dev --no-editable --frozen --extra distribution
 
 
 # ------------- dist -------------

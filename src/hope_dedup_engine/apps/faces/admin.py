@@ -3,7 +3,6 @@ from django.contrib import admin
 from admin_extra_buttons.decorators import button
 from admin_extra_buttons.mixins import ExtraButtonsMixin
 from celery import group
-from constance import config
 
 from hope_dedup_engine.apps.faces.celery_tasks import sync_dnn_files
 from hope_dedup_engine.apps.faces.models import DummyModel
@@ -30,7 +29,7 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context["title"] = (
-            f"Force syncronize DNN files from {config.DNN_FILES_SOURCE} to local storage."
+            "Force syncronize DNN files from azure to local storage."
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -51,14 +50,14 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
                     request,
                     f"The DNN files synchronization group task `{result.id}` has been initiated across "
                     f"`{worker_count}` workers. "
-                    f"The files will be forcibly synchronized with `{config.DNN_FILES_SOURCE}`.",
+                    f"The files will be forcibly synchronized with azure.",
                 )
             else:
                 task = sync_dnn_files.delay(force=True)
                 self.message_user(
                     request,
                     f"The DNN files sync task `{task.id}` has started. "
-                    f"The files will be forcibly synchronized with `{config.DNN_FILES_SOURCE}`.",
+                    f"The files will be forcibly synchronized with azure.",
                 )
 
         return None

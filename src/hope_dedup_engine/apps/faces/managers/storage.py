@@ -26,12 +26,12 @@ class StorageManager:
             "images": AzureStorage(**settings.STORAGES.get("hope").get("OPTIONS")),
         }
 
-        for file in (
-            settings.DNN_FILES.get("prototxt").get("filename"),
-            settings.DNN_FILES.get("caffemodel").get("filename"),
-        ):
-            if not self.storages.get("cv2").exists(file):
-                raise FileNotFoundError(f"File {file} does not exist in storage.")
+        # for file in (
+        #     settings.DNN_FILES.get("prototxt").get("filename"),
+        #     settings.DNN_FILES.get("caffemodel").get("filename"),
+        # ):
+        #     if not self.storages.get("cv2").exists(file):
+        #         raise FileNotFoundError(f"File {file} does not exist in storage.")
 
     def get_storage(self, key: str) -> AzureStorage | FileSystemStorage:
         """
