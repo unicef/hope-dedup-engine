@@ -1,17 +1,17 @@
 import logging
-import os
-from collections.abc import Callable
-from itertools import combinations
-from typing import Any, Generator
+from typing import Generator
+from uuid import UUID
 
 import cv2
 import numpy as np
-from constance import config
 from deepface import DeepFace
 
 from hope_dedup_engine.apps.api.deduplication.config import ConfigDefaults
-from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+
+# from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
 from hope_dedup_engine.apps.faces.managers import StorageManager
+from hope_dedup_engine.constants import FacialError, is_facial_error
 
 
 class FacialDetector:
@@ -20,100 +20,59 @@ class FacialDetector:
 
     def __init__(
         self,
+        deduplication_set_pk: UUID,
         filenames: tuple[str],
         options: ConfigDefaults,
         ignore_pairs: tuple[tuple[str, str], ...] = (),
     ) -> None:
+        self.deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
+        print(f"{self.deduplication_set=}")
         self.filenames = filenames
         self.options = options
         # self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
         self.storages = StorageManager()
 
-    def _encodings_filename(self, filename: str) -> str:
-        return f"{filename}.npy"
-
-    def _has_encodings(self, filename: str) -> bool:
-        return self.storages.get_storage("encoded").exists(
-            self._encodings_filename(filename)
-        )
-
-    def _load_encodings_all(self) -> dict[str, list[np.ndarray[np.float32, Any]]]:
-        data: dict[str, list[np.ndarray[np.float32, Any]]] = {}
-        try:
-            _, files = self.storages.get_storage("encoded").listdir("")
-            for file in files:
-                filename = os.path.splitext(file)[0]
-                if file == self._encodings_filename(filename):
-                    with self.storages.get_storage("encoded").open(file, "rb") as f:
-                        data[filename] = list(np.load(f, allow_pickle=False))
-        except Exception as e:
-            self.logger.exception("Error loading encodings.")
-            raise e
-        return data
-
-    def _existed_images_name(self) -> list[str]:
-        filenames: list = []
-        _, files = self.storages.get_storage("images").listdir("")
-        print(f"\n{'='*100}\n{files=}\n{'='*100}\n")
-        for filename in self.filenames:
-            if filename not in files:
-                self.logger.warning(
-                    "Image %s not found in the image storage.", filename
-                )
-            else:
-                filenames.append(filename)
-                if not self._has_encodings(filename):
-                    self.encode_face(filename, self._encodings_filename(filename))
-        return filenames
-
     def find_duplicates(
-        self, tracker: Callable[[int], None] | None = None
+        self,
+        # tracker: Callable[[int], None] | None = None
     ) -> Generator[tuple[str, str, float], None, None]:
-        try:
-            existed_images_name = self._existed_images_name()
-            encodings_all = self._load_encodings_all()
-            self.options = {**self.options, "threshold": config.FACE_DISTANCE_THRESHOLD}
-            total_pairs = (n := len(existed_images_name)) * (n - 1) // 2
-            for i, (path1, path2) in enumerate(combinations(existed_images_name, 2), 1):
-                encodings1 = encodings_all.get(path1)
-                encodings2 = encodings_all.get(path2)
-                if encodings1 is None or encodings2 is None:
+        self.encode_faces()
+        encodings = self.deduplication_set.get_encodings()
+        for file1 in self.filenames:
+            # if tracker:
+            #     tracker(100 * n // len(self.filenames))
+            enc1 = encodings.get(file1)
+            if is_facial_error(enc1):
+                yield (file1, FacialError[enc1].name, FacialError[enc1].code)
+                continue
+            for file2, enc2 in encodings.items():
+                if file1 == file2:
                     continue
-                verified = DeepFace.verify(
-                    encodings1, encodings2, **(self.options or {})
-                )
-                yield (path1, path2, verified.get("distance"))
+                if is_facial_error(enc2):
+                    # yield (file2, FacialError[enc2].name, FacialError[enc2].code)
+                    continue
+                # TODO: use threshold
+                verified = DeepFace.verify(enc1, enc2, **(self.options or {}))
+                yield (file1, file2, verified.get("distance"))
 
-                if tracker:
-                    tracker(100 * i // total_pairs)
-
-        except Exception as e:
-            self.logger.exception(
-                "Error finding duplicates for images %s", self.filenames
-            )
-            raise e
-
-    def encode_face(self, filename: str, encodings_filename: str) -> None:
-        try:
-            with self.storages.get_storage("images").open(filename, "rb") as img_file:
+    def encode_faces(self) -> None:
+        encodings = {}
+        _, images = self.storages.get_storage("images").listdir("")
+        for file in self.filenames:
+            if file not in images:
+                encodings[file] = FacialError.NO_FILE_FOUND.name
+                continue
+            with self.storages.get_storage("images").open(file, "rb") as img_file:
                 img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
                 img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                face_regions = DeepFace.represent(img_bgr, **(self.options or {}))
-                if not face_regions:
-                    raise NotCompliantImageError(
-                        f"No face regions detected in image '{filename}'."
-                    )
-                if len(face_regions) > 1:
-                    raise NotCompliantImageError(
-                        f"Multiple face regions detected in image '{filename}'."
-                    )
-                else:
-                    with self.storages.get_storage("encoded").open(
-                        encodings_filename, "wb"
-                    ) as f:
-                        np.save(f, face_regions[0].get("embedding"))
-        except Exception as e:
-            self.logger.exception(
-                "Error processing face encodings for image %s", filename
-            )
-            raise e
+                try:
+                    dp_encodings = DeepFace.represent(img_bgr, **(self.options or {}))
+                    if len(dp_encodings) > 1:
+                        encodings[file] = FacialError.MULTIPLE_FACES_DETECTED.name
+                    else:
+                        encodings[file] = dp_encodings[0].get("embedding")
+                except TypeError:
+                    encodings[file] = FacialError.GENERIC_ERROR.name
+                except ValueError:
+                    encodings[file] = FacialError.NO_FACE_DETECTED.name
+        self.deduplication_set.update_encodings(encodings)

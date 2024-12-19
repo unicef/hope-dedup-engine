@@ -5,6 +5,7 @@ from constance import config
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateKeyPair
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.faces.services import FacialDetector
+from hope_dedup_engine.constants import is_facial_error
 
 
 class DuplicateFaceFinder:
@@ -32,11 +33,19 @@ class DuplicateFaceFinder:
         #     options.apply_config_overrides(self.deduplication_set.config.settings)
         # ignored key pairs are not handled correctly in DuplicationDetector
         detector = FacialDetector(
-            tuple[str](filename_to_reference_pk.keys()), options=options
+            self.deduplication_set.pk,
+            tuple[str](filename_to_reference_pk.keys()),
+            options=options,
         )
         for first_filename, second_filename, distance in detector.find_duplicates(
-            tracker
+            # tracker
         ):
-            yield filename_to_reference_pk[first_filename], filename_to_reference_pk[
-                second_filename
-            ], 1 - distance
+            yield (
+                filename_to_reference_pk[first_filename],
+                (
+                    filename_to_reference_pk[second_filename]
+                    if second_filename in filename_to_reference_pk
+                    else second_filename
+                ),
+                distance if is_facial_error(distance) else (1 - distance),
+            )

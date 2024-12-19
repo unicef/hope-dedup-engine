@@ -24,23 +24,13 @@ from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET_FILTER,
     DEDUPLICATION_SET_PARAM,
 )
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import (
-    Duplicate,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
-    Image,
-)
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Finding, Image
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
-    CreateIgnoredFilenamePairSerializer,
-    CreateIgnoredReferencePkPairSerializer,
     CreateImageSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
-    IgnoredFilenamePairSerializer,
-    IgnoredReferencePkPairSerializer,
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
@@ -236,7 +226,7 @@ REFERENCE_PK = "reference_pk"
 
 
 class DuplicateViewSet(
-    nested_viewsets.NestedViewSetMixin[Duplicate],
+    nested_viewsets.NestedViewSetMixin[Finding],
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
@@ -247,12 +237,13 @@ class DuplicateViewSet(
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = DuplicateSerializer
-    queryset = Duplicate.objects.all()
+    # TODO: Add filters
+    queryset = Finding.objects.all()
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
-    def get_queryset(self) -> QuerySet[Duplicate]:
+    def get_queryset(self) -> QuerySet[Finding]:
         queryset = super().get_queryset()
         if reference_pk := self.request.query_params.get(REFERENCE_PK):
             return queryset.filter(
@@ -275,61 +266,61 @@ class DuplicateViewSet(
         return super().list(request, *args, **kwargs)
 
 
-class IgnoredPairViewSet[T](
-    nested_viewsets.NestedViewSetMixin[T],
-    mixins.ListModelMixin,
-    mixins.CreateModelMixin,
-    viewsets.GenericViewSet,
-):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        AssignedToExternalSystem,
-        UserAndDeduplicationSetAreOfTheSameSystem,
-    )
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
-    }
+# class IgnoredPairViewSet[T](
+#     nested_viewsets.NestedViewSetMixin[T],
+#     mixins.ListModelMixin,
+#     mixins.CreateModelMixin,
+#     viewsets.GenericViewSet,
+# ):
+#     authentication_classes = (HDETokenAuthentication,)
+#     permission_classes = (
+#         IsAuthenticated,
+#         AssignedToExternalSystem,
+#         UserAndDeduplicationSetAreOfTheSameSystem,
+#     )
+#     parent_lookup_kwargs = {
+#         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
+#     }
 
-    def perform_create(self, serializer: Serializer) -> None:
-        super().perform_create(serializer)
-        deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.DIRTY
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
-
-
-class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
-    serializer_class = IgnoredFilenamePairSerializer
-    queryset = IgnoredFilenamePair.objects.all()
-
-    @extend_schema(
-        description="List all ignored filename pairs for the deduplication set"
-    )
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        request=CreateIgnoredFilenamePairSerializer,
-        description="Add ignored filename pair for the deduplication set",
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
+#     def perform_create(self, serializer: Serializer) -> None:
+#         super().perform_create(serializer)
+#         deduplication_set = serializer.instance.deduplication_set
+#         deduplication_set.state = DeduplicationSet.State.DIRTY
+#         deduplication_set.updated_by = self.request.user
+#         deduplication_set.save()
 
 
-class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
-    serializer_class = IgnoredReferencePkPairSerializer
-    queryset = IgnoredReferencePkPair.objects.all()
+# class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
+#     serializer_class = IgnoredFilenamePairSerializer
+#     queryset = IgnoredFilenamePair.objects.all()
 
-    @extend_schema(
-        description="List all ignored reference pk pairs for the deduplication set"
-    )
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
+#     @extend_schema(
+#         description="List all ignored filename pairs for the deduplication set"
+#     )
+#     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        request=CreateIgnoredReferencePkPairSerializer,
-        description="Add ignored reference pk pair for the deduplication set",
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
+#     @extend_schema(
+#         request=CreateIgnoredFilenamePairSerializer,
+#         description="Add ignored filename pair for the deduplication set",
+#     )
+#     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         return super().create(request, *args, **kwargs)
+
+
+# class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
+#     serializer_class = IgnoredReferencePkPairSerializer
+#     queryset = IgnoredReferencePkPair.objects.all()
+
+#     @extend_schema(
+#         description="List all ignored reference pk pairs for the deduplication set"
+#     )
+#     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         return super().list(request, *args, **kwargs)
+
+#     @extend_schema(
+#         request=CreateIgnoredReferencePkPairSerializer,
+#         description="Add ignored reference pk pair for the deduplication set",
+#     )
+#     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         return super().create(request, *args, **kwargs)

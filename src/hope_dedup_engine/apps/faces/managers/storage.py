@@ -14,9 +14,6 @@ class StorageManager:
     def __init__(self) -> None:
         """
         Initialize the StorageManager.
-
-        Raises:
-            FileNotFoundError: If any of the required DNN model files do not exist in the storage.
         """
         self.storages: dict[str, AzureStorage | FileSystemStorage] = {
             "cv2": FileSystemStorage(**settings.STORAGES.get("default").get("OPTIONS")),
