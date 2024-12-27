@@ -4,7 +4,14 @@ from jsonschema import Draft202012Validator
 from jsonschema import ValidationError as JSONSchemaValidationError
 from rest_framework import serializers
 
-from hope_dedup_engine.apps.api.models import Config, DeduplicationSet, Finding, Image
+from hope_dedup_engine.apps.api.models import (
+    Config,
+    DeduplicationSet,
+    Finding,
+    IgnoredFilenamePair,
+    IgnoredReferencePkPair,
+    Image,
+)
 from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
@@ -93,32 +100,32 @@ class DuplicateSerializer(serializers.ModelSerializer):
         fields = "first", "second", "score", "error"
 
 
-# CREATE_PAIR_FIELDS = "first", "second"
-# PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
+CREATE_PAIR_FIELDS = "first", "second"
+PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
 
 
-# class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = IgnoredReferencePkPair
-#         fields = PAIR_FIELDS
+class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredReferencePkPair
+        fields = PAIR_FIELDS
 
 
-# class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = IgnoredReferencePkPair
-#         fields = CREATE_PAIR_FIELDS
+class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredReferencePkPair
+        fields = CREATE_PAIR_FIELDS
 
 
-# class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = IgnoredFilenamePair
-#         fields = PAIR_FIELDS
+class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = PAIR_FIELDS
 
 
-# class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = IgnoredFilenamePair
-#         fields = CREATE_PAIR_FIELDS
+class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IgnoredFilenamePair
+        fields = CREATE_PAIR_FIELDS
 
 
 class EmptySerializer(serializers.Serializer):

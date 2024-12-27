@@ -1,70 +1,63 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
+from uuid import UUID
+
+from constance import config as constance_cfg
+
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
 @dataclass
-class DetectionConfig:
-    ...
-    # dnn_files_source: str = field(
-    #     default_factory=lambda: constance_cfg.DNN_FILES_SOURCE
-    # )
-    # dnn_backend: int = field(default_factory=lambda: constance_cfg.DNN_BACKEND)
-    # dnn_target: int = field(default_factory=lambda: constance_cfg.DNN_TARGET)
-    # blob_from_image_scale_factor: float = field(
-    #     default_factory=lambda: constance_cfg.BLOB_FROM_IMAGE_SCALE_FACTOR
-    # )
-    # blob_from_image_mean_values: tuple[float, float, float] = field(
-    #     default_factory=lambda: tuple(
-    #         map(float, constance_cfg.BLOB_FROM_IMAGE_MEAN_VALUES.split(", "))
-    #     )
-    # )
-    # confidence: float = field(
-    #     default_factory=lambda: constance_cfg.FACE_DETECTION_CONFIDENCE
-    # )
-    # nms_threshold: float = field(default_factory=lambda: constance_cfg.NMS_THRESHOLD)
+class ModelOptions:
+    model_name: str = field(
+        default_factory=lambda: constance_cfg.FACE_RECOGNITION_MODEL
+    )
+    detector_backend: str = field(
+        default_factory=lambda: constance_cfg.FACE_DETECTOR_BACKEND
+    )
+
+    def update(self, overrides: dict[str, Any]) -> None:
+        for k, v in overrides.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
 
 
 @dataclass
-class RecognitionConfig:
-    ...
-    # num_jitters: int = field(
-    #     default_factory=lambda: constance_cfg.FACE_ENCODINGS_NUM_JITTERS
-    # )
-    # model: Literal["small", "large"] = field(
-    #     default_factory=lambda: constance_cfg.FACE_ENCODINGS_MODEL
-    # )
-    # preprocessors: list[str] = field(default_factory=list)
+class EncodingOptions(ModelOptions):
+    pass
 
 
 @dataclass
-class DuplicatesConfig:
-    ...
-    # tolerance: float = field(
-    #     default_factory=lambda: constance_cfg.FACE_DISTANCE_THRESHOLD
-    # )
+class DeduplicateOptions(ModelOptions):
+    threshold: float = field(
+        default_factory=lambda: constance_cfg.FACE_DISTANCE_THRESHOLD
+    )
+    silent: bool = True
 
 
 @dataclass
-class ConfigDefaults:
-    detection: DetectionConfig = field(default_factory=DetectionConfig)
-    recognition: RecognitionConfig = field(default_factory=RecognitionConfig)
-    duplicates: DuplicatesConfig = field(default_factory=DuplicatesConfig)
+class DeduplicationSetConfig:
+    deduplication_set_id: UUID | None = None
+    encoding: EncodingOptions = field(default_factory=EncodingOptions)
+    deduplicate: DeduplicateOptions = field(default_factory=DeduplicateOptions)
 
-    def apply_config_overrides(
-        self, config_settings: dict[str, Any] | None = None
-    ) -> None:
-        """
-        Updates the instance with values from the provided config settings.
+    def update(self, overrides: dict[str, Any]) -> None:
+        if not isinstance(overrides, dict):
+            raise ValueError("Overrides values must be a dictionary.")
+        for k, v in overrides.items():
+            match k:
+                case "encoding" if isinstance(v, dict):
+                    self.encoding.update(v)
+                case "deduplicate" if isinstance(v, dict):
+                    self.deduplicate.update(v)
+                case _ if hasattr(self, k):
+                    setattr(self, k, v)
+                case _:
+                    raise KeyError(f"Unknown config key: {k}")
 
-        Parameters:
-            config_settings (dict | None): Optional dictionary of configuration overrides, structured to match
-                sections in ConfigDefaults (e.g., "detection", "recognition", "duplicates"). Only matching attributes
-                are updated. No changes are made if `config_settings` is `None` or empty.
-        """
-        if config_settings:
-            for section_name, section_data in config_settings.items():
-                dataclass_section = getattr(self, section_name, None)
-                if dataclass_section and isinstance(section_data, dict):
-                    for k, v in section_data.items():
-                        if hasattr(dataclass_section, k):
-                            setattr(dataclass_section, k, v)
+    @classmethod
+    def from_deduplication_set(cls, deduplication_set: DeduplicationSet) -> Self:
+        instance = cls(deduplication_set_id=deduplication_set.pk)
+        if deduplication_set.config:
+            instance.update(deduplication_set.config.settings)
+        return instance

@@ -1,4 +1,4 @@
 EncodingType = dict[str, str | list[float]]
 FindingRecord = tuple[str, str, float]
 FindingType = list[FindingRecord | None]
-SilencedType = list[str, str]
+IgnoredPairType = list[str, str]

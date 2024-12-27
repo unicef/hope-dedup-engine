@@ -3,15 +3,15 @@ from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "FACIAL_RECOGNITION_MODEL": (
+    "FACE_RECOGNITION_MODEL": (
         "VGG-Face",
-        "Specifies the facial recognition model to be used for encoding face landmarks.",
-        "facial_recognition_models",
+        "Specifies the face recognition model to be used for encoding face landmarks.",
+        "face_recognition_models",
     ),
-    "FACE_DETECTOR_MODEL": (
+    "FACE_DETECTOR_BACKEND": (
         "retinaface",
-        "Specifies the face detector model to be used for detecting faces in images.",
-        "face_detector_models",
+        "Specifies the face detector backend to be used for detecting faces in images.",
+        "face_detector_backend",
     ),
     "FACE_DISTANCE_THRESHOLD": (
         0.4,
@@ -35,8 +35,8 @@ CONSTANCE_CONFIG = {
 CONSTANCE_CONFIG_FIELDSETS = {
     "Face detection and recognition settings": {
         "fields": (
-            "FACIAL_RECOGNITION_MODEL",
-            "FACE_DETECTOR_MODEL",
+            "FACE_RECOGNITION_MODEL",
+            "FACE_DETECTOR_BACKEND",
             "FACE_DISTANCE_THRESHOLD",
         ),
         "collapse": False,
@@ -52,13 +52,13 @@ CONSTANCE_ADDITIONAL_FIELDS = {
         "django.forms.EmailField",
         {},
     ],
-    "facial_recognition_models": [
+    "face_recognition_models": [
         "django.forms.ChoiceField",
         {
             "choices": (("VGG-Face", "VGG-Face"),),
         },
     ],
-    "face_detector_models": [
+    "face_detector_backend": [
         "django.forms.ChoiceField",
         {
             "choices": (("retinaface", "RetinaFace"),),

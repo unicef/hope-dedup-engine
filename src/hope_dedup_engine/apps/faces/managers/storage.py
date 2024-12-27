@@ -1,48 +1,27 @@
-from django.conf import settings
-from django.core.files.storage import FileSystemStorage
+from fnmatch import fnmatch
+from typing import Final
 
+from django.conf import settings
+
+import cv2
+import numpy as np
 from storages.backends.azure_storage import AzureStorage
 
-from hope_dedup_engine.apps.core.exceptions import StorageKeyError
+FILES_PATTERN: Final[tuple[str]] = ("*.png", "*.jpg", "*.jpeg")
 
 
-class StorageManager:
-    """
-    A class to manage different types of storage systems used in the application.
-    """
-
+class ImagesStorageManager:
     def __init__(self) -> None:
-        """
-        Initialize the StorageManager.
-        """
-        self.storages: dict[str, AzureStorage | FileSystemStorage] = {
-            "cv2": FileSystemStorage(**settings.STORAGES.get("default").get("OPTIONS")),
-            "encoded": FileSystemStorage(
-                **settings.STORAGES.get("default").get("OPTIONS")
-            ),
-            "images": AzureStorage(**settings.STORAGES.get("hope").get("OPTIONS")),
-        }
+        self.storage: AzureStorage = AzureStorage(
+            **settings.STORAGES.get("hope").get("OPTIONS")
+        )
 
-        # for file in (
-        #     settings.DNN_FILES.get("prototxt").get("filename"),
-        #     settings.DNN_FILES.get("caffemodel").get("filename"),
-        # ):
-        #     if not self.storages.get("cv2").exists(file):
-        #         raise FileNotFoundError(f"File {file} does not exist in storage.")
+    def get_files(self, pattern: tuple = FILES_PATTERN) -> list[str]:
+        _, images = self.storage.listdir("")
+        return [f for f in images if any(fnmatch(f, p) for p in pattern)]
 
-    def get_storage(self, key: str) -> AzureStorage | FileSystemStorage:
-        """
-        Get the storage object for the given key.
-
-        Args:
-            key (str): The key associated with the desired storage backend.
-
-        Returns:
-            AzureStorage | FileSystemStorage: The storage object associated with the given key.
-
-        Raises:
-            StorageKeyError: If the given key does not exist in the storages dictionary.
-        """
-        if key not in self.storages:
-            raise StorageKeyError(key)
-        return self.storages[key]
+    def load_image(self, file: str) -> np.ndarray:
+        with self.storage.open(file, "rb") as img_file:
+            img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
+            img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        return img_bgr

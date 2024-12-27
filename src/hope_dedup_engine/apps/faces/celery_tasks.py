@@ -1,27 +1,149 @@
 import traceback
+from collections import ChainMap
+from functools import partial
+from typing import Any, Final
 
 from django.conf import settings
+from django.db.models import F
 
-from celery import Task, shared_task, states
+from celery import Task, chord, shared_task, signals, states
+from celery.canvas import Signature
+from celery.utils.imports import qualname
 
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
+from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
+from hope_dedup_engine.config.celery import DedupeTask, app
+from hope_dedup_engine.types import EncodingType, FindingType
 
-# from hope_dedup_engine.apps.faces.services import FacialDetector
-
-
-# def get_chunks(elements: list[str], workers: int) -> list[list[str]]:
-#     processes = min(len(elements), workers)
-#     chunk_size = max(1, len(elements) // processes)
-#     return [
-#         elements[i : i + chunk_size]  # noqa: E203
-#         for i in range(0, len(elements), chunk_size)
-#     ]
+CHUNK_SIZE: Final[int] = 25
 
 
-# @shared_task(bind=True)
-# def encode_faces_task(self, chunk: list[str], config: dict[str, Any]) -> None:
-#     detector = FacialDetector(filenames=chunk, options=config.get("options", {}))
-#     detector.encode_faces(chunk)
+def get_chunks(files: list[str]) -> list[list[str]]:
+    chunk_size = min(CHUNK_SIZE, len(files))
+    return [
+        files[i : i + chunk_size] for i in range(0, len(files), chunk_size)  # noqa 203
+    ]
+
+
+def notify_status(task: Task, dedup_job_id: int, **kwargs):
+    signals.task_prerun.send(
+        sender=task,
+        task_id=task.request.id,
+        dedup_job_id=dedup_job_id,
+    )
+
+
+def shadow_name(task, args, kwargs, options):
+    try:
+        s: Signature = options["chord"]
+        group: str = options["group_id"].split("-")[-1]
+        chunk = int(options["group_index"])
+        name = f"{qualname(s.type)}({group})-{chunk:03}"
+        return name
+    except Exception as e:
+        return str(e)
+
+
+@signals.task_prerun.connect
+def handle_task_progress(sender=None, task_id=None, dedup_job_id=None, **kwargs):
+    if not dedup_job_id:
+        return
+    dedup_job = DedupJob.objects.filter(pk=dedup_job_id).first()
+    if dedup_job:
+        dedup_job.progress = F("progress") + 1
+        dedup_job.save(update_fields=["progress"])
+
+
+@app.task(bind=True, base=DedupeTask, shadow_name=shadow_name)
+def encode_chunk(
+    self: DedupeTask,
+    files: list[str],
+    config: dict[str, Any],
+) -> tuple[EncodingType, int, int]:
+    """Encode faces in a chunk of files."""
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
+    pre_encodings = ds.get_encodings()
+    return encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+
+
+@app.task(bind=True, base=DedupeTask)
+def dedupe_chunk(
+    self: Task,
+    files: list[str],
+    config: dict[str, Any],
+) -> FindingType:
+    """Deduplicate faces in a chunk of files."""
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
+    encoded = ds.get_encodings()
+    ignored_pairs = set(ds.get_ignored_pairs())
+    return dedupe_images(
+        files,
+        encoded,
+        ignored_pairs,
+        dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
+        options=config.get("deduplicate"),
+        progress=callback,
+    )
+
+
+@app.task(bind=True, base=DedupeTask)
+def callback_findings(
+    self: Task,
+    results: FindingType,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Aggregate and save findings."""
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    seen_pairs = set()
+    findings = [
+        record
+        for d in results
+        for record in d
+        if not (pair := tuple(sorted(record[:2]))) in seen_pairs
+        and not seen_pairs.add(pair)
+    ]
+    ds.update_findings(findings)
+    return {
+        "Files": len(ds.image_set.all()),
+        "Config": config.get("deduplicate"),
+        "Findings": len(findings),
+    }
+
+
+@app.task(bind=True, base=DedupeTask)
+def callback_encodings(
+    self: Task,
+    results: tuple[EncodingType, int, int],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Aggregate and save encodings."""
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    encodings = dict(ChainMap(*[result[0] for result in results]))
+    ds.update_encodings(encodings)
+    deduplicate_dataset.delay(config)
+    return {
+        "Encoded": len(encodings),
+    }
+
+
+@app.task(bind=True, base=DedupeTask)
+def deduplicate_dataset(
+    self: Task,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Deduplicate the dataset."""
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    chunks = get_chunks(list(ds.get_encodings().keys()))
+    tasks = [dedupe_chunk.s(chunk, config) for chunk in chunks]
+    chord_id = chord(tasks)(callback_findings.s(config=config))
+    return {
+        "deduplication_set": str(ds),
+        "chord_id": str(chord_id),
+        "chunks": len(chunks),
+    }
 
 
 @shared_task(bind=True)

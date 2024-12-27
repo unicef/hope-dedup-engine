@@ -1,78 +1,102 @@
 import logging
-from typing import Generator
-from uuid import UUID
+from collections import defaultdict
+from typing import Any
 
-import cv2
-import numpy as np
 from deepface import DeepFace
 
-from hope_dedup_engine.apps.api.deduplication.config import ConfigDefaults
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-
-# from hope_dedup_engine.apps.core.exceptions import NotCompliantImageError
-from hope_dedup_engine.apps.faces.managers import StorageManager
+from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.constants import FacialError, is_facial_error
+from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
+
+logger = logging.getLogger(__name__)
 
 
-class FacialDetector:
+def default_progress(*args):
+    return True
 
-    logger: logging.Logger = logging.getLogger(__name__)
 
-    def __init__(
-        self,
-        deduplication_set_pk: UUID,
-        filenames: tuple[str],
-        options: ConfigDefaults,
-        ignore_pairs: tuple[tuple[str, str], ...] = (),
-    ) -> None:
-        self.deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
-        print(f"{self.deduplication_set=}")
-        self.filenames = filenames
-        self.options = options
-        # self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
-        self.storages = StorageManager()
+def encode_faces(
+    files: list[str],
+    options=None,
+    pre_encodings=None,
+    progress=None,
+) -> tuple[EncodingType, int, int]:
 
-    def find_duplicates(
-        self,
-        # tracker: Callable[[int], None] | None = None
-    ) -> Generator[tuple[str, str, float], None, None]:
-        self.encode_faces()
-        encodings = self.deduplication_set.get_encodings()
-        for file1 in self.filenames:
-            # if tracker:
-            #     tracker(100 * n // len(self.filenames))
-            enc1 = encodings.get(file1)
-            if is_facial_error(enc1):
-                yield (file1, FacialError[enc1].name, FacialError[enc1].code)
+    if not callable(progress):
+        progress = default_progress
+
+    storage = ImagesStorageManager()
+    images = storage.get_files()
+
+    encoded = {}
+    if pre_encodings:
+        encoded.update(pre_encodings)
+    added_cnt = existing_cnt = 0
+    existing_cnt = 1000
+    for file in files:
+        progress()
+        if file not in images:
+            encoded[file] = FacialError.NO_FILE_FOUND.name
+            continue
+        if file in encoded:
+            existing_cnt += 1
+            continue
+        try:
+            result = DeepFace.represent(storage.load_image(file), **(options or {}))
+            if len(result) > 1:
+                encoded[file] = FacialError.MULTIPLE_FACES_DETECTED.name
+            else:
+                encoded[file] = result[0]["embedding"]
+                added_cnt += 1
+        except TypeError as e:
+            logger.exception(e)
+            encoded[file] = FacialError.GENERIC_ERROR.name
+        except ValueError:
+            encoded[file] = FacialError.NO_FACE_DETECTED.name
+    return encoded, added_cnt, existing_cnt
+
+
+def dedupe_images(  # noqa 901
+    files: list[str],
+    encodings: EncodingType,
+    ignored_pairs: IgnoredPairType,
+    dedupe_threshold: float,
+    options: dict[str, Any] = None,
+    progress=None,
+) -> FindingType:
+
+    if not callable(progress):
+        progress = default_progress
+
+    findings = defaultdict(list)
+    config = options or {}
+
+    for file1 in files:
+        progress()
+        enc1 = encodings[file1]
+        if is_facial_error(enc1):
+            findings[file1].append([enc1, FacialError[enc1].code])
+            continue
+        for file2, enc2 in encodings.items():
+            if (
+                file1 == file2
+                or file2 in findings
+                or (file1, file2) in ignored_pairs
+                or (file2, file1) in ignored_pairs
+                or is_facial_error(enc2)
+                or file2 in [x[0] for x in findings.get(file1, [])]
+            ):
                 continue
-            for file2, enc2 in encodings.items():
-                if file1 == file2:
-                    continue
-                if is_facial_error(enc2):
-                    # yield (file2, FacialError[enc2].name, FacialError[enc2].code)
-                    continue
-                # TODO: use threshold
-                verified = DeepFace.verify(enc1, enc2, **(self.options or {}))
-                yield (file1, file2, verified.get("distance"))
+            res = DeepFace.verify(enc1, enc2, **config)
+            similarity = float(1 - res["distance"])
+            if similarity >= dedupe_threshold:
+                findings[file1].append([file2, similarity])
 
-    def encode_faces(self) -> None:
-        encodings = {}
-        _, images = self.storages.get_storage("images").listdir("")
-        for file in self.filenames:
-            if file not in images:
-                encodings[file] = FacialError.NO_FILE_FOUND.name
-                continue
-            with self.storages.get_storage("images").open(file, "rb") as img_file:
-                img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
-                img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                try:
-                    dp_encodings = DeepFace.represent(img_bgr, **(self.options or {}))
-                    if len(dp_encodings) > 1:
-                        encodings[file] = FacialError.MULTIPLE_FACES_DETECTED.name
-                    else:
-                        encodings[file] = dp_encodings[0].get("embedding")
-                except TypeError:
-                    encodings[file] = FacialError.GENERIC_ERROR.name
-                except ValueError:
-                    encodings[file] = FacialError.NO_FACE_DETECTED.name
-        self.deduplication_set.update_encodings(encodings)
+    results: FindingType = []
+    for img, duplicates in findings.items():
+        for dup in duplicates:
+            if is_facial_error(dup[1]):
+                results.append((img, dup[0], 0, dup[1]))
+            else:
+                results.append((img, dup[0], dup[1], None))
+    return results

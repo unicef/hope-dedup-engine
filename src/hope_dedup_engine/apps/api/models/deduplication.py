@@ -1,13 +1,11 @@
-from fnmatch import fnmatch
-from typing import Any, Final
+from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
 
-from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.security.models import ExternalSystem
-from hope_dedup_engine.types import EncodingType, FindingType, SilencedType
+from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 
@@ -54,41 +52,11 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
-    stored_config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
+    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
     encodings = models.JSONField(
         null=True, blank=True, default=dict
     )  # {file1: encoding1, file2: encoding2, ...}
-    silenced = models.JSONField(
-        null=True, blank=True, default=list
-    )  # [[file1, file2], ...]
-
-    _config: dict[str, Any] = None
-    _options: dict[str, Any] = None
-
-    @property
-    def config(self) -> dict[str, Any]:
-        if self._config is None:
-            self._config = self.stored_config.settings
-        return self._config
-
-    @config.setter
-    def config(self, value: dict[str, Any]) -> None:
-        self._config = value
-
-    @property
-    def options(self) -> dict[str, Any]:
-        if self._options is None:
-            self._options = self.config.get("options", {})
-        return self._options
-
-    @options.setter
-    def options(self, value: dict[str, Any]) -> None:
-        self._options = value
-
-    @property
-    def storages(self) -> StorageManager:
-        return StorageManager()
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
@@ -103,50 +71,29 @@ class DeduplicationSet(models.Model):
             )
         )
 
-    def get_silenced(self) -> SilencedType:
-        return self.silenced
+    def get_ignored_pairs(self) -> IgnoredPairType:
+        return list(
+            self.ignoredreferencepkpair_set.values_list("first", "second")
+        ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
 
     def update_encodings(self, encodings: EncodingType) -> None:
         self.encodings.update(encodings)
         self.save()
 
-    def update_findings(self, finding: FindingType) -> None:
-        Finding.objects.get_or_create(
-            deduplication_set=self,
-            **dict(
-                zip(("first_reference_pk", "second_reference_pk", "score"), finding)
-            ),
+    def update_findings(self, findings: FindingType) -> None:
+        Finding.objects.bulk_create(
+            [
+                Finding(
+                    deduplication_set=self,
+                    first_reference_pk=f[0],
+                    second_reference_pk=f[1],
+                    score=f[2],
+                    error=f[3],
+                )
+                for f in findings
+            ],
+            ignore_conflicts=True,
         )
-
-    def update_silenced(self, silenced: SilencedType) -> None:
-        self.silenced.append(silenced)
-        self.save()
-
-    def get_files(self) -> list[str]:
-        """Retrieve all valid image files"""
-        patterns = ("*.png", "*.jpg", "*.jpeg")
-        st_images = self.storages.get_storage("images")
-        return [
-            st_images.url(file)
-            for file in st_images.listdir("")[1]
-            if any(fnmatch(file, pattern) for pattern in patterns)
-        ]
-
-    def get_encoding_config(self) -> dict[str, str | int | float | bool]:
-        return {
-            "model_name": self.options.get("model_name"),
-            "detector_backend": self.options.get("detector_backend"),
-        }
-
-    def get_dedupe_config(self) -> dict[str, str | int | float | bool]:
-        return {
-            "threshold": self.options.get("threshold"),
-            "model_name": self.options.get("model_name"),
-            "detector_backend": self.options.get("detector_backend"),
-        }
-
-    def get_dedupe_threshold(self):
-        return self.config["dedupe_threshold"]
 
 
 class Image(models.Model):
@@ -186,7 +133,7 @@ class Finding(models.Model):
     second_reference_pk = models.CharField(
         max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference"
     )
-    score = models.FloatField(default=0, validators=[])
+    score = models.FloatField(default=0, validators=[], verbose_name="Similarity Score")
     error = models.IntegerField(null=True, blank=True)
 
     class Meta:
@@ -197,36 +144,36 @@ class Finding(models.Model):
         )
 
 
-# class IgnoredPair(models.Model):
-#     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+class IgnoredPair(models.Model):
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
 
-#     class Meta:
-#         abstract = True
+    class Meta:
+        abstract = True
 
-#     @override
-#     def save(self, **kwargs: Any) -> None:
-#         self.first, self.second = sorted((self.first, self.second))
-#         super().save(**kwargs)
-
-
-# UNIQUE_FOR_IGNORED_PAIR = (
-#     "deduplication_set",
-#     "first",
-#     "second",
-# )
+    @override
+    def save(self, **kwargs: Any) -> None:
+        self.first, self.second = sorted((self.first, self.second))
+        super().save(**kwargs)
 
 
-# class IgnoredReferencePkPair(IgnoredPair):
-#     first = models.CharField(max_length=REFERENCE_PK_LENGTH)
-#     second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+UNIQUE_FOR_IGNORED_PAIR = (
+    "deduplication_set",
+    "first",
+    "second",
+)
 
-#     class Meta:
-#         unique_together = UNIQUE_FOR_IGNORED_PAIR
+
+class IgnoredReferencePkPair(IgnoredPair):
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+
+    class Meta:
+        unique_together = UNIQUE_FOR_IGNORED_PAIR
 
 
-# class IgnoredFilenamePair(IgnoredPair):
-#     first = models.CharField(max_length=REFERENCE_PK_LENGTH)
-#     second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+class IgnoredFilenamePair(IgnoredPair):
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
 
-#     class Meta:
-#         unique_together = UNIQUE_FOR_IGNORED_PAIR
+    class Meta:
+        unique_together = UNIQUE_FOR_IGNORED_PAIR
