@@ -9,7 +9,7 @@ from hope_dedup_engine.apps.faces.models import DummyModel
 from hope_dedup_engine.config.celery import app as celery_app
 
 
-@admin.register(DummyModel)
+# @admin.register(DummyModel)
 class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
 
     change_list_template = "admin/faces/dummymodel/change_list.html"
@@ -29,7 +29,7 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context["title"] = (
-            "Force syncronize DNN files from azure to local storage."
+            "Force syncronize model files from github to local volume."
         )
         return super().changelist_view(request, extra_context=extra_context)
 

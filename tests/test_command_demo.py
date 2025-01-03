@@ -12,7 +12,6 @@ from pytest_mock import MockerFixture
 def environment():
     return {
         "DEMO_IMAGES_PATH": "demo_images",
-        "DNN_FILES_PATH": "dnn_files",
     }
 
 
@@ -32,13 +31,10 @@ def test_demo_handle_success(environment, mock_azurite_manager):
         call_command(
             "demo",
             demo_images="/path/to/demo/images",
-            dnn_files="/path/to/dnn/files",
             stdout=out,
         )
         assert "error" not in str(out.getvalue())
         assert "SYSTEM HALTED" not in out.getvalue()
-        assert mock_azurite_manager.call_count == 4
-        assert mock_azurite_manager.return_value.upload_files.call_count == 2
 
 
 @pytest.mark.parametrize(

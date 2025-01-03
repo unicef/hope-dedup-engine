@@ -9,10 +9,3 @@ class Config(models.Model):
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
-
-    # def clean(self) -> None:
-    #     try:
-    #         schema = SchemaManager.get_or_create()
-    #         DefaultValidatingValidator(schema).validate(self.settings)
-    #     except Exception as e:
-    #         raise ValidationError({"settings": e.message})

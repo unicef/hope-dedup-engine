@@ -1,4 +1,3 @@
-from api_const import IGNORED_FILENAME_LIST_VIEW, JSON
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -9,6 +8,7 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import IgnoredFilenamePair
 from hope_dedup_engine.apps.api.serializers import IgnoredFilenamePairSerializer
 from hope_dedup_engine.apps.security.models import User
+from tests.api._api_const import IGNORED_FILENAME_LIST_VIEW, JSON
 
 
 def test_can_create_ignored_filename_pair(

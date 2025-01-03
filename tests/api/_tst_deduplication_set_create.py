@@ -1,4 +1,3 @@
-from api_const import DEDUPLICATION_SET_LIST_VIEW, JSON
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -7,6 +6,7 @@ from testutils.factories.api import DeduplicationSetFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.serializers import CreateDeduplicationSetSerializer
+from tests.api._api_const import DEDUPLICATION_SET_LIST_VIEW, JSON
 
 
 def test_can_create_deduplication_set(api_client: APIClient) -> None:

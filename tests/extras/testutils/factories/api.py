@@ -1,21 +1,24 @@
-from factory import Factory, Faker, LazyFunction, SubFactory, fuzzy, post_generation
+from uuid import uuid4
+
+from factory import Factory, SubFactory, fuzzy, lazy_attribute
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import (
-    ConfigDefaults,
-    DetectionConfig,
-    DuplicatesConfig,
-    RecognitionConfig,
+    DeduplicateOptions,
+    DeduplicationSetConfig,
+    EncodingOptions,
+    ModelOptions,
 )
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
-    Duplicate,
+    Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
 )
+from hope_dedup_engine.constants import FacialError
 
 
 class TokenFactory(DjangoModelFactory):
@@ -27,22 +30,10 @@ class TokenFactory(DjangoModelFactory):
 
 class ConfigFactory(DjangoModelFactory):
     name = fuzzy.FuzzyText()
+    settings = {}
 
     class Meta:
         model = Config
-
-    @post_generation
-    def settings(self, create, extracted, **kwargs):
-        self.settings = {
-            "detection": {"confidence": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()},
-            "duplicates": {"tolerance": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()},
-            "recognition": {
-                "model": fuzzy.FuzzyChoice(["small", "large"]).fuzz(),
-                "num_jitters": fuzzy.FuzzyInteger(1, 10).fuzz(),
-            },
-        }
-        if create:
-            self.save()
 
 
 class DeduplicationSetFactory(DjangoModelFactory):
@@ -65,14 +56,32 @@ class ImageFactory(DjangoModelFactory):
         model = Image
 
 
-class DuplicateFactory(DjangoModelFactory):
+class FindingFactory(DjangoModelFactory):
+    class Meta:
+        model = Finding
+        django_get_or_create = (
+            "deduplication_set",
+            "first_reference_pk",
+            "second_reference_pk",
+        )
+
     deduplication_set = SubFactory(DeduplicationSetFactory)
     first_reference_pk = fuzzy.FuzzyText()
-    second_reference_pk = fuzzy.FuzzyText()
     score = fuzzy.FuzzyFloat(low=0, high=1)
 
-    class Meta:
-        model = Duplicate
+    @lazy_attribute
+    def error(self):
+        return (
+            fuzzy.FuzzyChoice(list(FacialError)).fuzz().value
+            if self.score == 0
+            else None
+        )
+
+    @lazy_attribute
+    def second_reference_pk(self):
+        if self.error is not None:
+            return FacialError(self.error).name
+        return fuzzy.FuzzyText()
 
 
 class IgnoredFilenamePairFactory(DjangoModelFactory):
@@ -100,43 +109,31 @@ class DedupJobFactory(DjangoModelFactory):
         model = DedupJob
 
 
-class DetectionConfigFactory(Factory):
+class ModelOptionsFactory(Factory):
     class Meta:
-        model = DetectionConfig
+        model = ModelOptions
 
-    dnn_files_source = Faker("word")
-    dnn_backend = fuzzy.FuzzyInteger(0, 5)
-    dnn_target = fuzzy.FuzzyInteger(0, 5)
-    blob_from_image_scale_factor = fuzzy.FuzzyFloat(0.5, 1.5)
-    blob_from_image_mean_values = LazyFunction(lambda: (104.0, 177.0, 123.0))
-    confidence = fuzzy.FuzzyFloat(0.1, 1.0)
-    nms_threshold = fuzzy.FuzzyFloat(0.1, 1.0)
+    model_name = fuzzy.FuzzyChoice(["model1", "model2"])
+    detector_backend = fuzzy.FuzzyChoice(["backend1", "backend2"])
 
 
-class RecognitionConfigFactory(Factory):
+class EncodingOptionsFactory(ModelOptionsFactory):
     class Meta:
-        model = RecognitionConfig
-
-    num_jitters = fuzzy.FuzzyInteger(0, 5)
-    model = fuzzy.FuzzyChoice(["small", "large"])
-    preprocessors = []
+        model = EncodingOptions
 
 
-class DuplicatesConfigFactory(Factory):
+class DeduplicateOptionsFactory(ModelOptionsFactory):
     class Meta:
-        model = DuplicatesConfig
+        model = DeduplicateOptions
 
-    tolerance = fuzzy.FuzzyFloat(0.1, 1.0)
+    threshold = fuzzy.FuzzyFloat(0.1, 1.0)
+    silent = fuzzy.FuzzyChoice([True, False])
 
 
-class ConfigDefaultsFactory(Factory):
+class DeduplicationSetConfigFactory(Factory):
     class Meta:
-        model = ConfigDefaults
+        model = DeduplicationSetConfig
 
-    detection = SubFactory(DetectionConfigFactory)
-    recognition = SubFactory(RecognitionConfigFactory)
-    duplicates = SubFactory(DuplicatesConfigFactory)
-
-    # @post_generation
-    # def apply_overrides(self, create, extracted, **kwargs):
-    #         self.apply_config_overrides(extracted)
+    deduplication_set_id = uuid4()
+    encoding = SubFactory(EncodingOptionsFactory)
+    deduplicate = SubFactory(DeduplicateOptionsFactory)

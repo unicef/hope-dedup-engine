@@ -13,9 +13,9 @@ class FindingAdmin(AdminFiltersMixin, ModelAdmin):
         "id",
         "deduplication_set",
         "score",
-        "error",
         "first_reference_pk",
         "second_reference_pk",
+        "error",
     )
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
