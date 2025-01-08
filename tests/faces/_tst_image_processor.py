@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 import face_recognition
 import numpy as np
 import pytest
-from faces_const import DEPLOY_PROTO_SHAPE, FILENAME, FILENAME_ENCODED
 
 from hope_dedup_engine.apps.api.deduplication.config import (
     DetectionConfig,
@@ -13,6 +12,7 @@ from hope_dedup_engine.apps.api.deduplication.config import (
 )
 from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import BlobFromImageConfig
+from tests.faces._faces_const import DEPLOY_PROTO_SHAPE, FILENAME, FILENAME_ENCODED
 
 
 def test_init_successful(

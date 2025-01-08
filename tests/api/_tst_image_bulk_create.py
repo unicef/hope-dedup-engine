@@ -1,4 +1,3 @@
-from api_const import BULK_IMAGE_LIST_VIEW, JSON
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -7,6 +6,7 @@ from testutils.factories.api import ImageFactory
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.serializers import ImageSerializer
 from hope_dedup_engine.apps.security.models import User
+from tests.api._api_const import BULK_IMAGE_LIST_VIEW, JSON
 
 
 def test_can_bulk_create_images(

@@ -1,21 +1,19 @@
-from api_const import IMAGE_DETAIL_VIEW
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSet, Image
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import Image
 from hope_dedup_engine.apps.security.models import User
+from tests.api._api_const import BULK_IMAGE_CLEAR_VIEW
 
 
-def test_can_delete_image(
-    api_client: APIClient,
-    deduplication_set: DeduplicationSet,
-    image: Image,
+def test_can_delete_all_images(
+    api_client: APIClient, deduplication_set: DeduplicationSet, image: Image
 ) -> None:
     image_count = Image.objects.filter(deduplication_set=deduplication_set).count()
-    assert deduplication_set.state == DeduplicationSet.State.CLEAN
     response = api_client.delete(
-        reverse(IMAGE_DETAIL_VIEW, (deduplication_set.pk, image.pk))
+        reverse(BULK_IMAGE_CLEAR_VIEW, (deduplication_set.pk,))
     )
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert (
@@ -23,18 +21,15 @@ def test_can_delete_image(
         == image_count - 1
     )
 
-    deduplication_set.refresh_from_db()
-    assert deduplication_set.state == DeduplicationSet.State.DIRTY
 
-
-def test_cannot_delete_image_between_systems(
+def test_cannot_delete_images_between_systems(
     another_system_api_client: APIClient,
     deduplication_set: DeduplicationSet,
     image: Image,
 ) -> None:
     image_count = Image.objects.filter(deduplication_set=deduplication_set).count()
     response = another_system_api_client.delete(
-        reverse(IMAGE_DETAIL_VIEW, (deduplication_set.pk, image.pk))
+        reverse(BULK_IMAGE_CLEAR_VIEW, (deduplication_set.pk,))
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert (
@@ -43,14 +38,11 @@ def test_cannot_delete_image_between_systems(
 
 
 def test_deduplication_set_is_updated(
-    api_client: APIClient,
-    user: User,
-    deduplication_set: DeduplicationSet,
-    image: Image,
+    api_client: APIClient, user: User, deduplication_set: DeduplicationSet, image: Image
 ) -> None:
     assert deduplication_set.updated_by is None
     response = api_client.delete(
-        reverse(IMAGE_DETAIL_VIEW, (deduplication_set.pk, image.pk))
+        reverse(BULK_IMAGE_CLEAR_VIEW, (deduplication_set.pk,))
     )
     assert response.status_code == status.HTTP_204_NO_CONTENT
     deduplication_set.refresh_from_db()

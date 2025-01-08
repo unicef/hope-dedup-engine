@@ -5,16 +5,16 @@ import pytest
 from celery import states
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
 from constance import test
-from faces_const import (
+
+from hope_dedup_engine.apps.faces.celery_tasks import deduplicate, sync_dnn_files
+from hope_dedup_engine.apps.faces.utils.celery_utils import _get_hash
+from tests.faces._faces_const import (
     CELERY_TASK_DELAYS,
     CELERY_TASK_NAME,
     CELERY_TASK_TTL,
     FILENAMES,
     IGNORE_PAIRS,
 )
-
-from hope_dedup_engine.apps.faces.celery_tasks import deduplicate, sync_dnn_files
-from hope_dedup_engine.apps.faces.utils.celery_utils import _get_hash
 
 
 @pytest.mark.parametrize("lock_is_acquired", [True, False])

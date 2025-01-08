@@ -1,9 +1,9 @@
-from api_const import DEDUPLICATION_SET_LIST_VIEW
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from tests.api._api_const import DEDUPLICATION_SET_LIST_VIEW
 
 
 def test_can_list_deduplication_sets(

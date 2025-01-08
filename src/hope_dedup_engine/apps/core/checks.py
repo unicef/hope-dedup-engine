@@ -55,8 +55,7 @@ def example_check(app_configs, **kwargs: Any):  # pragma: no cover
 @register(deploy=True)
 def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: no cover
     """
-    Checks if the necessary environment variables for Azure storage are configured
-    and verifies the presence of required files in the specified Azure storage containers.
+    Checks if the necessary environment variables for Azure storage are configured.
 
     Args:
         app_configs: Not used, but required by the checks framework.
@@ -67,7 +66,6 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
                      missing files, or errors while accessing Azure storage containers.
     """
     storages = (
-        "FILE_STORAGE_DNN",
         "FILE_STORAGE_HOPE",
         "FILE_STORAGE_STATIC",
         "FILE_STORAGE_MEDIA",
@@ -94,23 +92,6 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
             try:
                 storage = AzureStorage(**options)
                 storage.client.exists()
-                if storage_name == "FILE_STORAGE_DNN":
-                    _, files = storage.listdir()
-                    for _, info in settings.DNN_FILES.items():
-                        filename = info.get("filename")
-                        if filename not in files:
-                            errors.append(
-                                Error(
-                                    StorageErrorCodes.FILE_NOT_FOUND.message.format(
-                                        filename=filename, storage_name=storage_name
-                                    ),
-                                    hint=StorageErrorCodes.FILE_NOT_FOUND.hint.format(
-                                        filename=filename
-                                    ),
-                                    obj=filename,
-                                    id=StorageErrorCodes.FILE_NOT_FOUND.id,
-                                )
-                            )
             except Exception:
                 errors.append(
                     Error(

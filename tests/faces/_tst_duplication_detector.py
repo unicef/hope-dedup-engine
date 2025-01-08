@@ -6,11 +6,11 @@ from django.core.exceptions import ValidationError
 
 import numpy as np
 import pytest
-from faces_const import FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
 
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services import DuplicationDetector
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
+from tests.faces._faces_const import FILENAME, FILENAME_ENCODED_FORMAT, FILENAMES
 
 
 def test_init_successful(mock_dd, mock_config_defaults):

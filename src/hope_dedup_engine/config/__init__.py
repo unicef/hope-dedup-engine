@@ -110,6 +110,13 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "https://django-environ.readthedocs.io/en/latest/types.html#environ-env-db-url",
     ),
     "DEBUG": (bool, False, True, False, setting("debug")),
+    "DEEPFACE_HOME": (
+        str,
+        "/var/run/app/deepface",
+        "/tmp/deepface",  # nosec
+        True,
+        "Home folder for DeepFace models pre-trained-weights files",
+    ),
     "DEFAULT_ROOT": (
         str,
         "/var/default/",
@@ -140,6 +147,11 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "EMAIL_USE_TLS": (bool, False, False, False, setting("email-use-tls")),
     "EMAIL_USE_SSL": (bool, False, False, False, setting("email-use-ssl")),
     "EMAIL_TIMEOUT": (str, None, None, False, setting("email-timeout")),
+    "FILE_STORAGE_DEEPFACE": (
+        str,
+        "django.core.files.storage.FileSystemStorage",
+        setting("storages"),
+    ),
     "FILE_STORAGE_DEFAULT": (
         str,
         "django.core.files.storage.FileSystemStorage",
