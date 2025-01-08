@@ -1,10 +1,10 @@
-from api_const import IGNORED_REFERENCE_PK_LIST_VIEW
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import IgnoredReferencePkPair
+from tests.api._api_const import IGNORED_REFERENCE_PK_LIST_VIEW
 
 
 def test_can_list_ignored_reference_pk_pairs(

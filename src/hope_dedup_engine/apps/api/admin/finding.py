@@ -4,21 +4,23 @@ from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 
-from hope_dedup_engine.apps.api.models import Duplicate
+from hope_dedup_engine.apps.api.models import Finding
 
 
-@register(Duplicate)
-class DuplicateAdmin(AdminFiltersMixin, ModelAdmin):
+@register(Finding)
+class FindingAdmin(AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "deduplication_set",
         "score",
         "first_reference_pk",
         "second_reference_pk",
+        "error",
     )
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
+        ("error", NumberFilter),
         DjangoLookupFilter,
     )
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from http import HTTPMethod
-from typing import Any
+from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from django.db.models import Q, QuerySet
@@ -24,9 +24,9 @@ from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET_FILTER,
     DEDUPLICATION_SET_PARAM,
 )
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import (
-    Duplicate,
+from hope_dedup_engine.apps.api.models import (
+    DeduplicationSet,
+    Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
@@ -44,6 +44,8 @@ from hope_dedup_engine.apps.api.serializers import (
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
+
+T = TypeVar("T")
 
 
 class DeduplicationSetViewSet(
@@ -236,7 +238,7 @@ REFERENCE_PK = "reference_pk"
 
 
 class DuplicateViewSet(
-    nested_viewsets.NestedViewSetMixin[Duplicate],
+    nested_viewsets.NestedViewSetMixin[Finding],
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
@@ -247,12 +249,13 @@ class DuplicateViewSet(
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = DuplicateSerializer
-    queryset = Duplicate.objects.all()
+    # TODO: Add filters
+    queryset = Finding.objects.all()
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
-    def get_queryset(self) -> QuerySet[Duplicate]:
+    def get_queryset(self) -> QuerySet[Finding]:
         queryset = super().get_queryset()
         if reference_pk := self.request.query_params.get(REFERENCE_PK):
             return queryset.filter(
@@ -275,11 +278,12 @@ class DuplicateViewSet(
         return super().list(request, *args, **kwargs)
 
 
-class IgnoredPairViewSet[T](
+class IgnoredPairViewSet(
     nested_viewsets.NestedViewSetMixin[T],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
+    Generic[T],
 ):
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (

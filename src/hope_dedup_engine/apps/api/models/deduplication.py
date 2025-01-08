@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
+from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 
@@ -53,8 +54,46 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
+    encodings = models.JSONField(
+        null=True, blank=True, default=dict
+    )  # {file1: encoding1, file2: encoding2, ...}
+
     def __str__(self) -> str:
-        return f"ID: {self.pk}" if not self.name else f"{self.name}"
+        return self.name or f"ID: {self.pk}"
+
+    def get_encodings(self) -> EncodingType:
+        return self.encodings
+
+    def get_findings(self) -> FindingType:
+        return list(
+            self.finding_set.values_list(
+                "first_reference_pk", "second_reference_pk", "score"
+            )
+        )
+
+    def get_ignored_pairs(self) -> IgnoredPairType:
+        return list(
+            self.ignoredreferencepkpair_set.values_list("first", "second")
+        ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
+
+    def update_encodings(self, encodings: EncodingType) -> None:
+        self.encodings.update(encodings)
+        self.save()
+
+    def update_findings(self, findings: FindingType) -> None:
+        Finding.objects.bulk_create(
+            [
+                Finding(
+                    deduplication_set=self,
+                    first_reference_pk=f[0],
+                    second_reference_pk=f[1],
+                    score=f[2],
+                    error=f[3],
+                )
+                for f in findings
+            ],
+            ignore_conflicts=True,
+        )
 
 
 class Image(models.Model):
@@ -76,15 +115,33 @@ class Image(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class Duplicate(models.Model):
+class Finding(models.Model):
     """
-    Couple of similar entities
+    Couple of finding entities
     """
 
+    # class ErrorCode(models.IntegerChoices):
+    #     GENERIC_ERROR = 999
+    #     NO_FACE_DETECTED = 998
+    #     MULTIPLE_FACES_DETECTED = 997
+    #     NO_FILE_FOUND = 996
+
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    score = models.FloatField(default=0)
+    first_reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, verbose_name="First reference"
+    )
+    second_reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference"
+    )
+    score = models.FloatField(default=0, validators=[], verbose_name="Similarity Score")
+    error = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        unique_together = (
+            "deduplication_set",
+            "first_reference_pk",
+            "second_reference_pk",
+        )
 
 
 class IgnoredPair(models.Model):

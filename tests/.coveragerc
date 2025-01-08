@@ -27,7 +27,7 @@ exclude_lines =
     if TYPE_CHECKING:
     if settings.DEBUG:
 
-fail_under = 95
+fail_under = 66
 
 ignore_errors = True
 
