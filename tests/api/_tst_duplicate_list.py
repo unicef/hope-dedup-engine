@@ -2,7 +2,6 @@ from collections.abc import Callable
 from operator import attrgetter
 from urllib.parse import urlencode
 
-from api_const import DUPLICATE_LIST_VIEW
 from factory.fuzzy import FuzzyText
 from pytest import mark
 from rest_framework import status
@@ -12,6 +11,7 @@ from rest_framework.test import APIClient
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Duplicate
 from hope_dedup_engine.apps.api.views import REFERENCE_PK
+from tests.api._api_const import DUPLICATE_LIST_VIEW
 
 
 def test_can_list_duplicates(

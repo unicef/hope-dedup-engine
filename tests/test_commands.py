@@ -27,6 +27,7 @@ def environment():
         "SECURE_SSL_REDIRECT": "1",
         "SESSION_COOKIE_SECURE": "1",
         "DJANGO_SETTINGS_MODULE": "hope_dedup_engine.config.settings",
+        "DEEPFACE_HOME": "/tmp/deepface",
     }
 
 
@@ -34,7 +35,6 @@ def environment():
 def mock_settings():
     with mock.patch("django.conf.settings") as mock_settings:
         mock_settings.AZURE_CONTAINER_HOPE = "hope-container"
-        mock_settings.AZURE_CONTAINER_DNN = "dnn-container"
         mock_settings.AZURE_CONTAINER_HDE = "hde-container"
         yield mock_settings
 
@@ -63,7 +63,7 @@ def test_upgrade_init(
             migrate=migrate,
             stdout=out,
             check=False,
-            dnn_setup=False,
+            sync_models=False,
             verbosity=verbosity,
         )
     assert "error" not in str(out.getvalue())
@@ -81,7 +81,7 @@ def test_upgrade(verbosity, migrate, monkeypatch, environment):
             "upgrade",
             stdout=out,
             check=False,
-            dnn_setup=False,
+            sync_models=False,
             verbosity=verbosity,
         )
     assert "error" not in str(out.getvalue())
@@ -113,7 +113,7 @@ def test_upgrade_admin(db, mocked_responses, environment, admin):
             "upgrade",
             stdout=out,
             check=False,
-            dnn_setup=False,
+            sync_models=False,
             static=False,
             admin_email=email,
         )

@@ -1,31 +1,21 @@
 from typing import Any
 
-from jsonschema import Draft202012Validator
-from jsonschema import ValidationError as JSONSchemaValidationError
 from rest_framework import serializers
 
-from hope_dedup_engine.apps.api.models import Config, DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import (
-    Duplicate,
+from hope_dedup_engine.apps.api.models import (
+    Config,
+    DeduplicationSet,
+    Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
 )
-from hope_dedup_engine.apps.api.utils.shema_manager import SchemaManager
 
 
 class ConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = Config
         exclude = ("id",)
-
-    def validate_settings(self, value):
-        validator = Draft202012Validator(SchemaManager.get_or_create())
-        try:
-            validator.validate(value)
-        except JSONSchemaValidationError as e:
-            raise serializers.ValidationError(f"Settings validation error: {e.message}")
-        return value
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -34,7 +24,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted",)
+        exclude = ("deleted", "encodings")
         read_only_fields = (
             "external_system",
             "created_at",
@@ -86,7 +76,7 @@ class EntrySerializer(serializers.Serializer):
         self._prefix = prefix
         super().__init__(*args, **kwargs)
 
-    def get_reference_pk(self, duplicate: Duplicate) -> int:
+    def get_reference_pk(self, duplicate: Finding) -> int:
         return getattr(duplicate, f"{self._prefix}_reference_pk")
 
 
@@ -95,8 +85,8 @@ class DuplicateSerializer(serializers.ModelSerializer):
     second = EntrySerializer(prefix="second", source="*")
 
     class Meta:
-        model = Duplicate
-        fields = "first", "second", "score"
+        model = Finding
+        fields = "first", "second", "score", "error"
 
 
 CREATE_PAIR_FIELDS = "first", "second"

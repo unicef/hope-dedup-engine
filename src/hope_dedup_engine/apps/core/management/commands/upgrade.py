@@ -26,7 +26,6 @@ class Command(BaseCommand):
             "--with-check",
             action="store_true",
             dest="check",
-            default=True,
             help="Run checks",
         )
         parser.add_argument(
@@ -65,11 +64,11 @@ class Command(BaseCommand):
             help="Do not run collectstatic",
         )
         parser.add_argument(
-            "--with-dnn-setup",
-            action="store_true",
-            dest="dnn_setup",
-            default=False,
-            help="Run DNN setup for celery worker",
+            "--no-sync-models",
+            action="store_false",
+            dest="sync_models",
+            default=True,
+            help="Do not sync pre-trained models",
         )
         parser.add_argument(
             "--admin-email",
@@ -92,7 +91,7 @@ class Command(BaseCommand):
         self.prompt = not options["prompt"]
         self.static = options["static"]
         self.migrate = options["migrate"]
-        self.dnn_setup = options["dnn_setup"]
+        self.sync_models = options["sync_models"]
         self.debug = options["debug"]
 
         self.admin_email = str(options["admin_email"] or env("ADMIN_EMAIL", ""))
@@ -131,9 +130,11 @@ class Command(BaseCommand):
 
             if self.run_check:
                 call_command("check", deploy=True, verbosity=self.verbosity - 1)
-            if self.dnn_setup:
-                echo("Run DNN setup for celery worker.")
-                call_command("dnnsetup", verbosity=self.verbosity - 1)
+
+            if self.sync_models:
+                echo("Run sync pre-trained models")
+                call_command("syncmodels", verbosity=self.verbosity - 1)
+
             if self.static:
                 static_root = Path(env("STATIC_ROOT"))
                 echo(
