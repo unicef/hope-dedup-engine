@@ -203,6 +203,7 @@ COPY --chown=hope:unicef --from=python_prod_deps /code/.venv /code/.venv
 COPY --chown=hope:unicef --from=python_prod_deps /code/README.md /code/LICENSE /
 
 ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
+    DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \
     PYTHONPATH="" \
     PYTHONDBUFFERED=1 \
     PYTHONDONTWRITEBYTCODE=1
