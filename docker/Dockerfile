@@ -200,7 +200,6 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 WORKDIR /code
 COPY --chown=hope:unicef --from=python_prod_deps /code/.venv /code/.venv
-COPY --chown=hope:unicef --from=python_prod_deps /code/src/hope_dedup_engine/web/ /code/.venv/lib/python3.12/site-packages/hope_dedup_engine/web/
 COPY --chown=hope:unicef --from=python_prod_deps /code/README.md /code/LICENSE /
 
 ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
