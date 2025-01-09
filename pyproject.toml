@@ -99,6 +99,9 @@ dev-dependencies = [
     "watchdog",
 ]
 
+[tool.setuptools.package-data]
+"hope_dedup_engine" = ["web/templates/**/*", "web/static/**/*"]
+
 [tool.black]
 line-length = 88
 include = '\.pyi?$'
