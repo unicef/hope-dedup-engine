@@ -42,6 +42,7 @@ case "$1" in
       ;;
     syncmodels)
       gosu hope:unicef django-admin syncmodels || exit 1
+      exit 0
       ;;
     run)
       django-admin check --deploy || exit 1
