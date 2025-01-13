@@ -37,7 +37,7 @@ RUN set -x \
   && wget --quiet -O /usr/local/bin/tini "https://github.com/krallin/tini/releases/download/v$TINI_VERSION/tini-amd64" \
   && echo "$TINI_SHA256 /usr/local/bin/tini" | sha256sum --check --status \
   && chmod +x /usr/local/bin/tini \
-  && wget --quiet -O /usr/local/bin/waitforit "https://github.com/maxcnunes/waitforit/releases/download/v$WAITFOR_IT_VERSION/waitforit-linux_amd64" \
+  && wget --quiet -O /usr/local/bin/waitforit "https://github.com/maxclaus/waitforit/releases/download/v$WAITFOR_IT_VERSION/waitforit-linux_amd64" \
   && echo "$WAITFOR_IT_MD5 /usr/local/bin/waitforit" | md5sum --check --status \
   && chmod +x /usr/local/bin/waitforit  \
   && apt-get purge -y --auto-remove $buildDeps
