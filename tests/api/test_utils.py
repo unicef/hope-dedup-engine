@@ -8,6 +8,7 @@ from hope_dedup_engine.apps.api.utils.notification import (
     REQUEST_TIMEOUT,
     send_notification,
 )
+from hope_dedup_engine.apps.api.utils.progress import callback_filter
 
 
 @fixture
@@ -44,3 +45,12 @@ def test_exception_is_sent_to_sentry(
     requests_get.side_effect = exception
     send_notification("https://example.com")
     sentry_sdk_capture_exception.assert_called_once_with(exception)
+
+
+def test_callback_filter() -> None:
+    step = 10
+    values = []
+    update = callback_filter(lambda x: values.append(x), step)
+    for i in range(1, 101):
+        update(i)
+    assert values == list(range(0, 101, step))

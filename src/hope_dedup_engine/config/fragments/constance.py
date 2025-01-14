@@ -37,10 +37,10 @@ CONSTANCE_CONFIG = {
         Remember that mean values are also applied to scaling factor. Both scaling factor and mean values
         must be the same for the training and inference to get the correct results.
         """,
-        "tuple_field",
+        str,
     ),
     "FACE_DETECTION_CONFIDENCE": (
-        0.5,
+        0.7,
         """
         Specifies the minimum confidence score required for a detected face to be considered valid. Detections
         with confidence scores below this threshold are discarded as likely false positives.
@@ -67,7 +67,7 @@ CONSTANCE_CONFIG = {
         int,
     ),
     "FACE_ENCODINGS_MODEL": (
-        "small",
+        "large",
         """
         Specifies the model type used for encoding face landmarks. It can be either 'small' which is faster and
         detects only 5 key facial landmarks, or 'large' which is more precise and identifies 68 key facial landmarks
@@ -76,23 +76,14 @@ CONSTANCE_CONFIG = {
         "face_encodings_model",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.4,
+        0.26,
         """
-        Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
-        determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in
-        stricter matching, while higher values allow for more lenient matches.
+        Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
+        This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
+        as it establishes the similarity limit. Lower values result in stricter matching, while higher values allow
+        for more lenient matches.
         """,
         float,
-    ),
-    "DEDUPLICATION_SET_LOCK_ENABLED": (
-        True,
-        "Enable or disable the lock mechanism for deduplication sets",
-        bool,
-    ),
-    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT": (
-        120,
-        "Timeout in seconds for the last action on a deduplication set",
-        int,
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
@@ -116,13 +107,6 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "FACE_ENCODINGS_NUM_JITTERS",
             "FACE_ENCODINGS_MODEL",
             "FACE_DISTANCE_THRESHOLD",
-        ),
-        "collapse": False,
-    },
-    "Task lock settings": {
-        "fields": (
-            "DEDUPLICATION_SET_LOCK_ENABLED",
-            "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT",
         ),
         "collapse": False,
     },
@@ -162,5 +146,4 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             "choices": (("small", "SMALL"), ("large", "LARGE")),
         },
     ],
-    "tuple_field": ["hope_dedup_engine.apps.faces.forms.MeanValuesTupleField", {}],
 }

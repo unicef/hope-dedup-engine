@@ -103,7 +103,7 @@ class Command(BaseCommand):
                     self.halt(FileNotFoundError(MESSAGES["not_exist"] % storage.src))
                 self.stdout.write(MESSAGES["storage_success"] % storage.name)
                 logger.info(MESSAGES["storage_success"] % storage.name)
-            except (CommandError, SystemCheckError) as e:
+            except (CommandError, FileNotFoundError, SystemCheckError) as e:
                 self.stdout.write(
                     self.style.ERROR(MESSAGES["failed"] % (storage.name, e))
                 )

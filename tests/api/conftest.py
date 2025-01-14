@@ -12,6 +12,7 @@ from testutils.duplicate_finders import (
 )
 from testutils.factories.api import (
     ConfigFactory,
+    DedupJobFactory,
     DeduplicationSetFactory,
     DuplicateFactory,
     IgnoredFilenamePairFactory,
@@ -40,6 +41,7 @@ register(
     IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set")
 )
 register(ConfigFactory)
+register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 
 
 @fixture
@@ -82,7 +84,7 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 @fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch(
-        "hope_dedup_engine.apps.api.models.deduplication.send_notification"
+        "hope_dedup_engine.apps.api.deduplication.process.send_notification"
     )
 
 

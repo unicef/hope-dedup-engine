@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+start_time=$(date +%s)
+
 source "$(dirname "0")/.common"
 
 if [[ $# -ne 1 ]] ; then
@@ -9,16 +11,17 @@ fi
 
 ./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
 
-./create_image Aaron_Eckhart_0001.jpg
-./create_image Aaron_Guiel_0001.jpg
-./create_image Aaron_Peirsol_0001.jpg
-./create_image Aaron_Peirsol_0002.jpg
-./create_image Cathy_Freeman_0001.jpg
-./create_image Cathy_Freeman_0002.jpg
-./create_image without_face.jpg
-./create_image Ziwang_Xu_0001.jpg
-./create_image Zoe_Ball_0001.jpg
+for path in ../demo_images/*.{jpg,png}; do
+  file=$(basename $path)
+  if [[ -f "$path" ]] && [ "$file" != "too_small.jpg" ] && [ "$file" != "without_face.jpg" ]; then
+    ./create_image "$(basename "$file")"
+  fi
+done
+
 
 ./process_deduplication_set
 
 ./show_duplicates
+
+duration=$(( $(date +%s) - start_time ))
+echo "Duration: $duration seconds."

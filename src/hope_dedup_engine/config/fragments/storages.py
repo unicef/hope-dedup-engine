@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Final
 
 DNN_FILES: Final[dict[str, dict[str, str]]] = {
@@ -16,3 +17,7 @@ DNN_FILES: Final[dict[str, dict[str, str]]] = {
         },
     },
 }
+
+CONFIG_SETTINGS_SCHEMA_FILE: Final[str] = (
+    Path(__file__).resolve().parents[2] / "apps/api" / "config_settings_schema.json"
+)

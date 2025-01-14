@@ -45,7 +45,6 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
         else:
             worker_count = len(active_workers)
             if worker_count > 1:
-                print(f"{worker_count=}")
                 job = group(sync_dnn_files.s(force=True) for _ in range(worker_count))
                 result = job.apply_async()
                 self.message_user(

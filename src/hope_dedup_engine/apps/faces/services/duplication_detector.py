@@ -1,11 +1,13 @@
 import logging
 import os
+from collections.abc import Callable
 from itertools import combinations
 from typing import Any, Generator
 
 import face_recognition
 import numpy as np
 
+from hope_dedup_engine.apps.api.deduplication.config import ConfigDefaults
 from hope_dedup_engine.apps.faces.managers import StorageManager
 from hope_dedup_engine.apps.faces.services.image_processor import ImageProcessor
 from hope_dedup_engine.apps.faces.validators import IgnorePairsValidator
@@ -21,7 +23,7 @@ class DuplicationDetector:
     def __init__(
         self,
         filenames: tuple[str],
-        face_distance_threshold: float,
+        cfg: ConfigDefaults,
         ignore_pairs: tuple[tuple[str, str], ...] = (),
     ) -> None:
         """
@@ -29,14 +31,17 @@ class DuplicationDetector:
 
         Args:
             filenames (tuple[str]): The filenames of the images to process.
+            cfg (ConfigDefaults): The configuration settings.
             ignore_pairs (tuple[tuple[str, str]], optional):
                 The pairs of filenames to ignore. Defaults to an empty tuple.
         """
         self.filenames = filenames
-        self.face_distance_threshold = face_distance_threshold
+        self.face_distance_threshold = cfg.duplicates.tolerance
         self.ignore_set = IgnorePairsValidator.validate(ignore_pairs)
         self.storages = StorageManager()
-        self.image_processor = ImageProcessor(face_distance_threshold)
+        self.image_processor = ImageProcessor(
+            cfg_detection=cfg.detection, cfg_recognition=cfg.recognition
+        )
 
     def _encodings_filename(self, filename: str) -> str:
         """
@@ -106,7 +111,9 @@ class DuplicationDetector:
                     )
         return filenames
 
-    def find_duplicates(self) -> Generator[tuple[str, str, float], None, None]:
+    def find_duplicates(
+        self, tracker: Callable[[int], None] | None = None
+    ) -> Generator[tuple[str, str, float], None, None]:
         """
         Finds duplicate images based on facial encodings and yields pairs of image paths with their minimum distance.
 
@@ -124,23 +131,29 @@ class DuplicationDetector:
             existed_images_name = self._existed_images_name()
             encodings_all = self._load_encodings_all()
 
-            for path1, path2 in combinations(existed_images_name, 2):
-                min_distance = self.face_distance_threshold
+            total_pairs = (n := len(existed_images_name)) * (n - 1) // 2
+            for i, (path1, path2) in enumerate(combinations(existed_images_name, 2), 1):
                 encodings1 = encodings_all.get(path1)
                 encodings2 = encodings_all.get(path2)
                 if encodings1 is None or encodings2 is None:
                     continue
 
+                min_distance = None
                 for encoding1 in encodings1:
-                    if (
-                        current_min := min(
-                            face_recognition.face_distance(encodings2, encoding1)
-                        )
-                    ) < min_distance:
+                    distances = face_recognition.face_distance(encodings2, encoding1)
+                    current_min = min(distances) if np.any(distances) else 0
+                    if min_distance is None or current_min < min_distance:
                         min_distance = current_min
 
-                if min_distance < self.face_distance_threshold:
+                if (
+                    min_distance is not None
+                    and min_distance < self.face_distance_threshold
+                ):
                     yield (path1, path2, round(min_distance, 5))
+
+                if tracker:
+                    tracker(100 * i // total_pairs)
+
         except Exception as e:
             self.logger.exception(
                 "Error finding duplicates for images %s", self.filenames

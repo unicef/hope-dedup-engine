@@ -1,13 +1,16 @@
-from celery import shared_task
-from constance import config
+from collections.abc import Callable
+from functools import partial
 
-from hope_dedup_engine.apps.api.deduplication.lock import DeduplicationSetLock
+from celery import shared_task
+
 from hope_dedup_engine.apps.api.deduplication.registry import (
     DuplicateFinder,
     DuplicateKeyPair,
     get_finders,
 )
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Duplicate
+from hope_dedup_engine.apps.api.utils.notification import send_notification
+from hope_dedup_engine.apps.api.utils.progress import track_progress_multi
 
 
 def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
@@ -18,8 +21,7 @@ def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
 def _save_duplicates(
     finder: DuplicateFinder,
     deduplication_set: DeduplicationSet,
-    lock_enabled: bool,
-    lock: DeduplicationSetLock,
+    tracker: Callable[[int], None],
 ) -> None:
     reference_pk_to_filename_mapping = dict(
         deduplication_set.image_set.values_list("reference_pk", "filename")
@@ -40,7 +42,7 @@ def _save_duplicates(
         deduplication_set.ignoredreferencepkpair_set.values_list("first", "second")
     )
 
-    for first, second, score in map(_sort_keys, finder.run()):
+    for first, second, score in map(_sort_keys, finder.run(tracker)):
         first_filename, second_filename = sorted(
             (
                 reference_pk_to_filename_mapping[first],
@@ -59,32 +61,35 @@ def _save_duplicates(
             )
             duplicate.score += score * finder.weight
             duplicate.save()
-        if lock_enabled:
-            lock.refresh()
 
 
 HOUR = 60 * 60
 
 
-@shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
-def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
-    deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_id)
-    try:
-        lock_enabled = config.DEDUPLICATION_SET_LOCK_ENABLED
-        lock = (
-            DeduplicationSetLock.from_string(serialized_lock) if lock_enabled else None
-        )
+def update_job_progress(job: DedupJob, progress: int) -> None:
+    job.progress = progress
+    job.save()
 
-        if lock_enabled:
-            # refresh lock in case we spent much time waiting in queue
-            lock.refresh()
+
+@shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
+def find_duplicates(dedup_job_id: int, version: int) -> None:
+    dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
+    try:
+        deduplication_set = dedup_job.deduplication_set
+
+        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.save()
+        send_notification(deduplication_set.notification_url)
 
         # clean results
         Duplicate.objects.filter(deduplication_set=deduplication_set).delete()
 
         weight_total = 0
-        for finder in get_finders(deduplication_set):
-            _save_duplicates(finder, deduplication_set, lock_enabled, lock)
+        for finder, tracker in zip(
+            get_finders(deduplication_set),
+            track_progress_multi(partial(update_job_progress, dedup_job)),
+        ):
+            _save_duplicates(finder, deduplication_set, tracker)
             weight_total += finder.weight
 
         for duplicate in deduplication_set.duplicate_set.all():
@@ -94,10 +99,5 @@ def find_duplicates(deduplication_set_id: str, serialized_lock: str) -> None:
         deduplication_set.state = deduplication_set.State.CLEAN
         deduplication_set.save()
 
-        if lock_enabled:
-            lock.release()
-
-    except Exception:
-        deduplication_set.state = DeduplicationSet.State.ERROR
-        deduplication_set.save()
-        raise
+    finally:
+        send_notification(dedup_job.deduplication_set.notification_url)
