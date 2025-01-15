@@ -17,6 +17,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
     encode_chunk,
     get_chunks,
+    handle_error,
 )
 
 # def _sort_keys(pair: DuplicateKeyPair) -> DuplicateKeyPair:
@@ -80,8 +81,8 @@ def update_job_progress(job: DedupJob, progress: int) -> None:
 @shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
 def find_duplicates(dedup_job_id: int, version: int) -> None:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
+    deduplication_set = dedup_job.deduplication_set
     try:
-        deduplication_set = dedup_job.deduplication_set
 
         deduplication_set.state = DeduplicationSet.State.DIRTY
         deduplication_set.save(update_fields=["state"])
@@ -129,6 +130,6 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
             "chord_id": str(chord_id),
             "chunks": len(chunks),
         }
-
-    finally:
-        send_notification(dedup_job.deduplication_set.notification_url)
+    except Exception:
+        handle_error(deduplication_set)
+        raise
