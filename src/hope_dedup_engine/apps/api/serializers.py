@@ -71,6 +71,7 @@ class CreateImageSerializer(serializers.ModelSerializer):
 
 class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
+    filename = serializers.SerializerMethodField()
 
     def __init__(self, prefix: str, *args: Any, **kwargs: Any) -> None:
         self._prefix = prefix
@@ -79,6 +80,9 @@ class EntrySerializer(serializers.Serializer):
     def get_reference_pk(self, duplicate: Finding) -> int:
         return getattr(duplicate, f"{self._prefix}_reference_pk")
 
+    def get_filename(self, duplicate: Finding) -> str:
+        return getattr(duplicate, f"{self._prefix}_filename")
+
 
 class DuplicateSerializer(serializers.ModelSerializer):
     first = EntrySerializer(prefix="first", source="*")
@@ -86,7 +90,7 @@ class DuplicateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Finding
-        fields = "first", "second", "score", "error"
+        fields = "first", "second", "score", "status_code"
 
 
 CREATE_PAIR_FIELDS = "first", "second"

@@ -4,7 +4,7 @@ from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 
-from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.models import Finding, Image
 
 
 @register(Finding)
@@ -15,12 +15,17 @@ class FindingAdmin(AdminFiltersMixin, ModelAdmin):
         "score",
         "first_reference_pk",
         "second_reference_pk",
-        "error",
+        "formatted_status_code",
     )
+
+    def formatted_status_code(self, obj):
+        return f"{obj.status_code} {Image.StatusCode(obj.status_code).name}"
+
+    formatted_status_code.short_description = "Status Code"
+
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
-        ("error", NumberFilter),
         DjangoLookupFilter,
     )
 
