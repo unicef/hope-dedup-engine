@@ -4,8 +4,9 @@ from typing import Any
 
 from deepface import DeepFace
 
+from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
-from hope_dedup_engine.constants import FacialError, is_facial_error
+from hope_dedup_engine.apps.faces.utils import is_facial_error
 from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def encode_faces(
     for file in files:
         progress()
         if file not in images:
-            encoded[file] = FacialError.NO_FILE_FOUND.name
+            encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
             continue
         if file in encoded:
             existing_cnt += 1
@@ -44,15 +45,15 @@ def encode_faces(
         try:
             result = DeepFace.represent(storage.load_image(file), **(options or {}))
             if len(result) > 1:
-                encoded[file] = FacialError.MULTIPLE_FACES_DETECTED.name
+                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.name
             else:
                 encoded[file] = result[0]["embedding"]
                 added_cnt += 1
         except TypeError as e:
             logger.exception(e)
-            encoded[file] = FacialError.GENERIC_ERROR.name
+            encoded[file] = Image.StatusCode.GENERIC_ERROR.name
         except ValueError:
-            encoded[file] = FacialError.NO_FACE_DETECTED.name
+            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.name
     return encoded, added_cnt, existing_cnt
 
 
@@ -75,7 +76,7 @@ def dedupe_images(  # noqa 901
         progress()
         enc1 = encodings[file1]
         if is_facial_error(enc1):
-            findings[file1].append([enc1, FacialError[enc1].code])
+            findings[file1].append([enc1, None])
             continue
         for file2, enc2 in encodings.items():
             if (
@@ -93,10 +94,14 @@ def dedupe_images(  # noqa 901
                 findings[file1].append([file2, similarity])
 
     results: FindingType = []
+
     for img, duplicates in findings.items():
         for dup in duplicates:
-            if is_facial_error(dup[1]):
-                results.append((img, dup[0], 0, dup[1]))
+            if is_facial_error(dup[0]):
+                results.append((img, "", 0, Image.StatusCode[dup[0]].value))
             else:
-                results.append((img, dup[0], dup[1], None))
+                results.append(
+                    (img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value)
+                )
+
     return results
