@@ -18,7 +18,6 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     IgnoredReferencePkPair,
     Image,
 )
-from hope_dedup_engine.constants import FacialError
 
 
 class TokenFactory(DjangoModelFactory):
@@ -67,21 +66,18 @@ class FindingFactory(DjangoModelFactory):
 
     deduplication_set = SubFactory(DeduplicationSetFactory)
     first_reference_pk = fuzzy.FuzzyText()
+    first_filename = fuzzy.FuzzyText()
+    second_reference_pk = fuzzy.FuzzyText()
+    second_filename = fuzzy.FuzzyText()
     score = fuzzy.FuzzyFloat(low=0, high=1)
 
     @lazy_attribute
-    def error(self):
+    def status_code(self):
         return (
-            fuzzy.FuzzyChoice(list(FacialError)).fuzz().value
+            fuzzy.FuzzyChoice(list(Image.StatusCode.values)).fuzz().value
             if self.score == 0
             else None
         )
-
-    @lazy_attribute
-    def second_reference_pk(self):
-        if self.error is not None:
-            return FacialError(self.error).name
-        return fuzzy.FuzzyText()
 
 
 class IgnoredFilenamePairFactory(DjangoModelFactory):
