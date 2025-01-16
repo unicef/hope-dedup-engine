@@ -2,6 +2,7 @@ from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
@@ -81,25 +82,38 @@ class DeduplicationSet(models.Model):
         self.save()
 
     def update_findings(self, findings: FindingType) -> None:
-        Finding.objects.bulk_create(
-            [
-                Finding(
-                    deduplication_set=self,
-                    first_reference_pk=f[0],
-                    second_reference_pk=f[1],
-                    score=f[2],
-                    error=f[3],
-                )
-                for f in findings
-            ],
-            ignore_conflicts=True,
+        images = Image.objects.filter(deduplication_set=self).values(
+            "filename", "reference_pk"
         )
+        filename_to_reference_pk = {
+            img["filename"]: img["reference_pk"] for img in images
+        } | {"": ""}
+        findings_to_create = [
+            Finding(
+                deduplication_set=self,
+                first_filename=f[0],
+                first_reference_pk=filename_to_reference_pk.get(f[0]),
+                second_filename=f[1],
+                second_reference_pk=filename_to_reference_pk.get(f[1]),
+                score=f[2],
+                status_code=f[3],
+            )
+            for f in findings
+        ]
+        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
 
 
 class Image(models.Model):
     """
     # TODO: rename to Entity/Entry
     """
+
+    class StatusCode(models.IntegerChoices):
+        DEDUPLICATE_SUCCESS = 200, "deduplication success"
+        NO_FILE_FOUND = 404, "no file found"
+        NO_FACE_DETECTED = 412, "no face detected"
+        MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
+        GENERIC_ERROR = 500, "generic error"
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
@@ -120,21 +134,23 @@ class Finding(models.Model):
     Couple of finding entities
     """
 
-    # class ErrorCode(models.IntegerChoices):
-    #     GENERIC_ERROR = 999
-    #     NO_FACE_DETECTED = 998
-    #     MULTIPLE_FACES_DETECTED = 997
-    #     NO_FILE_FOUND = 996
-
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     first_reference_pk = models.CharField(
         max_length=REFERENCE_PK_LENGTH, verbose_name="First reference"
     )
+    first_filename = models.CharField(default="", max_length=255)
     second_reference_pk = models.CharField(
-        max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference"
+        default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference"
     )
-    score = models.FloatField(default=0, validators=[], verbose_name="Similarity Score")
-    error = models.IntegerField(null=True, blank=True)
+    second_filename = models.CharField(default="", max_length=255)
+    score = models.FloatField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        verbose_name="Similarity Score",
+    )
+    status_code = models.IntegerField(
+        choices=Image.StatusCode.choices, default=Image.StatusCode.DEDUPLICATE_SUCCESS
+    )
 
     class Meta:
         unique_together = (
