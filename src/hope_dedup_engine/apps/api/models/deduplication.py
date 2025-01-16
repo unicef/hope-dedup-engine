@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.db import models, transaction
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
 from hope_dedup_engine.types import (
@@ -118,21 +119,45 @@ class DeduplicationSet(models.Model):
             fresh_self.encoding_errors.update(errors)
             fresh_self.save()
 
-    def update_findings(
-        self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]
-    ) -> None:
-        Finding.objects.bulk_create(
-            [
-                Finding(
-                    deduplication_set=self,
-                    first_reference_pk=first_reference_pk,
-                    second_reference_pk=second_reference_pk,
-                    score=score,
-                )
-                for (first_reference_pk, _), (second_reference_pk, _), score in findings
-            ],
-            ignore_conflicts=True,
+    # def update_findings(
+    #     self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]
+    # ) -> None:
+    #     Finding.objects.bulk_create(
+    #         [
+    #             Finding(
+    #                 deduplication_set=self,
+    #                 first_reference_pk=first_reference_pk,
+    #                 second_reference_pk=second_reference_pk,
+    #                 score=score,
+    #             )
+    #             for (first_reference_pk, _), (second_reference_pk, _), score in findings
+    #         ],
+    #         ignore_conflicts=True,
+    #     )
+
+    def update_findings(self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]) -> None:
+        images = Image.objects.filter(deduplication_set=self).values(
+            "filename", "reference_pk"
         )
+        filename_to_reference_pk = {
+            img["filename"]: img["reference_pk"] for img in images
+        } | {"": ""}
+        findings_to_create = [
+            Finding(
+                deduplication_set=self,
+                first_filename=f[0],
+                first_reference_pk=filename_to_reference_pk.get(f[0]),
+                second_filename=f[1],
+                second_reference_pk=filename_to_reference_pk.get(f[1]),
+                score=f[2],
+                status_code=f[3],
+            )
+# TODO:
+            for f in findings
+        ]
+        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
+
+
 
     def update_finding_errors(
         self, encoding_errors: list[EntityEmbeddingError]

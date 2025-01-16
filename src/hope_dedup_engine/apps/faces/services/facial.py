@@ -4,9 +4,9 @@ from typing import Any, cast
 
 from deepface import DeepFace
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Finding
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
-from hope_dedup_engine.constants import FacialError
+# from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import (
     Embedding,
     EntityEmbedding,
@@ -14,6 +14,8 @@ from hope_dedup_engine.types import (
     ImageEmbedding,
     ImageEmbeddingError,
 )
+from hope_dedup_engine.apps.faces.utils import is_facial_error
+# from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
 
@@ -30,20 +32,20 @@ def encode_faces(
 
     for filename in filenames:
         if filename not in images:
-            errors.append((filename, FacialError.NO_FILE_FOUND))
+            errors.append((filename, Finding.StatusCode.NO_FILE_FOUND.name))
             continue
 
         try:
             result = DeepFace.represent(storage.load_image(filename), **(options or {}))
             if len(result) > 1:
-                errors.append((filename, FacialError.MULTIPLE_FACES_DETECTED))
+                errors.append((filename, Finding.StatusCode.MULTIPLE_FACES_DETECTED.name))
             else:
                 embeddings.append((filename, cast(list[float], result[0]["embedding"])))
         except TypeError as e:
             logger.exception(e)
-            errors.append((filename, FacialError.GENERIC_ERROR))
+            errors.append((filename, Finding.StatusCode.GENERIC_ERROR.name))
         except ValueError:
-            errors.append((filename, FacialError.NO_FACE_DETECTED))
+            errors.append((filename, Finding.StatusCode.NO_FACE_DETECTED.name))
 
     return embeddings, errors
 
