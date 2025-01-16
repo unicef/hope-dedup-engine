@@ -120,7 +120,7 @@ def callback_findings(
             record
             for d in results
             for record in d
-            if not (pair := tuple(sorted(record[:2]))) in seen_pairs
+            if (pair := tuple(sorted(record[:2]))) not in seen_pairs
             and not seen_pairs.add(pair)
         ]
         ds.update_findings(findings)
