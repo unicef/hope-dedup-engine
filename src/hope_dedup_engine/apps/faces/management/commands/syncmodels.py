@@ -21,7 +21,15 @@ MESSAGES: Final[dict[str, str]] = {
 
 
 class Command(BaseCommand):
-    help = "Synchronizes models pre-trained-weights files from the specified source to local storage"
+    """
+    Command ensures that the necessary pre-trained weights are downloaded and stored locally.
+    If the weights are already present, the command can be forced to re-download the files.
+
+    Arguments:
+        --force: If provided, forces the re-download of files, even if they already exist locally.
+    """
+
+    help = "Synchronizes models pre-trained-weights files from the specified source to shared volume"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -32,8 +40,24 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: dict[str, Any]) -> None:
+        """
+        Args:
+            *args: Variable length argument list.
+            **options: Dictionary of command line options passed to the command.
+
+        This method initiates the synchronization, providing a progress update for each file download.
+        If an error occurs, it logs the error and halts the execution with an appropriate message.
+        """
 
         def on_progress(filename: str, percent: int, is_complete: bool = False) -> None:
+            """
+            Prints the progress of the file download in the terminal.
+
+            Args:
+                filename (str): The name of the file being downloaded.
+                percent (int): The download progress as a percentage.
+                is_complete (bool, optional): Whether the download is complete. Defaults to False.
+            """
             self.stdout.write(MESSAGES["progress"] % (filename, percent), ending="")
             if is_complete:
                 self.stdout.write("\n")

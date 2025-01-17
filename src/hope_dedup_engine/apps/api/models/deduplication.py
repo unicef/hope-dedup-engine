@@ -197,13 +197,6 @@ class Image(models.Model):
     # TODO: rename to Entity/Entry
     """
 
-    class StatusCode(models.IntegerChoices):
-        DEDUPLICATE_SUCCESS = 200, "deduplication success"
-        NO_FILE_FOUND = 404, "no file found"
-        NO_FACE_DETECTED = 412, "no face detected"
-        MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
-        GENERIC_ERROR = 500, "generic error"
-
     id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
@@ -223,6 +216,13 @@ class Finding(models.Model):
     Couple of finding entities
     """
 
+    class StatusCode(models.IntegerChoices):
+        DEDUPLICATE_SUCCESS = 200, "deduplication success"
+        NO_FILE_FOUND = 404, "no file found"
+        NO_FACE_DETECTED = 412, "no face detected"
+        MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
+        GENERIC_ERROR = 500, "generic error"
+
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     first_reference_pk = models.CharField(
         max_length=REFERENCE_PK_LENGTH, verbose_name="First reference"
@@ -238,7 +238,7 @@ class Finding(models.Model):
         verbose_name="Similarity Score",
     )
     status_code = models.IntegerField(
-        choices=Image.StatusCode.choices, default=Image.StatusCode.DEDUPLICATE_SUCCESS
+        choices=StatusCode.choices, default=StatusCode.DEDUPLICATE_SUCCESS
     )
 
     class Meta:

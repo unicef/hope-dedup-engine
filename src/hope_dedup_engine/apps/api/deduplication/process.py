@@ -2,8 +2,9 @@ from dataclasses import asdict
 
 from celery import Task
 
-from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+# from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Finding
+from hope_dedup_engine.apps.api.models.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.celery.pipeline import image_pipeline
 from hope_dedup_engine.config.celery import app

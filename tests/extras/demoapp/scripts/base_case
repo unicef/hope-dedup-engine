@@ -11,13 +11,11 @@ fi
 
 ./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
 
-for path in ../demo_images/*.{jpg,png}; do
-  file=$(basename $path)
-  if [[ -f "$path" ]] && [ "$file" != "too_small.jpg" ] && [ "$file" != "without_face.jpg" ]; then
-    ./create_image "$(basename "$file")"
+for file in ../demo_images/*.{jpg,jpeg,png}; do
+  if [[ -f "$file" ]]; then
+    ./create_image $(basename "$file")
   fi
 done
-
 
 ./process_deduplication_set
 

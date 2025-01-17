@@ -135,6 +135,7 @@ class FileDownloader:
         downloaded: int,
         total: int,
         on_progress: Callable[[str, int], None] = None,
+        progress_step: int = 2,
     ) -> None:
         """
         Reports the download progress of a file.
@@ -145,19 +146,23 @@ class FileDownloader:
             total (int): The total size of the file in bytes.
             on_progress (Callable[[str, int], None], optional): A callback function that is called with the filename
                         and the download percentage. Defaults to None.
+            progress_step (int): The percentage step at which to report progress. Defaults to 2.
 
         Returns:
             None
         """
-        if on_progress and total > 0:
-            on_progress(filename, int((downloaded / total) * 100))
+        if (
+            on_progress
+            and (progress := (downloaded * 100) // total) % progress_step == 0
+        ):
+            on_progress(filename, progress)
 
 
 class GithubFileDownloader(FileDownloader):
     """
     Downloader class for downloading files from GitHub.
 
-    Inherits from FileDownloader and implements the sync method to download files from a given GitHub URL.
+    Inherits from FileDownloader and implements the _execute_download method to download files from a given GitHub URL.
     """
 
     MESSAGES: Final[dict[str, str]] = {
@@ -213,11 +218,12 @@ class GithubFileDownloader(FileDownloader):
         return self.MESSAGES.get("done")
 
 
-class AzureFileDownloader(FileDownloader):
+class AzureFileDownloader(FileDownloader):  # pragma no cover
     """
     Downloader class for downloading files from Azure Blob Storage.
 
-    Inherits from FileDownloader and implements the sync method to download files from a given Azure Blob Storage.
+    Inherits from FileDownloader and implements the _execute_download method to download files
+    from a given Azure Blob Storage.
     """
 
     MESSAGES: Final[dict[str, str]] = {

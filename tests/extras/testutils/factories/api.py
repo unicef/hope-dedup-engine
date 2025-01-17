@@ -4,14 +4,14 @@ from factory import Factory, SubFactory, fuzzy, lazy_attribute
 from factory.django import DjangoModelFactory
 from testutils.factories import ExternalSystemFactory, UserFactory
 
-from hope_dedup_engine.apps.api.deduplication.config import (
-    DeduplicateOptions,
-    DeduplicationSetConfig,
-    EncodingOptions,
-    ModelOptions,
-)
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
-from hope_dedup_engine.apps.api.models.config import Config
+from hope_dedup_engine.apps.api.models.config import (
+    Config,
+    DeduplicationSetConfig,
+    ModelOptions,
+    RepresentOptions,
+    VerifyOptions,
+)
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
     IgnoredFilenamePair,
@@ -74,9 +74,11 @@ class FindingFactory(DjangoModelFactory):
     @lazy_attribute
     def status_code(self):
         return (
-            fuzzy.FuzzyChoice(list(Image.StatusCode.values)).fuzz().value
+            fuzzy.FuzzyChoice(
+                list(filter(lambda code: code != 200, Finding.StatusCode.values))
+            ).fuzz()
             if self.score == 0
-            else None
+            else 200
         )
 
 
@@ -113,14 +115,14 @@ class ModelOptionsFactory(Factory):
     detector_backend = fuzzy.FuzzyChoice(["backend1", "backend2"])
 
 
-class EncodingOptionsFactory(ModelOptionsFactory):
+class RepresentOptionsFactory(ModelOptionsFactory):
     class Meta:
-        model = EncodingOptions
+        model = RepresentOptions
 
 
-class DeduplicateOptionsFactory(ModelOptionsFactory):
+class VerifyOptionsFactory(ModelOptionsFactory):
     class Meta:
-        model = DeduplicateOptions
+        model = VerifyOptions
 
     threshold = fuzzy.FuzzyFloat(0.1, 1.0)
     silent = fuzzy.FuzzyChoice([True, False])
@@ -131,5 +133,5 @@ class DeduplicationSetConfigFactory(Factory):
         model = DeduplicationSetConfig
 
     deduplication_set_id = uuid4()
-    encoding = SubFactory(EncodingOptionsFactory)
-    deduplicate = SubFactory(DeduplicateOptionsFactory)
+    encoding = SubFactory(RepresentOptionsFactory)
+    deduplicate = SubFactory(VerifyOptions)

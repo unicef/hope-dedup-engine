@@ -3,25 +3,28 @@ from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "FACE_RECOGNITION_MODEL": (
+    "MODEL_NAME": (
         "VGG-Face",
         "Specifies the face recognition model to be used for encoding face landmarks.",
         "face_recognition_models",
     ),
-    "FACE_DETECTOR_BACKEND": (
+    "DETECTOR_BACKEND": (
         "retinaface",
-        "Specifies the face detector backend to be used for detecting faces in images.",
+        """
+        Specifies the face detector backend used during the Face Detection and Alignment stages to locate faces
+         and ensure consistent facial alignment in images.
+        """,
         "face_detector_backend",
     ),
     "FACE_DISTANCE_THRESHOLD": (
         0.4,
         """
         Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
-        This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
+        This similarity threshold is crucial for assessing whether two faces belong to the same individual,
         as it establishes the similarity limit. Lower values result in stricter matching, while higher values allow
         for more lenient matches.
         """,
-        float,
+        "float_range_0_1",
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
@@ -35,8 +38,8 @@ CONSTANCE_CONFIG = {
 CONSTANCE_CONFIG_FIELDSETS = {
     "Face detection and recognition settings": {
         "fields": (
-            "FACE_RECOGNITION_MODEL",
-            "FACE_DETECTOR_BACKEND",
+            "MODEL_NAME",
+            "DETECTOR_BACKEND",
             "FACE_DISTANCE_THRESHOLD",
         ),
         "collapse": False,
@@ -62,6 +65,13 @@ CONSTANCE_ADDITIONAL_FIELDS = {
         "django.forms.ChoiceField",
         {
             "choices": (("retinaface", "RetinaFace"),),
+        },
+    ],
+    "float_range_0_1": [
+        "django.forms.FloatField",
+        {
+            "min_value": 0.0,
+            "max_value": 1.0,
         },
     ],
 }
