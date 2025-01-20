@@ -7,12 +7,6 @@ on:
       - develop
       - staging
       - master
-  pull_request:
-    branches:
-      - feature/ci-cd
-      - develop
-      - staging
-      - master
 
 jobs:
   prepare_build:
@@ -72,14 +66,14 @@ jobs:
     if: |
       github.event_name == 'push' &&
       (
-        github.ref == 'refs/heads/develop' ||
+        github.ref == 'refs/heads/feature/ci-cd' ||
         github.ref == 'refs/heads/staging' ||
         github.ref == 'refs/heads/master'
       )
     steps:
       - name: Trigger deploy
         run: |
-          if [ ${{ github.ref }} == 'refs/heads/develop' ]; then
+          if [ ${{ github.ref }} == 'refs/heads/feature/ci-cd' ]; then
             pipelineId=1309
           elif [ ${{ github.ref }} == 'refs/heads/staging' ]; then
             pipelineId=1410
