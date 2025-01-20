@@ -15,7 +15,18 @@ on:
       - master
 
 jobs:
+  prepare_build:
+    runs-on: ubuntu-latest
+    steps:
+      - id: build_tag
+        name: Set build tag
+        run: |
+          echo "tag=${${{ github.ref_name }}//\//_}" >> "$GITHUB_OUTPUT"
+    outputs:
+      build_tag: ${{ steps.build_tag.outputs.tag }}
+
   build_and_push:
+    needs: [prepare_build]
     runs-on: ubuntu-latest
     steps:
       - name: Set up Docker Buildx
@@ -35,11 +46,11 @@ jobs:
           # Base part of the command
           build_command="docker buildx build \
             --progress=plain \
-            --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
+            --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ needs.prepare_build.outputs.build_tag }} \
             --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
-            --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
+            --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ needs.prepare_build.outputs.build_tag }} \
             --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
-            -t ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
+            -t ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ needs.prepare_build.outputs.build_tag }} \
             -t ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
             -f ./docker/Dockerfile \
             --target dist \
@@ -79,7 +90,7 @@ jobs:
 
           IFS=',' read -ra pipelines <<< "$pipelineId"
           for pipeline in "${pipelines[@]}"; do
-            jsonBody='{"variables": {"sha": {"isSecret": false, "value": "${{ github.sha }}"}, "tag": {"isSecret": false, "value": "dedup-engine-${{ github.sha }}"}}}'
+            jsonBody='{"variables": {"sha": {"isSecret": false, "value": "${{ github.sha }}"}, "tag": {"isSecret": false, "value": "${{ needs.prepare_build.outputs.build_tag }}"}}}'
             contentLength=$(echo -n $jsonBody | wc -c)
             project=ICTD-HCT-MIS
             organization=unicef
