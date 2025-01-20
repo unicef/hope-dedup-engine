@@ -122,9 +122,6 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
         #         finding = (first, second, score * finder.weight)
         #         deduplication_set.update_findings(finding)
 
-        deduplication_set.state = deduplication_set.State.CLEAN
-        deduplication_set.save(update_fields=["state"])
-
         return {
             "deduplication_set": str(deduplication_set),
             "chord_id": str(chord_id),
