@@ -35,9 +35,9 @@ jobs:
           # Base part of the command
           build_command="docker buildx build \
             --progress=plain \
-            --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }}" \
+            --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
             --cache-from ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
-            --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }}" \
+            --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
             --cache-to ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
             -t ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:${{ github.ref_name }} \
             -t ${{ vars.DOCKERHUB_ORGANIZATION }}/hope-dedupe-engine:latest \
@@ -71,8 +71,7 @@ jobs:
           elif [ ${{ github.ref }} == 'refs/heads/staging' ]; then
             pipelineId=1410
           elif [ ${{ github.ref }} == 'refs/heads/master' ]; then
-            echo "Not implemented"
-            # pipelineId=0000 # TODO create the pipeline & substitute here
+            pipelineId=1440
           else
             echo "No pipeline to trigger for ref ${{ github.ref }}"
             exit 0
