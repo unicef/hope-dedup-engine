@@ -3,7 +3,9 @@ from typing import Self
 
 # from hope_dedup_engine.constants import FacialError
 # TODO:
-from hope_dedup_engine.api.models.deduplication.Finding import StatusCode
+from hope_dedup_engine.apps.api.models.deduplication import Image as ImageModel
+
+# .Image import StatusCode
 
 type ReferencePK = str
 type Filename = str
@@ -12,9 +14,9 @@ type Score = float
 
 EntityImage = tuple[ReferencePK, Filename]
 EntityEmbedding = tuple[ReferencePK, Embedding]
-EntityEmbeddingError = tuple[ReferencePK, StatusCode]
+EntityEmbeddingError = tuple[ReferencePK, ImageModel.StatusCode]
 ImageEmbedding = tuple[Filename, Embedding]
-ImageEmbeddingError = tuple[Filename, StatusCode]
+ImageEmbeddingError = tuple[Filename, ImageModel.StatusCode]
 Finding = tuple[ReferencePK, ReferencePK, Score]
 
 
