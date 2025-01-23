@@ -137,6 +137,7 @@ class ImageViewSet(
         deduplication_set.save()
 
     def perform_destroy(self, instance: Image) -> None:
+        # TODO: remove encoding
         deduplication_set = instance.deduplication_set
         super().perform_destroy(instance)
         deduplication_set.state = DeduplicationSet.State.DIRTY

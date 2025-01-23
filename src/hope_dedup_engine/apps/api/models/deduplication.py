@@ -5,7 +5,17 @@ from django.conf import settings
 from django.db import models
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
-from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
+from hope_dedup_engine.types import (
+    Embedding,
+    EntityEmbedding,
+    EntityEmbeddingError,
+    Filename,
+    Finding,
+    IgnoredPair,
+    ImageEmbedding,
+    ImageEmbeddingError,
+    Score,
+)
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 
@@ -54,43 +64,75 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
+    # TODO: rename to embeddings as it's more correct term
     encodings = models.JSONField(
         null=True, blank=True, default=dict
-    )  # {file1: encoding1, file2: encoding2, ...}
+    )  # {file1: embedding1, file2: embedding2, ...}
+
+    encoding_errors = models.JSONField(
+        null=True, blank=True, default=dict
+    )  # {file1: embedding_error1, file2: embedding_error2, ...}
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    def get_encodings(self) -> EncodingType:
+    def get_encodings(self) -> dict[Filename, Embedding]:
         return self.encodings
 
-    def get_findings(self) -> FindingType:
+    def get_findings(self) -> list[Finding]:
         return list(
             self.finding_set.values_list(
                 "first_reference_pk", "second_reference_pk", "score"
             )
         )
 
-    def get_ignored_pairs(self) -> IgnoredPairType:
+    def get_ignored_pairs(self) -> list[IgnoredPair]:
         return list(
             self.ignoredreferencepkpair_set.values_list("first", "second")
         ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
 
-    def update_encodings(self, encodings: EncodingType) -> None:
-        self.encodings.update(encodings)
-        self.save()
+    def update_encodings(self, encodings: list[ImageEmbedding]) -> None:
+        fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(
+            pk=self.pk
+        )
+        fresh_self.encodings.update(encodings)
+        fresh_self.save()
 
-    def update_findings(self, findings: FindingType) -> None:
+    def update_encoding_errors(self, errors: list[ImageEmbeddingError]) -> None:
+        fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(
+            pk=self.pk
+        )
+        fresh_self.encoding_errors.update(errors)
+        fresh_self.save()
+
+    def update_findings(
+        self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]
+    ) -> None:
         Finding.objects.bulk_create(
             [
                 Finding(
                     deduplication_set=self,
-                    first_reference_pk=f[0],
-                    second_reference_pk=f[1],
-                    score=f[2],
-                    error=f[3],
+                    first_reference_pk=first_reference_pk,
+                    second_reference_pk=second_reference_pk,
+                    score=score,
                 )
-                for f in findings
+                for (first_reference_pk, _), (second_reference_pk, _), score in findings
+            ],
+            ignore_conflicts=True,
+        )
+
+    def update_finding_errors(
+        self, encoding_errors: list[EntityEmbeddingError]
+    ) -> None:
+        Finding.objects.bulk_create(
+            [
+                Finding(
+                    deduplication_set=self,
+                    first_reference_pk=reference_pk,
+                    second_reference_pk=error.name,
+                    error=error.value,
+                )
+                for reference_pk, error in encoding_errors
             ],
             ignore_conflicts=True,
         )
