@@ -4,7 +4,7 @@ from admin_extra_buttons.decorators import button
 from admin_extra_buttons.mixins import ExtraButtonsMixin
 from celery import group
 
-from hope_dedup_engine.apps.faces.celery_tasks import sync_dnn_files
+from hope_dedup_engine.apps.faces.celery.tasks.dnn_files import sync_dnn_files
 from hope_dedup_engine.apps.faces.models import DummyModel
 from hope_dedup_engine.config.celery import app as celery_app
 

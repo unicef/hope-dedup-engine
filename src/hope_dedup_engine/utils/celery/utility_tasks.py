@@ -1,5 +1,5 @@
 from itertools import batched
-from typing import Any
+from typing import Any, Mapping
 
 import celery
 from celery import canvas
@@ -22,18 +22,33 @@ def map_[
 
 @app.task
 @wrapped
-def concat[T](items: list[list[T]]) -> list[T]:
+def noop(*_: Any, **__: Any) -> None:
+    pass
+
+
+@app.task
+@wrapped
+def concat_lists[T](items: list[list[T]]) -> list[T]:
     return sum(items, start=[])
+
+
+NOOP: Mapping = dict(noop.s())
 
 
 @app.task(bind=True)
 @wrapped
 def parallelize[
     T
-](self: celery.Task, data: list[T], serialized_task: SerializedTask, size: int) -> list[
-    T
-]:
-    signature: canvas.Signature = self.app.signature(serialized_task)
+](
+    self: celery.Task,
+    producer: SerializedTask,
+    task: SerializedTask,
+    size: int,
+    end_task: SerializedTask = NOOP,
+) -> list[T]:
+    data = self.app.signature(producer)()
+
+    signature: canvas.Signature = self.app.signature(task)
 
     signatures = []
     for batch in batched(data, size):
@@ -46,6 +61,6 @@ def parallelize[
             clone = signature.clone(args)
         signatures.append(clone)
 
-    chord = celery.chord(signatures, concat.s())
+    chord = celery.chord(signatures, self.app.signature(end_task))
 
     return self.replace(chord)

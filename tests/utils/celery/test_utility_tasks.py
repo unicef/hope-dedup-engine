@@ -7,13 +7,13 @@ from pytest import mark
 from pytest_mock import MockerFixture
 
 from hope_dedup_engine.utils.celery.task_result import make_value
-from hope_dedup_engine.utils.celery.utility_tasks import concat, map_, parallelize
+from hope_dedup_engine.utils.celery.utility_tasks import concat_lists, map_, parallelize
 
 
-def test_concat() -> None:
+def test_concat_lists() -> None:
     data = list(range(10))
     batched_data = list(map(list, batched(data, 5)))
-    assert concat(batched_data) == make_value(data)
+    assert concat_lists(batched_data) == make_value(data)
 
 
 def test_map_() -> None:
