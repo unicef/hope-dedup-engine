@@ -1,68 +1,51 @@
-The configuration can be managed directly through the **admin panel**, which provides a simple way to modify settings without changing the codebase. Navigate to:
+### Default Configuration
 
-    Home › Constance › Config
+The default configuration can be managed directly through the **admin panel**, providing a simple way to modify settings without changing the codebase. Navigate to:
 
-Here, you will find all the configurable settings that affect the behavior of the system, allowing for quick adjustments and better control over application behavior.
+    Home › Constance › Config  
 
-## Deep neural networks (DNN)
+This section contains the **default configuration**, which applies to the system globally. It defines the base settings for the application and ensures consistent behavior across all deduplication sets.  
 
-The deep learning component of the system is crucial for performing advanced inference tasks, including **face detection**, **face recognition**, and **finding duplicate images** using a pre-trained model. These tasks are fundamental to ensuring the accuracy and efficiency of the system in identifying and managing images.
+#### Key Parameters:  
 
-This component relies on **Convolutional Neural Networks (CNNs)**, a type of deep learning model particularly well-suited for processing visual data. CNNs are used to automatically extract relevant features from images, such as facial landmarks and distinctive patterns, without the need for manual feature engineering.
+##### **MODEL_NAME**
+Specifies the face recognition model to be used for **encoding** face landmarks. **VGG-Face** (default)
 
-### DNN_BACKEND
+##### **DETECTOR_BACKEND**  
+Specifies the face detector backend used during the **Face Detection** and **Alignment** stages to locate faces and ensure consistent facial alignment in images. **RetinaFace** (default)
 
-Specifies the computation backend to be used by [OpenCV](https://github.com/opencv/opencv) library for deep learning inference.
+##### **FACE_DISTANCE_THRESHOLD**  
+  Specifies the maximum allowable **distance** between two face embeddings for them to be considered a match. This **similarity threshold** is crucial for assessing whether two faces belong to the same individual. Lower values result in stricter matching, while higher values allow for more lenient matches.  
 
-### DNN_TARGET
+---
 
-Specifies the target device on which [OpenCV](https://github.com/opencv/opencv) library will perform the deep learning computations.
+### Custom Configuration
 
+Custom configurations can be created for specific **deduplication sets** through the **admin panel** by navigating to:  
 
-## Face Detection
+    Home › API › Configs  
 
-This component is responsible for locating and identifying faces in images. It uses advanced deep learning algorithms to scan images and detect the regions that contain human faces. This section outlines the key configuration parameters that influence how the face detection model processes input images and optimizes detection results.
+At this path, you can define a custom configuration in **JSON format**. Custom configurations include only the parameters you wish to override from the default configuration.  
 
-### BLOB_FROM_IMAGE_SCALE_FACTOR
+#### Details
+- Parameters not included in the custom configuration will default to the values from the global configuration and will be used by the system in subsequent calculations. This ensures that all required parameters are available, even if they are not explicitly defined in the custom configuration.  
+- A custom configuration can be associated with a specific deduplication set via:  
 
-Specifies the scaling factor applied to all pixel values when converting an image to a blob. Mostly it equals 1.0 for no scaling or 1.0/255.0 and normalizing to the [0, 1] range.
+        Home › API › Deduplication sets › <specific_deduplication_set>
 
-Remember that scaling factor is also applied to mean values. Both scaling factor and mean values must be the same for the training and inference to get the correct results.
+- If no custom configuration is associated with a deduplication set, the system will entirely use the **default configuration** for that set.  
 
-### BLOB_FROM_IMAGE_MEAN_VALUES
+- Parameter names in custom configurations are case-sensitive and must be in **lowercase**.
 
-Specifies the mean BGR values used in image preprocessing to normalize pixel values by subtracting the mean values of the training dataset. This helps in reducing model bias and improving accuracy.
+#### Example Custom Configuration:  
+To override only the **FACE_DISTANCE_THRESHOLD** parameter, your custom configuration can look like this:  
 
-The specified mean values are subtracted from each channel (Blue, Green, Red) of the input image.
+```json
+{
+  "face_distance_threshols": 0.7
+}
+```
 
-Remember that mean values are also applied to scaling factor. Both scaling factor and mean values must be the same for the training and inference to get the correct results.
+The configuration will undergo **validation** during saving to confirm the JSON structure and ensure all keys are valid and match the default configuration. Any invalid entries will prevent saving until corrected. 
 
-### FACE_DETECTION_CONFIDENCE
-
-Specifies the minimum confidence score required for a detected face to be considered valid. Detections with confidence scores below this threshold are discarded as likely false positives.
-
-### NMS_THRESHOLD
-
-Specifies the Intersection over Union (IoU) threshold used in Non-Maximum Suppression (NMS) to filter out overlapping bounding boxes. If the IoU between two boxes exceeds this threshold, the box with the lower confidence score is suppressed. Lower values result in fewer, more distinct boxes; higher values allow more overlapping boxes to remain.
-
-## Face Recognition
-
-This component builds on face detection to identify and differentiate between individual faces. This involves generating face encodings, which are numerical representations of the unique facial features used for recognition. These encodings can then be compared to determine if two images contain the same person or to find matches in a database of known faces.
-
-### FACE_ENCODINGS_NUM_JITTERS
-
-Specifies the number of times to re-sample the face when calculating the encoding. Higher values increase accuracy but are computationally more expensive and slower. For example, setting 'num_jitters' to 100 makes the process 100 times slower.
-
-### FACE_ENCODINGS_MODEL
-
-Specifies the model type used for encoding face landmarks. It can be either 'small' which is faster and  only 5 key facial landmarks, or 'large' which is more precise and identifies 68 key facial landmarks but requires more computational resources.
-
-
-## Duplicate Finder
-
-This component is responsible for identifying duplicate images in the system by comparing face embeddings. These embeddings are numerical representations of facial features generated during the face recognition process. By calculating the distance between the embeddings of different images, the system can determine whether two images contain the same person, helping in the identification and removal of duplicates or grouping similar faces together.
-
-### FACE_DISTANCE_THRESHOLD
-
-Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in stricter matching, while higher values allow for more lenient matches.
-
+This flexibility allows you to define tailored configurations for specific deduplication sets, ensuring precise control over application behavior while preserving the stability of default settings.
