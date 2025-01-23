@@ -3,100 +3,152 @@ tags:
   - Deduplication
 ---
 
-# Image Processing and Duplicate Detection
+# **Image Processing and Duplicate Detection**
 
-The workflow uses pre-trained models from [OpenCV](https://opencv.org/) for face detection and [dlib](http://dlib.net/) for face recognition and landmark detection. This setup provides a fast, reliable solution for real-time applications, without requiring the training of models from scratch. OpenCV handles face detection using a Caffe-based model, while **dlib**, accessed through the [face_recognition](https://pypi.org/project/face-recognition/) library, manages recognition and duplicate identification.
+### How Face Recognition Works.
 
-Future updates will involve custom-trained models to further improve performance.
+The process of face recognition can be divided into a structured pipeline consisting of five key stages. Each step plays a vital role in transforming raw images into actionable insights, such as identifying individuals or detecting duplicates in a dataset.
 
-## Inference Mode Operation
+At the core of this process are Convolutional Neural Networks (CNNs), which excel at extracting hierarchical features from images, from edges to complex patterns. Their effectiveness makes them fundamental for tasks like face detection and recognition.<sup>([Read More](https://www.researchgate.net/publication/379189553_A_review_of_convolutional_neural_networks_in_computer_vision))</sup>
 
-This application operates entirely in inference mode, relying on pre-trained models for both face detection and recognition tasks. **OpenCV** handles face detection, and **face_recognition**, a Python wrapper for **dlib**, performs face recognition and duplicate identification. This approach ensures efficient, real-time processing without the need for additional training, allowing the application to quickly deploy its capabilities.
-
-- **OpenCV**: Optimized for fast face detection, ideal for real-time image and video applications.
-- **dlib's face_recognition**: Focuses on generating face embeddings for comparison, providing high accuracy in identification.
-
-By combining OpenCV for detection and dlib for recognition, the system offers a balance of speed and precision.
-
-### Pre-Trained Models Storage
-
-- **OpenCV** uses a pre-trained [Caffe model](https://caffe.berkeleyvision.org/) stored in Azure Blob Storage, automatically downloaded at application startup.
-- **face_recognition** utilizes a pre-trained [dlib model](https://pypi.org/project/face_recognition_models/) stored locally within the container’s library directory.
-
-Administrators can manually update the **Caffe model** via the admin panel, allowing flexible updates or new model versions without altering the application code.
+Central to this pipeline is [DeepFace](https://github.com/serengil/deepface), a versatile Python library for facial recognition. Supporting multiple pre-trained models and detection backends, it simplifies face verification and duplicate detection with static images.
 
 ---
 
-## Face Detection and Recognition Models
+### Steps in the Workflow.
 
-### OpenCV Model Details
+??? abstract "Face Detection"
+    #### _**Face Detection**_
 
-OpenCV powers the face detection component using a pre-trained model designed for real-time performance.
+    The first step involves identifying and locating faces within an image. [DeepFace](https://github.com/serengil/deepface) leverages detectors such as *OpenCV*, *RetinaFace*, *MTCNN*, and others. By default, the service [uses](config.md#detector_backend) **RetinaFace** that is a state-of-the-art single-stage face detector that performs pixel-wise face localization by jointly predicting face scores, bounding boxes, and five facial landmarks. It achieves high accuracy even under challenging conditions, such as varying poses and occlusions.<sup>([Read More](https://arxiv.org/abs/1905.00641))</sup>
 
-#### Model Components
+    This process includes:
 
-- **deploy.prototxt**: Defines the network architecture and parameters for model execution.
-- **res10_300x300_ssd_iter_140000.caffemodel**: Contains trained weights, generated after 140,000 iterations using the **Caffe** framework.
+    - Determining the location of faces (bounding boxes).  
+    - Extracting facial regions for further processing.
+    - Anti-Spoofing (optional). [DeepFace](https://github.com/serengil/deepface) supports anti-spoofing to detect fraudulent attempts, such as using photos or masks instead of real faces. It uses models like **MiniFASNet** to assess the authenticity of detected faces. However, anti-spoofing is less relevant for static photos, as dynamic cues like blinking or texture variations are unavailable. This step is optional and disabled by default, requiring explicit configuration.
 
-#### Model Architecture
-
-- **Res10 Architecture**: A lightweight model that balances speed and accuracy, perfect for real-time detection.
-- **300x300 Input Resolution**: Optimized for face detection at this resolution, ensuring a balance between detail and efficiency.
-- **SSD (Single Shot MultiBox Detector)**: A method that predicts bounding boxes and confidence scores in a single pass, allowing rapid detection of multiple faces in a single image.
-
-### Dlib Model Details
-
-The **dlib** models used for recognition and facial landmark detection include:
-
-1. **dlib_face_recognition_resnet_model_v1.dat**
-
-    A modified **ResNet-34** model generating **128-dimensional face embeddings** for face recognition, achieving **99.38% accuracy** on the LFW benchmark.
-
-2. **mmod_human_face_detector.dat**
-    A **CNN-based Max-Margin Object Detector (MMOD)** for accurate face detection, especially under difficult conditions like varied orientations or lighting.
-
-3. **shape_predictor_5_face_landmarks.dat**
-    Detects **5 key facial landmarks** (eye corners and nose base), optimized for fast face alignment.
-
-4. **shape_predictor_68_face_landmarks.dat**
-    Detects **68 facial landmarks** (eyes, nose, mouth, jawline), used for more detailed facial alignment and analysis.
+    Accurate face detection is crucial, as errors at this stage can propagate through the pipeline, affecting overall performance.
 
 ---
 
-## Workflow Diagram
+??? abstract "Alignment"
 
-The workflow diagram illustrates the overall process of image processing and duplicate detection. **OpenCV** is used for face detection, while **face_recognition** (built on **dlib**) handles face recognition and duplicate identification.
+    #### _**Alignment**_
+    Alignment eliminates facial tilts and rotations, standardizing the orientation of the detected face. This process relies on facial landmarks (eyes, nose, mouth) to ensure consistent positioning. By default, the service [uses](config.md#detector_backend) **RetinaFace** that provides accurate localization of these landmarks, facilitating effective alignment.<sup>([Read More](https://arxiv.org/abs/1905.00641))</sup>
+
+    Benefits of alignment:
+
+    - Improved accuracy in face recognition.
+    - Reduced sensitivity to variations in camera angles.
+
+---
+
+??? abstract "Normalization"
+
+    #### _**Normalization**_
+    Normalization prepares the face for processing by:  
+    - Resizing the image to a standard size.
+    - Adjusting brightness and contrast.  
+    - Converting the color space (e.g., grayscale conversion).  
+
+    These steps ensure the data is more suitable for deep learning models.
+
+    [DeepFace](https://github.com/serengil/deepface) handles normalization internally using standard image preprocessing techniques provided by popular image-processing libraries such as [OpenCV](https://opencv.org/) and [Pillow](https://pillow.readthedocs.io/en/stable/). These steps ensure consistency in the input data, making it suitable for processing by deep learning models like **VGG-Face** or others. The resizing operation ensures compatibility with the input dimensions required by the selected model (e.g., 224x224 pixels for VGG-Face).
+
+---
+
+??? abstract "Representation"
+
+    #### _**Representation**_
+    At this stage, unique facial features are extracted and encoded into numerical vector representations, commonly referred to as **embeddings**. These embeddings are high-dimensional mathematical representations that capture the distinctive characteristics of a face, such as the relative positions of facial landmarks, texture, and shape. By transforming faces into embeddings, systems can efficiently compare, verify, and search for faces within datasets, enabling accurate recognition and matching.
+
+    [DeepFace](https://github.com/serengil/deepface) supports several pre-trained models for this purpose, including vgg-face, facenet, facenet512, openface, deepid, arcface, dlib, sface, and ghostfacenet.
+
+    By default, the service [uses](config.md#model_name) **VGG-Face**, a model developed by the Visual Geometry Group at the University of Oxford. <sup>([Read More](https://www.robots.ox.ac.uk/~vgg/software/vgg_face/))</sup>
+
+    The vgg-face model is based on the VGG-Very-Deep-16 CNN architecture and was trained on a dataset of 2.6 million images of 2,622 identities. <sup>([Read More](https://arxiv.org/abs/1503.03832))</sup>
+
+---
+
+??? abstract "Verification and Duplicate Detection"
+
+    #### _**Verification and Duplicate Detection**_
+    In the final stage of the face recognition pipeline, the system performs two critical tasks:
+
+    - **Verification:** This process involves comparing two facial embeddings to ascertain whether they represent the same individual. [DeepFace](https://github.com/serengil/deepface) utilizes similarity metrics such as cosine similarity, Euclidean distance, and L2-normalized Euclidean distance for this purpose. By default, the library employs **cosine similarity** as the distance metric due to its efficiency and effectiveness in comparing high-dimensional vectors. Cosine similarity measures the angle between vectors, focusing on their relative orientation rather than magnitude, which makes it particularly suitable for facial recognition tasks where the relative differences between features are more critical than their absolute values.<sup>([Read More](https://en.wikipedia.org/wiki/Cosine_similarity))</sup>
+
+    - **Duplicate Detection:** This task entails scanning a database of facial embeddings to identify multiple entries corresponding to the same person. By measuring the similarity between embeddings and applying a predefined **similarity threshold**, the system determines whether two embeddings represent the same individual. This threshold ensures a balance between detecting duplicates and minimizing false positives, allowing the system to accurately consolidate duplicate records while maintaining the integrity and accuracy of the dataset. The similarity threshold is [adjustable](config.md#face_distance_threshold), enabling fine-tuning for specific use cases, such as stricter matching criteria or broader detection in diverse datasets.
+
+---
+
+## **General Process Diagram.**
 
 ```mermaid
-flowchart LR
-  subgraph ImageProcessing[Image Processing]
-      direction LR
-      
-      subgraph FaceDetection[Face Detection]
+flowchart TB
 
-        subgraph DNNManager[DNN Manager]
-            direction TB
-            load_model[Load Caffe Model] -- computation <a href="../config/#dnn_backend">backend</a>\ntarget <a href="../config/#dnn_target">device</a>  --> set_preferences[Set Preferences]
-        end
-          
-          DNNManager --> run_model
-
-          direction TB
-          load_image[Load Image] -- decoded image as 3D numpy array\n(height, width, channels of BlueGreeRed color space) --> prepare_image[Prepare Image] -- blob 4D tensor\n(normalized size, use <a href="../config/#blob_from_image_scale_factor">scale factor</a> and <a href="../config/#blob_from_image_mean_values">means</a>) --> run_model[Run Model] -- shape (1, 1, N, 7),\n1 image\nN is the number of detected faces\neach face is described by the 7 detection values--> filter_results[Filter Results] -- <a href="../config/#face_detection_confidence">confidence</a> is above the minimum threshold,\n<a href="../config/#nms_threshold">NMS</a> to suppress overlapping bounding boxes --> return_detections[Return Detections]
-      end
-      
-      subgraph FaceRecognition[Face Recognition]
-          direction TB
-          load_image_[Load Image] --> detect_faces[Detect Faces] -- detected face regions\n<a href="../config/#face_encodings_num_jitters">number of times</a> to re-sample the face\n<a href="../config/#face_encodings_model">key facial landmarks</a> --> generate_encodings[Generate Encodings] -- numerical representations of the facial features\n(face's geometry and appearance) --> save_encodings[Save Encodings]
-      end
+ subgraph FaceDetection["1\. Face Detection"]
+    direction LR
+        extract_faces["Extract Faces Regions"]
+        determine_faces["Determine Faces"]
+        detect_landmarks["Detect Landmarks"]
   end
 
-  subgraph DuplicateFinder[Duplicate Finder]
-      direction TB
-      load_encodings[Load Encodings] --> compare_encodings[Compare Encodings] -- face distance less then <a href="../config/#face_distance_threshold">threshold</a> --> return_duplicates[Return Duplicates]
+ subgraph Alignment["2\. Alignment"]
+    direction TB
+        align_faces["Align Faces"]
   end
 
-  ImageProcessing --> DuplicateFinder
-  FaceDetection --> FaceRecognition
+ subgraph Normalization["3\. Normalization"]
+    direction TB
+        normalize_image["Adjust Brightness and Contrast,<br>Convert Color Space,<br>etc."]
+        resize_image["Resize Image"]
+  end
 
+ subgraph Preprocessing["Preprocessing"]
+    direction TB
+        FaceDetection
+        Alignment
+        Normalization
+  end
+
+ subgraph Representation["4\. Representation"]
+    direction TB
+        extract_features["Encode Face Features"]
+  end
+
+ subgraph Verification["5\. Verification"]
+    direction TB
+        duplicate_detection["Duplicate Detection"]
+        compare_embeddings["Compare Embeddings"]
+  end
+
+    determine_faces -- bounding boxes (coordinates for detected face regions)--> extract_faces
+    determine_faces -- bounding boxes (coordinates for detected face regions) --> detect_landmarks
+    extract_faces -- cropped face regions --> detect_landmarks
+    extract_faces -- cropped face regions --> Alignment
+    detect_landmarks -- facial landmarks (coordinates for eyes, nose, mouth, ...) --> Alignment
+    resize_image -- resized facial regions (scaled to the model's required dimensions) --> normalize_image
+    compare_embeddings -- similarity scores --> duplicate_detection
+
+    Alignment -- aligned facial regions (images with standardized orientation based on facial landmarks) --> Normalization
+    Normalization -- Normalized facial regions (resized, brightness/contrast adjusted, color space standardized, formatted as 4D tensors) --> Representation
+    Representation -- embeddings (high-dimensional vectors representing facial features) --> Verification
+
+    backend(["backend (default: RetinaFace)"]) .-o FaceDetection & Alignment
+    backend@{ shape: doc}
+    click backend "../config/#detector_backend"
+
+    image_libraries(["image-processing libraries<br>OpenCV, Pillow"]) .-o Normalization
+    image_libraries@{ shape: doc}
+
+    model(["model (default: VGG-Face)"]) .-o Representation
+    model@{ shape: doc}
+    click model "../config/#model_name"
+
+    load_image["Load Image"] -- preprocessed image (3D numpy array: height, width, BGR channels) --> determine_faces
+    load_image@{ shape: in-out}
+
+    duplicate_detection -- findings, filtered by <a href="../config/#face_distance_threshold">threshold</a> (list of detected duplicates with status_code) --> Findings["Findings"]
+    Findings@{ shape: out-in}
 ```
