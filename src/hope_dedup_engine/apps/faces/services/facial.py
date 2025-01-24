@@ -29,20 +29,20 @@ def encode_faces(
 
     for filename in filenames:
         if filename not in images:
-            errors.append((filename, FacialError.NO_FILE_FOUND.name))
+            errors.append((filename, FacialError.NO_FILE_FOUND))
             continue
 
         try:
             result = DeepFace.represent(storage.load_image(filename), **(options or {}))
             if len(result) > 1:
-                errors.append((filename, FacialError.MULTIPLE_FACES_DETECTED.name))
+                errors.append((filename, FacialError.MULTIPLE_FACES_DETECTED))
             else:
                 embeddings.append((filename, cast(list[float], result[0]["embedding"])))
         except TypeError as e:
             logger.exception(e)
-            errors.append((filename, FacialError.GENERIC_ERROR.name))
+            errors.append((filename, FacialError.GENERIC_ERROR))
         except ValueError:
-            errors.append((filename, FacialError.NO_FACE_DETECTED.name))
+            errors.append((filename, FacialError.NO_FACE_DETECTED))
 
     return embeddings, errors
 
