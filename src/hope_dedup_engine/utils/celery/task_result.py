@@ -1,6 +1,7 @@
+import json
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 import celery
 from celery import exceptions as celery_exceptions
@@ -18,6 +19,7 @@ DATA: Literal["data"] = "data"
 IS_WRAPPED: Literal["is_wrapped"] = "is_wrapped"
 MESSAGE: Literal["message"] = "message"
 UNKNOWN_RESULT: Literal["Unknown result"] = "Unknown result"
+PROPAGATED: Literal["propagated"] = "propagated"
 
 
 # Because of Celery default JSON serializer we cannot use classes or dataclasses
@@ -32,6 +34,7 @@ class Value(Result):
 
 class Error(Result):
     message: str
+    propagated: NotRequired[bool]
 
 
 class UnexpectedResultError(Exception):
@@ -54,6 +57,10 @@ def is_value(a: Any) -> bool:
 
 def is_error(a: Any) -> bool:
     return is_result(a) and MESSAGE in a
+
+
+def mark_propagated(error: Error) -> None:
+    error[PROPAGATED] = True
 
 
 def make_value(v: Any) -> Value:
@@ -104,6 +111,7 @@ def wrapped(f: Callable) -> Callable:
 
             if is_result(first_arg):
                 if is_error(first_arg):
+                    mark_propagated(first_arg)
                     return first_arg
 
                 if is_value(first_arg):
@@ -130,14 +138,29 @@ def wrapped(f: Callable) -> Callable:
     return inner
 
 
+def unwrap_result(result: Any) -> Any:
+    if not is_result(result):
+        return result
+
+    if is_value(result):
+        return result[DATA]
+    elif is_error(result):
+        raise Exception(MESSAGE)
+
+    raise UnexpectedResultError(result)
+
+
 @celery_signals.task_postrun.connect
-def unwrap_results(sender=None, headers=None, body=None, **kwargs) -> None:
+def fix_results_in_db(sender=None, headers=None, body=None, **kwargs) -> None:
     if (task_id := kwargs.get("task_id")) and (result := kwargs.get("retval")):
         if is_result(result):
             result_model = TaskResult.objects.get(task_id=task_id)
             if is_value(result):
-                result_model.result = result[DATA]
+                result_model.result = json.dumps(result[DATA])
             elif is_error(result):
-                result_model.result = result[MESSAGE]
-                result_model.status = FAILURE
-            result_model.save()
+                if result.get(PROPAGATED):
+                    result_model.delete()
+                else:
+                    result_model.result = result[MESSAGE]
+                    result_model.status = FAILURE
+                    result_model.save()
