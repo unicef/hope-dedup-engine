@@ -4,6 +4,9 @@ from typing import Any, Literal, TypedDict
 
 import celery
 from celery import exceptions as celery_exceptions
+from celery import signals as celery_signals
+from celery.states import FAILURE
+from django_celery_results.models import TaskResult
 
 # Because of few bugs in Celery it cannot handle exceptions in chains,
 # groups, and chords if those structures are nested. An exception can make
@@ -125,3 +128,16 @@ def wrapped(f: Callable) -> Callable:
             return make_error(e)
 
     return inner
+
+
+@celery_signals.task_postrun.connect
+def unwrap_results(sender=None, headers=None, body=None, **kwargs) -> None:
+    if (task_id := kwargs.get("task_id")) and (result := kwargs.get("retval")):
+        if is_result(result):
+            result_model = TaskResult.objects.get(task_id=task_id)
+            if is_value(result):
+                result_model.result = result[DATA]
+            elif is_error(result):
+                result_model.result = result[MESSAGE]
+                result_model.status = FAILURE
+            result_model.save()

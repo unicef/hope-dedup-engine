@@ -17,12 +17,12 @@ from hope_dedup_engine.utils.celery.utility_tasks import parallelize
 def image_pipeline(
     deduplication_set: DeduplicationSet, config: dict[str, Any]
 ) -> Signature:
-    encode_images_pipeline = parallelize.s(
+    encode_images_pipeline = parallelize.si(
         deduplication_set_image_files.s(deduplication_set.id),
         encode_images.s(config),
         100,
     )
-    find_duplicates_pipeline = parallelize.s(
+    find_duplicates_pipeline = parallelize.si(
         deduplication_set_embedding_pairs.s(deduplication_set.id),
         filter_ignored_pairs.s(deduplication_set.id) | find_duplicates.s(config),
         100,
