@@ -1,11 +1,12 @@
+from collections.abc import Callable
 from itertools import batched
-from typing import Any, Mapping
+from typing import Any, NoReturn
 
 import celery
 from celery import canvas
 
 from hope_dedup_engine.config.celery import app
-from hope_dedup_engine.utils.celery.task_result import wrapped
+from hope_dedup_engine.utils.celery.task_result import unwrap_result, wrapped
 
 SerializedTask = dict[str, Any]
 
@@ -13,40 +14,24 @@ SerializedTask = dict[str, Any]
 @app.task(bind=True)
 @wrapped
 def map_[
-    T
-](self: celery.Task, results: list[T], serialize_task: SerializedTask) -> list[T]:
+    T, P
+](self: celery.Task, results: list[T], serialize_task: SerializedTask) -> list[P]:
     """Celery map/starmap/xmap cannot be used in chain"""
-    signature = self.app.signature(serialize_task)
+    signature: Callable[[T], P] = self.app.signature(serialize_task)
     return list(map(signature, results))
-
-
-@app.task
-@wrapped
-def noop(*_: Any, **__: Any) -> None:
-    pass
-
-
-@app.task
-@wrapped
-def concat_lists[T](items: list[list[T]]) -> list[T]:
-    return sum(items, start=[])
-
-
-NOOP: Mapping = dict(noop.s())
 
 
 @app.task(bind=True)
 @wrapped
-def parallelize[
-    T
-](
+def parallelize(
     self: celery.Task,
     producer: SerializedTask,
     task: SerializedTask,
     size: int,
-    end_task: SerializedTask = NOOP,
-) -> list[T]:
-    data = self.app.signature(producer)()
+    end_task: SerializedTask | None = None,
+) -> NoReturn:
+    producer_signature = self.app.signature(producer)
+    data = unwrap_result(producer_signature())
 
     signature: canvas.Signature = self.app.signature(task)
 
@@ -61,6 +46,9 @@ def parallelize[
             clone = signature.clone(args)
         signatures.append(clone)
 
-    chord = celery.chord(signatures, self.app.signature(end_task))
+    group = celery.group(signatures)
 
-    return self.replace(chord)
+    if end_task:
+        return self.replace(group | self.app.signature(end_task))
+
+    return self.replace(group)

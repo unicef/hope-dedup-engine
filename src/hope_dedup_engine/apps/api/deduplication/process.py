@@ -7,7 +7,12 @@ from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Findin
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.celery.pipeline import image_pipeline
 from hope_dedup_engine.config.celery import app
-from hope_dedup_engine.utils.celery.task_result import Result, is_error, is_value
+from hope_dedup_engine.utils.celery.task_result import (
+    Result,
+    UnexpectedResultError,
+    is_error,
+    is_value,
+)
 
 
 @app.task
@@ -24,18 +29,18 @@ def clear_findings(deduplication_set_id: str) -> None:
 
 
 @app.task
-def save_pipeline_error(result: Result, deduplication_set_id: str) -> None:
+def finish(result: Result, deduplication_set_id: str) -> None:
     deduplication_set: DeduplicationSet = DeduplicationSet.objects.get(
         id=deduplication_set_id
     )
 
     if is_error(result):
-        # TODO: save error in job
-        pass
-
-    if is_value(result):
+        deduplication_set.state = DeduplicationSet.State.DIRTY
+    elif is_value(result):
         deduplication_set.state = DeduplicationSet.State.CLEAN
-        deduplication_set.save(update_fields=["state"])
+    else:
+        raise UnexpectedResultError(result)
+    deduplication_set.save(update_fields=["state"])
 
     send_notification(deduplication_set.notification_url)
 
@@ -46,10 +51,11 @@ def find_duplicates(self: Task, dedup_job_id: int, version: int) -> None:
     deduplication_set = dedup_job.deduplication_set
 
     config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
+
     pipeline = (
         clear_findings.s(deduplication_set.id)
         | image_pipeline(deduplication_set, config)
-        | save_pipeline_error.s(deduplication_set.id)
+        | finish.s(deduplication_set.id)
     )
 
     return self.replace(pipeline)

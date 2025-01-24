@@ -8,6 +8,7 @@ from hope_dedup_engine.apps.faces.services.facial import (
     find_similar_faces,
 )
 from hope_dedup_engine.config.celery import app
+from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import EntityEmbedding, Filename
 from hope_dedup_engine.utils.celery.task_result import wrapped
 
@@ -108,10 +109,10 @@ def save_encoding_errors_in_findings(deduplication_set_id: str) -> None:
         pk=deduplication_set_id
     )
     embedding_errors = [
-        (reference_pk, deduplication_set.encoding_errors[filename])
+        (reference_pk, FacialError(deduplication_set.encoding_errors[filename]))
         for reference_pk, filename in deduplication_set.image_set.values_list(
             "reference_pk", "filename"
         )
         if filename in deduplication_set.encoding_errors
     ]
-    deduplication_set.update_encoding_errors(embedding_errors)
+    deduplication_set.update_finding_errors(embedding_errors)

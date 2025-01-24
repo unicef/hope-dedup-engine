@@ -2,7 +2,7 @@ from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
 from hope_dedup_engine.types import (
@@ -92,18 +92,20 @@ class DeduplicationSet(models.Model):
         ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
 
     def update_encodings(self, encodings: list[ImageEmbedding]) -> None:
-        fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(
-            pk=self.pk
-        )
-        fresh_self.encodings.update(encodings)
-        fresh_self.save()
+        with transaction.atomic():
+            fresh_self: DeduplicationSet = (
+                DeduplicationSet.objects.select_for_update().get(pk=self.pk)
+            )
+            fresh_self.encodings.update(encodings)
+            fresh_self.save()
 
     def update_encoding_errors(self, errors: list[ImageEmbeddingError]) -> None:
-        fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(
-            pk=self.pk
-        )
-        fresh_self.encoding_errors.update(errors)
-        fresh_self.save()
+        with transaction.atomic():
+            fresh_self: DeduplicationSet = (
+                DeduplicationSet.objects.select_for_update().get(pk=self.pk)
+            )
+            fresh_self.encoding_errors.update(errors)
+            fresh_self.save()
 
     def update_findings(
         self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]

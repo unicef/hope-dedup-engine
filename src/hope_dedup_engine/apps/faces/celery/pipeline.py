@@ -31,5 +31,5 @@ def image_pipeline(
     return (
         encode_images_pipeline
         | find_duplicates_pipeline
-        | save_encoding_errors_in_findings.s(deduplication_set.id)
+        | save_encoding_errors_in_findings.si(deduplication_set.id)
     )
