@@ -9,13 +9,13 @@ from hope_dedup_engine.apps.faces.services.facial import (
 )
 from hope_dedup_engine.config.celery import app
 from hope_dedup_engine.constants import FacialError
-from hope_dedup_engine.types import EntityEmbedding, Filename
+from hope_dedup_engine.types import EntityEmbedding, Filename, SortedTuple
 from hope_dedup_engine.utils.celery.task_result import wrapped
 
 
 @app.task
 @wrapped
-def deduplication_set_image_files(deduplication_set_id: str) -> list[Filename]:
+def get_deduplication_set_image_files(deduplication_set_id: str) -> list[Filename]:
     # TODO: optimize it calculating on DB side
     deduplication_set: DeduplicationSet = DeduplicationSet.objects.get(
         pk=deduplication_set_id
@@ -29,12 +29,13 @@ def deduplication_set_image_files(deduplication_set_id: str) -> list[Filename]:
 @wrapped
 def encode_images(
     images: list[str],
-    config: dict[str, Any],
+    deduplication_set_id: str,
+    encoding_config: dict[str, Any],
 ) -> None:
     """Encode faces in a chunk of files."""
-    encodings, errors = encode_faces(images, config.get("encoding"))
+    encodings, errors = encode_faces(images, encoding_config)
     deduplication_set: DeduplicationSet = DeduplicationSet.objects.get(
-        pk=config.get("deduplication_set_id")
+        pk=deduplication_set_id
     )
     deduplication_set.update_encodings(encodings)
     deduplication_set.update_encoding_errors(errors)
@@ -42,7 +43,7 @@ def encode_images(
 
 @app.task
 @wrapped
-def deduplication_set_embedding_pairs(
+def get_deduplication_set_embedding_pairs(
     deduplication_set_id: str,
 ) -> Iterator[tuple[EntityEmbedding, EntityEmbedding]]:
     deduplication_set: DeduplicationSet = DeduplicationSet.objects.get(
@@ -69,16 +70,13 @@ def filter_ignored_pairs(
     deduplication_set: DeduplicationSet = DeduplicationSet.objects.get(
         pk=deduplication_set_id
     )
-    ignored_pairs = set(deduplication_set.get_ignored_pairs())
+    ignored_pairs = deduplication_set.get_ignored_pairs()
     filtered = []
     for embedding_pair in embedding_pairs:
         first, second = embedding_pair
         first_reference_pk, _ = first
         second_reference_pk, _ = second
-        if (first_reference_pk, second_reference_pk) not in ignored_pairs and (
-            second_reference_pk,
-            first_reference_pk,
-        ) not in ignored_pairs:
+        if SortedTuple((first_reference_pk, second_reference_pk)) not in ignored_pairs:
             filtered.append(embedding_pair)
 
     return filtered
@@ -88,16 +86,15 @@ def filter_ignored_pairs(
 @wrapped
 def find_duplicates(
     embedding_pairs: list[tuple[EntityEmbedding, EntityEmbedding]],
-    config: dict[str, Any],
+    deduplication_set_id: str,
+    deduplicate_config: dict[str, Any],
 ) -> None:
     """Deduplicate faces in a chunk of files."""
-    deduplication_set = DeduplicationSet.objects.get(
-        pk=config.get("deduplication_set_id")
-    )
+    deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_id)
     findings = find_similar_faces(
         embedding_pairs,
-        dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
-        options=config.get("deduplicate"),
+        dedupe_threshold=deduplicate_config.get("threshold"),
+        options=deduplicate_config,
     )
     deduplication_set.update_findings(findings)
 

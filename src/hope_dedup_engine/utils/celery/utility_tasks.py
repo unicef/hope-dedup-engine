@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from itertools import batched
 from typing import Any, NoReturn
 
@@ -13,21 +12,11 @@ SerializedTask = dict[str, Any]
 
 @app.task(bind=True)
 @wrapped
-def map_[
-    T, P
-](self: celery.Task, results: list[T], serialize_task: SerializedTask) -> list[P]:
-    """Celery map/starmap/xmap cannot be used in chain"""
-    signature: Callable[[T], P] = self.app.signature(serialize_task)
-    return list(map(signature, results))
-
-
-@app.task(bind=True)
-@wrapped
 def parallelize(
     self: celery.Task,
     producer: SerializedTask,
     task: SerializedTask,
-    size: int,
+    batch_size: int,
     end_task: SerializedTask | None = None,
 ) -> NoReturn:
     producer_signature = self.app.signature(producer)
@@ -36,7 +25,7 @@ def parallelize(
     signature: canvas.Signature = self.app.signature(task)
 
     signatures = []
-    for batch in batched(data, size):
+    for batch in batched(data, batch_size):
         args = (batch,)
         if isinstance(signature, canvas._chain):
             clone = signature.clone()

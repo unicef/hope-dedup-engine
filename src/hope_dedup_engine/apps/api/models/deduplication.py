@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Any, Final, override
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from hope_dedup_engine.types import (
     ImageEmbedding,
     ImageEmbeddingError,
     Score,
+    SortedTuple,
 )
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -86,10 +88,19 @@ class DeduplicationSet(models.Model):
             )
         )
 
-    def get_ignored_pairs(self) -> list[IgnoredPair]:
-        return list(
-            self.ignoredreferencepkpair_set.values_list("first", "second")
-        ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
+    def get_ignored_pairs(self) -> set[IgnoredPair]:
+        return set(
+            chain(
+                map(
+                    SortedTuple,
+                    self.ignoredreferencepkpair_set.values_list("first", "second"),
+                ),
+                map(
+                    SortedTuple,
+                    list(self.ignoredfilenamepair_set.values_list("first", "second")),
+                ),
+            )
+        )
 
     def update_encodings(self, encodings: list[ImageEmbedding]) -> None:
         with transaction.atomic():
