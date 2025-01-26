@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from typing import Any, cast
 
 from deepface import DeepFace
@@ -57,7 +57,7 @@ def face_similarity(first: Embedding, second: Embedding, **options: Any) -> floa
 
 
 def find_similar_faces(
-    encoded_pairs: list[tuple[EntityEmbedding, EntityEmbedding]],
+    encoded_pairs: Iterable[tuple[EntityEmbedding, EntityEmbedding]],
     dedupe_threshold: float,
     options: dict[str, Any],
 ) -> Generator[tuple[EncodedFace, EncodedFace, float]]:
