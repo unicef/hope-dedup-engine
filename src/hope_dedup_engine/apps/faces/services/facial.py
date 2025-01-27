@@ -1,20 +1,24 @@
 import logging
 from collections.abc import Generator, Iterable
+from itertools import chain
 from typing import Any, cast
 
-# from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
+from django.db import transaction
+
 from deepface import DeepFace
 
-from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Finding, Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
-
-# from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import (
     Embedding,
     EntityEmbedding,
+    EntityEmbeddingError,
+    EntityIgnoredPair,
     Filename,
     ImageEmbedding,
     ImageEmbeddingError,
+    Score,
+    SortedTuple,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,3 +75,84 @@ def find_similar_faces(
         similarity = face_similarity(first_embedding, second_embedding, **options)
         if similarity >= dedupe_threshold:
             yield first_filename, second_filename, similarity
+
+
+def get_referencepk_filename_pairs(
+    deduplication_set: DeduplicationSet,
+) -> Generator[tuple[str, str], None, None]:
+    queryset = Image.objects.filter(deduplication_set=deduplication_set).values_list(
+        "reference_pk", "filename"
+    )
+    for reference_pk, filename in queryset.iterator():
+        yield reference_pk, filename
+
+
+def get_ignored_pairs(deduplication_set: DeduplicationSet) -> set[EntityIgnoredPair]:
+    referencepk_to_filename = dict(get_referencepk_filename_pairs(deduplication_set))
+    return set(
+        chain(
+            map(
+                SortedTuple,
+                (
+                    (
+                        referencepk_to_filename[first],
+                        referencepk_to_filename[second],
+                    )
+                    for first, second in deduplication_set.ignoredreferencepkpair_set.values_list(
+                        "first", "second"
+                    )
+                ),
+            ),
+            map(
+                SortedTuple,
+                deduplication_set.ignoredfilenamepair_set.values_list(
+                    "first", "second"
+                ),
+            ),
+        )
+    )
+
+
+def bulk_create_findings(findings: Iterable[Finding]) -> None:
+    findings_list = list(findings)
+    if findings_list:
+        with transaction.atomic():
+            Finding.objects.bulk_create(findings_list, ignore_conflicts=True)
+        logger.info(f"Created {len(findings_list)} findings.")
+
+
+def update_findings(
+    deduplication_set: DeduplicationSet,
+    findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]],
+) -> None:
+    filename_to_reference_pk = {
+        filename: reference_pk
+        for reference_pk, filename in get_referencepk_filename_pairs(deduplication_set)
+    }
+    findings_to_create = (
+        Finding(
+            deduplication_set=deduplication_set,
+            first_reference_pk=filename_to_reference_pk.get(first_filename),
+            first_filename=first_filename,
+            second_reference_pk=filename_to_reference_pk.get(second_filename),
+            second_filename=second_filename,
+            score=score,
+        )
+        for first_filename, second_filename, score in findings
+    )
+    bulk_create_findings(findings_to_create)
+
+
+def update_finding_errors(
+    deduplication_set: DeduplicationSet, encoding_errors: list[EntityEmbeddingError]
+):
+    errors_to_create = (
+        Finding(
+            deduplication_set=deduplication_set,
+            first_reference_pk=reference_pk,
+            first_filename=filename,
+            status_code=Finding.StatusCode[error].value,
+        )
+        for reference_pk, filename, error in encoding_errors
+    )
+    bulk_create_findings(errors_to_create)

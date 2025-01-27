@@ -5,10 +5,11 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.faces.services.facial import (
     encode_faces,
     find_similar_faces,
+    get_ignored_pairs,
+    update_finding_errors,
+    update_findings,
 )
 from hope_dedup_engine.config.celery import app
-
-# from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import EntityEmbedding, Filename, SortedTuple
 from hope_dedup_engine.utils import compact_pairs
 from hope_dedup_engine.utils.celery.task_result import wrapped
@@ -46,7 +47,7 @@ def filter_ignored_pairs(
     embedding_pairs: Iterable[tuple[EntityEmbedding, EntityEmbedding]],
     deduplication_set: DeduplicationSet,
 ) -> Generator[tuple[EntityEmbedding, EntityEmbedding], None, None]:
-    ignored_pairs = deduplication_set.get_ignored_pairs()
+    ignored_pairs = get_ignored_pairs(deduplication_set)
     for embedding_pair in embedding_pairs:
         first, second = embedding_pair
         first_reference_pk, _ = first
@@ -87,7 +88,7 @@ def find_duplicates(
         dedupe_threshold=deduplicate_config.get("threshold"),
         options=deduplicate_config,
     )
-    deduplication_set.update_findings(findings)
+    update_findings(deduplication_set, findings)
 
 
 @app.task
@@ -97,11 +98,10 @@ def save_encoding_errors_in_findings(deduplication_set_id: str) -> None:
         pk=deduplication_set_id
     )
     embedding_errors = [
-        # (reference_pk, FacialError(deduplication_set.encoding_errors[filename]))
         (reference_pk, filename, deduplication_set.encoding_errors[filename])
         for reference_pk, filename in deduplication_set.image_set.values_list(
             "reference_pk", "filename"
         )
         if filename in deduplication_set.encoding_errors
     ]
-    deduplication_set.update_finding_errors(embedding_errors)
+    update_finding_errors(deduplication_set, embedding_errors)

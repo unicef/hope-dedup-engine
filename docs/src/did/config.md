@@ -42,7 +42,7 @@ To override only the **FACE_DISTANCE_THRESHOLD** parameter, your custom configur
 
 ```json
 {
-  "face_distance_threshols": 0.7
+  "face_distance_threshold": 0.7
 }
 ```
 

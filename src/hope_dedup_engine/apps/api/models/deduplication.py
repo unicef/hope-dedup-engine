@@ -1,4 +1,3 @@
-from itertools import chain
 from typing import Any, Final, override
 from uuid import uuid4
 
@@ -7,18 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
-from hope_dedup_engine.types import (
-    Embedding,
-    EntityEmbedding,
-    EntityEmbeddingError,
-    Filename,
-    Finding,
-    IgnoredPair,
-    ImageEmbedding,
-    ImageEmbeddingError,
-    Score,
-    SortedTuple,
-)
+from hope_dedup_engine.types import ImageEmbedding, ImageEmbeddingError
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 
@@ -65,7 +53,9 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
-    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
+    config = models.ForeignKey(
+        "Config", null=True, blank=True, on_delete=models.SET_NULL
+    )
 
     # TODO: rename to embeddings as it's more correct term
     encodings = models.JSONField(
@@ -79,31 +69,6 @@ class DeduplicationSet(models.Model):
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    def get_encodings(self) -> dict[Filename, Embedding]:
-        return self.encodings
-
-    def get_findings(self) -> list[Finding]:
-        return list(
-            self.finding_set.values_list(
-                "first_reference_pk", "second_reference_pk", "score"
-            )
-        )
-
-    def get_ignored_pairs(self) -> set[IgnoredPair]:
-        return set(
-            chain(
-                map(
-                    SortedTuple,
-                    self.ignoredreferencepkpair_set.values_list("first", "second"),
-                ),
-                map(
-                    SortedTuple,
-                    list(self.ignoredfilenamepair_set.values_list("first", "second")),
-                ),
-            )
-        )
-
-    @transaction.atomic
     def update_encodings(self, encodings: list[ImageEmbedding]) -> None:
         with transaction.atomic():
             fresh_self: DeduplicationSet = (
@@ -112,7 +77,6 @@ class DeduplicationSet(models.Model):
             fresh_self.encodings.update(encodings)
             fresh_self.save()
 
-    @transaction.atomic
     def update_encoding_errors(self, errors: list[ImageEmbeddingError]) -> None:
         with transaction.atomic():
             fresh_self: DeduplicationSet = (
@@ -120,43 +84,6 @@ class DeduplicationSet(models.Model):
             )
             fresh_self.encoding_errors.update(errors)
             fresh_self.save()
-
-    def update_findings(
-        self, findings: list[tuple[EntityEmbedding, EntityEmbedding, Score]]
-    ) -> None:
-        images = Image.objects.filter(deduplication_set=self).values(
-            "filename", "reference_pk"
-        )
-        filename_to_reference_pk = {
-            img["filename"]: img["reference_pk"] for img in images
-        } | {"": ""}
-        findings_to_create = [
-            Finding(
-                deduplication_set=self,
-                first_reference_pk=filename_to_reference_pk.get(first_filename),
-                first_filename=first_filename,
-                second_reference_pk=filename_to_reference_pk.get(second_filename),
-                second_filename=second_filename,
-                score=score,
-            )
-            for first_filename, second_filename, score in findings
-        ]
-        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
-
-    def update_finding_errors(
-        self, encoding_errors: list[EntityEmbeddingError]
-    ) -> None:
-
-        errors_to_create = [
-            Finding(
-                deduplication_set=self,
-                first_reference_pk=reference_pk,
-                first_filename=filename,
-                status_code=Finding.StatusCode[error].value,
-            )
-            for reference_pk, filename, error in encoding_errors
-        ]
-        Finding.objects.bulk_create(errors_to_create, ignore_conflicts=True)
 
 
 class Image(models.Model):
