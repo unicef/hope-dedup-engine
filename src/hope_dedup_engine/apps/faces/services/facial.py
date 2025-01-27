@@ -2,10 +2,12 @@ import logging
 from collections.abc import Generator, Iterable
 from typing import Any, cast
 
+# from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 from deepface import DeepFace
 
 from hope_dedup_engine.apps.api.models import Finding
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+
 # from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import (
     Embedding,
@@ -14,8 +16,6 @@ from hope_dedup_engine.types import (
     ImageEmbedding,
     ImageEmbeddingError,
 )
-from hope_dedup_engine.apps.faces.utils import is_facial_error
-# from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,9 @@ def encode_faces(
         try:
             result = DeepFace.represent(storage.load_image(filename), **(options or {}))
             if len(result) > 1:
-                errors.append((filename, Finding.StatusCode.MULTIPLE_FACES_DETECTED.name))
+                errors.append(
+                    (filename, Finding.StatusCode.MULTIPLE_FACES_DETECTED.name)
+                )
             else:
                 embeddings.append((filename, cast(list[float], result[0]["embedding"])))
         except TypeError as e:
@@ -59,13 +61,13 @@ def face_similarity(first: Embedding, second: Embedding, **options: Any) -> floa
 
 
 def find_similar_faces(
-    encoded_pairs: Iterable[tuple[EntityEmbedding, EntityEmbedding]],
+    embedding_pairs: Iterable[tuple[EntityEmbedding, EntityEmbedding]],
     dedupe_threshold: float,
     options: dict[str, Any],
 ) -> Generator[tuple[EncodedFace, EncodedFace, float]]:
-    for first, second in encoded_pairs:
-        _, first_embedding = first
-        _, second_embedding = second
+    for first, second in embedding_pairs:
+        first_filename, first_embedding = first
+        second_filename, second_embedding = second
         similarity = face_similarity(first_embedding, second_embedding, **options)
         if similarity >= dedupe_threshold:
-            yield first, second, similarity
+            yield first_filename, second_filename, similarity

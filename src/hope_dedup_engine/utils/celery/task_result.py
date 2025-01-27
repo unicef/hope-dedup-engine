@@ -108,7 +108,6 @@ def wrapped(f: Callable) -> Callable:
 
         if args:
             first_arg = handle_result_list(args[0])  # Celery group result
-
             if is_result(first_arg):
                 if is_error(first_arg):
                     mark_propagated(first_arg)

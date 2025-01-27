@@ -7,7 +7,8 @@ from hope_dedup_engine.apps.faces.services.facial import (
     find_similar_faces,
 )
 from hope_dedup_engine.config.celery import app
-from hope_dedup_engine.constants import FacialError
+
+# from hope_dedup_engine.constants import FacialError
 from hope_dedup_engine.types import EntityEmbedding, Filename, SortedTuple
 from hope_dedup_engine.utils import compact_pairs
 from hope_dedup_engine.utils.celery.task_result import wrapped
@@ -64,10 +65,8 @@ def get_deduplication_set_embedding_pairs(
     )
 
     entity_embeddings = tuple(
-        (reference_pk, deduplication_set.encodings[filename])
-        for reference_pk, filename in deduplication_set.image_set.values_list(
-            "reference_pk", "filename"
-        )
+        (filename, deduplication_set.encodings[filename])
+        for filename in deduplication_set.image_set.values_list("filename", flat=True)
         if filename in deduplication_set.encodings
     )
 
@@ -98,7 +97,8 @@ def save_encoding_errors_in_findings(deduplication_set_id: str) -> None:
         pk=deduplication_set_id
     )
     embedding_errors = [
-        (reference_pk, FacialError(deduplication_set.encoding_errors[filename]))
+        # (reference_pk, FacialError(deduplication_set.encoding_errors[filename]))
+        (reference_pk, filename, deduplication_set.encoding_errors[filename])
         for reference_pk, filename in deduplication_set.image_set.values_list(
             "reference_pk", "filename"
         )
