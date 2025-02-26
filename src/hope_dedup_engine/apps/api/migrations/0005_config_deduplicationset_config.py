@@ -28,8 +28,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="deduplicationset",
             name="config",
-            field=models.OneToOneField(
-                null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"
-            ),
+            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"),
         ),
     ]

@@ -22,9 +22,7 @@ def test_can_trigger_deduplication_set_processing_in_any_state(
     start_processing: MagicMock,
     deduplication_set: DeduplicationSet,
 ) -> None:
-    response = api_client.post(
-        reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,))
-    )
+    response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_200_OK
     start_processing.assert_called_once_with(deduplication_set)
 
@@ -35,7 +33,5 @@ def test_cannot_trigger_deduplication_set_processing_when_already_processing(
     deduplication_set: DeduplicationSet,
 ) -> None:
     start_processing.side_effect = AlreadyProcessingError
-    response = api_client.post(
-        reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,))
-    )
+    response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_409_CONFLICT

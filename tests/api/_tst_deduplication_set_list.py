@@ -6,9 +6,7 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from tests.api._api_const import DEDUPLICATION_SET_LIST_VIEW
 
 
-def test_can_list_deduplication_sets(
-    api_client: APIClient, deduplication_set: DeduplicationSet
-) -> None:
+def test_can_list_deduplication_sets(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
     response = api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))
     assert response.status_code == status.HTTP_200_OK
     data = response.json()

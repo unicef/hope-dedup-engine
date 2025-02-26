@@ -15,9 +15,7 @@ from hope_dedup_engine.apps.faces.services.image_processor import BlobFromImageC
 from tests.faces._faces_const import DEPLOY_PROTO_SHAPE, FILENAME, FILENAME_ENCODED
 
 
-def test_init_successful(
-    mock_net_manager: DNNInferenceManager, mock_image_processor, mock_config_defaults
-):
+def test_init_successful(mock_net_manager: DNNInferenceManager, mock_image_processor, mock_config_defaults):
     assert isinstance(mock_image_processor.storages, StorageManager)
     assert mock_image_processor.net is mock_net_manager
     assert isinstance(mock_image_processor.cfg_detection, DetectionConfig)
@@ -76,9 +74,7 @@ def test_get_face_detections_dnn_no_detections(mock_image_processor):
         assert len(face_regions) == 0
 
 
-def test_get_face_detections_dnn_exception(
-    mock_image_processor, mock_open_context_manager
-):
+def test_get_face_detections_dnn_exception(mock_image_processor, mock_open_context_manager):
     with (
         patch.object(
             mock_image_processor.storages.get_storage("images"),
@@ -93,13 +89,9 @@ def test_get_face_detections_dnn_exception(
 
 
 @pytest.mark.parametrize("face_regions_validity", ["valid", "invalid"])
-def test_encode_face(
-    mock_image_processor, image_bytes_io, mock_face_detections, face_regions_validity
-):
+def test_encode_face(mock_image_processor, image_bytes_io, mock_face_detections, face_regions_validity):
     __, face_regions_valid, face_regions_invalid = mock_face_detections
-    face_regions = (
-        face_regions_valid if face_regions_validity == "valid" else face_regions_invalid
-    )
+    face_regions = face_regions_valid if face_regions_validity == "valid" else face_regions_invalid
 
     with (
         patch.object(
@@ -136,15 +128,11 @@ def test_encode_face(
     "method, exception_str",
     ((str("face_encodings"), "Test face_encodings exception"),),
 )
-def test_encode_face_exception_handling(
-    mock_image_processor, mock_net, method: str, exception_str
-):
+def test_encode_face_exception_handling(mock_image_processor, mock_net, method: str, exception_str):
     dnn, imdecode, *_ = mock_net
     with (
         pytest.raises(Exception, match=exception_str),
-        patch.object(
-            face_recognition, method, side_effect=Exception(exception_str)
-        ) as mock_exception,
+        patch.object(face_recognition, method, side_effect=Exception(exception_str)) as mock_exception,
         patch.object(mock_image_processor, "net", dnn),
         patch("cv2.imdecode", imdecode),
         patch.object(mock_image_processor.logger, "exception") as mock_logger_exception,

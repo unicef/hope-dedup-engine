@@ -37,11 +37,7 @@ class Command(BaseCommand):
             if is_complete:
                 self.stdout.write("\n")
 
-        self.stdout.write(
-            self.style.WARNING(
-                MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION
-            )
-        )
+        self.stdout.write(self.style.WARNING(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION))
         logger.info(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION)
 
         try:

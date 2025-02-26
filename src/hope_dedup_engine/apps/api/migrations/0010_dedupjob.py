@@ -25,9 +25,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "version",
-                    concurrency.fields.AutoIncVersionField(
-                        default=0, help_text="record revision number"
-                    ),
+                    concurrency.fields.AutoIncVersionField(default=0, help_text="record revision number"),
                 ),
                 (
                     "curr_async_result_id",

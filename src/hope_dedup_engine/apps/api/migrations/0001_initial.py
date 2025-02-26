@@ -20,9 +20,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("name", models.CharField(max_length=100)),
                 ("reference_pk", models.CharField(max_length=100)),
@@ -137,9 +135,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("reference_pk", models.CharField(max_length=100)),
                 ("filename", models.CharField(max_length=255)),
@@ -186,9 +182,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "unique_together": {
-                    ("deduplication_set", "first_reference_pk", "second_reference_pk")
-                },
+                "unique_together": {("deduplication_set", "first_reference_pk", "second_reference_pk")},
             },
         ),
     ]

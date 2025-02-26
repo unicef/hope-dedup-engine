@@ -9,13 +9,9 @@ from hope_dedup_engine.apps.security.models import User
 from tests.api._api_const import BULK_IMAGE_LIST_VIEW, JSON
 
 
-def test_can_bulk_create_images(
-    api_client: APIClient, deduplication_set: DeduplicationSet
-) -> None:
+def test_can_bulk_create_images(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
     data = ImageSerializer(ImageFactory.build_batch(10), many=True).data
-    response = api_client.post(
-        reverse(BULK_IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON
-    )
+    response = api_client.post(reverse(BULK_IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
     assert response.status_code == status.HTTP_201_CREATED
 
 
@@ -29,15 +25,11 @@ def test_cannot_bulk_create_images_between_systems(
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_deduplication_set_is_updated(
-    api_client: APIClient, user: User, deduplication_set: DeduplicationSet
-) -> None:
+def test_deduplication_set_is_updated(api_client: APIClient, user: User, deduplication_set: DeduplicationSet) -> None:
     assert deduplication_set.updated_by is None
 
     data = ImageSerializer(ImageFactory.build_batch(10), many=True).data
-    response = api_client.post(
-        reverse(BULK_IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON
-    )
+    response = api_client.post(reverse(BULK_IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
 
     assert response.status_code == status.HTTP_201_CREATED
     deduplication_set.refresh_from_db()

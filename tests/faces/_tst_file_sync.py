@@ -37,16 +37,10 @@ def test_create_downloader_failure():
         ({"worker1": "queue", "worker2": "queue"}, 2, True, False),
     ],
 )
-def test_sync_dnn_files(
-    client, active_queues, expected_call_count, multiple_workers, delay_called
-):
+def test_sync_dnn_files(client, active_queues, expected_call_count, multiple_workers, delay_called):
     with (
-        patch(
-            "hope_dedup_engine.apps.faces.admin.celery_app.control.inspect"
-        ) as mock_inspect,
-        patch(
-            "hope_dedup_engine.apps.faces.admin.DummyModelAdmin.message_user"
-        ) as mock_message_user,
+        patch("hope_dedup_engine.apps.faces.admin.celery_app.control.inspect") as mock_inspect,
+        patch("hope_dedup_engine.apps.faces.admin.DummyModelAdmin.message_user") as mock_message_user,
         patch("hope_dedup_engine.apps.faces.admin.sync_dnn_files.s") as mock_s,
         patch("hope_dedup_engine.apps.faces.admin.group") as mock_group,
         patch("hope_dedup_engine.apps.faces.admin.sync_dnn_files.delay") as mock_delay,

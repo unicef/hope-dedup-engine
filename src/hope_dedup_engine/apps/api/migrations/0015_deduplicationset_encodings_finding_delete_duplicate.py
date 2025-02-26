@@ -49,9 +49,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "unique_together": {
-                    ("deduplication_set", "first_reference_pk", "second_reference_pk")
-                },
+                "unique_together": {("deduplication_set", "first_reference_pk", "second_reference_pk")},
             },
         ),
         migrations.DeleteModel(

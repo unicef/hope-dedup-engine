@@ -77,21 +77,15 @@ def test_get_pairs_to_ignore_exception_handling(
 
 
 def test_encodings_filename(mock_dd):
-    assert mock_dd._encodings_filename(FILENAME) == FILENAME_ENCODED_FORMAT.format(
-        FILENAME
-    )
+    assert mock_dd._encodings_filename(FILENAME) == FILENAME_ENCODED_FORMAT.format(FILENAME)
 
 
 @pytest.mark.parametrize("file_exists", [True, False])
 def test_has_encodings(mock_dd, file_exists):
-    with patch.object(
-        mock_dd.storages.get_storage("encoded"), "exists"
-    ) as file_exists_mock:
+    with patch.object(mock_dd.storages.get_storage("encoded"), "exists") as file_exists_mock:
         file_exists_mock.return_value = file_exists
         assert mock_dd._has_encodings(FILENAME) == file_exists
-        mock_dd.storages.get_storage("encoded").exists.assert_called_with(
-            FILENAME_ENCODED_FORMAT.format(FILENAME)
-        )
+        mock_dd.storages.get_storage("encoded").exists.assert_called_with(FILENAME_ENCODED_FORMAT.format(FILENAME))
 
 
 def test_load_encodings_all_exception_handling_listdir(mock_dd):
@@ -128,9 +122,7 @@ def test_load_encodings_all_exception_handling_open(mock_dd):
         mock_dd._load_encodings_all()
 
         mock_listdir.assert_called_once_with("")
-        mock_open.assert_called_once_with(
-            FILENAME_ENCODED_FORMAT.format(FILENAME), "rb"
-        )
+        mock_open.assert_called_once_with(FILENAME_ENCODED_FORMAT.format(FILENAME), "rb")
         mock_logger_exception.assert_called_once()
 
 
@@ -146,9 +138,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
             return mock_open_data[filename]
         return BytesIO()
 
-    mock_open_data = {
-        FILENAME_ENCODED_FORMAT.format(filename): BytesIO() for filename in filenames
-    }
+    mock_open_data = {FILENAME_ENCODED_FORMAT.format(filename): BytesIO() for filename in filenames}
     for _, data in mock_open_data.items():
         np.save(data, np.array([1, 2, 3]))
         data.seek(0)
@@ -162,9 +152,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
                 [FILENAME_ENCODED_FORMAT.format(filename) for filename in filenames],
             ),
         ),
-        patch.object(
-            mock_dd.storages.get_storage("encoded"), "open", side_effect=open_mock
-        ),
+        patch.object(mock_dd.storages.get_storage("encoded"), "open", side_effect=open_mock),
         patch.object(mock_dd, "_has_encodings", return_value=True),
     ):
         result = mock_dd._load_encodings_all()
@@ -236,9 +224,7 @@ def test_find_duplicates_successfull(
             side_effect=image_bytes_io.fake_open,
         ),
         patch.object(mock_dd, "_has_encodings", return_value=has_encodings),
-        patch.object(
-            mock_dd, "_load_encodings_all", return_value=mock_encodings
-        ) as mock_load_encodings,
+        patch.object(mock_dd, "_load_encodings_all", return_value=mock_encodings) as mock_load_encodings,
         patch.object(mock_dd.image_processor, "encode_face"),
         patch(
             "face_recognition.face_distance",
@@ -279,9 +265,7 @@ def test_find_duplicates_exception_handling(
             "open",
             side_effect=image_bytes_io.fake_open,
         ),
-        patch.object(
-            mock_dd, "_load_encodings_all", side_effect=Exception("Test exception")
-        ),
+        patch.object(mock_dd, "_load_encodings_all", side_effect=Exception("Test exception")),
         patch.object(mock_dd.logger, "exception") as mock_logger_exception,
     ):
         list(mock_dd.find_duplicates())

@@ -98,8 +98,6 @@ def dedupe_images(  # noqa 901
             if is_facial_error(dup[0]):
                 results.append((img, "", 0, Image.StatusCode[dup[0]].value))
             else:
-                results.append(
-                    (img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value)
-                )
+                results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
 
     return results

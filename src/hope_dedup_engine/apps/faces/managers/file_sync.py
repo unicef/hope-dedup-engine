@@ -66,17 +66,13 @@ class FileDownloader:
 
         try:
             with lock:
-                return self._execute_download(
-                    local_filepath, file_source, on_progress=on_progress, **kwargs
-                )
+                return self._execute_download(local_filepath, file_source, on_progress=on_progress, **kwargs)
         except Timeout:
             return self.MESSAGES.get("downloading")
         finally:
             self._cleanup_lock(lock)
 
-    def _should_skip_download(
-        self, local_filepath: Path, lock: FileLock, force: bool
-    ) -> bool:
+    def _should_skip_download(self, local_filepath: Path, lock: FileLock, force: bool) -> bool:
         """Determine if the download should be skipped."""
         if force:
             return None
@@ -199,17 +195,13 @@ class GithubFileDownloader(FileDownloader):
             total, downloaded = int(r.headers.get("Content-Length", 1)), 0
 
             if total == 0:
-                raise FileNotFoundError(
-                    self.MESSAGES.get("empty_file") % (local_filepath.name, url)
-                )
+                raise FileNotFoundError(self.MESSAGES.get("empty_file") % (local_filepath.name, url))
 
             with local_filepath.open("wb") as f:
                 for chunk in r.iter_content(chunk_size=chunk_size):
                     f.write(chunk)
                     downloaded += len(chunk)
-                    self._report_progress(
-                        local_filepath.name, downloaded, total, on_progress
-                    )
+                    self._report_progress(local_filepath.name, downloaded, total, on_progress)
         return self.MESSAGES.get("done")
 
 
@@ -231,9 +223,7 @@ class AzureFileDownloader(FileDownloader):
         Initializes the AzureFileDownloader with a remote storage backend.
         """
         super().__init__(local_base_location)
-        self.remote_storage = AzureStorage(
-            **settings.STORAGES.get("dnn").get("OPTIONS")
-        )
+        self.remote_storage = AzureStorage(**settings.STORAGES.get("dnn").get("OPTIONS"))
 
     def _execute_download(
         self,
@@ -271,9 +261,7 @@ class AzureFileDownloader(FileDownloader):
                 for chunk in remote_file.chunks(chunk_size=chunk_size):
                     local_file.write(chunk)
                     downloaded += len(chunk)
-                    self._report_progress(
-                        local_filepath.name, downloaded, blob_size, on_progress
-                    )
+                    self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
 
         return self.MESSAGES.get("done")
 

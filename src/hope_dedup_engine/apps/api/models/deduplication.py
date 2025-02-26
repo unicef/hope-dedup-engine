@@ -24,9 +24,7 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
 
     id = models.UUIDField(primary_key=True, default=uuid4)
-    name = models.CharField(
-        max_length=128, unique=True, null=True, blank=True, db_index=True
-    )
+    name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
     description = models.TextField(null=True, blank=True)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(
@@ -55,9 +53,7 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
-    encodings = models.JSONField(
-        null=True, blank=True, default=dict
-    )  # {file1: encoding1, file2: encoding2, ...}
+    encodings = models.JSONField(null=True, blank=True, default=dict)  # {file1: encoding1, file2: encoding2, ...}
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
@@ -66,28 +62,20 @@ class DeduplicationSet(models.Model):
         return self.encodings
 
     def get_findings(self) -> FindingType:
-        return list(
-            self.finding_set.values_list(
-                "first_reference_pk", "second_reference_pk", "score"
-            )
-        )
+        return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
 
     def get_ignored_pairs(self) -> IgnoredPairType:
-        return list(
-            self.ignoredreferencepkpair_set.values_list("first", "second")
-        ) + list(self.ignoredfilenamepair_set.values_list("first", "second"))
+        return list(self.ignoredreferencepkpair_set.values_list("first", "second")) + list(
+            self.ignoredfilenamepair_set.values_list("first", "second")
+        )
 
     def update_encodings(self, encodings: EncodingType) -> None:
         self.encodings.update(encodings)
         self.save()
 
     def update_findings(self, findings: FindingType) -> None:
-        images = Image.objects.filter(deduplication_set=self).values(
-            "filename", "reference_pk"
-        )
-        filename_to_reference_pk = {
-            img["filename"]: img["reference_pk"] for img in images
-        } | {"": ""}
+        images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
+        filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
         findings_to_create = [
             Finding(
                 deduplication_set=self,
@@ -135,22 +123,16 @@ class Finding(models.Model):
     """
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(
-        max_length=REFERENCE_PK_LENGTH, verbose_name="First reference"
-    )
+    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
     first_filename = models.CharField(default="", max_length=255)
-    second_reference_pk = models.CharField(
-        default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference"
-    )
+    second_reference_pk = models.CharField(default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference")
     second_filename = models.CharField(default="", max_length=255)
     score = models.FloatField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         verbose_name="Similarity Score",
     )
-    status_code = models.IntegerField(
-        choices=Image.StatusCode.choices, default=Image.StatusCode.DEDUPLICATE_SUCCESS
-    )
+    status_code = models.IntegerField(choices=Image.StatusCode.choices, default=Image.StatusCode.DEDUPLICATE_SUCCESS)
 
     class Meta:
         unique_together = (

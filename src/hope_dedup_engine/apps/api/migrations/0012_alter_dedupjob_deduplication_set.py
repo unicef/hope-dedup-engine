@@ -13,8 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="dedupjob",
             name="deduplication_set",
-            field=models.OneToOneField(
-                on_delete=django.db.models.deletion.CASCADE, to="api.deduplicationset"
-            ),
+            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to="api.deduplicationset"),
         ),
     ]

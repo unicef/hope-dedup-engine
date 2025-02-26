@@ -12,9 +12,7 @@ FILES_PATTERN: Final[tuple[str]] = ("*.png", "*.jpg", "*.jpeg")
 
 class ImagesStorageManager:
     def __init__(self) -> None:
-        self.storage: AzureStorage = AzureStorage(
-            **settings.STORAGES.get("hope").get("OPTIONS")
-        )
+        self.storage: AzureStorage = AzureStorage(**settings.STORAGES.get("hope").get("OPTIONS"))
 
     def get_files(self, pattern: tuple = FILES_PATTERN) -> list[str]:
         _, images = self.storage.listdir("")

@@ -11,12 +11,8 @@ from hope_dedup_engine.apps.security.models import User
 from tests.api._api_const import IGNORED_FILENAME_LIST_VIEW, JSON
 
 
-def test_can_create_ignored_filename_pair(
-    api_client: APIClient, deduplication_set: DeduplicationSet
-) -> None:
-    previous_amount = IgnoredFilenamePair.objects.filter(
-        deduplication_set=deduplication_set
-    ).count()
+def test_can_create_ignored_filename_pair(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    previous_amount = IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count()
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
 
     response = api_client.post(
@@ -25,18 +21,13 @@ def test_can_create_ignored_filename_pair(
         format=JSON,
     )
     assert response.status_code == status.HTTP_201_CREATED
-    assert (
-        IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count()
-        == previous_amount + 1
-    )
+    assert IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count() == previous_amount + 1
 
 
 def test_cannot_create_ignored_filename_pair_between_systems(
     another_system_api_client: APIClient, deduplication_set: DeduplicationSet
 ) -> None:
-    previous_amount = IgnoredFilenamePair.objects.filter(
-        deduplication_set=deduplication_set
-    ).count()
+    previous_amount = IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count()
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
 
     response = another_system_api_client.post(
@@ -45,10 +36,7 @@ def test_cannot_create_ignored_filename_pair_between_systems(
         format=JSON,
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert (
-        IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count()
-        == previous_amount
-    )
+    assert IgnoredFilenamePair.objects.filter(deduplication_set=deduplication_set).count() == previous_amount
 
 
 INVALID_FILENAME_VALUES = "", None
@@ -77,9 +65,7 @@ def test_invalid_values_handling(
     assert "second" in errors
 
 
-def test_missing_filename_handling(
-    api_client: APIClient, deduplication_set: DeduplicationSet
-) -> None:
+def test_missing_filename_handling(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
     del data["first"], data["second"]
 
@@ -94,9 +80,7 @@ def test_missing_filename_handling(
     assert "second" in errors
 
 
-def test_deduplication_set_is_updated(
-    api_client: APIClient, user: User, deduplication_set: DeduplicationSet
-) -> None:
+def test_deduplication_set_is_updated(api_client: APIClient, user: User, deduplication_set: DeduplicationSet) -> None:
     assert deduplication_set.updated_by is None
 
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data

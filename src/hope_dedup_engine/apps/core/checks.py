@@ -73,12 +73,8 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
 
     errors = [
         Error(
-            StorageErrorCodes.ENVIRONMENT_NOT_CONFIGURED.message.format(
-                storage=storage
-            ),
-            hint=StorageErrorCodes.ENVIRONMENT_NOT_CONFIGURED.hint.format(
-                storage=storage
-            ),
+            StorageErrorCodes.ENVIRONMENT_NOT_CONFIGURED.message.format(storage=storage),
+            hint=StorageErrorCodes.ENVIRONMENT_NOT_CONFIGURED.hint.format(storage=storage),
             obj=storage,
             id=StorageErrorCodes.ENVIRONMENT_NOT_CONFIGURED.id,
         )
@@ -95,12 +91,8 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
             except Exception:
                 errors.append(
                     Error(
-                        StorageErrorCodes.STORAGE_CHECK_FAILED.message.format(
-                            storage_name=storage_name
-                        ),
-                        hint=StorageErrorCodes.STORAGE_CHECK_FAILED.hint.format(
-                            storage_name=storage_name
-                        ),
+                        StorageErrorCodes.STORAGE_CHECK_FAILED.message.format(storage_name=storage_name),
+                        hint=StorageErrorCodes.STORAGE_CHECK_FAILED.hint.format(storage_name=storage_name),
                         obj=storage_name,
                         id=StorageErrorCodes.STORAGE_CHECK_FAILED.id,
                     )
