@@ -40,7 +40,6 @@ class CreateConfigSerializer(ConfigSerializer):
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = DeduplicationSet
         fields = ("reference_pk", "notification_url")

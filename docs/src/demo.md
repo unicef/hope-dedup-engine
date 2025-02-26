@@ -4,7 +4,7 @@ To help you explore the functionality of this project, a demo server can be run 
 ## Running the Demo Server Locally
 
 To set up and start the demo server locally, use the following command:
-    
+
     docker compose -f tests/extras/demoapp/compose.yml up --build
 
 This command will build and launch all necessary containers for the demo environment, allowing you to see how different components of the system interact. Once everything is running, you can access the demo server's admin panel to manage and configure various settings within the application.

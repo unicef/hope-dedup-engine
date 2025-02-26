@@ -32,7 +32,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: dict[str, Any]) -> None:
-
         def on_progress(filename: str, percent: int, is_complete: bool = False) -> None:
             self.stdout.write(MESSAGES["progress"] % (filename, percent), ending="")
             if is_complete:

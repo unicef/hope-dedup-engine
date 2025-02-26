@@ -22,7 +22,6 @@ def encode_faces(
     pre_encodings=None,
     progress=None,
 ) -> tuple[EncodingType, int, int]:
-
     if not callable(progress):
         progress = default_progress
 
@@ -65,7 +64,6 @@ def dedupe_images(  # noqa 901
     options: dict[str, Any] = None,
     progress=None,
 ) -> FindingType:
-
     if not callable(progress):
         progress = default_progress
 

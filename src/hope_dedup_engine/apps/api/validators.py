@@ -7,7 +7,6 @@ def extend_with_default(validator_class):
 
     def set_defaults(validator, properties, instance, schema):
         for property, subschema in properties.items():
-
             if "default" in subschema:
                 default_value = subschema["default"]
                 if isinstance(default_value, str) and default_value.startswith(

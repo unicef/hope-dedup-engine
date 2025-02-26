@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0009_remove_config_face_distance_threshold_config_name_and_more"),
     ]
