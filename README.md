@@ -13,7 +13,7 @@ ABOUT HOPE Deduplication Engine
 #### Display the Current Configuration
 
     $ docker run -it -t  unicef/hope-dedupe-engine:release-0.1 django-admin env
-    
+
 #### Check Mandatory Environment Variables
 
     $ docker run -it -t  unicef/hope-dedupe-engine:release-0.1 django-admin env --check
@@ -73,7 +73,7 @@ This backend is dedicated to storing DNN model files. Ensure that the following 
     $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1
     $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1 worker
     $ docker run -d -t  unicef/hope-dedupe-engine:release-0.1 beat
-    
+
 ## Demo application
 
 #### To run locally demo server with the provided sample data
@@ -96,7 +96,7 @@ To develop the service locally, use the provided `compose.yml` file. This will s
     $ docker compose up --build
 
 To run the tests, use:
-    
+
     $ docker compose run --rm backend pytest tests -v --create-db
 
 After running the tests, you can view the coverage report at the `~build/coverage` directory.

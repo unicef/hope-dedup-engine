@@ -18,8 +18,7 @@ def setting(anchor: str) -> str:
 
 def celery_doc(anchor: str) -> str:
     return (
-        f"@see https://docs.celeryq.dev/en/stable/"
-        f"userguide/configuration.html#{anchor}"
+        f"@see https://docs.celeryq.dev/en/stable/userguide/configuration.html#{anchor}"
     )
 
 

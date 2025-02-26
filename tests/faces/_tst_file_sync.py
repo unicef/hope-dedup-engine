@@ -51,7 +51,6 @@ def test_sync_dnn_files(
         patch("hope_dedup_engine.apps.faces.admin.group") as mock_group,
         patch("hope_dedup_engine.apps.faces.admin.sync_dnn_files.delay") as mock_delay,
     ):
-
         mock_inspect.return_value.active_queues.return_value = active_queues
 
         url = reverse("admin:faces_dummymodel_sync_dnn_files")

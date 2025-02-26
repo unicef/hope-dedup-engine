@@ -5,7 +5,7 @@ tags:
 
 ## Prerequisites
 
-This project utilizes [UV](https://docs.astral.sh/uv/) as the package manager for managing Python dependencies and environments. 
+This project utilizes [UV](https://docs.astral.sh/uv/) as the package manager for managing Python dependencies and environments.
 
 To successfully set up and run this project, ensure that you have the following components in place:
 
@@ -31,7 +31,7 @@ Check Environment Variables
     $ docker run -it -t  unicef/hope-dedupe-engine:release-0.x django-admin env --check
 
 Ensure the following environment variables are properly configured:
-    
+
     ADMIN_EMAIL
     ADMIN_PASSWORD
     ALLOWED_HOSTS

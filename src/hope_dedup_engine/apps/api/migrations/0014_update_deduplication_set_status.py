@@ -14,7 +14,6 @@ def forwards_func(apps, _):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0013_remove_deduplicationset_state_value_and_more"),
     ]

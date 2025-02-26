@@ -53,7 +53,7 @@ def test_can_filter_by_reference_pk(
     filter_value_getter: Callable[[Duplicate], str],
     expected_amount: int,
 ) -> None:
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk, ))}?" + urlencode(
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
         {REFERENCE_PK: filter_value_getter(duplicate)}
     )
     response = api_client.get(url)

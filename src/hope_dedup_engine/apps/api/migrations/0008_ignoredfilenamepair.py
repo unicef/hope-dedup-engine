@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0007_rename_ignoredkeypair_ignoredreferencepkpair_and_more"),
     ]

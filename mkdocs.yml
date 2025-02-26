@@ -79,7 +79,7 @@ plugins:
   #       - docs/_scripts/get_settings.py
   - panzoom:
       full_screen: true
-                         
+
 watch:
   - src/
 

@@ -11,7 +11,6 @@ from hope_dedup_engine.config.celery import app as celery_app
 
 # @admin.register(DummyModel)
 class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
-
     change_list_template = "admin/faces/dummymodel/change_list.html"
 
     def get_queryset(self, request):

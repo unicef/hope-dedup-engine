@@ -9,7 +9,7 @@ If you need to rerun the entire cycle of image processing and duplicate detectio
 
 To do this:
 
-1. Navigate to:  
+1. Navigate to:
 
         Home › Api › Dedup jobs
 
@@ -17,11 +17,11 @@ To do this:
 
 3. Click the **Queue** button to restart the job. This action will delete all previous findings and process the images again from scratch.
 
-You can monitor the **status** of the Celery tasks related to this process by navigating to:  
+You can monitor the **status** of the Celery tasks related to this process by navigating to:
 
         Home › Celery Results › Task results
 
-This feature is particularly **useful** if:  
+This feature is particularly **useful** if:
 
 - You have updated the configuration of the deuplications set.
 

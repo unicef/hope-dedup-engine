@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -19,20 +18,34 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="DeduplicationSet",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("name", models.CharField(max_length=100)),
                 ("reference_pk", models.CharField(max_length=100)),
                 (
                     "state",
                     models.IntegerField(
-                        choices=[(0, "Clean"), (1, "Dirty"), (2, "Processing"), (3, "Error")], default=0
+                        choices=[
+                            (0, "Clean"),
+                            (1, "Dirty"),
+                            (2, "Processing"),
+                            (3, "Error"),
+                        ],
+                        default=0,
                     ),
                 ),
                 ("deleted", models.BooleanField(default=False)),
                 ("error", models.CharField(blank=True, max_length=255, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
-                ("notification_url", models.CharField(blank=True, max_length=255, null=True)),
+                (
+                    "notification_url",
+                    models.CharField(blank=True, max_length=255, null=True),
+                ),
                 (
                     "created_by",
                     models.ForeignKey(
@@ -45,7 +58,10 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "external_system",
-                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="security.externalsystem"),
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="security.externalsystem",
+                    ),
                 ),
                 (
                     "updated_by",
@@ -62,7 +78,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Duplicate",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("first_reference_pk", models.CharField(max_length=100)),
                 ("first_filename", models.CharField(max_length=255)),
                 ("second_reference_pk", models.CharField(max_length=100)),
@@ -70,15 +94,29 @@ class Migration(migrations.Migration):
                 ("score", models.FloatField()),
                 (
                     "deduplication_set",
-                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="api.deduplicationset"),
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="api.deduplicationset",
+                    ),
                 ),
             ],
         ),
         migrations.CreateModel(
             name="HDEToken",
             fields=[
-                ("key", models.CharField(max_length=40, primary_key=True, serialize=False, verbose_name="Key")),
-                ("created", models.DateTimeField(auto_now_add=True, verbose_name="Created")),
+                (
+                    "key",
+                    models.CharField(
+                        max_length=40,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="Key",
+                    ),
+                ),
+                (
+                    "created",
+                    models.DateTimeField(auto_now_add=True, verbose_name="Created"),
+                ),
                 (
                     "user",
                     models.ForeignKey(
@@ -97,7 +135,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Image",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("reference_pk", models.CharField(max_length=100)),
                 ("filename", models.CharField(max_length=255)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -113,23 +156,39 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "deduplication_set",
-                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="api.deduplicationset"),
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="api.deduplicationset",
+                    ),
                 ),
             ],
         ),
         migrations.CreateModel(
             name="IgnoredKeyPair",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("first_reference_pk", models.CharField(max_length=100)),
                 ("second_reference_pk", models.CharField(max_length=100)),
                 (
                     "deduplication_set",
-                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="api.deduplicationset"),
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="api.deduplicationset",
+                    ),
                 ),
             ],
             options={
-                "unique_together": {("deduplication_set", "first_reference_pk", "second_reference_pk")},
+                "unique_together": {
+                    ("deduplication_set", "first_reference_pk", "second_reference_pk")
+                },
             },
         ),
     ]

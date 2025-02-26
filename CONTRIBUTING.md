@@ -9,17 +9,17 @@
 
 
 
-**WARNING**  
+**WARNING**
 > Hope Deduplication Engine implements **security first** policy. It means that configuration default values are "almost" production compliant.
-> 
-> Es. `DEBUG=False` or `SECURE_SSL_REDIRECT=True`. 
-> 
+>
+> Es. `DEBUG=False` or `SECURE_SSL_REDIRECT=True`.
+>
 > Be sure to run `./manage.py env --check` and  `./manage.py env -g all` to check and display your configuration
- 
+
 
 
 ### 1. Clone repo and install requirements
-    git clone https://github.com/unicef/hope-dedup-engine 
+    git clone https://github.com/unicef/hope-dedup-engine
     pdm venv create 3.11
     pdm install
     pdm venv activate in-project
@@ -27,7 +27,7 @@
 
 ### 2. configure your environment
 
-Uses `./manage.py env` to check required (and optional) variables to put 
+Uses `./manage.py env` to check required (and optional) variables to put
 
     ./manage.py env --check
 

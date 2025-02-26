@@ -32,8 +32,8 @@ permissions:
 
 jobs:
   changes:
-    if: (github.event_name != 'pull_request' 
-            || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name) 
+    if: (github.event_name != 'pull_request'
+            || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
             || github.event_name == 'create'
     runs-on: ubuntu-latest
     timeout-minutes: 1
@@ -54,12 +54,12 @@ jobs:
           filters: .github/file-filters.yml
       - name: info
         shell: bash
-        run: |         
+        run: |
           github_ref="${{ github.ref }}"
           force_build="${{ contains(github.event.head_commit.message, 'ci:build') || contains(github.event.head_commit.message, 'ci:release')}}"
           force_scan="${{ contains(github.event.head_commit.message, 'ci:scan') }}"
           force_test="${{ contains(github.event.head_commit.message, 'ci:test') }}"
-          
+
           if [[ $force_build == "true" ]]; then
             echo "::notice:: Forced build docker due to commit message"
           elif [[ $force_test == "true" ]]; then
@@ -67,7 +67,7 @@ jobs:
           elif [[ $force_scan == "true" ]]; then
             echo "::notice:: Forced trivy scan due to commit message"
           fi
-          if [[ $force_build == "true" || "${{steps.changed-files.outputs.run_tests}}" == "true" ]]; then 
+          if [[ $force_build == "true" || "${{steps.changed-files.outputs.run_tests}}" == "true" ]]; then
               echo "BUILD=true" >> $GITHUB_ENV
           fi
 
@@ -102,9 +102,9 @@ jobs:
   test:
     name: Run Test Suite
     needs: [ changes,build ]
-    if: (needs.changes.outputs.run_tests == 'true' 
-        || contains(github.event.head_commit.message, 'ci:test') 
-        || contains(github.event.head_commit.message, 'ci:all') 
+    if: (needs.changes.outputs.run_tests == 'true'
+        || contains(github.event.head_commit.message, 'ci:test')
+        || contains(github.event.head_commit.message, 'ci:all')
         || github.event_name == 'create')
     runs-on: ubuntu-latest
     services:
@@ -160,11 +160,11 @@ jobs:
 
   deployable:
     if:
-      contains(github.ref, '/release/') 
-      || endsWith(github.ref, '/develop') 
-      || endsWith(github.ref, '/master') 
-      || endsWith(github.ref, '/staging') 
-      || contains(github.event.head_commit.message, 'ci:release') 
+      contains(github.ref, '/release/')
+      || endsWith(github.ref, '/develop')
+      || endsWith(github.ref, '/master')
+      || endsWith(github.ref, '/staging')
+      || contains(github.event.head_commit.message, 'ci:release')
       || contains(github.event.head_commit.message, 'ci:all')
 
     name: "Build deployable Docker"
@@ -206,9 +206,9 @@ jobs:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    if: needs.release.outputs.created == 'true' 
-      || contains(github.event.head_commit.message, 'ci:scan') 
-      || contains(github.event.head_commit.message, 'ci:all') 
+    if: needs.release.outputs.created == 'true'
+      || contains(github.event.head_commit.message, 'ci:scan')
+      || contains(github.event.head_commit.message, 'ci:all')
       || github.event_name == 'create'
     steps:
       - name: Checkout code
