@@ -37,9 +37,7 @@ register(
 )
 register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(
-    IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set")
-)
+register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(ConfigFactory)
 register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 
@@ -83,9 +81,7 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 
 @fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch(
-        "hope_dedup_engine.apps.api.deduplication.process.send_notification"
-    )
+    return mocker.patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
 
 
 @fixture

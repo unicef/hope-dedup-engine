@@ -9,12 +9,8 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 @dataclass
 class ModelOptions:
-    model_name: str = field(
-        default_factory=lambda: constance_cfg.FACE_RECOGNITION_MODEL
-    )
-    detector_backend: str = field(
-        default_factory=lambda: constance_cfg.FACE_DETECTOR_BACKEND
-    )
+    model_name: str = field(default_factory=lambda: constance_cfg.FACE_RECOGNITION_MODEL)
+    detector_backend: str = field(default_factory=lambda: constance_cfg.FACE_DETECTOR_BACKEND)
 
     def update(self, overrides: dict[str, Any]) -> None:
         for k, v in overrides.items():
@@ -29,9 +25,7 @@ class EncodingOptions(ModelOptions):
 
 @dataclass
 class DeduplicateOptions(ModelOptions):
-    threshold: float = field(
-        default_factory=lambda: constance_cfg.FACE_DISTANCE_THRESHOLD
-    )
+    threshold: float = field(default_factory=lambda: constance_cfg.FACE_DISTANCE_THRESHOLD)
     silent: bool = True
 
 

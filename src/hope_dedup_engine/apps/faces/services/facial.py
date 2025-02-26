@@ -22,7 +22,6 @@ def encode_faces(
     pre_encodings=None,
     progress=None,
 ) -> tuple[EncodingType, int, int]:
-
     if not callable(progress):
         progress = default_progress
 
@@ -65,7 +64,6 @@ def dedupe_images(  # noqa 901
     options: dict[str, Any] = None,
     progress=None,
 ) -> FindingType:
-
     if not callable(progress):
         progress = default_progress
 
@@ -100,8 +98,6 @@ def dedupe_images(  # noqa 901
             if is_facial_error(dup[0]):
                 results.append((img, "", 0, Image.StatusCode[dup[0]].value))
             else:
-                results.append(
-                    (img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value)
-                )
+                results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
 
     return results

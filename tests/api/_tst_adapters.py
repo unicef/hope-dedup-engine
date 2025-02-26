@@ -14,9 +14,7 @@ pytestmark = mark.django_db
 
 @fixture
 def duplication_detector(mocker: MockerFixture) -> Any:
-    yield mocker.patch(
-        "hope_dedup_engine.apps.api.deduplication.adapters.DuplicationDetector"
-    )
+    yield mocker.patch("hope_dedup_engine.apps.api.deduplication.adapters.DuplicationDetector")
 
 
 def test_duplicate_face_finder_uses_duplication_detector(

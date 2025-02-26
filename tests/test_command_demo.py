@@ -46,9 +46,7 @@ def test_demo_handle_success(environment, mock_azurite_manager):
         (Exception("Unknown error"), SystemExit),
     ],
 )
-def test_demo_handle_exception(
-    environment, mock_azurite_manager, side_effect, expected_exception
-):
+def test_demo_handle_exception(environment, mock_azurite_manager, side_effect, expected_exception):
     mock_azurite_manager.side_effect = side_effect
     out = StringIO()
     with (

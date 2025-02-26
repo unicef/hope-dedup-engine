@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0015_deduplicationset_encodings_finding_delete_duplicate"),
     ]
@@ -54,8 +53,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="finding",
             name="second_reference_pk",
-            field=models.CharField(
-                default="", max_length=100, verbose_name="Second reference"
-            ),
+            field=models.CharField(default="", max_length=100, verbose_name="Second reference"),
         ),
     ]

@@ -11,9 +11,7 @@ class DuplicateFaceFinder:
         self.tracker = None
         self.deduplication_set = deduplication_set
 
-    def run(
-        self, tracker: Callable[[int], None] | None = None
-    ) -> Generator[DuplicateKeyPair, None, None]:
+    def run(self, tracker: Callable[[int], None] | None = None) -> Generator[DuplicateKeyPair, None, None]:
         ...
         # filename_to_reference_pk = {
         #     filename: reference_pk

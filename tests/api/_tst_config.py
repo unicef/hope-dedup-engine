@@ -16,9 +16,7 @@ def test_response_change_redirects_to_confirm_save_if_related_objects_exist(
     confirm_url = reverse("admin:confirm_save_config", args=[config_instance.pk])
     form_data = {
         "name": "Updated Config",
-        "settings": json.dumps(
-            {"detection": {"confidence": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()}}
-        ),
+        "settings": json.dumps({"detection": {"confidence": fuzzy.FuzzyFloat(0.1, 1.0).fuzz()}}),
     }
 
     response = admin_client.post(change_url, form_data)
@@ -30,6 +28,4 @@ def test_response_change_redirects_to_confirm_save_if_related_objects_exist(
     assert response.wsgi_request.path == confirm_url
 
     messages = [str(msg) for msg in get_messages(response.context["request"])]
-    assert all(
-        any(str(dd_set) in msg for msg in messages) for dd_set in deduplication_sets
-    )
+    assert all(any(str(dd_set) in msg for msg in messages) for dd_set in deduplication_sets)

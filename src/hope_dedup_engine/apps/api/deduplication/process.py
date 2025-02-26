@@ -83,14 +83,11 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
     deduplication_set = dedup_job.deduplication_set
     try:
-
         deduplication_set.state = DeduplicationSet.State.DIRTY
         deduplication_set.save(update_fields=["state"])
         send_notification(deduplication_set.notification_url)
 
-        config = asdict(
-            DeduplicationSetConfig.from_deduplication_set(deduplication_set)
-        )
+        config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
 
         # clean results
         Finding.objects.filter(deduplication_set=deduplication_set).delete()

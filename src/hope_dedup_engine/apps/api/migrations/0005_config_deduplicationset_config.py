@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0004_remove_deduplicationset_error_and_more"),
     ]
@@ -29,8 +28,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="deduplicationset",
             name="config",
-            field=models.OneToOneField(
-                null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"
-            ),
+            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"),
         ),
     ]

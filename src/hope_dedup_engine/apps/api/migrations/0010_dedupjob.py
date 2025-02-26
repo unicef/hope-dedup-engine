@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0009_remove_config_face_distance_threshold_config_name_and_more"),
     ]
@@ -26,9 +25,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "version",
-                    concurrency.fields.AutoIncVersionField(
-                        default=0, help_text="record revision number"
-                    ),
+                    concurrency.fields.AutoIncVersionField(default=0, help_text="record revision number"),
                 ),
                 (
                     "curr_async_result_id",

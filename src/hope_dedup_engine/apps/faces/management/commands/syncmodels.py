@@ -32,17 +32,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: dict[str, Any]) -> None:
-
         def on_progress(filename: str, percent: int, is_complete: bool = False) -> None:
             self.stdout.write(MESSAGES["progress"] % (filename, percent), ending="")
             if is_complete:
                 self.stdout.write("\n")
 
-        self.stdout.write(
-            self.style.WARNING(
-                MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION
-            )
-        )
+        self.stdout.write(self.style.WARNING(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION))
         logger.info(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION)
 
         try:

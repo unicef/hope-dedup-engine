@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0012_alter_dedupjob_deduplication_set"),
     ]
@@ -17,8 +16,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="deduplicationset",
             name="state",
-            field=models.IntegerField(
-                choices=[(0, "Clean"), (1, "Dirty")], db_column="state", default=0
-            ),
+            field=models.IntegerField(choices=[(0, "Clean"), (1, "Dirty")], db_column="state", default=0),
         ),
     ]

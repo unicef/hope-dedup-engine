@@ -10,9 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class AzuriteManager:  # pragma: no cover
-    def __init__(
-        self, storage_name: str, container_options: dict | None = None
-    ) -> None:
+    def __init__(self, storage_name: str, container_options: dict | None = None) -> None:
         """
         Initializes the AzuriteManager with the specified storage configuration.
 
@@ -23,11 +21,9 @@ class AzuriteManager:  # pragma: no cover
                 Additional options to configure the Azure Blob Storage container. Defaults to an empty dictionary.
         """
         storage = settings.STORAGES.get(storage_name).get("OPTIONS", {})
-        self.container_client: ContainerClient = (
-            BlobServiceClient.from_connection_string(
-                storage.get("connection_string")
-            ).get_container_client(storage.get("azure_container"))
-        )
+        self.container_client: ContainerClient = BlobServiceClient.from_connection_string(
+            storage.get("connection_string")
+        ).get_container_client(storage.get("azure_container"))
         self._create_container(container_options)
 
     def _create_container(self, options: dict | None = None) -> None:
@@ -93,9 +89,7 @@ class AzuriteManager:  # pragma: no cover
             logger.exception("Failed to upload file %s.", file)
             raise
 
-    def upload_files(
-        self, images_src_path: Path | None = None, batch_size: int = 250
-    ) -> list[str]:
+    def upload_files(self, images_src_path: Path | None = None, batch_size: int = 250) -> list[str]:
         """
         Uploads all files from the local directory to the Azure Blob Storage container.
 
@@ -142,18 +136,12 @@ class AzuriteManager:  # pragma: no cover
                     logger.debug("Deleted blob: %s", blob_name)
                 except Exception as e:
                     failed_deletions.append(blob_name)
-                    logger.error(
-                        "Failed to delete blob: %s. Error: %s", blob_name, str(e)
-                    )
+                    logger.error("Failed to delete blob: %s. Error: %s", blob_name, str(e))
 
             if failed_deletions:
                 message = f"Failed to delete the following blobs: {', '.join(failed_deletions)}"
             else:
-                message = (
-                    "All files deleted successfully!"
-                    if blob_names
-                    else "No files to delete."
-                )
+                message = "All files deleted successfully!" if blob_names else "No files to delete."
 
             logger.info(message)
             return message

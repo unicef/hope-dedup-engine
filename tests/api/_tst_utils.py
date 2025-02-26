@@ -18,14 +18,10 @@ def requests_get(mocker: MockFixture) -> MagicMock:
 
 @fixture
 def sentry_sdk_capture_exception(mocker: MockFixture) -> MagicMock:
-    return mocker.patch(
-        "hope_dedup_engine.apps.api.utils.notification.sentry_sdk.capture_exception"
-    )
+    return mocker.patch("hope_dedup_engine.apps.api.utils.notification.sentry_sdk.capture_exception")
 
 
-@mark.parametrize(
-    ("url", "http_request_sent"), (("https://example.com", True), (None, False))
-)
+@mark.parametrize(("url", "http_request_sent"), (("https://example.com", True), (None, False)))
 def test_send_notification(
     url: str | None,
     http_request_sent: bool,
@@ -38,9 +34,7 @@ def test_send_notification(
         requests_get.assert_not_called()
 
 
-def test_exception_is_sent_to_sentry(
-    requests_get: MagicMock, sentry_sdk_capture_exception: MagicMock
-) -> None:
+def test_exception_is_sent_to_sentry(requests_get: MagicMock, sentry_sdk_capture_exception: MagicMock) -> None:
     exception = RequestException()
     requests_get.side_effect = exception
     send_notification("https://example.com")

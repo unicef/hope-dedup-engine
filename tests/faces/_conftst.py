@@ -70,9 +70,7 @@ def github_dnn_file_downloader():
 def mock_requests_get():
     with patch("requests.get") as mock_get:
         mock_response = mock_get.return_value.__enter__.return_value
-        mock_response.iter_content.return_value = DNN_FILE.get(
-            "content"
-        ) * DNN_FILE.get("chunks")
+        mock_response.iter_content.return_value = DNN_FILE.get("content") * DNN_FILE.get("chunks")
         mock_response.raise_for_status = lambda: None
         yield mock_get
 
@@ -82,9 +80,7 @@ def azure_dnn_file_downloader(mocker):
     downloader = AzureFileDownloader()
     mocker.patch.object(downloader.remote_storage, "exists", return_value=True)
     mock_remote_file = MagicMock()
-    mocker.patch.object(
-        downloader.remote_storage, "open", return_value=mock_remote_file
-    )
+    mocker.patch.object(downloader.remote_storage, "open", return_value=mock_remote_file)
     return downloader
 
 
@@ -118,12 +114,8 @@ def mock_image_processor(
     mock_net_manager,
     mock_open_context_manager,
 ) -> ImageProcessor:
-    mocker.patch.object(
-        BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE
-    )
-    mock_processor = ImageProcessor(
-        mock_config_defaults.detection, mock_config_defaults.recognition
-    )
+    mocker.patch.object(BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE)
+    mock_processor = ImageProcessor(mock_config_defaults.detection, mock_config_defaults.recognition)
     mocker.patch.object(
         mock_processor.storages.get_storage("images"),
         "open",
@@ -176,9 +168,7 @@ def mock_face_detections(mock_config_defaults):
 def mock_net(mock_face_detections):
     mock_net = MagicMock(spec=cv2.dnn_Net)  # Mocking the neural network object
     mock_detections, mock_expected_regions, _ = mock_face_detections
-    mock_net.forward.return_value = (
-        mock_detections  # Setting up the forward method of the mock network
-    )
+    mock_net.forward.return_value = mock_detections  # Setting up the forward method of the mock network
     mock_imdecode = MagicMock(return_value=np.ones(IMAGE_SIZE, dtype=np.uint8))
     mock_resize = MagicMock(return_value=np.ones(RESIZED_IMAGE_SIZE, dtype=np.uint8))
     mock_blob = np.zeros(BLOB_SHAPE)
@@ -186,9 +176,7 @@ def mock_net(mock_face_detections):
 
 
 @pytest.fixture
-def mock_dd(
-    mock_image_processor, mock_net_manager, mock_storage_manager, mock_config_defaults
-):
+def mock_dd(mock_image_processor, mock_net_manager, mock_storage_manager, mock_config_defaults):
     detector = DuplicationDetector(FILENAMES, mock_config_defaults, IGNORE_PAIRS)
     yield detector
 
@@ -228,9 +216,7 @@ def time_control():
 
 @pytest.fixture
 def mock_file_sync_manager():
-    with patch(
-        "hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager"
-    ) as MockFileSyncManager:
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager") as MockFileSyncManager:
         mock_manager_instance = MockFileSyncManager.return_value
         mock_downloader = MagicMock()
         mock_manager_instance.downloader = mock_downloader
@@ -240,9 +226,7 @@ def mock_file_sync_manager():
 @pytest.fixture
 def admin_user(db):
     User = get_user_model()
-    return User.objects.create_superuser(
-        username="admin", password="admin", email="admin@example.com"
-    )
+    return User.objects.create_superuser(username="admin", password="admin", email="admin@example.com")
 
 
 @pytest.fixture

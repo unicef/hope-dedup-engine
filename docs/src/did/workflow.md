@@ -24,7 +24,7 @@ Central to this pipeline is [DeepFace](https://github.com/serengil/deepface), a 
 
     This process includes:
 
-    - Determining the location of faces (bounding boxes).  
+    - Determining the location of faces (bounding boxes).
     - Extracting facial regions for further processing.
     - Anti-Spoofing (optional). [DeepFace](https://github.com/serengil/deepface) supports anti-spoofing to detect fraudulent attempts, such as using photos or masks instead of real faces. It uses models like **MiniFASNet** to assess the authenticity of detected faces. However, anti-spoofing is less relevant for static photos, as dynamic cues like blinking or texture variations are unavailable. This step is optional and disabled by default, requiring explicit configuration.
 
@@ -47,10 +47,10 @@ Central to this pipeline is [DeepFace](https://github.com/serengil/deepface), a 
 ??? abstract "Normalization"
 
     #### _**Normalization**_
-    Normalization prepares the face for processing by:  
+    Normalization prepares the face for processing by:
     - Resizing the image to a standard size.
-    - Adjusting brightness and contrast.  
-    - Converting the color space (e.g., grayscale conversion).  
+    - Adjusting brightness and contrast.
+    - Converting the color space (e.g., grayscale conversion).
 
     These steps ensure the data is more suitable for deep learning models.
 
