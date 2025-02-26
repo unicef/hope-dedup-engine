@@ -5,9 +5,7 @@ from uuid import uuid4
 from smart_env import SmartEnv
 
 if TYPE_CHECKING:
-    ConfigItem: TypeAlias = Union[
-        Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]
-    ]
+    ConfigItem: TypeAlias = Union[Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]]
 
 DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.1/ref/settings"
 
@@ -17,9 +15,7 @@ def setting(anchor: str) -> str:
 
 
 def celery_doc(anchor: str) -> str:
-    return (
-        f"@see https://docs.celeryq.dev/en/stable/userguide/configuration.html#{anchor}"
-    )
+    return f"@see https://docs.celeryq.dev/en/stable/userguide/configuration.html#{anchor}"
 
 
 class Group(Enum):

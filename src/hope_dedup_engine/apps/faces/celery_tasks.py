@@ -74,9 +74,7 @@ def encode_chunk(
     try:
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
         pre_encodings = ds.get_encodings()
-        return encode_faces(
-            files, config.get("encoding"), pre_encodings, progress=callback
-        )
+        return encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
     except Exception:
         handle_error(ds)
         raise
@@ -121,8 +119,7 @@ def callback_findings(
             record
             for d in results
             for record in d
-            if (pair := tuple(sorted(record[:2]))) not in seen_pairs
-            and not seen_pairs.add(pair)
+            if (pair := tuple(sorted(record[:2]))) not in seen_pairs and not seen_pairs.add(pair)
         ]
         ds.update_findings(findings)
 

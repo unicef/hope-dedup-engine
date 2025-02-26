@@ -15,9 +15,7 @@ from .utils.azurite_manager import AzuriteManager
 logger = logging.getLogger(__name__)
 
 
-BASE_PATH: Final[Path] = (
-    Path(__file__).resolve().parents[6] / "tests" / "extras" / "demoapp"
-)
+BASE_PATH: Final[Path] = Path(__file__).resolve().parents[6] / "tests" / "extras" / "demoapp"
 DEFAULT_DEMO_IMAGES: Final[Path] = BASE_PATH / env("DEMO_IMAGES_PATH")
 
 MESSAGES: Final[dict[str, str]] = {
@@ -88,23 +86,17 @@ class Command(BaseCommand):
                 if storage.src.exists():
                     am.upload_files(storage.src)
                 else:
-                    self.stdout.write(
-                        self.style.ERROR(MESSAGES["not_exist"] % storage.src)
-                    )
+                    self.stdout.write(self.style.ERROR(MESSAGES["not_exist"] % storage.src))
                     logger.error(MESSAGES["not_exist"] % storage.src)
                     self.halt(FileNotFoundError(MESSAGES["not_exist"] % storage.src))
                 self.stdout.write(MESSAGES["storage_success"] % storage.name)
                 logger.info(MESSAGES["storage_success"] % storage.name)
             except (CommandError, FileNotFoundError, SystemCheckError) as e:
-                self.stdout.write(
-                    self.style.ERROR(MESSAGES["failed"] % (storage.name, e))
-                )
+                self.stdout.write(self.style.ERROR(MESSAGES["failed"] % (storage.name, e)))
                 logger.error(MESSAGES["failed"] % (storage.name, e))
                 self.halt(e)
             except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(MESSAGES["unexpected"] % (storage.name, e))
-                )
+                self.stdout.write(self.style.ERROR(MESSAGES["unexpected"] % (storage.name, e)))
                 logger.exception(MESSAGES["unexpected"] % (storage.name, e))
                 self.halt(e)
 

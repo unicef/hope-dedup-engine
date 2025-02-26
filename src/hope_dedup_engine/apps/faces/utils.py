@@ -8,8 +8,6 @@ def is_facial_error(value):
             Image.StatusCode.DEDUPLICATE_SUCCESS.name,
             Image.StatusCode.DEDUPLICATE_SUCCESS.label,
         } and value in (
-            Image.StatusCode.values
-            + Image.StatusCode.names
-            + [choice.label for choice in Image.StatusCode]
+            Image.StatusCode.values + Image.StatusCode.names + [choice.label for choice in Image.StatusCode]
         )
     return False

@@ -4,9 +4,7 @@ from functools import partial
 STEP = 10
 
 
-def callback_filter(
-    callback: Callable[[int], None], step: int
-) -> Callable[[int], None]:
+def callback_filter(callback: Callable[[int], None], step: int) -> Callable[[int], None]:
     previous_callback_value = -1
 
     def update(progress: int) -> None:
@@ -18,9 +16,7 @@ def callback_filter(
     return update
 
 
-def track_progress(
-    callback: Callable[[int], None], send_zero: bool = True
-) -> Callable[[int], None]:
+def track_progress(callback: Callable[[int], None], send_zero: bool = True) -> Callable[[int], None]:
     update = callback_filter(callback, STEP)
 
     if send_zero:

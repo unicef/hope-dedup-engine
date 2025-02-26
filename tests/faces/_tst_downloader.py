@@ -18,9 +18,7 @@ def test_github_sync_success(github_dnn_file_downloader, mock_requests_get):
         result = github_dnn_file_downloader.sync(DNN_FILE["name"], url)
 
         assert result is True
-        mock_requests_get.assert_called_once_with(
-            url, stream=True, timeout=DNN_FILE["timeout"]
-        )
+        mock_requests_get.assert_called_once_with(url, stream=True, timeout=DNN_FILE["timeout"])
         mocked_file.assert_called_once_with("wb")
         assert mocked_file().write.call_count == DNN_FILE["chunks"]
 
@@ -30,9 +28,7 @@ def test_github_sync_raises_exception(github_dnn_file_downloader, mock_requests_
 
     with pytest.raises(RequestException):
         github_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["url"])
-    mock_requests_get.assert_called_once_with(
-        DNN_FILE["url"], stream=True, timeout=DNN_FILE["timeout"]
-    )
+    mock_requests_get.assert_called_once_with(DNN_FILE["url"], stream=True, timeout=DNN_FILE["timeout"])
 
 
 def test_azure_sync_success(azure_dnn_file_downloader):
@@ -42,25 +38,19 @@ def test_azure_sync_success(azure_dnn_file_downloader):
             "listdir",
             return_value=([], [DNN_FILE["name"]]),
         ),
-        patch.object(
-            azure_dnn_file_downloader.remote_storage, "size", return_value=1024
-        ),
+        patch.object(azure_dnn_file_downloader.remote_storage, "size", return_value=1024),
         patch("pathlib.Path.open", mock_open()) as mocked_file,
     ):
         result = azure_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["name"])
 
         assert result is True
         azure_dnn_file_downloader.remote_storage.listdir.assert_called_once_with("")
-        azure_dnn_file_downloader.remote_storage.open.assert_called_once_with(
-            DNN_FILE["name"], "rb"
-        )
+        azure_dnn_file_downloader.remote_storage.open.assert_called_once_with(DNN_FILE["name"], "rb")
         mocked_file.assert_called_once_with("wb")
 
 
 def test_azure_sync_raises_filenotfounderror(azure_dnn_file_downloader):
-    with patch.object(
-        azure_dnn_file_downloader.remote_storage, "listdir", return_value=([], [])
-    ) as mock_listdir:
+    with patch.object(azure_dnn_file_downloader.remote_storage, "listdir", return_value=([], [])) as mock_listdir:
         with pytest.raises(FileNotFoundError):
             azure_dnn_file_downloader.sync(DNN_FILE["name"], DNN_FILE["name"])
 
@@ -76,27 +66,19 @@ def test_filesyncmanager_creates_correct_downloader():
     assert isinstance(azure_manager.downloader, AzureFileDownloader)
 
 
-def test_file_downloader_prepare_local_filepath_exists(
-    github_dnn_file_downloader, mocker
-):
+def test_file_downloader_prepare_local_filepath_exists(github_dnn_file_downloader, mocker):
     mock_path = mocker.patch("pathlib.Path.exists", return_value=True)
 
-    result = github_dnn_file_downloader._prepare_local_filepath(
-        DNN_FILE["name"], force=False
-    )
+    result = github_dnn_file_downloader._prepare_local_filepath(DNN_FILE["name"], force=False)
     assert result is None
     mock_path.assert_called_once()
 
 
-def test_file_downloader_prepare_local_filepath_force(
-    github_dnn_file_downloader, mocker
-):
+def test_file_downloader_prepare_local_filepath_force(github_dnn_file_downloader, mocker):
     mocker.patch("pathlib.Path.exists", return_value=True)
     mock_path_mkdir = mocker.patch("pathlib.Path.mkdir")
 
-    result = github_dnn_file_downloader._prepare_local_filepath(
-        DNN_FILE["name"], force=True
-    )
+    result = github_dnn_file_downloader._prepare_local_filepath(DNN_FILE["name"], force=True)
     assert result is not None
     mock_path_mkdir.assert_called_once_with(parents=True, exist_ok=True)
 

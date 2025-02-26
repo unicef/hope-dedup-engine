@@ -17,9 +17,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="config",
             name="name",
-            field=models.CharField(
-                blank=True, db_index=True, max_length=128, null=True, unique=True
-            ),
+            field=models.CharField(blank=True, db_index=True, max_length=128, null=True, unique=True),
         ),
         migrations.AddField(
             model_name="config",
@@ -29,8 +27,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="deduplicationset",
             name="config",
-            field=models.ForeignKey(
-                null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"
-            ),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to="api.config"),
         ),
     ]

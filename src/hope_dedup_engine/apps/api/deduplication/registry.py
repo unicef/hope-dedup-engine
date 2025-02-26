@@ -9,9 +9,7 @@ DuplicateKeyPair = tuple[str, str, float]
 class DuplicateFinder(Protocol):
     weight: int
 
-    def run(
-        self, tracker: Callable[[int], None]
-    ) -> Generator[DuplicateKeyPair, None, None]: ...
+    def run(self, tracker: Callable[[int], None]) -> Generator[DuplicateKeyPair, None, None]: ...
 
 
 def get_finders(deduplication_set: DeduplicationSet) -> Iterable[DuplicateFinder]:

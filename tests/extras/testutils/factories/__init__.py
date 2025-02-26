@@ -25,9 +25,7 @@ for _, name, _ in pkgutil.iter_modules([str(Path(__file__).parent)]):
     importlib.import_module(f".{name}", __package__)
 
 
-django_model_factories = {
-    factory._meta.model: factory for factory in DjangoModelFactory.__subclasses__()
-}
+django_model_factories = {factory._meta.model: factory for factory in DjangoModelFactory.__subclasses__()}
 
 
 def get_factory_for_model(
@@ -43,6 +41,4 @@ def get_factory_for_model(
     if _model in django_model_factories:
         return django_model_factories[_model]
 
-    return register(
-        type(f"{_model._meta.model_name}AutoCreatedFactory", bases, {"Meta": Meta})
-    )  # noqa
+    return register(type(f"{_model._meta.model_name}AutoCreatedFactory", bases, {"Meta": Meta}))  # noqa

@@ -64,9 +64,7 @@ class DeduplicationSetViewSet(
     serializer_class = DeduplicationSetSerializer
 
     def get_queryset(self) -> QuerySet:
-        return DeduplicationSet.objects.filter(
-            external_system=self.request.user.external_system, deleted=False
-        )
+        return DeduplicationSet.objects.filter(external_system=self.request.user.external_system, deleted=False)
 
     def perform_create(self, serializer: Serializer) -> None:
         serializer.save(
@@ -147,9 +145,7 @@ class ImageViewSet(
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        request=CreateImageSerializer, description="Add image to the deduplication set"
-    )
+    @extend_schema(request=CreateImageSerializer, description="Add image to the deduplication set")
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)
 
@@ -168,18 +164,14 @@ class ListDataWrapper:
 
 
 class WrapRequestDataMixin:
-    def initialize_request(
-        self, request: Request, *args: Any, **kwargs: Any
-    ) -> Request:
+    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
         request = super().initialize_request(request, *args, **kwargs)
         request._full_data = ListDataWrapper(request.data)
         return request
 
 
 class UnwrapRequestDataMixin:
-    def initialize_request(
-        self, request: Request, *args: Any, **kwargs: Any
-    ) -> Request:
+    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
         request = super().initialize_request(request, *args, **kwargs)
         request._full_data = request._full_data.data
         return request
@@ -211,9 +203,7 @@ class BulkImageViewSet(
 
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
-        if deduplication_set := (
-            serializer.instance[0].deduplication_set if serializer.instance else None
-        ):
+        if deduplication_set := (serializer.instance[0].deduplication_set if serializer.instance else None):
             deduplication_set.updated_by = self.request.user
             deduplication_set.save()
 
@@ -258,9 +248,7 @@ class DuplicateViewSet(
     def get_queryset(self) -> QuerySet[Finding]:
         queryset = super().get_queryset()
         if reference_pk := self.request.query_params.get(REFERENCE_PK):
-            return queryset.filter(
-                Q(first_reference_pk=reference_pk) | Q(second_reference_pk=reference_pk)
-            )
+            return queryset.filter(Q(first_reference_pk=reference_pk) | Q(second_reference_pk=reference_pk))
         return queryset
 
     @extend_schema(
@@ -307,9 +295,7 @@ class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
     serializer_class = IgnoredFilenamePairSerializer
     queryset = IgnoredFilenamePair.objects.all()
 
-    @extend_schema(
-        description="List all ignored filename pairs for the deduplication set"
-    )
+    @extend_schema(description="List all ignored filename pairs for the deduplication set")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
@@ -325,9 +311,7 @@ class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
     serializer_class = IgnoredReferencePkPairSerializer
     queryset = IgnoredReferencePkPair.objects.all()
 
-    @extend_schema(
-        description="List all ignored reference pk pairs for the deduplication set"
-    )
+    @extend_schema(description="List all ignored reference pk pairs for the deduplication set")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 

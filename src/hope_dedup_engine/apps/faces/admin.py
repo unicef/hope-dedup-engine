@@ -27,9 +27,7 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        extra_context["title"] = (
-            "Force syncronize model files from github to local volume."
-        )
+        extra_context["title"] = "Force syncronize model files from github to local volume."
         return super().changelist_view(request, extra_context=extra_context)
 
     @button(label="Run sync")

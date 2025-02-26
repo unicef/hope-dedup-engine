@@ -53,8 +53,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="finding",
             name="second_reference_pk",
-            field=models.CharField(
-                default="", max_length=100, verbose_name="Second reference"
-            ),
+            field=models.CharField(default="", max_length=100, verbose_name="Second reference"),
         ),
     ]

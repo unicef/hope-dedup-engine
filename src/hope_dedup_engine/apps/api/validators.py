@@ -9,9 +9,7 @@ def extend_with_default(validator_class):
         for property, subschema in properties.items():
             if "default" in subschema:
                 default_value = subschema["default"]
-                if isinstance(default_value, str) and default_value.startswith(
-                    "constance.config."
-                ):
+                if isinstance(default_value, str) and default_value.startswith("constance.config."):
                     config_name = default_value.split(".")[-1]
                     default_value = getattr(config, config_name, None)
 

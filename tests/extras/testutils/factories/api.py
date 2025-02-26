@@ -73,11 +73,7 @@ class FindingFactory(DjangoModelFactory):
 
     @lazy_attribute
     def status_code(self):
-        return (
-            fuzzy.FuzzyChoice(list(Image.StatusCode.values)).fuzz().value
-            if self.score == 0
-            else None
-        )
+        return fuzzy.FuzzyChoice(list(Image.StatusCode.values)).fuzz().value if self.score == 0 else None
 
 
 class IgnoredFilenamePairFactory(DjangoModelFactory):
