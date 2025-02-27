@@ -1,8 +1,5 @@
 #!/bin/sh
 
-export MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}"
-export STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}"
-export DEFAULT_ROOT="${DEFAULT_ROOT:-/var/run/app/default}"
 export DEEPFACE_HOME="${DEEPFACE_HOME:-/var/run/app/deepface}"
 export UWSGI_PROCESSES="${UWSGI_PROCESSES:-"4"}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-"hope_dedup_engine.config.settings"}"
