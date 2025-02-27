@@ -206,9 +206,9 @@ ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
     DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \
     PYTHONPATH="" \
     PYTHONDBUFFERED=1 \
-    PYTHONDONTWRITEBYTCODE=1
-    MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}"
-    STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}"
+    PYTHONDONTWRITEBYTCODE=1 \
+    MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}" \
+    STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}" \
     DEFAULT_ROOT="${DEFAULT_ROOT:-/var/run/app/default}"
 
 RUN <<EOF cat> /RELEASE
