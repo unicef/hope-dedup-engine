@@ -1,20 +1,8 @@
-# syntax=docker/dockerfile:1
-ARG PYTHON_VER=3.12
-ARG PKG_DIR=/code/__pypackages__/${PYTHON_VER}
 ARG CHECKSUM
 ARG VERSION=0.1.0
 ARG BUILD_DATE=not_provided
 
-ARG APATH=${PKG_DIR}/bin
-ARG APYTHONPATH=${PKG_DIR}/lib/
-
-FROM python:${PYTHON_VER}-slim-bookworm AS python_base
-ARG APATH
-ENV APATH=$APATH
-ARG APYTHONPATH
-ENV APYTHONPATH=$APYTHONPATH
-ARG PKG_DIR
-ENV PKG_DIR=$PKG_DIR
+FROM python:3.12-slim-bookworm AS python_base
 
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -49,7 +37,7 @@ RUN set -x \
   && wget --quiet -O /usr/local/bin/tini "https://github.com/krallin/tini/releases/download/v$TINI_VERSION/tini-amd64" \
   && echo "$TINI_SHA256 /usr/local/bin/tini" | sha256sum --check --status \
   && chmod +x /usr/local/bin/tini \
-  && wget --quiet -O /usr/local/bin/waitforit "https://github.com/maxcnunes/waitforit/releases/download/v$WAITFOR_IT_VERSION/waitforit-linux_amd64" \
+  && wget --quiet -O /usr/local/bin/waitforit "https://github.com/maxclaus/waitforit/releases/download/v$WAITFOR_IT_VERSION/waitforit-linux_amd64" \
   && echo "$WAITFOR_IT_MD5 /usr/local/bin/waitforit" | md5sum --check --status \
   && chmod +x /usr/local/bin/waitforit  \
   && apt-get purge -y --auto-remove $buildDeps
@@ -76,14 +64,14 @@ RUN \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --gid 1024 app \
-    && adduser --disabled-login --disabled-password --no-create-home --ingroup app -q user \
+RUN groupadd --gid 1024 unicef \
+    && adduser --disabled-login --disabled-password --no-create-home --ingroup unicef -q hope \
     && echo $CHECKSUM > /CHECKSUM
-
 
 COPY docker/bin/* /usr/local/bin/
 COPY docker/conf/* /conf/
 
+# ------------- build_deps -------------
 FROM python_base AS build_deps
 
 RUN set -x \
@@ -109,11 +97,11 @@ RUN set -x \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH=${APATH}:${PATH} \
-    PYTHONPATH=${APYTHONPATH}:/code/app/src \
+ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
+    PYTHONPATH=""\
     PYTHONDONTWRITEBYTCODE=1
 
-
+# ------------- python_dev_deps -------------
 FROM build_deps AS python_dev_deps
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -136,15 +124,17 @@ LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
 LABEL distro="test"
 
-#COPY pyproject.toml pdm.lock ./
-#COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
 COPY . /code
 WORKDIR /code
 
-RUN set -x \
-    && pip install -U pip pdm \
-    && mkdir -p $PKG_DIR \
-    && pdm sync --no-editable -v --no-self
+RUN pip install uv uwsgi
+
+RUN --mount=type=cache,target=/root/.uv-cache \
+    uv sync -v \
+        --cache-dir=/root/.uv-cache \
+        --python=/usr/local/bin/python \
+        --python-preference=system \
+        --frozen
 
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",
@@ -156,8 +146,8 @@ RUN <<EOF cat> /RELEASE
 }
 EOF
 
+# ------------- python_prod_deps -------------
 FROM build_deps AS python_prod_deps
-ARG PKG_DIR
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
 ARG VERSION
@@ -177,21 +167,23 @@ LABEL checksum=$CHECKSUM
 LABEL distro="builder-prod"
 
 COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-#COPY pyproject.toml pdm.lock /README.md /LICENSE ./
-#COPY ./src /code/src
 
 COPY . /code
 WORKDIR /code
 
-RUN set -x \
-    && pip install -U pip pdm \
-    && mkdir -p $PKG_DIR \
-    && pdm sync --no-editable -v --prod
+RUN pip install uv uwsgi
+
+RUN --mount=type=cache,target=/root/.uv-cache \
+    uv sync -v \
+        --cache-dir=/root/.uv-cache \
+        --python=/usr/local/bin/python \
+        --python-preference=system \
+        --no-dev --no-editable --frozen --extra distribution
 
 
+# ------------- dist -------------
 FROM python_base AS dist
 
-ARG PKG_DIR
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
 ARG VERSION
@@ -207,14 +199,17 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 
 WORKDIR /code
-COPY --chown=user:app --from=python_prod_deps /code/__pypackages__ /code/__pypackages__
-COPY --chown=user:app --from=python_prod_deps /code/README.md /code/LICENSE /
+COPY --chown=hope:unicef --from=python_prod_deps /code/.venv /code/.venv
+COPY --chown=hope:unicef --from=python_prod_deps /code/README.md /code/LICENSE /
 
-ENV PATH=${APATH}:${PATH} \
-    PYTHONPATH=${APYTHONPATH} \
+ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
+    DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \
+    PYTHONPATH="" \
     PYTHONDBUFFERED=1 \
     PYTHONDONTWRITEBYTCODE=1 \
-    DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings"
+    MEDIA_ROOT="${MEDIA_ROOT:-/var/run/app/media}" \
+    STATIC_ROOT="${STATIC_ROOT:-/var/run/app/static}" \
+    DEFAULT_ROOT="${DEFAULT_ROOT:-/var/run/app/default}"
 
 RUN <<EOF cat> /RELEASE
 {"version": "$VERSION",

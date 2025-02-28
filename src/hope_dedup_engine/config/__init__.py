@@ -1,12 +1,11 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Tuple, TypeAlias, Union
+from uuid import uuid4
 
 from smart_env import SmartEnv
 
 if TYPE_CHECKING:
-    ConfigItem: TypeAlias = Union[
-        Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]
-    ]
+    ConfigItem: TypeAlias = Union[Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]]
 
 DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.1/ref/settings"
 
@@ -16,10 +15,7 @@ def setting(anchor: str) -> str:
 
 
 def celery_doc(anchor: str) -> str:
-    return (
-        f"@see https://docs.celeryq.dev/en/stable/"
-        f"userguide/configuration.html#{anchor}"
-    )
+    return f"@see https://docs.celeryq.dev/en/stable/userguide/configuration.html#{anchor}"
 
 
 class Group(Enum):
@@ -109,6 +105,13 @@ CONFIG: "Dict[str, ConfigItem]" = {
         "https://django-environ.readthedocs.io/en/latest/types.html#environ-env-db-url",
     ),
     "DEBUG": (bool, False, True, False, setting("debug")),
+    "DEEPFACE_HOME": (
+        str,
+        "/var/run/app/deepface",
+        "/tmp/deepface",  # nosec
+        True,
+        "Home folder for DeepFace models pre-trained-weights files",
+    ),
     "DEFAULT_ROOT": (
         str,
         "/var/default/",
@@ -139,6 +142,11 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "EMAIL_USE_TLS": (bool, False, False, False, setting("email-use-tls")),
     "EMAIL_USE_SSL": (bool, False, False, False, setting("email-use-ssl")),
     "EMAIL_TIMEOUT": (str, None, None, False, setting("email-timeout")),
+    "FILE_STORAGE_DEEPFACE": (
+        str,
+        "django.core.files.storage.FileSystemStorage",
+        setting("storages"),
+    ),
     "FILE_STORAGE_DEFAULT": (
         str,
         "django.core.files.storage.FileSystemStorage",
@@ -173,8 +181,14 @@ CONFIG: "Dict[str, ConfigItem]" = {
         setting("media-root"),
     ),
     "MEDIA_URL": (str, "/media/", "/media", False, setting("media-root")),  # nosec
-    "ROOT_TOKEN_HEADER": (str, "x-root-token", "x-root-token"),
-    "ROOT_TOKEN": (str, ""),
+    "ROOT_TOKEN": (str, uuid4().hex, uuid4().hex, False, "Root access token"),
+    "ROOT_TOKEN_HEADER": (
+        str,
+        "x-root-token",
+        "x-root-token",
+        False,
+        "Root token header",
+    ),
     "SECRET_KEY": (
         str,
         "",

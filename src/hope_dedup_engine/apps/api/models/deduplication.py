@@ -2,16 +2,13 @@ from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.security.models import ExternalSystem
+from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
-
-
-class Config(models.Model):
-    face_distance_threshold = models.FloatField(null=True)
 
 
 class DeduplicationSet(models.Model):
@@ -25,16 +22,12 @@ class DeduplicationSet(models.Model):
             1,
             "Dirty",
         )  # Images are added to deduplication set, but not yet processed
-        PROCESSING = 2, "Processing"  # Images are being processed
-        ERROR = 3, "Error"  # Error occurred
 
     id = models.UUIDField(primary_key=True, default=uuid4)
-    name = models.CharField(
-        max_length=128, unique=True, null=True, blank=True, db_index=True
-    )
+    name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
     description = models.TextField(null=True, blank=True)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
-    state_value = models.IntegerField(
+    state = models.IntegerField(
         choices=State.choices,
         default=State.CLEAN,
         db_column="state",
@@ -58,26 +51,57 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
-    config = models.OneToOneField(Config, null=True, on_delete=models.SET_NULL)
+    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
-    @property
-    def state(self) -> State:
-        return self.State(self.state_value)
-
-    @state.setter
-    def state(self, value: State) -> None:
-        if value != self.state_value or value == self.State.CLEAN:
-            self.state_value = value
-            send_notification(self.notification_url)
+    encodings = models.JSONField(null=True, blank=True, default=dict)  # {file1: encoding1, file2: encoding2, ...}
 
     def __str__(self) -> str:
-        return f"ID: {self.pk}" if not self.name else f"{self.name}"
+        return self.name or f"ID: {self.pk}"
+
+    def get_encodings(self) -> EncodingType:
+        return self.encodings
+
+    def get_findings(self) -> FindingType:
+        return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
+
+    def get_ignored_pairs(self) -> IgnoredPairType:
+        return list(self.ignoredreferencepkpair_set.values_list("first", "second")) + list(
+            self.ignoredfilenamepair_set.values_list("first", "second")
+        )
+
+    def update_encodings(self, encodings: EncodingType) -> None:
+        self.encodings.update(encodings)
+        self.save()
+
+    def update_findings(self, findings: FindingType) -> None:
+        images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
+        filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
+        findings_to_create = [
+            Finding(
+                deduplication_set=self,
+                first_filename=f[0],
+                first_reference_pk=filename_to_reference_pk.get(f[0]),
+                second_filename=f[1],
+                second_reference_pk=filename_to_reference_pk.get(f[1]),
+                score=f[2],
+                status_code=f[3],
+            )
+            for f in findings
+        ]
+        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
 
 
 class Image(models.Model):
     """
     # TODO: rename to Entity/Entry
     """
+
+    class StatusCode(models.IntegerChoices):
+        DEDUPLICATE_SUCCESS = 200, "deduplication success"
+        NO_FILE_FOUND = 404, "no file found"
+        NO_FACE_DETECTED = 412, "no face detected"
+        MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
+        GENERIC_ERROR = 500, "generic error"
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
@@ -93,15 +117,29 @@ class Image(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class Duplicate(models.Model):
+class Finding(models.Model):
     """
-    Couple of similar entities
+    Couple of finding entities
     """
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    second_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # from hope
-    score = models.FloatField(default=0)
+    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
+    first_filename = models.CharField(default="", max_length=255)
+    second_reference_pk = models.CharField(default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference")
+    second_filename = models.CharField(default="", max_length=255)
+    score = models.FloatField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        verbose_name="Similarity Score",
+    )
+    status_code = models.IntegerField(choices=Image.StatusCode.choices, default=Image.StatusCode.DEDUPLICATE_SUCCESS)
+
+    class Meta:
+        unique_together = (
+            "deduplication_set",
+            "first_reference_pk",
+            "second_reference_pk",
+        )
 
 
 class IgnoredPair(models.Model):

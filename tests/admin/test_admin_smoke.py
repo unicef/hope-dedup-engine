@@ -21,6 +21,7 @@ class RegexList(_RegexList):
 
 GLOBAL_EXCLUDED_MODELS = RegexList(
     [
+        r"api\.Finding",
         r"django_celery_beat\.ClockedSchedule",
         r"contenttypes\.ContentType",
         r"faces\.DummyModel",
@@ -70,7 +71,7 @@ def pytest_generate_tests(metafunc):
                 buttons = admin.extra_button_handlers.values()
                 full_name = f"{model._meta.app_label}.{name}"
                 admin_name = f"{model._meta.app_label}.{admin.__class__.__name__}"
-                if not (full_name in excluded_models):
+                if full_name not in excluded_models:
                     for btn in buttons:
                         tid = f"{admin_name}:{btn.name}"
                         if tid not in excluded_buttons:
@@ -83,7 +84,7 @@ def pytest_generate_tests(metafunc):
         for model, admin in site._registry.items():
             name = model._meta.object_name
             full_name = f"{model._meta.app_label}.{name}"
-            if not (full_name in excluded_models):
+            if full_name not in excluded_models:
                 m.append(admin)
                 ids.append(f"{admin.__class__.__name__}:{full_name}")
         metafunc.parametrize("modeladmin", m, ids=ids)
@@ -96,22 +97,17 @@ def record(db, request):
     modeladmin = request.getfixturevalue("modeladmin")
     instance = modeladmin.model.objects.first()
     if not instance:
-        full_name = (
-            f"{modeladmin.model._meta.app_label}.{modeladmin.model._meta.object_name}"
-        )
+        full_name = f"{modeladmin.model._meta.app_label}.{modeladmin.model._meta.object_name}"
         factory = get_factory_for_model(modeladmin.model)
         try:
             instance = factory(**KWARGS.get(full_name, {}))
         except Exception as e:
-            raise Exception(
-                f"Error creating fixture for {factory} using {KWARGS}"
-            ) from e
+            raise Exception(f"Error creating fixture for {factory} using {KWARGS}") from e
     return instance
 
 
 @pytest.fixture()
 def app(django_app_factory, mocked_responses):
-
     django_app = django_app_factory(csrf_checks=False)
     admin_user = SuperUserFactory(username="superuser")
     django_app.set_user(admin_user)
@@ -142,7 +138,7 @@ def test_admin_changelist(app, modeladmin, record):
 def show_error(res):
     errors = []
     for k, v in dict(res.context["adminform"].form.errors).items():
-        errors.append(f'{k}: {"".join(v)}')
+        errors.append(f"{k}: {''.join(v)}")
     return (f"Form submitting failed: {res.status_code}: {errors}",)
 
 
@@ -183,7 +179,7 @@ def test_admin_delete(app, modeladmin, record, monkeypatch):
         pytest.skip("No 'delete' permission")
 
 
-@pytest.mark.skip_buttons("security.UserAdmin:link_user_data")
+@pytest.mark.skip_buttons("api.ConfigAdmin:change_settings_schema")
 def test_admin_buttons(app, modeladmin, button_handler, record, monkeypatch):
     from admin_extra_buttons.handlers import LinkHandler
 

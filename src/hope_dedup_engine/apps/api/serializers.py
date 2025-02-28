@@ -2,16 +2,14 @@ from typing import Any
 
 from rest_framework import serializers
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import (
+from hope_dedup_engine.apps.api.models import (
     Config,
-    Duplicate,
+    DeduplicationSet,
+    Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
 )
-
-CONFIG = "config"
 
 
 class ConfigSerializer(serializers.ModelSerializer):
@@ -21,12 +19,12 @@ class ConfigSerializer(serializers.ModelSerializer):
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
-    state = serializers.CharField(source="get_state_value_display", read_only=True)
+    state = serializers.CharField(source="get_state_display", read_only=True)
     config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted", "state_value")
+        exclude = ("deleted", "encodings")
         read_only_fields = (
             "external_system",
             "created_at",
@@ -36,22 +34,15 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
             "updated_by",
         )
 
-    def create(self, validated_data) -> DeduplicationSet:
-        config_data = validated_data.get(CONFIG) and validated_data.pop(CONFIG)
-        config = Config.objects.create(**config_data) if config_data else None
-        return DeduplicationSet.objects.create(config=config, **validated_data)
-
 
 class CreateConfigSerializer(ConfigSerializer):
     pass
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
-    config = CreateConfigSerializer(required=False)
-
     class Meta:
         model = DeduplicationSet
-        fields = ("config", "reference_pk", "notification_url")
+        fields = ("reference_pk", "notification_url")
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -79,13 +70,17 @@ class CreateImageSerializer(serializers.ModelSerializer):
 
 class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
+    filename = serializers.SerializerMethodField()
 
     def __init__(self, prefix: str, *args: Any, **kwargs: Any) -> None:
         self._prefix = prefix
         super().__init__(*args, **kwargs)
 
-    def get_reference_pk(self, duplicate: Duplicate) -> int:
+    def get_reference_pk(self, duplicate: Finding) -> int:
         return getattr(duplicate, f"{self._prefix}_reference_pk")
+
+    def get_filename(self, duplicate: Finding) -> str:
+        return getattr(duplicate, f"{self._prefix}_filename")
 
 
 class DuplicateSerializer(serializers.ModelSerializer):
@@ -93,8 +88,8 @@ class DuplicateSerializer(serializers.ModelSerializer):
     second = EntrySerializer(prefix="second", source="*")
 
     class Meta:
-        model = Duplicate
-        fields = "first", "second", "score"
+        model = Finding
+        fields = "first", "second", "score", "status_code"
 
 
 CREATE_PAIR_FIELDS = "first", "second"

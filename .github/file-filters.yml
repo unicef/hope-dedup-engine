@@ -4,7 +4,7 @@ docker: &docker
   - added|modified: './docker/*'
 
 dependencies: &dependencies
-  - 'pdm.lock'
+  - 'uv.lock'
   - 'pyproject.toml'
 
 python: &python
@@ -37,3 +37,10 @@ lint:
   -  *python
   - '.flake8'
   - 'pyproject.toml'
+
+docs:
+  - added|modified: 'docs/**/*'
+  - modified: 'src/hope_dedup_engine/config/__init__.py'
+  - modified: '.github/workflows/docs.yml'
+  - modified: '.github/file-filters.yml'
+  - modified: 'mkdocs.yml'

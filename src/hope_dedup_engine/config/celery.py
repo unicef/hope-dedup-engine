@@ -2,7 +2,7 @@ import os
 from typing import Any
 
 import sentry_sdk
-from celery import Celery, signals
+from celery import Celery, Task, signals
 
 from hope_dedup_engine.config import settings
 
@@ -17,3 +17,7 @@ app.autodiscover_tasks(lambda: settings.INSTALLED_APPS, related_name="celery_tas
 @signals.celeryd_init.connect
 def init_sentry(**_kwargs: Any) -> None:
     sentry_sdk.set_tag("celery", True)
+
+
+class DedupeTask(Task):
+    pass

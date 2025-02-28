@@ -44,6 +44,8 @@ INSTALLED_APPS = (
     "hope_dedup_engine.apps.faces",
     "storages",
     "smart_env",
+    "django_celery_boost",
+    "django_svelte_jsoneditor",
 )
 
 MIDDLEWARE = (
@@ -150,6 +152,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "social_django.context_processors.backends",
                 "social_django.context_processors.login_redirect",
+                "hope_dedup_engine.web.context_processors.current_state",
             ],
             "libraries": {
                 "staticfiles": "django.templatetags.static",
@@ -200,9 +203,9 @@ from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.debug_toolbar import *  # noqa
 from .fragments.flags import *  # noqa
+from .fragments.models import *  # noqa
 from .fragments.rest_framework import *  # noqa
 from .fragments.root import *  # noqa
 from .fragments.sentry import *  # noqa
 from .fragments.social_auth import *  # noqa
 from .fragments.spectacular import *  # noqa
-from .fragments.storages import *  # noqa

@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0003_remove_deduplicationset_name"),
     ]
@@ -22,8 +21,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="deduplicationset",
             name="name",
-            field=models.CharField(
-                blank=True, db_index=True, max_length=128, null=True, unique=True
-            ),
+            field=models.CharField(blank=True, db_index=True, max_length=128, null=True, unique=True),
         ),
     ]

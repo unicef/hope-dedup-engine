@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Final
 
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 
 import requests
+from filelock import FileLock, Timeout
 from storages.backends.azure_storage import AzureStorage
 
 from hope_dedup_engine.apps.core.exceptions import DownloaderKeyError
@@ -15,63 +16,114 @@ class FileDownloader:
     Base class for downloading files from different sources.
     """
 
-    def __init__(self) -> None:
-        """
-        Initializes the FileDownloader with a local storage backend.
-        """
+    MESSAGES: Final[dict[str, str]] = {
+        "not_implemented": "This method should be overridden by subclasses.",
+        "file_exists": "File already exists locally.",
+        "downloading": "Skipping download, another process is downloading the file.",
+        "done": "Done.",
+    }
+
+    def __init__(self, local_base_location: Path) -> None:
+        """Initializes the FileDownloader with a local storage backend."""
         self.local_storage = FileSystemStorage(
-            **settings.STORAGES.get("default").get("OPTIONS")
+            **settings.STORAGES.get("default").get("OPTIONS"),
         )
+        self.local_storage.base_location = local_base_location
 
     def sync(
         self,
         filename: str,
-        source: str,
+        file_source: str,
         force: bool = False,
+        on_progress: Callable[[str, int], None] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Synchronize a file with lock handling.
+
+        This method ensures that a file is downloaded to the local storage with proper handling of concurrent access
+        using file-based locks. If the file already exists locally or is currently being downloaded by another process,
+        it will skip the download and return an appropriate message. The download process is thread- and process-safe.
+
+        Args:
+            filename (str): The name of the file to be synchronized.
+            file_source (str): The source of the file (e.g., a URL or a blob name).
+            force (bool): If True, forces the re-download of the file even if it already exists locally.
+            on_progress (Callable[[str, int], None], optional): A callback function to track the download progress.
+                The callback should accept the filename and the progress percentage as arguments. Defaults to None.
+            **kwargs: Additional arguments passed to `_execute_download`.
+
+        Returns:
+            str: A message indicating the outcome of the synchronization.
+        """
+        local_filepath = Path(self.local_storage.path(filename))
+        lock = FileLock(f"{local_filepath}.lock")
+
+        if skip_message := self._should_skip_download(local_filepath, lock, force):
+            return skip_message
+
+        local_filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with lock:
+                return self._execute_download(local_filepath, file_source, on_progress=on_progress, **kwargs)
+        except Timeout:
+            return self.MESSAGES.get("downloading")
+        finally:
+            self._cleanup_lock(lock)
+
+    def _should_skip_download(self, local_filepath: Path, lock: FileLock, force: bool) -> bool:
+        """Determine if the download should be skipped."""
+        if force:
+            return None
+
+        if local_filepath.exists():
+            if Path(lock.lock_file).exists():
+                try:
+                    with lock.acquire(timeout=0):
+                        pass
+                except Timeout:
+                    return self.MESSAGES.get("downloading")
+            return self.MESSAGES.get("file_exists")
+
+        return None
+
+    def _execute_download(
+        self,
+        local_filepath: str,
+        source: str,
         on_progress: Callable[[str, int], None] = None,
         *args,
         **kwargs,
-    ) -> bool:
+    ) -> str:
         """
         Synchronize a file from the specified source to the local storage.
 
         Args:
-            filename (str): The name of the file to be synchronized.
-            source (str): The source from which the file should be downloaded.
-            force (bool): If True, the file will be re-downloaded even if it already exists locally.
-            on_progress (Callable[[str, int], None], optional): A callback function to report the download
-                progress. The function should accept two arguments: the filename and the download progress
-                as a percentage. Defaults to None.
+            local_filepath (str): The local path where the file will be saved.
+            source (str): The source of the file, e.g., a URL, blob name, or other identifier.
+            force (bool): Whether to force the download even if the file already exists locally. Defaults to False.
+            on_progress (Callable[[str, int], None], optional): A callback function for reporting download progress.
+                The callback receives the filename and download progress as a percentage.
             *args: Additional positional arguments for extended functionality in subclasses.
             **kwargs: Additional keyword arguments for extended functionality in subclasses.
 
         Returns:
-            bool: True if the file was successfully synchronized or already exists locally,
-                False otherwise.
+            str: A message indicating the status of the operation, typically "Done." if implemented.
 
         Raises:
-            NotImplementedError: This method should be overridden by subclasses to provide
-                                specific synchronization logic.
+            NotImplementedError: This method must be implemented in a subclass.
         """
-        raise NotImplementedError("This method should be overridden by subclasses.")
+        raise NotImplementedError(self.MESSAGES.get("not_implemented"))
 
-    def _prepare_local_filepath(self, filename: str, force: bool) -> Path | None:
-        """
-        Prepares the local file path for the file to be downloaded.
-
-        Args:
-            filename (str): The name of the file.
-            force (bool): If True, the file will be re-downloaded even if it exists locally.
-
-        Returns:
-            Path | None: The local file path if the file should be downloaded,
-                         None if the file exists and `force` is False.
-        """
-        local_filepath = Path(self.local_storage.path(filename))
-        if not force and local_filepath.exists():
-            return None
-        local_filepath.parent.mkdir(parents=True, exist_ok=True)
-        return local_filepath
+    def _cleanup_lock(self, lock: FileLock) -> None:
+        """Clean up the lock file if it exists."""
+        lock_path = Path(lock.lock_file)
+        if lock_path.exists():
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
 
     def _report_progress(
         self,
@@ -104,54 +156,53 @@ class GithubFileDownloader(FileDownloader):
     Inherits from FileDownloader and implements the sync method to download files from a given GitHub URL.
     """
 
-    def sync(
+    MESSAGES: Final[dict[str, str]] = {
+        **FileDownloader.MESSAGES,
+        "empty_file": "File '%s' at '%s' is empty (size is 0 bytes).",
+    }
+
+    def __init__(self, local_base_location: Path) -> None:
+        super().__init__(local_base_location)
+
+    def _execute_download(
         self,
-        filename: str,
+        local_filepath: str,
         url: str,
-        force: bool = False,
         on_progress: Callable[[str, int], None] = None,
-        timeout: int = 3 * 60,
-        chunk_size: int = 128 * 1024,
-    ) -> bool:
+        timeout: int = 3 * 60,  # 3 minutes
+        chunk_size: int = 128 * 1024,  # 128 KB
+    ) -> str:
         """
-        Downloads a file from the specified URL and saves it to local storage.
+        Downloads a file from a specified URL and saves it to local storage.
 
         Args:
-            filename (str): The name of the file to be downloaded.
-            url (str): The URL of the file to download.
-            force (bool): If True, the file will be re-downloaded even if it exists locally. Defaults to False.
-            on_progress (Callable[[str, int], None], optional): A callback function that reports the download progress
-                        as a percentage. Defaults to None.
-            timeout (int): The timeout for the download request in seconds. Defaults to 3 minutes.
+            local_filepath (str): The local path where the file will be saved.
+            url (str): The URL of the file to be downloaded.
+            on_progress (Callable[[str, int], None], optional): A callback function for reporting download progress.
+                The callback receives the filename and download progress as a percentage. Defaults to None.
+            timeout (int): The timeout for the download request in seconds. Defaults to 180 seconds (3 minutes).
             chunk_size (int): The size of each chunk to download in bytes. Defaults to 128 KB.
 
         Returns:
-            bool: True if the file was downloaded successfully or already exists, False otherwise.
+            str: A message indicating the status of the download. Typically "Done." if successful.
 
         Raises:
-            requests.exceptions.HTTPError: If the HTTP request returned an unsuccessful status code.
-            FileNotFoundError: If the file at the specified URL is empty (size is 0 bytes).
+            requests.exceptions.HTTPError: If the HTTP request fails with a non-successful status code.
+            FileNotFoundError: If the file is empty (size 0 bytes) or the URL is inaccessible.
         """
-        local_filepath = self._prepare_local_filepath(filename, force)
-        if local_filepath is None:
-            return True
-
         with requests.get(url, stream=True, timeout=timeout) as r:
             r.raise_for_status()
             total, downloaded = int(r.headers.get("Content-Length", 1)), 0
 
             if total == 0:
-                raise FileNotFoundError(
-                    f"File {filename} at {url} is empty (size is 0 bytes)."
-                )
+                raise FileNotFoundError(self.MESSAGES.get("empty_file") % (local_filepath.name, url))
 
             with local_filepath.open("wb") as f:
                 for chunk in r.iter_content(chunk_size=chunk_size):
                     f.write(chunk)
                     downloaded += len(chunk)
-                    self._report_progress(filename, downloaded, total, on_progress)
-
-        return True
+                    self._report_progress(local_filepath.name, downloaded, total, on_progress)
+        return self.MESSAGES.get("done")
 
 
 class AzureFileDownloader(FileDownloader):
@@ -161,73 +212,72 @@ class AzureFileDownloader(FileDownloader):
     Inherits from FileDownloader and implements the sync method to download files from a given Azure Blob Storage.
     """
 
-    def __init__(self) -> None:
+    MESSAGES: Final[dict[str, str]] = {
+        **FileDownloader.MESSAGES,
+        "does_not_exist": "File '%s' does not exist in remote storage.",
+        "empty_file": "File '%s' is empty (size is 0 bytes).",
+    }
+
+    def __init__(self, local_base_location: Path) -> None:
         """
         Initializes the AzureFileDownloader with a remote storage backend.
         """
-        super().__init__()
-        self.remote_storage = AzureStorage(
-            **settings.STORAGES.get("dnn").get("OPTIONS")
-        )
+        super().__init__(local_base_location)
+        self.remote_storage = AzureStorage(**settings.STORAGES.get("dnn").get("OPTIONS"))
 
-    def sync(
+    def _execute_download(
         self,
-        filename: str,
+        local_filepath: str,
         blob_name: str,
-        force: bool = False,
         on_progress: Callable[[str, int], None] = None,
         chunk_size: int = 128 * 1024,
-    ) -> bool:
+    ) -> str:
         """
         Downloads a file from Azure Blob Storage and saves it to local storage.
 
         Args:
-            filename (str): The name of the file to be saved locally.
-            blob_name (str): The name of the blob in Azure Blob Storage.
-            force (bool): If True, the file will be re-downloaded even if it exists locally. Defaults to False.
-            on_progress (Callable[[str, int], None], optional): A callback function that reports the download progress
-                        as a percentage. Defaults to None.
+            local_filepath (str): The local path where the file will be saved.
+            blob_name (str): The name of the blob to be downloaded from Azure Blob Storage.
+            on_progress (Callable[[str, int], None], optional): A callback function for reporting download progress.
+                The callback receives the filename and download progress as a percentage.
             chunk_size (int): The size of each chunk to download in bytes. Defaults to 128 KB.
 
         Returns:
-            bool: True if the file was downloaded successfully or already exists, False otherwise.
+            str: A message indicating the status of the download. Typically "Done." if successful.
 
         Raises:
-            FileNotFoundError: If the specified blob does not exist in Azure Blob Storage
-                            or if the blob has a size of 0 bytes.
+            FileNotFoundError: If the specified blob does not exist or is empty (size 0 bytes).
         """
-        local_filepath = self._prepare_local_filepath(filename, force)
-        if local_filepath is None:
-            return True
-
         _, files = self.remote_storage.listdir("")
         if blob_name not in files:
-            raise FileNotFoundError(
-                f"File {blob_name} does not exist in remote storage"
-            )
+            raise FileNotFoundError(self.MESSAGES.get("does_not_exist") % blob_name)
 
         blob_size, downloaded = self.remote_storage.size(blob_name) or 1, 0
         if blob_size == 0:
-            raise FileNotFoundError(f"File {blob_name} is empty (size is 0 bytes).")
+            raise FileNotFoundError(self.MESSAGES.get("empty_file") % blob_name)
 
         with self.remote_storage.open(blob_name, "rb") as remote_file:
             with local_filepath.open("wb") as local_file:
                 for chunk in remote_file.chunks(chunk_size=chunk_size):
                     local_file.write(chunk)
                     downloaded += len(chunk)
-                    self._report_progress(filename, downloaded, blob_size, on_progress)
+                    self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
 
-        return True
+        return self.MESSAGES.get("done")
 
 
 class FileSyncManager:
-    def __init__(self, source: str) -> None:
+    def __init__(self, *, source: str, local_base_location: Path | None = None) -> None:
         """
         Initialize the FileSyncManager with the specified source.
 
         Args:
             source (str): The source for downloading files.
+            local_base_location (Path): The base location for storing files locally.
         """
+        if local_base_location is None:
+            local_base_location = Path(settings.DEFAULT_ROOT)
+        self.local_base_location = local_base_location
         self.downloader = self._create_downloader(source)
 
     def _create_downloader(self, source: str) -> FileDownloader:
@@ -248,6 +298,6 @@ class FileSyncManager:
             "azure": AzureFileDownloader,
         }
         try:
-            return downloader_classes[source]()
+            return downloader_classes[source](self.local_base_location)
         except KeyError:
             raise DownloaderKeyError(source)

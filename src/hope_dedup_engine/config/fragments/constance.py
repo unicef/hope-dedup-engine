@@ -1,98 +1,27 @@
-import cv2
-
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "DNN_FILES_SOURCE": (
-        "azure",
-        "Specifies the source from which to download the DNN model files.",
-        "dnn_files_source",
+    "FACE_RECOGNITION_MODEL": (
+        "VGG-Face",
+        "Specifies the face recognition model to be used for encoding face landmarks.",
+        "face_recognition_models",
     ),
-    "DNN_BACKEND": (
-        cv2.dnn.DNN_BACKEND_OPENCV,
-        "Specifies the computation backend to be used by OpenCV for deep learning inference.",
-        "dnn_backend",
-    ),
-    "DNN_TARGET": (
-        cv2.dnn.DNN_TARGET_CPU,
-        "Specifies the target device on which OpenCV will perform the deep learning computations.",
-        "dnn_target",
-    ),
-    "BLOB_FROM_IMAGE_SCALE_FACTOR": (
-        1.0,
-        """Specifies the scaling factor applied to all pixel values when converting an image to a blob. Mostly
-        it equals 1.0 for no scaling or 1.0/255.0 and normalizing to the [0, 1] range.
-        Remember that scaling factor is also applied to mean values. Both scaling factor and mean values
-        must be the same for the training and inference to get the correct results.
-        """,
-        float,
-    ),
-    "BLOB_FROM_IMAGE_MEAN_VALUES": (
-        "104.0, 177.0, 123.0",
-        """Specifies the mean BGR values used in image preprocessing to normalize pixel values by subtracting
-        the mean values of the training dataset. This helps in reducing model bias and improving accuracy.
-        The specified mean values are subtracted from each channel (Blue, Green, Red) of the input image.
-        Remember that mean values are also applied to scaling factor. Both scaling factor and mean values
-        must be the same for the training and inference to get the correct results.
-        """,
-        "tuple_field",
-    ),
-    "FACE_DETECTION_CONFIDENCE": (
-        0.5,
-        """
-        Specifies the minimum confidence score required for a detected face to be considered valid. Detections
-        with confidence scores below this threshold are discarded as likely false positives.
-        """,
-        float,
-    ),
-    "NMS_THRESHOLD": (
-        0.4,
-        """
-        Specifies the Intersection over Union (IoU) threshold used in Non-Maximum Suppression (NMS) to filter out
-        overlapping bounding boxes. If the IoU between two boxes exceeds this threshold, the box with the lower
-        confidence score is suppressed. Lower values result in fewer, more distinct boxes; higher values allow more
-        overlapping boxes to remain.
-        """,
-        float,
-    ),
-    "FACE_ENCODINGS_NUM_JITTERS": (
-        1,
-        """
-        Specifies the number of times to re-sample the face when calculating the encoding. Higher values increase
-        accuracy but are computationally more expensive and slower. For example, setting 'num_jitters' to 100 makes
-        the process 100 times slower.
-        """,
-        int,
-    ),
-    "FACE_ENCODINGS_MODEL": (
-        "small",
-        """
-        Specifies the model type used for encoding face landmarks. It can be either 'small' which is faster and
-        detects only 5 key facial landmarks, or 'large' which is more precise and identifies 68 key facial landmarks
-        but requires more computational resources.
-        """,
-        "face_encodings_model",
+    "FACE_DETECTOR_BACKEND": (
+        "retinaface",
+        "Specifies the face detector backend to be used for detecting faces in images.",
+        "face_detector_backend",
     ),
     "FACE_DISTANCE_THRESHOLD": (
         0.4,
         """
-        Specifies the maximum allowable distance between two face embeddings for them to be considered a match. It helps
-        determine if two faces belong to the same person by setting a threshold for similarity. Lower values result in
-        stricter matching, while higher values allow for more lenient matches.
+        Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
+        This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
+        as it establishes the similarity limit. Lower values result in stricter matching, while higher values allow
+        for more lenient matches.
         """,
         float,
-    ),
-    "DEDUPLICATION_SET_LOCK_ENABLED": (
-        True,
-        "Enable or disable the lock mechanism for deduplication sets",
-        bool,
-    ),
-    "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT": (
-        120,
-        "Timeout in seconds for the last action on a deduplication set",
-        int,
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
@@ -104,25 +33,11 @@ CONSTANCE_CONFIG = {
 
 
 CONSTANCE_CONFIG_FIELDSETS = {
-    "Face recognition settings": {
+    "Face detection and recognition settings": {
         "fields": (
-            "DNN_FILES_SOURCE",
-            "DNN_BACKEND",
-            "DNN_TARGET",
-            "BLOB_FROM_IMAGE_SCALE_FACTOR",
-            "BLOB_FROM_IMAGE_MEAN_VALUES",
-            "FACE_DETECTION_CONFIDENCE",
-            "NMS_THRESHOLD",
-            "FACE_ENCODINGS_NUM_JITTERS",
-            "FACE_ENCODINGS_MODEL",
+            "FACE_RECOGNITION_MODEL",
+            "FACE_DETECTOR_BACKEND",
             "FACE_DISTANCE_THRESHOLD",
-        ),
-        "collapse": False,
-    },
-    "Task lock settings": {
-        "fields": (
-            "DEDUPLICATION_SET_LOCK_ENABLED",
-            "DEDUPLICATION_SET_LAST_ACTION_TIMEOUT",
         ),
         "collapse": False,
     },
@@ -137,30 +52,16 @@ CONSTANCE_ADDITIONAL_FIELDS = {
         "django.forms.EmailField",
         {},
     ],
-    "dnn_files_source": [
+    "face_recognition_models": [
         "django.forms.ChoiceField",
         {
-            # "choices": (("github", "GITHUB"), ("azure", "AZURE")),
-            "choices": (("azure", "AZURE"),),
+            "choices": (("VGG-Face", "VGG-Face"),),
         },
     ],
-    "dnn_backend": [
+    "face_detector_backend": [
         "django.forms.ChoiceField",
         {
-            "choices": ((cv2.dnn.DNN_BACKEND_OPENCV, "DNN_BACKEND_OPENCV"),),
+            "choices": (("retinaface", "RetinaFace"),),
         },
     ],
-    "dnn_target": [
-        "django.forms.ChoiceField",
-        {
-            "choices": ((cv2.dnn.DNN_TARGET_CPU, "DNN_TARGET_CPU"),),
-        },
-    ],
-    "face_encodings_model": [
-        "django.forms.ChoiceField",
-        {
-            "choices": (("small", "SMALL"), ("large", "LARGE")),
-        },
-    ],
-    "tuple_field": ["hope_dedup_engine.apps.faces.forms.MeanValuesTupleField", {}],
 }

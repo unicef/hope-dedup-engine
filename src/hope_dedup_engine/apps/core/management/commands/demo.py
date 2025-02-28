@@ -15,11 +15,8 @@ from .utils.azurite_manager import AzuriteManager
 logger = logging.getLogger(__name__)
 
 
-BASE_PATH: Final[Path] = (
-    Path(__file__).resolve().parents[6] / "tests" / "extras" / "demoapp"
-)
+BASE_PATH: Final[Path] = Path(__file__).resolve().parents[6] / "tests" / "extras" / "demoapp"
 DEFAULT_DEMO_IMAGES: Final[Path] = BASE_PATH / env("DEMO_IMAGES_PATH")
-DEFAULT_DNN_FILES: Final[Path] = BASE_PATH / env("DNN_FILES_PATH")
 
 MESSAGES: Final[dict[str, str]] = {
     "upload": "Starting upload of files...",
@@ -56,12 +53,6 @@ class Command(BaseCommand):
             default=str(DEFAULT_DEMO_IMAGES),
             help="Path to the demo images directory",
         )
-        parser.add_argument(
-            "--dnn-files",
-            type=str,
-            default=str(DEFAULT_DNN_FILES),
-            help="Path to the DNN files directory",
-        )
 
     def handle(self, *args: Any, **options: dict[str, Any]) -> None:
         """
@@ -80,7 +71,6 @@ class Command(BaseCommand):
         """
         storages = (
             Storage(name="hope", src=Path(options["demo_images"])),
-            Storage(name="dnn", src=Path(options["dnn_files"])),
             Storage(name="media"),
             Storage(name="staticfiles", options={"public_access": "blob"}),
         )
@@ -96,23 +86,17 @@ class Command(BaseCommand):
                 if storage.src.exists():
                     am.upload_files(storage.src)
                 else:
-                    self.stdout.write(
-                        self.style.ERROR(MESSAGES["not_exist"] % storage.src)
-                    )
+                    self.stdout.write(self.style.ERROR(MESSAGES["not_exist"] % storage.src))
                     logger.error(MESSAGES["not_exist"] % storage.src)
                     self.halt(FileNotFoundError(MESSAGES["not_exist"] % storage.src))
                 self.stdout.write(MESSAGES["storage_success"] % storage.name)
                 logger.info(MESSAGES["storage_success"] % storage.name)
-            except (CommandError, SystemCheckError) as e:
-                self.stdout.write(
-                    self.style.ERROR(MESSAGES["failed"] % (storage.name, e))
-                )
+            except (CommandError, FileNotFoundError, SystemCheckError) as e:
+                self.stdout.write(self.style.ERROR(MESSAGES["failed"] % (storage.name, e)))
                 logger.error(MESSAGES["failed"] % (storage.name, e))
                 self.halt(e)
             except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(MESSAGES["unexpected"] % (storage.name, e))
-                )
+                self.stdout.write(self.style.ERROR(MESSAGES["unexpected"] % (storage.name, e)))
                 logger.exception(MESSAGES["unexpected"] % (storage.name, e))
                 self.halt(e)
 
