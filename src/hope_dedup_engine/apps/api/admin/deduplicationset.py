@@ -29,6 +29,7 @@ class DeduplicationSetAdmin(AdminFiltersMixin, ModelAdmin):
         "updated_by",
         "deleted",
     )
+    exclude = ("encodings",)
     search_fields = ("name", "id")
     list_filter = (
         ("state", ChoicesFieldComboFilter),
