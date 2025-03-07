@@ -47,6 +47,8 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
 
 
 class ImageSerializer(serializers.ModelSerializer):
+    deduplication_set = DeduplicationSetSerializer(read_only=True)
+
     class Meta:
         model = Image
         fields = (
@@ -61,12 +63,17 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class CreateImageSerializer(serializers.ModelSerializer):
+    deduplication_set = serializers.PrimaryKeyRelatedField(
+        queryset=DeduplicationSet.objects.defer("encodings"),
+        default=serializers.CreateOnlyDefault(
+            lambda serializer_field: serializer_field.context["view"].get_parent_object()
+        ),
+        write_only=True,
+    )
+
     class Meta:
         model = Image
-        fields = (
-            "reference_pk",
-            "filename",
-        )
+        fields = ("reference_pk", "filename", "deduplication_set")
 
 
 class EntrySerializer(serializers.Serializer):
