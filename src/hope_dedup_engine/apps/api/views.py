@@ -222,7 +222,9 @@ class BulkImageViewSet(
     @extend_schema(description="Delete all images from deduplication set")
     @action(detail=False, methods=(HTTPMethod.DELETE,))
     def clear(self, request: Request, deduplication_set_pk: str) -> Response:
-        deduplication_set = DeduplicationSet.objects.defer("encodings").get(pk=deduplication_set_pk)
+        deduplication_set = DeduplicationSet.objects.defer("encodings").get(
+            pk=deduplication_set_pk
+        )
         Image.objects.filter(deduplication_set=deduplication_set).delete()
         deduplication_set.updated_by = request.user
         deduplication_set.save()
