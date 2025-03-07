@@ -7,9 +7,11 @@ from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import Image
 
+from .base import DeduplicationSetLightQuerysetMixin
+
 
 @register(Image)
-class ImageAdmin(AdminFiltersMixin, ModelAdmin):
+class ImageAdmin(AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, ModelAdmin):
     list_display = (
         "id",
         "filename",
