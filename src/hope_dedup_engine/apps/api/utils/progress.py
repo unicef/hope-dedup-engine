@@ -30,7 +30,7 @@ def track_progress(
 
 
 def track_progress_multi(
-    callback: Callable[[int], None]
+    callback: Callable[[int], None],
 ) -> Generator[Callable[[int], None], None, None]:
     progress = []
 

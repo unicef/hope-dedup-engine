@@ -201,12 +201,14 @@ class BulkImageViewSet(
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = ImageSerializer
-    queryset = Image.objects.all()
+    queryset = Image.objects.defer("deduplication_set__encodings")
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
+        if self.action == "create":
+            return CreateImageSerializer(*args, **kwargs, many=True)
         return super().get_serializer(*args, **kwargs, many=True)
 
     def perform_create(self, serializer: Serializer) -> None:
@@ -220,7 +222,9 @@ class BulkImageViewSet(
     @extend_schema(description="Delete all images from deduplication set")
     @action(detail=False, methods=(HTTPMethod.DELETE,))
     def clear(self, request: Request, deduplication_set_pk: str) -> Response:
-        deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
+        deduplication_set = DeduplicationSet.objects.defer("encodings").get(
+            pk=deduplication_set_pk
+        )
         Image.objects.filter(deduplication_set=deduplication_set).delete()
         deduplication_set.updated_by = request.user
         deduplication_set.save()
@@ -250,7 +254,7 @@ class DuplicateViewSet(
     )
     serializer_class = DuplicateSerializer
     # TODO: Add filters
-    queryset = Finding.objects.all()
+    queryset = Finding.objects.defer("deduplication_set__encodings")
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
