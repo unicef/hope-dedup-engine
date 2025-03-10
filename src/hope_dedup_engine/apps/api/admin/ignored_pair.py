@@ -11,7 +11,9 @@ from hope_dedup_engine.apps.api.models import (
 from .base import DeduplicationSetLightQuerysetMixin
 
 
-class IgnoredPairBaseAdmin(AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, admin.ModelAdmin):
+class IgnoredPairBaseAdmin(
+    AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, admin.ModelAdmin
+):
     list_display = ("id", "first", "second", "deduplication_set")
     list_filter = (("deduplication_set", AutoCompleteFilter),)
     search_fields = ("first", "second")

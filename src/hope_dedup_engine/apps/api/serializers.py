@@ -40,6 +40,7 @@ class CreateConfigSerializer(ConfigSerializer):
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = DeduplicationSet
         fields = ("reference_pk", "notification_url")
@@ -65,7 +66,9 @@ class CreateImageSerializer(serializers.ModelSerializer):
     deduplication_set = serializers.PrimaryKeyRelatedField(
         queryset=DeduplicationSet.objects.defer("encodings"),
         default=serializers.CreateOnlyDefault(
-            lambda serializer_field: serializer_field.context["view"].get_parent_object()
+            lambda serializer_field: serializer_field.context[
+                "view"
+            ].get_parent_object()
         ),
         write_only=True,
     )
