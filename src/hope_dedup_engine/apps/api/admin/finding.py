@@ -18,6 +18,8 @@ class FindingAdmin(AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, ModelA
         "first_reference_pk",
         "second_reference_pk",
         "formatted_status_code",
+        "created_at",
+        "updated_at",
     )
 
     def formatted_status_code(self, obj):
