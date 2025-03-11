@@ -6,9 +6,11 @@ from adminfilters.mixin import AdminFiltersMixin
 
 from hope_dedup_engine.apps.api.models import Finding, Image
 
+from .base import DeduplicationSetLightQuerysetMixin
+
 
 @register(Finding)
-class FindingAdmin(AdminFiltersMixin, ModelAdmin):
+class FindingAdmin(AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, ModelAdmin):
     list_display = (
         "id",
         "deduplication_set",
@@ -16,6 +18,8 @@ class FindingAdmin(AdminFiltersMixin, ModelAdmin):
         "first_reference_pk",
         "second_reference_pk",
         "formatted_status_code",
+        "created_at",
+        "updated_at",
     )
 
     def formatted_status_code(self, obj):
