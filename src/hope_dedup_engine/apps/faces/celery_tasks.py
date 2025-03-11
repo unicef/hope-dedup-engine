@@ -6,6 +6,7 @@ from typing import Any, Final
 from django.conf import settings
 from django.db.models import F
 
+import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
 from celery.canvas import Signature
 from celery.utils.imports import qualname
@@ -44,6 +45,7 @@ def shadow_name(task, args, kwargs, options):
         name = f"{qualname(s.type)}({group})-{chunk:03}"
         return name
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         return str(e)
 
 
@@ -75,7 +77,8 @@ def encode_chunk(
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
         pre_encodings = ds.get_encodings()
         return encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         handle_error(ds)
         raise
 
@@ -100,7 +103,8 @@ def dedupe_chunk(
             options=config.get("deduplicate"),
             progress=callback,
         )
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         handle_error(ds)
         raise
 
@@ -132,7 +136,8 @@ def callback_findings(
             "Config": config.get("deduplicate"),
             "Findings": len(findings),
         }
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         handle_error(ds)
         raise
 
@@ -152,7 +157,8 @@ def callback_encodings(
         return {
             "Encoded": len(encodings),
         }
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         handle_error(ds)
         raise
 
@@ -173,7 +179,8 @@ def deduplicate_dataset(
             "chord_id": str(chord_id),
             "chunks": len(chunks),
         }
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         handle_error(ds)
         raise
 

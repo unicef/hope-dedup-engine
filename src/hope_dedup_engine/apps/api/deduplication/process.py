@@ -2,6 +2,7 @@ from dataclasses import asdict
 
 from django.db.models import F
 
+import sentry_sdk
 from celery import chord, shared_task
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
@@ -124,6 +125,7 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
             "chord_id": str(chord_id),
             "chunks": len(chunks),
         }
-    except Exception:
+    except Exception as e:
         handle_error(deduplication_set)
+        sentry_sdk.capture_exception(e)
         raise
