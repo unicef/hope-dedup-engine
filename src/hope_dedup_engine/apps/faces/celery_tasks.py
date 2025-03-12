@@ -73,13 +73,13 @@ def encode_chunk(
     config: dict[str, Any],
 ) -> tuple[EncodingType, int, int]:
     """Encode faces in a chunk of files."""
-    with report_long_execution("DeduplicationSet.objects.get(pk=config.get(\"deduplication_set_id\"))"):
+    with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
         with report_long_execution("ds.get_encodings()"):
             pre_encodings = ds.get_encodings()
-        with report_long_execution("encode_faces(files, config.get(\"encoding\"), pre_encodings, progress=callback)"):
+        with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
             return encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
     except Exception as e:
         sentry_sdk.capture_exception(e)

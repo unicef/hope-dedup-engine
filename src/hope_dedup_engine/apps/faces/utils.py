@@ -21,8 +21,11 @@ def is_facial_error(value):
 
 DEFAULT_THRESHOLD_SECONDS = 60
 
+
 @contextmanager
-def report_long_execution(message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS) -> Generator[None, None, None]:
+def report_long_execution(
+    message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS
+) -> Generator[None, None, None]:
     start = time.time()
     yield
     if total := time.time() - start > threshold_seconds:
