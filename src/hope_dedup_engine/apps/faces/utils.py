@@ -1,3 +1,9 @@
+import time
+from contextlib import contextmanager
+from typing import Generator
+
+import sentry_sdk
+
 from hope_dedup_engine.apps.api.models import Image
 
 
@@ -11,3 +17,16 @@ def is_facial_error(value):
             Image.StatusCode.values + Image.StatusCode.names + [choice.label for choice in Image.StatusCode]
         )
     return False
+
+
+DEFAULT_THRESHOLD_SECONDS = 60
+
+
+@contextmanager
+def report_long_execution(
+    message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS
+) -> Generator[None, None, None]:
+    start = time.time()
+    yield
+    if (total := time.time() - start) > threshold_seconds:
+        sentry_sdk.capture_message(f"Execution took {total} seconds: {message}")

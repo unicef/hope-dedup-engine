@@ -6,7 +6,7 @@ from deepface import DeepFace
 
 from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
-from hope_dedup_engine.apps.faces.utils import is_facial_error
+from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
 from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
@@ -25,16 +25,21 @@ def encode_faces(
     if not callable(progress):
         progress = default_progress
 
-    storage = ImagesStorageManager()
-    images = storage.get_files()
+    with report_long_execution("ImagesStorageManager()"):
+        storage = ImagesStorageManager()
+
+    with report_long_execution("storage.get_files()"):
+        images = storage.get_files()
 
     encoded = {}
     if pre_encodings:
-        encoded.update(pre_encodings)
+        with report_long_execution("encoded.update(pre_encodings)"):
+            encoded.update(pre_encodings)
     added_cnt = existing_cnt = 0
     existing_cnt = 1000
     for file in files:
-        progress()
+        with report_long_execution("progress()"):
+            progress()
         if file not in images:
             encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
             continue
@@ -42,7 +47,8 @@ def encode_faces(
             existing_cnt += 1
             continue
         try:
-            result = DeepFace.represent(storage.load_image(file), **(options or {}))
+            with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
+                result = DeepFace.represent(storage.load_image(file), **(options or {}))
             if len(result) > 1:
                 encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.name
             else:

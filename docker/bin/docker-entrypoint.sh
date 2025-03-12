@@ -31,7 +31,7 @@ case "$1" in
       ;;
     worker)
 	    set -- tini -- "$@"
-      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=4
+      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=ERROR --concurrency=2
       ;;
     beat)
 	    set -- tini -- "$@"
