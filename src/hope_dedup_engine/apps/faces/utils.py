@@ -28,5 +28,5 @@ def report_long_execution(
 ) -> Generator[None, None, None]:
     start = time.time()
     yield
-    if total := time.time() - start > threshold_seconds:
+    if (total := time.time() - start) > threshold_seconds:
         sentry_sdk.capture_message(f"Execution took {total} seconds: {message}")
