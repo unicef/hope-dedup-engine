@@ -1,3 +1,7 @@
+v.1.4.0
+=======
+- performance issue fixes
+
 v.1.3.0
 =======
 - added logging
