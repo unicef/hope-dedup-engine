@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 
 from hope_dedup_engine.apps.api.models import Image
@@ -28,9 +29,6 @@ def encode_faces(
     with report_long_execution("ImagesStorageManager()"):
         storage = ImagesStorageManager()
 
-    with report_long_execution("storage.get_files()"):
-        images = storage.get_files()
-
     encoded = {}
     if pre_encodings:
         with report_long_execution("encoded.update(pre_encodings)"):
@@ -40,9 +38,6 @@ def encode_faces(
     for file in files:
         with report_long_execution("progress()"):
             progress()
-        if file not in images:
-            encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
-            continue
         if file in encoded:
             existing_cnt += 1
             continue
@@ -59,6 +54,9 @@ def encode_faces(
             encoded[file] = Image.StatusCode.GENERIC_ERROR.name
         except ValueError:
             encoded[file] = Image.StatusCode.NO_FACE_DETECTED.name
+        except ResourceNotFoundError:
+            encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
+
     return encoded, added_cnt, existing_cnt
 
 
