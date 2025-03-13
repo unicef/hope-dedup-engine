@@ -1,3 +1,7 @@
+v.1.5.0
+=======
+- Celery log level
+
 v.1.4.0
 =======
 - performance issue fixes
