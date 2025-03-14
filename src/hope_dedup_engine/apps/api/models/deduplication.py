@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
 from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
@@ -70,8 +70,10 @@ class DeduplicationSet(models.Model):
         )
 
     def update_encodings(self, encodings: EncodingType) -> None:
-        self.encodings.update(encodings)
-        self.save()
+        with transaction.atomic():
+            fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(pk=self.pk)
+            fresh_self.encodings.update(encodings)
+            fresh_self.save()
 
     def update_findings(self, findings: FindingType) -> None:
         images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
