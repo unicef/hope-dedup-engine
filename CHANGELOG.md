@@ -1,3 +1,7 @@
+v.1.6.0
+=======
+- Memory usage optimization
+
 v.1.5.0
 =======
 - Celery log level
