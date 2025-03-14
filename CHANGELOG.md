@@ -1,3 +1,7 @@
+v.1.7.0
+=======
+- No changes
+
 v.1.6.0
 =======
 - Memory usage optimization
