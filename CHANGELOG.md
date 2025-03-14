@@ -21,4 +21,4 @@ v.1.2.0
 v.0.1.0
 =======
 
-- Initial Release (start)
+- Initial Release
