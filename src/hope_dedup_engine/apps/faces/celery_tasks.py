@@ -1,5 +1,4 @@
 import traceback
-from collections import ChainMap
 from functools import partial
 from typing import Any, Final
 
@@ -17,7 +16,7 @@ from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
-from hope_dedup_engine.types import EncodingType, FindingType
+from hope_dedup_engine.types import FindingType
 
 CHUNK_SIZE: Final[int] = 25
 
@@ -71,7 +70,7 @@ def encode_chunk(
     self: DedupeTask,
     files: list[str],
     config: dict[str, Any],
-) -> tuple[EncodingType, int, int]:
+) -> None:
     """Encode faces in a chunk of files."""
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
@@ -80,7 +79,9 @@ def encode_chunk(
         with report_long_execution("ds.get_encodings()"):
             pre_encodings = ds.get_encodings()
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            return encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+            results = encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+        with report_long_execution('ds.update_encodings(results[0])'):
+            ds.update_encodings(results[0])
     except Exception as e:
         sentry_sdk.capture_exception(e)
         handle_error(ds)
@@ -149,17 +150,15 @@ def callback_findings(
 @app.task(bind=True, base=DedupeTask)
 def callback_encodings(
     self: Task,
-    results: tuple[EncodingType, int, int],
+    results: list[None],
     config: dict[str, Any],
 ) -> dict[str, Any]:
     """Aggregate and save encodings."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        encodings = dict(ChainMap(*[result[0] for result in results]))
-        ds.update_encodings(encodings)
         deduplicate_dataset.delay(config)
         return {
-            "Encoded": len(encodings),
+            "Encoded": True,
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
