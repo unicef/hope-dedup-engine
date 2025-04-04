@@ -1,10 +1,12 @@
 from django.contrib.admin import ModelAdmin, register
+from uuid import uuid4
+from django.contrib import admin
 
 from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 
-from hope_dedup_engine.apps.api.models import Finding, Image
+from hope_dedup_engine.apps.api.models import Finding, Image, Config
 
 from .base import DeduplicationSetLightQuerysetMixin
 
@@ -41,3 +43,15 @@ class FindingAdmin(AdminFiltersMixin, DeduplicationSetLightQuerysetMixin, ModelA
 
     def has_delete_permission(self, request, obj=None):
         return obj is not None
+
+
+@admin.register(Config)
+class ConfigAdmin(admin.ModelAdmin):
+    list_display = ("name", "settings", "created_at")
+    fields = ("name", "settings", "root_token")
+    readonly_fields = ("created_at",)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.root_token:
+            obj.root_token = uuid4().hex  
+        super().save_model(request, obj, form, change)

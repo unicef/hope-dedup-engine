@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
-
 from rest_framework.authtoken.models import Token
+import secrets
 
 
 class HDEToken(Token):
@@ -10,3 +10,8 @@ class HDEToken(Token):
     """
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="auth_tokens", on_delete=models.CASCADE)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = secrets.token_hex(20)  # Generate a 40-character token
+        super().save(*args, **kwargs)

@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from uuid import uuid4
 
 from django.contrib import messages
 from django.contrib.admin import ModelAdmin, register
@@ -123,3 +124,8 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
     #             **context,
     #         },
     #     )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.root_token:  
+            obj.root_token = uuid4().hex  # Generate token if not provided
+        super().save_model(request, obj, form, change)
