@@ -13,5 +13,5 @@ class HDEToken(Token):
 
     def save(self, *args, **kwargs):
         if not self.key:
-            self.key = secrets.token_hex(20)  # Generate a 40-character token
+            self.key = secrets.token_hex(20) 
         super().save(*args, **kwargs)
