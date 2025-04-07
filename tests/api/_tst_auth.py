@@ -22,7 +22,6 @@ from tests.api._api_const import (
 )
 from tests.api._conftest import get_auth_headers
 from hope_dedup_engine.apps.api.models import HDEToken
-import pytest
 
 PK = uuid4()
 
@@ -70,9 +69,9 @@ def test_multiple_tokens_can_be_used(api_client: APIClient, user: User) -> None:
 
 @pytest.mark.django_db
 def test_hde_token_generation(api_client: APIClient):
-    user = UserFactory()   
-    token = HDEToken(user=user)   
-    token.save()  
+    user = UserFactory()
+    token = HDEToken(user=user)
+    token.save()
 
-    assert token.key is not None   
-    assert len(token.key) == 40   
+    assert token.key is not None
+    assert len(token.key) == 40
