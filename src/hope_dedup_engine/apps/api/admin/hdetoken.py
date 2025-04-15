@@ -7,7 +7,6 @@ from hope_dedup_engine.apps.api.models import HDEToken
 @register(HDEToken)
 class HDETokenAdmin(ModelAdmin):
     list_display = ("user",)
-    readonly_fields = ("key",)
     fields = ("user", "key",)
     
     def save_model(self, request, obj, form, change):

@@ -11,8 +11,9 @@ class HDEToken(Token):
     """
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="auth_tokens", on_delete=models.CASCADE)
+    key = models.CharField(max_length=40, primary_key=True, editable=False)
 
     def save(self, *args, **kwargs):
-        if not self.key:
+        if not self.key or self.key.isspace():
             self.key = secrets.token_hex(20)
         super().save(*args, **kwargs)
