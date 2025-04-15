@@ -7,10 +7,12 @@ from hope_dedup_engine.apps.api.models import HDEToken
 @register(HDEToken)
 class HDETokenAdmin(ModelAdmin):
     list_display = ("user",)
+    readonly_fields = ("key",)
+    fields = ("user", "key",)
     
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if not change:  # Only show the message when a new token is created
+        if not change:  
             self.message_user(
                 request, 
                 f"Token generated: {obj.key}", 

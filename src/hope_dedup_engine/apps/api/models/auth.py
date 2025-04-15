@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+import secrets
 
 from rest_framework.authtoken.models import Token
 
