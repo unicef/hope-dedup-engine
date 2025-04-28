@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from testutils.factories.api import TokenFactory
+from testutils.factories.user import UserFactory
 
 from hope_dedup_engine.apps.security.models import User
 from tests.api._api_const import (
@@ -20,6 +21,7 @@ from tests.api._api_const import (
     JSON,
 )
 from tests.api._conftest import get_auth_headers
+from hope_dedup_engine.apps.api.models import HDEToken
 
 PK = uuid4()
 
@@ -63,3 +65,13 @@ def test_multiple_tokens_can_be_used(api_client: APIClient, user: User) -> None:
         api_client.credentials(**get_auth_headers(token))
         response = api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_hde_token_generation(api_client: APIClient):
+    user = UserFactory()
+    token = HDEToken(user=user)
+    token.save()
+
+    assert token.key is not None
+    assert len(token.key) == 40
