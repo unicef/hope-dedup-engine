@@ -2,6 +2,7 @@ from http import HTTPMethod
 from typing import Any
 from uuid import uuid4
 
+import pytest
 from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -9,6 +10,7 @@ from rest_framework.test import APIClient
 from testutils.factories.api import TokenFactory
 from testutils.factories.user import UserFactory
 
+from hope_dedup_engine.apps.api.models import HDEToken
 from hope_dedup_engine.apps.security.models import User
 from tests.api._api_const import (
     BULK_IMAGE_CLEAR_VIEW,
@@ -21,7 +23,6 @@ from tests.api._api_const import (
     JSON,
 )
 from tests.api._conftest import get_auth_headers
-from hope_dedup_engine.apps.api.models import HDEToken
 
 PK = uuid4()
 
