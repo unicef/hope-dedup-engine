@@ -11,6 +11,7 @@ class HDETokenAdmin(ModelAdmin):
         "user",
         "key",
     )
+    readonly_fields = ("key",)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
