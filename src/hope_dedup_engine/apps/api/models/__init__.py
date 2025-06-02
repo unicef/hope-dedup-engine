@@ -1,6 +1,6 @@
-from hope_dedup_engine.apps.api.models.auth import HDEToken  # noqa: F401
-from hope_dedup_engine.apps.api.models.config import Config  # noqa: F401
-from hope_dedup_engine.apps.api.models.deduplication import (  # noqa: F401; Duplicate,
+from hope_dedup_engine.apps.api.models.auth import HDEToken
+from hope_dedup_engine.apps.api.models.config import Config
+from hope_dedup_engine.apps.api.models.deduplication import (
     DeduplicationSet,
     Finding,
     IgnoredFilenamePair,
@@ -8,4 +8,16 @@ from hope_dedup_engine.apps.api.models.deduplication import (  # noqa: F401; Dup
     IgnoredReferencePkPair,
     Image,
 )
-from hope_dedup_engine.apps.api.models.jobs import DedupJob  # noqa: F401
+from hope_dedup_engine.apps.api.models.jobs import DedupJob
+
+__all__ = [
+    "HDEToken",
+    "Config",
+    "DeduplicationSet",
+    "Finding",
+    "IgnoredFilenamePair",
+    "IgnoredPair",
+    "IgnoredReferencePkPair",
+    "Image",
+    "DedupJob",
+]
