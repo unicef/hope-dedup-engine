@@ -24,7 +24,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted", "encodings")
+        exclude = ("deleted",)
         read_only_fields = (
             "external_system",
             "created_at",
@@ -63,7 +63,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 class CreateImageSerializer(serializers.ModelSerializer):
     deduplication_set = serializers.PrimaryKeyRelatedField(
-        queryset=DeduplicationSet.objects.defer("encodings"),
+        queryset=DeduplicationSet.objects.all(),
         default=serializers.CreateOnlyDefault(
             lambda serializer_field: serializer_field.context["view"].get_parent_object()
         ),
