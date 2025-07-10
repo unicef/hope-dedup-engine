@@ -127,6 +127,11 @@ class ImageViewSet(
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
+    def get_serializer_class(self) -> type[Serializer]:
+        if self.action == "create":
+            return CreateImageSerializer
+        return super().get_serializer_class()
+
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
         deduplication_set = serializer.instance.deduplication_set
