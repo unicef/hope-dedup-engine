@@ -33,7 +33,7 @@ dependencies = [
     "django-smart-env>=0.1.0",
     "django-svelte-jsoneditor>=0.4.2",
     "djangorestframework",
-    "drf-nested-routers>=0.94.1",
+    "drf-nested-routers>=0.94.2",
     "drf-spectacular[sidecar]",
     "flower>=2.0.1",
     "jsonschema>=4.23.0",
