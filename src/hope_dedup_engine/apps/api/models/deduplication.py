@@ -70,9 +70,8 @@ class DeduplicationSet(models.Model):
 
     def update_encodings(self, encodings: EncodingType) -> None:
         Encoding.objects.bulk_create(
-            [Encoding(deduplication_set=self, filename=filename, data=data)
-             for filename, data in encodings.items()],
-            update_conflicts=True
+            [Encoding(deduplication_set=self, filename=filename, data=data) for filename, data in encodings.items()],
+            update_conflicts=True,
         )
 
     def update_findings(self, findings: FindingType) -> None:

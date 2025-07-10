@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0017_finding_created_at_finding_updated_at"),
     ]
@@ -14,9 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="hdetoken",
             name="key",
-            field=models.CharField(
-                editable=False, max_length=40, primary_key=True, serialize=False
-            ),
+            field=models.CharField(editable=False, max_length=40, primary_key=True, serialize=False),
         ),
         migrations.CreateModel(
             name="Encoding",
