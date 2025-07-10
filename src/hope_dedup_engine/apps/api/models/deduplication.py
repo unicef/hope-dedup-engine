@@ -3,12 +3,13 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models, transaction
+from django.db import models
 
 from hope_dedup_engine.apps.security.models import ExternalSystem
 from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
+FILENAME_LENGTH: Final[int] = 255
 
 
 class DeduplicationSet(models.Model):
@@ -53,13 +54,11 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
 
-    encodings = models.JSONField(null=True, blank=True, default=dict)  # {file1: encoding1, file2: encoding2, ...}
-
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
     def get_encodings(self) -> EncodingType:
-        return self.encodings
+        return {encoding.filename: encoding.data for encoding in self.encoding_set.all()}
 
     def get_findings(self) -> FindingType:
         return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
@@ -70,10 +69,11 @@ class DeduplicationSet(models.Model):
         )
 
     def update_encodings(self, encodings: EncodingType) -> None:
-        with transaction.atomic():
-            fresh_self: DeduplicationSet = DeduplicationSet.objects.select_for_update().get(pk=self.pk)
-            fresh_self.encodings.update(encodings)
-            fresh_self.save()
+        Encoding.objects.bulk_create(
+            [Encoding(deduplication_set=self, filename=filename, data=data)
+             for filename, data in encodings.items()],
+            update_conflicts=True
+        )
 
     def update_findings(self, findings: FindingType) -> None:
         images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
@@ -108,7 +108,7 @@ class Image(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    filename = models.CharField(max_length=255)
+    filename = models.CharField(max_length=FILENAME_LENGTH)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -126,9 +126,9 @@ class Finding(models.Model):
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
-    first_filename = models.CharField(default="", max_length=255)
+    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
     second_reference_pk = models.CharField(default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference")
-    second_filename = models.CharField(default="", max_length=255)
+    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
     score = models.FloatField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
@@ -179,3 +179,15 @@ class IgnoredFilenamePair(IgnoredPair):
 
     class Meta:
         unique_together = UNIQUE_FOR_IGNORED_PAIR
+
+
+class Encoding(models.Model):
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    filename = models.CharField(max_length=FILENAME_LENGTH)
+    data = models.JSONField()
+
+    class Meta:
+        unique_together = (
+            "deduplication_set",
+            "filename",
+        )
