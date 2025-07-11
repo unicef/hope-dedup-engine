@@ -72,6 +72,8 @@ class DeduplicationSet(models.Model):
         Encoding.objects.bulk_create(
             [Encoding(deduplication_set=self, filename=filename, data=data) for filename, data in encodings.items()],
             update_conflicts=True,
+            update_fields=["data"],
+            unique_fields=["deduplication_set", "filename"],
         )
 
     def update_findings(self, findings: FindingType) -> None:
