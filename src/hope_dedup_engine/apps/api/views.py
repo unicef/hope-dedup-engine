@@ -16,7 +16,7 @@ from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
 from hope_dedup_engine.apps.api.auth import (
-    AssignedToExternalSystem,
+    CanUseApi,
     HDETokenAuthentication,
     UserAndDeduplicationSetAreOfTheSameSystem,
 )
@@ -58,13 +58,13 @@ class DeduplicationSetViewSet(
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
-        AssignedToExternalSystem,
+        CanUseApi,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = DeduplicationSetSerializer
 
     def get_queryset(self) -> QuerySet:
-        return DeduplicationSet.objects.filter(external_system=self.request.user.external_system, deleted=False)
+        return DeduplicationSet.objects.filter(system=self.request.user.external_system, deleted=False)
 
     def perform_create(self, serializer: Serializer) -> None:
         serializer.save(
@@ -118,7 +118,7 @@ class ImageViewSet(
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
-        AssignedToExternalSystem,
+        CanUseApi,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = ImageSerializer
@@ -194,7 +194,7 @@ class BulkImageViewSet(
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
-        AssignedToExternalSystem,
+        CanUseApi,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = ImageSerializer
@@ -242,7 +242,7 @@ class DuplicateViewSet(
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
-        AssignedToExternalSystem,
+        CanUseApi,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     serializer_class = DuplicateSerializer
@@ -283,7 +283,7 @@ class IgnoredPairViewSet(
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
-        AssignedToExternalSystem,
+        CanUseApi,
         UserAndDeduplicationSetAreOfTheSameSystem,
     )
     parent_lookup_kwargs = {

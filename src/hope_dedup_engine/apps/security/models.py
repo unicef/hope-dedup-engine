@@ -8,13 +8,7 @@ class System(models.Model):
     name = models.CharField(max_length=255)
 
 
-class ExternalSystem(models.Model):
-    name = models.CharField(max_length=100, primary_key=True)
-
-
 class User(SecurityMixin, AbstractUser):
-    external_system = models.ForeignKey(ExternalSystem, on_delete=models.SET_NULL, null=True, blank=True)
-
     class Meta:
         abstract = False
 

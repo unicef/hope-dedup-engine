@@ -2,16 +2,16 @@ from django.contrib.auth.models import Group
 
 import factory.fuzzy
 
-from hope_dedup_engine.apps.security.models import ExternalSystem, User
+from hope_dedup_engine.apps.security.models import System, User, UserRole
 
 from .base import AutoRegisterModelFactory
 
 
-class ExternalSystemFactory(AutoRegisterModelFactory):
+class SystemFactory(AutoRegisterModelFactory):
     name = factory.fuzzy.FuzzyText()
 
     class Meta:
-        model = ExternalSystem
+        model = System
 
 
 class UserFactory(AutoRegisterModelFactory):
@@ -19,7 +19,6 @@ class UserFactory(AutoRegisterModelFactory):
     username = factory.Sequence(lambda n: "m%03d@example.com" % n)
     password = factory.django.Password(_password)
     email = factory.Sequence(lambda n: "m%03d@example.com" % n)
-    external_system = factory.SubFactory(ExternalSystemFactory)
 
     class Meta:
         model = User
@@ -46,3 +45,12 @@ class GroupFactory(AutoRegisterModelFactory):
     class Meta:
         model = Group
         django_get_or_create = ("name",)
+
+
+class UserRoleFactory(AutoRegisterModelFactory):
+    user = factory.SubFactory(UserFactory)
+    group = factory.SubFactory(GroupFactory)
+    system = factory.SubFactory(SystemFactory)
+
+    class Meta:
+        model = UserRole

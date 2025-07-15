@@ -25,7 +25,6 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     readonly_fields = (
         "id",
         "state",
-        "external_system",
         "created_at",
         "created_by",
         "updated_at",

@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from hope_dedup_engine.apps.security.models import ExternalSystem
+from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -34,7 +34,7 @@ class DeduplicationSet(models.Model):
         db_column="state",
     )
     deleted = models.BooleanField(null=False, blank=False, default=False)
-    external_system = models.ForeignKey(ExternalSystem, on_delete=models.CASCADE)
+    system = models.ForeignKey(System, on_delete=models.CASCADE, null=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
