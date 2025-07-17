@@ -40,11 +40,8 @@ def backward(apps, _):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("security", "0004_create_systems"),
     ]
 
-    operations = [
-        migrations.RunPython(forward, backward)
-    ]
+    operations = [migrations.RunPython(forward, backward)]

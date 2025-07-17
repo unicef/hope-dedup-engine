@@ -18,7 +18,6 @@ def backward(apps, _):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("api", "0021_deduplicationset_system"),
         ("security", "0004_create_systems"),

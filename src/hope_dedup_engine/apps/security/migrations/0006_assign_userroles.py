@@ -4,9 +4,10 @@ from django.db import migrations
 
 API_USERS_GROUP_NAME = "API users"
 
+
 def forward(apps, _):
-    User = apps.get_model('security', 'User')
-    UserRole = apps.get_model('security', 'UserRole')
+    User = apps.get_model("security", "User")
+    UserRole = apps.get_model("security", "UserRole")
     Group = apps.get_model("auth", "Group")
     api_user_group = Group.objects.get(name=API_USERS_GROUP_NAME)
     for user in User.objects.filter(external_system__isnull=False):
@@ -20,16 +21,13 @@ def forward(apps, _):
 def backward(apps, _):
     Group = apps.get_model("auth", "Group")
     api_user_group = Group.objects.get(name=API_USERS_GROUP_NAME)
-    UserRole = apps.get_model('security', 'UserRole')
+    UserRole = apps.get_model("security", "UserRole")
     UserRole.objects.filter(group=api_user_group).delete()
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("security", "0005_create_group_and_permission"),
     ]
 
-    operations = [
-        migrations.RunPython(forward, backward)
-    ]
+    operations = [migrations.RunPython(forward, backward)]

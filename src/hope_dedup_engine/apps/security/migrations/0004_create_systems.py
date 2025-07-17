@@ -23,11 +23,8 @@ def backward(apps, _):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("security", "0003_add_system_ref_to_externalsystem"),
     ]
 
-    operations = [
-        migrations.RunPython(forward, backward)
-    ]
+    operations = [migrations.RunPython(forward, backward)]

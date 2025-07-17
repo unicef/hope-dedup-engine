@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("security", "0002_alter_system_id_alter_user_id_alter_userrole_id"),
     ]
