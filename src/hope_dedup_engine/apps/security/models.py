@@ -12,6 +12,10 @@ class User(SecurityMixin, AbstractUser):
     class Meta:
         abstract = False
 
+    @property
+    def system(self) -> System | None:
+        return (role := self.userrole_set.first()) and role.system
+
 
 class UserRole(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

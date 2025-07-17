@@ -28,7 +28,7 @@ from hope_dedup_engine.apps.security.models import User
 
 register(ExternalSystemFactory)
 register(UserFactory)
-register(DeduplicationSetFactory, external_system=LazyFixture("external_system"))
+register(DeduplicationSetFactory, system=LazyFixture("system"))
 register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(
     ImageFactory,

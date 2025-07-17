@@ -64,12 +64,12 @@ class DeduplicationSetViewSet(
     serializer_class = DeduplicationSetSerializer
 
     def get_queryset(self) -> QuerySet:
-        return DeduplicationSet.objects.filter(system=self.request.user.external_system, deleted=False)
+        return DeduplicationSet.objects.filter(system=self.request.user.system, deleted=False)
 
     def perform_create(self, serializer: Serializer) -> None:
         serializer.save(
             created_by=self.request.user,
-            external_system=self.request.user.external_system,
+            system=self.request.user.system,
         )
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
