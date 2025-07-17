@@ -34,7 +34,7 @@ class DeduplicationSet(models.Model):
         db_column="state",
     )
     deleted = models.BooleanField(null=False, blank=False, default=False)
-    system = models.ForeignKey(System, on_delete=models.CASCADE, null=True)
+    system = models.ForeignKey(System, on_delete=models.CASCADE)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
