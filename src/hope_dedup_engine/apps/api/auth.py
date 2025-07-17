@@ -7,17 +7,15 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.auth import HDEToken
 
 
-class AssignedToExternalSystem(BasePermission):
+class CanUseApi(BasePermission):
     def has_permission(self, request: Request, view: View) -> bool:
-        return request.user and request.user.external_system
+        return request.user and request.user.has_perm("can_use_api")
 
 
 class UserAndDeduplicationSetAreOfTheSameSystem(BasePermission):
     def has_permission(self, request: Request, view: View) -> bool:
         if deduplication_set_pk := view.kwargs.get("deduplication_set_pk") or view.kwargs.get("pk"):
-            return DeduplicationSet.objects.filter(
-                external_system=request.user.external_system, pk=deduplication_set_pk
-            ).exists()
+            return DeduplicationSet.objects.filter(system=request.user.system, pk=deduplication_set_pk).exists()
         return True
 
 

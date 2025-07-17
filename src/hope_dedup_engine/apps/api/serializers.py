@@ -26,7 +26,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
         model = DeduplicationSet
         exclude = ("deleted",)
         read_only_fields = (
-            "external_system",
+            "system",
             "created_at",
             "created_by",
             "deleted",

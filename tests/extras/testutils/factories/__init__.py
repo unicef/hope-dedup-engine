@@ -13,9 +13,9 @@ from .base import (
 from .django_celery_beat import PeriodicTaskFactory  # noqa
 from .social import SocialAuthUserFactory  # noqa
 from .user import (  # noqa
-    ExternalSystemFactory,
     GroupFactory,
     SuperUserFactory,
+    SystemFactory,
     User,
     UserFactory,
 )

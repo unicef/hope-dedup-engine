@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from factory import Factory, SubFactory, fuzzy, lazy_attribute
 from factory.django import DjangoModelFactory
-from testutils.factories import ExternalSystemFactory, UserFactory
+from testutils.factories import SystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import (
     DeduplicateOptions,
@@ -37,7 +37,7 @@ class ConfigFactory(DjangoModelFactory):
 
 class DeduplicationSetFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
-    external_system = SubFactory(ExternalSystemFactory)
+    system = SubFactory(SystemFactory)
     state = DeduplicationSet.State.CLEAN
     notification_url = fuzzy.FuzzyText(prefix="https://")
     config = SubFactory(ConfigFactory)
