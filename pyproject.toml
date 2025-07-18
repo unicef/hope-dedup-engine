@@ -13,121 +13,56 @@ requires-python = "==3.12.*"
 classifiers = [ "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.12" ]
 dependencies = [
   "celery[redis]",
-  "deepface>=0.0.93",
+  "deepface",
   "django",
   "django-admin-extra-buttons",
   "django-adminactions",
   "django-adminfilters",
   "django-celery-beat",
-  "django-celery-boost==0.6.2",
-  "django-celery-results>=2.5.1",
+  "django-celery-boost",
+  "django-celery-results",
   "django-concurrency",
   "django-constance",
   "django-csp",
   "django-debug-toolbar",
-  "django-environ>=0.11.2",
+  "django-environ",
   "django-extensions",
   "django-filter",
-  "django-flags>=5.0.13",
-  "django-regex>=0.5",
-  "django-smart-env>=0.1",
+  "django-flags",
+  "django-regex",
+  "django-smart-env",
   "django-storages[azure]",
-  "django-svelte-jsoneditor>=0.4.2",
+  "django-svelte-jsoneditor",
   "djangorestframework",
-  "drf-nested-routers>=0.94.2",
+  "drf-nested-routers",
   "drf-spectacular[sidecar]",
-  "flower>=2.0.1",
-  "jsonschema>=4.23",
-  "numpy>=1.26.4,<2",
-  "psycopg2-binary>=2.9.9",
-  "requests>=2.32.3",
-  "ruff>=0.9.7",
-  "sentry-sdk[celery,django]>=2.2.1",
-  "setuptools>=74.1.2",
+  "flower",
+  "jsonschema",
+  "numpy<2",
+  "psycopg2-binary",
+  "requests",
+  "sentry-sdk[celery,django]",
+  "setuptools",
   "social-auth-app-django",
   "social-auth-core",
-  "tf-keras>=2.18",
+  "tf-keras",
   "unicef-security",
 ]
 
 optional-dependencies.distribution = [
-  "uwsgi>=2.0.28",
+  "uwsgi",
 ]
 optional-dependencies.docs = [
-  "mkdocs>=1.6.1",
-  "mkdocs-awesome-pages-plugin>=2.9.3",
-  "mkdocs-gen-files>=0.5",
-  "mkdocs-material>=9.5.36",
-  "mkdocs-panzoom-plugin>=0.1.3",
+  "mkdocs",
+  "mkdocs-awesome-pages-plugin",
+  "mkdocs-gen-files",
+  "mkdocs-material",
+  "mkdocs-panzoom-plugin",
   "mkdocstrings-python",
 ]
 
 [tool.setuptools.package-data]
 "hope_dedup_engine" = [ "web/templates/**/*", "web/static/**/*" ]
-
-[tool.ruff]
-# Assume Python 3.12
-target-version = "py312"
-
-line-length = 120
-indent-width = 4
-
-# Exclude a variety of commonly ignored directories.
-exclude = [
-  ".bzr",
-  ".eggs",
-  ".git",
-  ".git-rewrite",
-  ".mypy_cache",
-  ".nox",
-  ".pyenv",
-  ".pytest_cache",
-  ".pytype",
-  ".ruff_cache",
-  ".tox",
-  ".venv",
-  ".vscode",
-  "__pypackages__",
-  "_build",
-  "buck-out",
-  "build",
-  "dist",
-  "node_modules",
-  "site-packages",
-  "venv",
-]
-
-format.indent-style = "space"
-format.quote-style = "double"
-format.line-ending = "auto"
-format.skip-magic-trailing-comma = false
-format.docstring-code-line-length = "dynamic"
-format.docstring-code-format = false
-lint.select = [ "E4", "E7", "E9", "F" ]
-lint.ignore = [ "F403" ]
-lint.fixable = [ "ALL" ]
-lint.unfixable = [  ]
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.isort]
-profile = "black"
-line_length = 120
-default_section = "THIRDPARTY"
-known_first_party = [  ]
-known_django = "django"
-sections = [ "FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER" ]
-include_trailing_comma = true
-skip = [ "migrations", "snapshots", ".venv" ]
-
-[tool.towncrier]
-name = "Deduplication Engine"
-directory = "changes"
-package = "hope_dedup_engine"
-filename = "CHANGELOG.md"
-title_format = "{version}"
-#template =
-#issue_format = "`#{issue} <https://github.com/unicef/hope-dedup-engine/pull/{issue}>`_"
-wrap = true
 
 [tool.uv]
 package = true
@@ -149,15 +84,17 @@ dev-dependencies = [
   "pdbpp",
   "pre-commit",
   "pytest",
-  "pytest-celery>=1.0.0",
+  "pytest-celery",
   "pytest-cov",
   "pytest-django",
   "pytest-echo",
-  "pytest-factoryboy>=2.7.0",
-  "pytest-mock>=3.14.0",
+  "pytest-factoryboy",
+  "pytest-mock",
   "pytest-xdist",
   "requests-mock",
-  "responses>=0.25.0",
+  "responses",
+  "ruff",
+  "tox",
   "types-freezegun",
   "types-python-dateutil",
   "types-pytz",
