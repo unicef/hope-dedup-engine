@@ -1,3 +1,12 @@
+v.1.8.0
+=======
+- Optimize encoding
+- Remove external system
+
+v.1.7.0
+=======
+- Upgrade to django 5
+
 v.1.6.0
 =======
 - Memory usage optimization
@@ -21,4 +30,4 @@ v.1.2.0
 v.0.1.0
 =======
 
-- Initial Release (start)
+- Initial Release

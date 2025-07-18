@@ -2,13 +2,16 @@ from unittest.mock import Mock
 
 from django.contrib.admin.sites import site
 from django.contrib.admin.templatetags.admin_urls import admin_urlname
-from django.db.models.options import Options
 from django.urls import reverse
 
 import pytest
 from admin_extra_buttons.handlers import ChoiceHandler
 from django_regex.utils import RegexList as _RegexList
 from testutils.factories.user import SuperUserFactory
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from django.db.models.options import Options
 
 pytestmark = [pytest.mark.admin, pytest.mark.smoke, pytest.mark.django_db]
 
@@ -47,7 +50,7 @@ def log_submit_error(res):
         return "Submit failed"
 
 
-def pytest_generate_tests(metafunc):
+def pytest_generate_tests(metafunc):  # noqa
     import django
 
     markers = metafunc.definition.own_markers
@@ -67,7 +70,6 @@ def pytest_generate_tests(metafunc):
             if hasattr(admin, "get_changelist_buttons"):
                 name = model._meta.object_name
                 assert admin.urls  # we need to force this call
-                # admin.get_urls()  # we need to force this call
                 buttons = admin.extra_button_handlers.values()
                 full_name = f"{model._meta.app_label}.{name}"
                 admin_name = f"{model._meta.app_label}.{admin.__class__.__name__}"
@@ -90,7 +92,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("modeladmin", m, ids=ids)
 
 
-@pytest.fixture()
+@pytest.fixture
 def record(db, request):
     from testutils.factories import get_factory_for_model
 
@@ -106,7 +108,7 @@ def record(db, request):
     return instance
 
 
-@pytest.fixture()
+@pytest.fixture
 def app(django_app_factory, mocked_responses):
     django_app = django_app_factory(csrf_checks=False)
     admin_user = SuperUserFactory(username="superuser")
