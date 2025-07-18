@@ -10,7 +10,7 @@ from testutils.factories import SuperUserFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture()
+@pytest.fixture
 def environment():
     return {
         "ADMIN_EMAIL": "",
@@ -81,12 +81,6 @@ def test_upgrade(verbosity, migrate, monkeypatch, environment):
             verbosity=verbosity,
         )
     assert "error" not in str(out.getvalue())
-
-
-# def test_upgrade_check(mocked_responses, admin_user, environment):
-#     out = StringIO()
-#     with mock.patch.dict(os.environ, environment, clear=True):
-#         call_command("upgrade", stdout=out, check=True)
 
 
 def test_upgrade_noadmin(db, mocked_responses, environment):

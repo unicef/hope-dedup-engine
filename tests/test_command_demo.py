@@ -8,7 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 
-@pytest.fixture()
+@pytest.fixture
 def environment():
     return {
         "DEMO_IMAGES_PATH": "demo_images",
@@ -17,7 +17,7 @@ def environment():
 
 @pytest.fixture
 def mock_azurite_manager(mocker: MockerFixture):
-    yield mocker.patch(
+    return mocker.patch(
         "hope_dedup_engine.apps.core.management.commands.demo.AzuriteManager",
     )
 
@@ -38,7 +38,7 @@ def test_demo_handle_success(environment, mock_azurite_manager):
 
 
 @pytest.mark.parametrize(
-    "side_effect, expected_exception",
+    ("side_effect", "expected_exception"),
     [
         (FileNotFoundError("File not found"), SystemExit),
         (CommandError("Command execution failed"), SystemExit),
