@@ -1,6 +1,6 @@
 from typing import Any
 
-from pytest import fixture, mark
+import pytest
 from pytest_mock import MockerFixture
 
 from hope_dedup_engine.apps.api.deduplication.adapters import (
@@ -9,12 +9,12 @@ from hope_dedup_engine.apps.api.deduplication.adapters import (
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
 
-pytestmark = mark.django_db
+pytestmark = pytest.mark.django_db
 
 
-@fixture
+@pytest.fixture
 def duplication_detector(mocker: MockerFixture) -> Any:
-    yield mocker.patch("hope_dedup_engine.apps.api.deduplication.adapters.DuplicationDetector")
+    return mocker.patch("hope_dedup_engine.apps.api.deduplication.adapters.DuplicationDetector")
 
 
 def test_duplicate_face_finder_uses_duplication_detector(

@@ -3,7 +3,7 @@ from operator import attrgetter
 from urllib.parse import urlencode
 
 from factory.fuzzy import FuzzyText
-from pytest import mark
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -31,16 +31,16 @@ def test_cannot_list_duplicates_between_systems(
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-@mark.parametrize(
+@pytest.mark.parametrize(
     ("filter_value_getter", "expected_amount"),
-    (
+    [
         # filter by first_reference_pk
         (attrgetter("first_reference_pk"), 1),
         # filter by second_reference_pk
         (attrgetter("second_reference_pk"), 1),
         # filter by random string
         (lambda _: FuzzyText().fuzz(), 0),
-    ),
+    ],
 )
 def test_can_filter_by_reference_pk(
     api_client: APIClient,

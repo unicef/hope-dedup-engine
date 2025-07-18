@@ -1,4 +1,4 @@
-from pytest import mark
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -33,7 +33,7 @@ def test_missing_fields_handling(api_client: APIClient) -> None:
     assert "reference_pk" in errors
 
 
-@mark.parametrize("field", ("reference_pk", "config"))
+@pytest.mark.parametrize("field", ["reference_pk", "config"])
 def test_invalid_values_handling(field: str, api_client: APIClient) -> None:
     data = CreateDeduplicationSetSerializer(DeduplicationSetFactory.build()).data
     data[field] = None
@@ -44,14 +44,3 @@ def test_invalid_values_handling(field: str, api_client: APIClient) -> None:
     errors = response.json()
     assert len(errors) == 1
     assert field in errors
-
-
-# def test_can_set_deduplication_set_without_config(api_client: APIClient) -> None:
-#     data = CreateDeduplicationSetSerializer(DeduplicationSetFactory.build()).data
-#     del data["config"]
-
-#     response = api_client.post(
-#         reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON
-#     )
-
-#     assert response.status_code == status.HTTP_201_CREATED

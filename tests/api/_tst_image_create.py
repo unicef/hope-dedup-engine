@@ -1,4 +1,4 @@
-from pytest import mark
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -38,12 +38,12 @@ def test_cannot_create_image_between_systems(
     assert Image.objects.filter(deduplication_set=deduplication_set).count() == previous_amount
 
 
-@mark.parametrize(
+@pytest.mark.parametrize(
     "filename",
-    (
+    [
         "",
         None,
-    ),
+    ],
 )
 def test_invalid_values_handling(
     api_client: APIClient, deduplication_set: DeduplicationSet, filename: str | None

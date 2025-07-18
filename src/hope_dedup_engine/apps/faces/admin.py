@@ -56,5 +56,3 @@ class DummyModelAdmin(ExtraButtonsMixin, admin.ModelAdmin):
                     f"The DNN files sync task `{task.id}` has started. "
                     f"The files will be forcibly synchronized with azure.",
                 )
-
-        return None

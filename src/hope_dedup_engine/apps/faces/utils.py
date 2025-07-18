@@ -8,7 +8,7 @@ from hope_dedup_engine.apps.api.models import Image
 
 
 def is_facial_error(value):
-    if isinstance(value, (int, str)):
+    if isinstance(value, int | str):
         return value not in {
             Image.StatusCode.DEDUPLICATE_SUCCESS,
             Image.StatusCode.DEDUPLICATE_SUCCESS.name,
@@ -23,9 +23,7 @@ DEFAULT_THRESHOLD_SECONDS = 60
 
 
 @contextmanager
-def report_long_execution(
-    message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS
-) -> Generator[None, None, None]:
+def report_long_execution(message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS) -> Generator:
     start = time.time()
     yield
     if (total := time.time() - start) > threshold_seconds:

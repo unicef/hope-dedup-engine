@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, call
 
-from pytest import raises
+import pytest
 
 from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
@@ -95,7 +95,7 @@ def test_notification_sent_on_failure(
     send_notification: MagicMock,
 ) -> None:
     send_notification.reset_mock()  # remove notification for CREATE state
-    with raises(Exception):
+    with pytest.raises(RuntimeError):
         find_duplicates(dedup_job.pk, dedup_job.version)
     deduplication_set.refresh_from_db()
     assert deduplication_set.state == deduplication_set.State.DIRTY

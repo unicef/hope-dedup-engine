@@ -1162,7 +1162,7 @@ wheels = [
 
 [[package]]
 name = "hope-dedup-engine"
-version = "0.1.0"
+version = "1.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "celery", extra = ["redis"] },
@@ -1272,22 +1272,22 @@ requires-dist = [
     { name = "django-extensions" },
     { name = "django-filter" },
     { name = "django-flags", specifier = ">=5.0.13" },
-    { name = "django-regex", specifier = ">=0.5.0" },
-    { name = "django-smart-env", specifier = ">=0.1.0" },
+    { name = "django-regex", specifier = ">=0.5" },
+    { name = "django-smart-env", specifier = ">=0.1" },
     { name = "django-storages", extras = ["azure"] },
     { name = "django-svelte-jsoneditor", specifier = ">=0.4.2" },
     { name = "djangorestframework" },
     { name = "drf-nested-routers", specifier = ">=0.94.2" },
     { name = "drf-spectacular", extras = ["sidecar"] },
     { name = "flower", specifier = ">=2.0.1" },
-    { name = "jsonschema", specifier = ">=4.23.0" },
+    { name = "jsonschema", specifier = ">=4.23" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1" },
     { name = "mkdocs-awesome-pages-plugin", marker = "extra == 'docs'", specifier = ">=2.9.3" },
-    { name = "mkdocs-gen-files", marker = "extra == 'docs'", specifier = ">=0.5.0" },
+    { name = "mkdocs-gen-files", marker = "extra == 'docs'", specifier = ">=0.5" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.36" },
     { name = "mkdocs-panzoom-plugin", marker = "extra == 'docs'", specifier = ">=0.1.3" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'" },
-    { name = "numpy", specifier = ">=1.26.4,<2.0.0" },
+    { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "ruff", specifier = ">=0.9.7" },
@@ -1295,11 +1295,11 @@ requires-dist = [
     { name = "setuptools", specifier = ">=74.1.2" },
     { name = "social-auth-app-django" },
     { name = "social-auth-core" },
-    { name = "tf-keras", specifier = ">=2.18.0" },
+    { name = "tf-keras", specifier = ">=2.18" },
     { name = "unicef-security" },
     { name = "uwsgi", marker = "extra == 'distribution'", specifier = ">=2.0.28" },
 ]
-provides-extras = ["docs", "distribution"]
+provides-extras = ["distribution", "docs"]
 
 [package.metadata.requires-dev]
 dev = [

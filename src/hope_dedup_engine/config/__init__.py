@@ -1,11 +1,11 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, Tuple, TypeAlias, Union
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from smart_env import SmartEnv
 
 if TYPE_CHECKING:
-    ConfigItem: TypeAlias = Union[Tuple[type, Any, str, Any], Tuple[type, Any, str], Tuple[type, Any]]
+    type ConfigItem = tuple[type, Any, str, Any] | tuple[type, Any, str] | tuple[type, Any]
 
 DJANGO_HELP_BASE = "https://docs.djangoproject.com/en/5.1/ref/settings"
 
@@ -22,7 +22,7 @@ class Group(Enum):
     DJANGO = 1
 
 
-CONFIG: "Dict[str, ConfigItem]" = {
+CONFIG: "dict[str, ConfigItem]" = {
     "ADMIN_EMAIL": (
         str,
         SmartEnv.NOTSET,
@@ -108,25 +108,19 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "DEEPFACE_HOME": (
         str,
         "/var/run/app/deepface",
-        "/tmp/deepface",  # nosec
+        "/tmp/deepface",  # noqa: S108
         True,
         "Home folder for DeepFace models pre-trained-weights files",
     ),
     "DEFAULT_ROOT": (
         str,
         "/var/default/",
-        "/tmp/default",  # nosec
+        "/tmp/default",  # noqa: S108
         True,
         "Default root for stored locally files",
     ),
     "DEMO_IMAGES_PATH": (str, "demo_images"),
     "DNN_FILES_PATH": (str, "dnn_files"),
-    # "EMAIL_BACKEND": (
-    #     str,
-    #     "django.core.mail.backends.smtp.EmailBackend",
-    #     setting("email-backend"),
-    #     True,
-    # ),
     "EMAIL_HOST": (str, "", "", False, setting("email-host")),
     "EMAIL_HOST_USER": (str, "", "", False, setting("email-host-user")),
     "EMAIL_HOST_PASSWORD": (str, "", "", False, setting("email-host-password")),
@@ -176,7 +170,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "MEDIA_ROOT": (
         str,
         "/var/media/",
-        "/tmp/media",  # nosec
+        "/tmp/media",  # noqa: S108
         True,
         setting("media-root"),
     ),
@@ -236,7 +230,7 @@ CONFIG: "Dict[str, ConfigItem]" = {
     "STATIC_ROOT": (
         str,
         "/var/static",
-        "/tmp/static",
+        "/tmp/static",  # noqa: S108
         True,
         setting("static-root"),
     ),  # nosec

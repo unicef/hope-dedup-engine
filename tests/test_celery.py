@@ -1,19 +1,10 @@
-import pytest
+from hope_dedup_engine.config.celery import app
+from hope_dedup_engine.config.celery import init_sentry
 
 
 def test_celery():
-    try:
-        from hope_dedup_engine.config.celery import app
-
-        assert app.clock
-    except Exception as e:
-        pytest.fail(getattr(e, "message", "unknown error"))
+    assert app.clock
 
 
 def test_init_celery():
-    try:
-        from hope_dedup_engine.config.celery import init_sentry
-
-        init_sentry()
-    except Exception as e:
-        pytest.fail(getattr(e, "message", "unknown error"))
+    init_sentry()

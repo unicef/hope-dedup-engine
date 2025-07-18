@@ -3,7 +3,6 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from pytest import mark
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -41,7 +40,7 @@ REQUESTS = (
 )
 
 
-@mark.parametrize(("view_name", "method", "args"), REQUESTS)
+@pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_anonymous_cannot_access(
     anonymous_api_client: APIClient,
     view_name: str,
@@ -52,7 +51,7 @@ def test_anonymous_cannot_access(
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-@mark.parametrize(("view_name", "method", "args"), REQUESTS)
+@pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_authenticated_can_access(
     api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
 ) -> None:

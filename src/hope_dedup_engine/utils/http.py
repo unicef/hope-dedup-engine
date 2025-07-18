@@ -1,15 +1,17 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, TYPE_CHECKING
 from urllib.parse import urljoin
 
 from django.conf import settings
-from django.http import HttpRequest
 from django.http.request import split_domain_port
 from django.urls import reverse
 
 from hope_dedup_engine.state import state
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
-def get_server_host(request: "Optional[HttpRequest]" = None) -> str:
+
+def get_server_host(request: "HttpRequest | None" = None) -> str:
     req: HttpRequest | None = request or state.request
     host = req.get_host()
     domain, port = split_domain_port(host)
@@ -39,5 +41,5 @@ def absolute_uri(url: str | None = None) -> str:
     return uri
 
 
-def absolute_reverse(name: str, args: Tuple[Any] | None = None, kwargs: Dict[str, Any] | None = None) -> str:
+def absolute_reverse(name: str, args: tuple[Any] | None = None, kwargs: dict[str, Any] | None = None) -> str:
     return absolute_uri(reverse(name, args=args, kwargs=kwargs))

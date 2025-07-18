@@ -1,9 +1,10 @@
 import contextlib
 import json
 from copy import copy
+from dataclasses import dataclass, astuple
 from datetime import datetime, timedelta
 from threading import local
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Protocol
+from typing import Any, Iterator, Mapping, Protocol
 
 # TODO: find out what is correct value for this
 not_set = None
@@ -18,9 +19,21 @@ class AnyResponse(Protocol):
         pass
 
 
+@dataclass
+class Cookie:
+    value: str | int
+    max_age: int | float | timedelta | None = None
+    expires: str | datetime | None = None
+    path: str = "/"
+    domain: str | None = None
+    secure: bool = False
+    httponly: bool = False
+    samesite: str | None = None
+
+
 class State(local):
     request: AnyRequest | None = None
-    cookies: Dict[str, List[Any]] = {}
+    cookies: dict[str, list[Any]] = {}
 
     def __repr__(self) -> str:
         return f"<State {id(self)}>"
@@ -28,28 +41,12 @@ class State(local):
     def add_cookie(
         self,
         key: str,
-        value: str,
-        max_age: [int | float, timedelta] = None,
-        expires: [str | datetime] = None,
-        path: str = "/",
-        domain: str | None = None,
-        secure: bool = False,
-        httponly: bool = False,
-        samesite: str | None = None,
+        cookie: Cookie,
     ) -> None:
-        value = json.dumps(value)
-        self.cookies[key] = [
-            value,
-            max_age,
-            expires,
-            path,
-            domain,
-            secure,
-            httponly,
-            samesite,
-        ]
+        cookie.value = json.dumps(cookie.value)
+        self.cookies[key] = list(astuple(cookie))
 
-    def get_cookie(self, name: str) -> Optional[str]:
+    def get_cookie(self, name: str) -> str | None:
         return self.request.COOKIES.get(name)
 
     def set_cookies(self, response: "AnyResponse") -> None:
@@ -57,7 +54,7 @@ class State(local):
             response.set_cookie(name, *args)
 
     @contextlib.contextmanager
-    def configure(self, **kwargs: "Dict[str,Any]") -> "Iterator[None]":
+    def configure(self, **kwargs: "dict[str,Any]") -> "Iterator[None]":
         pre = copy(self.__dict__)
         self.reset()
         with self.set(**kwargs):
@@ -66,7 +63,7 @@ class State(local):
             setattr(self, k, v)
 
     @contextlib.contextmanager
-    def set(self, **kwargs: "Dict[str,Any]") -> "Iterator[None]":
+    def set(self, **kwargs: "dict[str,Any]") -> "Iterator[None]":
         pre = {}
         for k, v in kwargs.items():
             if hasattr(self, k):

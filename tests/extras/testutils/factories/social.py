@@ -8,5 +8,5 @@ from .user import UserFactory
 
 class SocialAuthUserFactory(UserFactory):
     @factory.post_generation
-    def sso(obj, create, extracted, **kwargs):
-        UserSocialAuth.objects.get_or_create(user=obj, provider="test", uid=uuid4())
+    def sso(self, create, extracted, **kwargs):
+        UserSocialAuth.objects.get_or_create(user=self, provider="test", uid=uuid4())

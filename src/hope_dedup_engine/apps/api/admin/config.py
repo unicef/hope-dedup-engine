@@ -25,16 +25,6 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
         }
     }
 
-    # def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, str]:
-    #     initial_data = super().get_changeform_initial_data(request)
-    #     initial_data["settings"] = {}
-    #     try:
-    #         schema = SchemaManager.get_or_create()
-    #         DefaultValidatingValidator(schema).validate(initial_data["settings"])
-    #     except ValidationError as e:
-    #         self.message_user(request, e.message, level=messages.ERROR)
-    #     return initial_data
-
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -43,11 +33,6 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
                 self.admin_site.admin_view(self.confirm_save),
                 name="confirm_save_config",
             ),
-            # path(
-            #     "change-settings-schema/",
-            #     self.admin_site.admin_view(self.change_settings_schema),
-            #     name="change_settings_schema",
-            # ),
         ]
         return custom_urls + urls
 
@@ -70,9 +55,7 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
             form_data = request.session.get("unsaved_data", None)
             if form_data:
                 for field, value in form_data.items():
-                    if field == "settings":
-                        value = json.loads(value)
-                    setattr(obj, field, value)
+                    setattr(obj, field, json.loads(value) if field == "settings" else value)
                 obj.save()
 
             return redirect(reverse("admin:api_config_changelist"))
@@ -85,41 +68,3 @@ class ConfigAdmin(ExtraButtonsMixin, ModelAdmin):
                 "form_data": request.session.get("unsaved_data"),
             },
         )
-
-    # @button(permission=is_root)
-    # def change_settings_schema(
-    #     self, request: HttpRequest
-    # ) -> HttpResponse:  # pragma: no cover
-    #     context = {
-    #         "opts": self.model._meta,
-    #         "site_header": site.site_header,
-    #         "title": "Change settings shema",
-    #         "trail_label": "Settings schema",
-    #         "has_view_permission": self.has_view_permission(request),
-    #     }
-
-    #     if request.method == "POST":
-    #         form = EditSchemaForm(request.POST)
-    #         if form.is_valid():
-    #             try:
-    #                 SchemaManager.save(form.cleaned_data["schema"])
-    #             except ValidationError as e:
-    #                 self.message_user(request, e.message, level=messages.ERROR)
-    #             else:
-    #                 self.message_user(request, "Schema has been updated.")
-    #                 return redirect(reverse("admin:api_config_changelist"))
-    #     else:
-    #         try:
-    #             form = EditSchemaForm(initial={"schema": SchemaManager.get_or_create()})
-    #         except ValidationError as e:
-    #             self.message_user(request, e.message, level=messages.ERROR)
-    #             return redirect(reverse("admin:api_config_changelist"))
-
-    #     return render(
-    #         request,
-    #         "admin/api/config/change_settings_schema.html",
-    #         {
-    #             "form": form,
-    #             **context,
-    #         },
-    #     )

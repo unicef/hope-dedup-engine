@@ -12,5 +12,4 @@ class ImagesStorageManager:
     def load_image(self, file: str) -> np.ndarray:
         with self.storage.open(file, "rb") as img_file:
             img_array = np.frombuffer(img_file.read(), dtype=np.uint8)
-            img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-        return img_bgr
+            return cv2.imdecode(img_array, cv2.IMREAD_COLOR)

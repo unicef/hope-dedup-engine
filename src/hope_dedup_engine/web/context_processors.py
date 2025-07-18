@@ -8,7 +8,7 @@ from hope_dedup_engine.state import state
 
 
 def current_state(request: HttpRequest) -> dict[str, Any]:
-    ret = {
+    return {
         "state": state,
         "app": {
             "version": VERSION,
@@ -16,4 +16,3 @@ def current_state(request: HttpRequest) -> dict[str, Any]:
             "commit": os.environ.get("SOURCE_COMMIT", "-"),
         },
     }
-    return ret

@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from pytest import fixture
+import pytest
 from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
@@ -42,7 +42,7 @@ register(ConfigFactory)
 register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 
 
-@fixture
+@pytest.fixture
 def anonymous_api_client() -> APIClient:
     return APIClient()
 
@@ -58,33 +58,33 @@ def create_api_client(user: User) -> APIClient:
     return client
 
 
-@fixture
+@pytest.fixture
 def api_client(user: User) -> APIClient:
     return create_api_client(user)
 
 
-@fixture
+@pytest.fixture
 def another_system_api_client(db: Any) -> APIClient:
     another_system_user = UserFactory()
     return create_api_client(another_system_user)
 
 
-@fixture
+@pytest.fixture
 def delete_model_data(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.delete_model_data")
 
 
-@fixture
+@pytest.fixture
 def start_processing(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")
 
 
-@fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
 
 
-@fixture
+@pytest.fixture
 def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
     finders = []
     mock = mocker.patch("hope_dedup_engine.apps.api.deduplication.process.get_finders")
@@ -92,7 +92,7 @@ def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
     return finders
 
 
-@fixture
+@pytest.fixture
 def all_duplicates_finder(
     deduplication_set: DeduplicationSet, duplicate_finders: list[DuplicateFinder]
 ) -> DuplicateFinder:
@@ -100,13 +100,13 @@ def all_duplicates_finder(
     return finder
 
 
-@fixture
+@pytest.fixture
 def no_duplicate_finder(duplicate_finders: list[DuplicateFinder]) -> DuplicateFinder:
     duplicate_finders.append(finder := NoDuplicateFinder())
     return finder
 
 
-@fixture
+@pytest.fixture
 def failing_duplicate_finder(
     duplicate_finders: list[DuplicateFinder],
 ) -> DuplicateFinder:

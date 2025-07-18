@@ -13,9 +13,7 @@ FILENAME_LENGTH: Final[int] = 255
 
 
 class DeduplicationSet(models.Model):
-    """
-    Bucket for entries we want to deduplicate
-    """
+    """Bucket for entries we want to deduplicate."""
 
     class State(models.IntegerChoices):
         CLEAN = 0, "Clean"  # Deduplication set is created or already processed
@@ -95,9 +93,7 @@ class DeduplicationSet(models.Model):
 
 
 class Image(models.Model):
-    """
-    # TODO: rename to Entity/Entry
-    """
+    """# TODO: rename to Entity/Entry."""
 
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
@@ -119,11 +115,12 @@ class Image(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self) -> str:
+        return f"Image {self.filename}"
+
 
 class Finding(models.Model):
-    """
-    Couple of finding entities
-    """
+    """Couple of finding entities."""
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
@@ -145,6 +142,9 @@ class Finding(models.Model):
             "first_reference_pk",
             "second_reference_pk",
         )
+
+    def __str__(self) -> str:
+        return f"Finding({self.first_filename}, {self.second_filename})"
 
 
 class IgnoredPair(models.Model):
@@ -173,6 +173,9 @@ class IgnoredReferencePkPair(IgnoredPair):
     class Meta:
         unique_together = UNIQUE_FOR_IGNORED_PAIR
 
+    def __str__(self) -> str:
+        return f"IgnoredReferencePkPair({self.first}, {self.second})"
+
 
 class IgnoredFilenamePair(IgnoredPair):
     first = models.CharField(max_length=REFERENCE_PK_LENGTH)
@@ -180,6 +183,9 @@ class IgnoredFilenamePair(IgnoredPair):
 
     class Meta:
         unique_together = UNIQUE_FOR_IGNORED_PAIR
+
+    def __str__(self) -> str:
+        return f"IgnoredFilenamePair({self.first}, {self.second})"
 
 
 class Encoding(models.Model):
@@ -192,3 +198,6 @@ class Encoding(models.Model):
             "deduplication_set",
             "filename",
         )
+
+    def __str__(self) -> str:
+        return f"Encoding({self.filename})"

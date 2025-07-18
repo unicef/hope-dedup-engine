@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from pytest import fixture, mark
+import pytest
 from pytest_mock import MockFixture
 from requests import RequestException
 
@@ -11,17 +11,17 @@ from hope_dedup_engine.apps.api.utils.notification import (
 from hope_dedup_engine.apps.api.utils.progress import callback_filter
 
 
-@fixture
+@pytest.fixture
 def requests_get(mocker: MockFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.utils.notification.requests.get")
 
 
-@fixture
+@pytest.fixture
 def sentry_sdk_capture_exception(mocker: MockFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.utils.notification.sentry_sdk.capture_exception")
 
 
-@mark.parametrize(("url", "http_request_sent"), (("https://example.com", True), (None, False)))
+@pytest.mark.parametrize(("url", "http_request_sent"), [("https://example.com", True), (None, False)])
 def test_send_notification(
     url: str | None,
     http_request_sent: bool,

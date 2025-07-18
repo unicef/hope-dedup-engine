@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from http import HTTPMethod
-from typing import Any, Generic, TypeVar
+from typing import Any
 from uuid import UUID
 
-from django.db.models import Q, QuerySet
-
+from django.db.models import Q, QuerySet, Model
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status, viewsets
@@ -44,8 +43,6 @@ from hope_dedup_engine.apps.api.serializers import (
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
-
-T = TypeVar("T")
 
 
 class DeduplicationSetViewSet(
@@ -273,12 +270,11 @@ class DuplicateViewSet(
         return super().list(request, *args, **kwargs)
 
 
-class IgnoredPairViewSet(
+class IgnoredPairViewSet[T: Model](
     nested_viewsets.NestedViewSetMixin[T],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
-    Generic[T],
 ):
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
