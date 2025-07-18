@@ -1,6 +1,6 @@
 v.1.7.0
 =======
-- No changes
+- Upgrade to django 5
 
 v.1.6.0
 =======
@@ -25,4 +25,4 @@ v.1.2.0
 v.0.1.0
 =======
 
-- Initial Release (start)
+- Initial Release
