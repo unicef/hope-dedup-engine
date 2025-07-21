@@ -4,7 +4,7 @@ from django_regex.utils import RegexList
 from flags.state import flag_enabled
 
 if TYPE_CHECKING:
-    from hope_dedup_engine.types.http import AuthHttpRequest
+    from hope_dedup_engine.type_aliases.http import AuthHttpRequest
 
 
 def show_ddt(request: "AuthHttpRequest") -> bool:  # pragma: no-cover

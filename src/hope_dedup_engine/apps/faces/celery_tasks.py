@@ -15,7 +15,7 @@ from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
-from hope_dedup_engine.types import FindingType
+from hope_dedup_engine.type_aliases import FindingType
 
 if TYPE_CHECKING:
     from celery.canvas import Signature

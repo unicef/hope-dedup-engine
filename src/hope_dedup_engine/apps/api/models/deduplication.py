@@ -6,7 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
+from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255

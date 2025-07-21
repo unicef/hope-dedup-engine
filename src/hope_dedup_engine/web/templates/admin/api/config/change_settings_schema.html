@@ -9,7 +9,7 @@
     &rsaquo; {% if has_view_permission %}<a href="{% url 'admin:api_config_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>{% else %}{{ opts.verbose_name_plural|capfirst }}{% endif %}
     &rsaquo; <span>{{ trail_label }}</span>
 </div>
-{% endblock %}
+{% endblock breadcrumbs %}
 {% endif %}
 
 {% block content %}
@@ -18,4 +18,4 @@
     <button type="submit" class="button">Save</button>
     <a href="{% url 'admin:api_config_changelist' %}" class="button">Cancel</a>
   </form>
-{% endblock %}
+{% endblock content %}

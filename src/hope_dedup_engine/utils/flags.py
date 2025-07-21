@@ -5,7 +5,7 @@ from django.conf import settings
 from flags import conditions
 
 from hope_dedup_engine.state import state
-from hope_dedup_engine.utils.http import get_server_host
+from hope_dedup_engine.utils.url import get_server_host
 
 
 @conditions.register("development")
