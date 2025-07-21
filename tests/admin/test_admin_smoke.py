@@ -1,12 +1,14 @@
 from unittest.mock import Mock
 
+import django
 from django.contrib.admin.sites import site
 from django.contrib.admin.templatetags.admin_urls import admin_urlname
 from django.urls import reverse
 
 import pytest
-from admin_extra_buttons.handlers import ChoiceHandler
+from admin_extra_buttons.handlers import ChoiceHandler, LinkHandler
 from django_regex.utils import RegexList as _RegexList
+from testutils.factories import get_factory_for_model
 from testutils.factories.user import SuperUserFactory
 from typing import TYPE_CHECKING
 
@@ -51,8 +53,6 @@ def log_submit_error(res):
 
 
 def pytest_generate_tests(metafunc):  # noqa
-    import django
-
     markers = metafunc.definition.own_markers
     excluded_models = RegexList(GLOBAL_EXCLUDED_MODELS)
     excluded_buttons = RegexList(GLOBAL_EXCLUDED_BUTTONS)
@@ -94,8 +94,6 @@ def pytest_generate_tests(metafunc):  # noqa
 
 @pytest.fixture
 def record(db, request):
-    from testutils.factories import get_factory_for_model
-
     modeladmin = request.getfixturevalue("modeladmin")
     instance = modeladmin.model.objects.first()
     if not instance:
@@ -183,8 +181,6 @@ def test_admin_delete(app, modeladmin, record, monkeypatch):
 
 @pytest.mark.skip_buttons("api.ConfigAdmin:change_settings_schema")
 def test_admin_buttons(app, modeladmin, button_handler, record, monkeypatch):
-    from admin_extra_buttons.handlers import LinkHandler
-
     if isinstance(button_handler, ChoiceHandler):
         pass
     elif isinstance(button_handler, LinkHandler):

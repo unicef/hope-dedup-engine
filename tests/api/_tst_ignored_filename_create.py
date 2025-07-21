@@ -1,4 +1,4 @@
-from pytest import mark
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
@@ -42,8 +42,8 @@ def test_cannot_create_ignored_filename_pair_between_systems(
 INVALID_FILENAME_VALUES = "", None
 
 
-@mark.parametrize("first_filename", INVALID_FILENAME_VALUES)
-@mark.parametrize("second_filename", INVALID_FILENAME_VALUES)
+@pytest.mark.parametrize("first_filename", INVALID_FILENAME_VALUES)
+@pytest.mark.parametrize("second_filename", INVALID_FILENAME_VALUES)
 def test_invalid_values_handling(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,

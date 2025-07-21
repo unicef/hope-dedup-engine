@@ -1,13 +1,12 @@
 import traceback
 from functools import partial
-from typing import Any, Final
+from typing import Any, Final, TYPE_CHECKING
 
 from django.conf import settings
 from django.db.models import F
 
 import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
-from celery.canvas import Signature
 from celery.utils.imports import qualname
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
@@ -16,7 +15,10 @@ from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
-from hope_dedup_engine.types import FindingType
+from hope_dedup_engine.type_aliases import FindingType
+
+if TYPE_CHECKING:
+    from celery.canvas import Signature
 
 CHUNK_SIZE: Final[int] = 25
 
@@ -42,9 +44,9 @@ def shadow_name(task, args, kwargs, options):
         s: Signature = options["chord"]
         group: str = options["group_id"].split("-")[-1]
         chunk = int(options["group_index"])
-        name = f"{qualname(s.type)}({group})-{chunk:03}"
-        return name
-    except Exception as e:
+        return f"{qualname(s.type)}({group})-{chunk:03}"
+    # we do not care about the actual error here
+    except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         return str(e)
 
@@ -190,8 +192,7 @@ def deduplicate_dataset(
 
 @shared_task(bind=True)
 def sync_dnn_files(self: Task, force: bool = False) -> bool:
-    """
-    A Celery task that synchronizes DNN files from the specified source to local storage.
+    """Synchronize DNN files from the specified source to local storage.
 
     Args:
         self (Task): The bound Celery task instance.
@@ -203,16 +204,14 @@ def sync_dnn_files(self: Task, force: bool = False) -> bool:
     Raises:
         Exception: If any error occurs during the synchronization process. The task state is updated to FAILURE,
                    and the exception is re-raised with the associated traceback.
-    """
 
+    """
     try:
-        # downloader = FileSyncManager(config.DNN_FILES_SOURCE).downloader
         downloader = FileSyncManager("azure").downloader
         return all(
             (
                 downloader.sync(
                     info.get("filename"),
-                    # info.get("sources").get(config.DNN_FILES_SOURCE),
                     info.get("sources").get("azure"),
                     force=force,
                 )

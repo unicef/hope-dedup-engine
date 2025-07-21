@@ -43,7 +43,7 @@ from hope_dedup_engine.apps.faces.services.image_processor import (
 def mock_storage_manager(mocker: MockerFixture) -> StorageManager:
     mocker.patch.object(FileSystemStorage, "exists", return_value=True)
     mocker.patch.object(AzureStorage, "exists", return_value=True)
-    yield StorageManager()
+    return StorageManager()
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def mock_prototxt_file():
 def mock_net_manager(mocker: MockerFixture) -> DNNInferenceManager:
     mock_net = mocker.Mock()
     mocker.patch("cv2.dnn.readNetFromCaffe", return_value=mock_net)
-    yield mock_net
+    return mock_net
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def mock_image_processor(
         "open",
         return_value=mock_open_context_manager,
     )
-    yield mock_processor
+    return mock_processor
 
 
 @pytest.fixture
@@ -131,14 +131,14 @@ def image_bytes_io():
     image.save(img_byte_arr, format="JPEG")
     img_byte_arr.seek(0)
     img_byte_arr.fake_open = lambda *_: BytesIO(img_byte_arr.getvalue())
-    yield img_byte_arr
+    return img_byte_arr
 
 
 @pytest.fixture
 def mock_open_context_manager(image_bytes_io):
     mock_open_context_manager = MagicMock()
     mock_open_context_manager.__enter__.return_value = image_bytes_io
-    yield mock_open_context_manager
+    return mock_open_context_manager
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ def mock_face_detections(mock_config_defaults):
         (40, 40, 80, 80),
     ]
     face_regions_invalid = [[], [(0, 0, 10)]]
-    yield face_detections, face_regions_valid, face_regions_invalid
+    return face_detections, face_regions_valid, face_regions_invalid
 
 
 @pytest.fixture
@@ -172,13 +172,12 @@ def mock_net(mock_face_detections):
     mock_imdecode = MagicMock(return_value=np.ones(IMAGE_SIZE, dtype=np.uint8))
     mock_resize = MagicMock(return_value=np.ones(RESIZED_IMAGE_SIZE, dtype=np.uint8))
     mock_blob = np.zeros(BLOB_SHAPE)
-    yield mock_net, mock_imdecode, mock_resize, mock_blob, mock_expected_regions
+    return mock_net, mock_imdecode, mock_resize, mock_blob, mock_expected_regions
 
 
 @pytest.fixture
 def mock_dd(mock_image_processor, mock_net_manager, mock_storage_manager, mock_config_defaults):
-    detector = DuplicationDetector(FILENAMES, mock_config_defaults, IGNORE_PAIRS)
-    yield detector
+    return DuplicationDetector(FILENAMES, mock_config_defaults, IGNORE_PAIRS)
 
 
 @pytest.fixture(scope="session")
@@ -216,8 +215,8 @@ def time_control():
 
 @pytest.fixture
 def mock_file_sync_manager():
-    with patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager") as MockFileSyncManager:
-        mock_manager_instance = MockFileSyncManager.return_value
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager") as mock_file_sync_manager_class:
+        mock_manager_instance = mock_file_sync_manager_class.return_value
         mock_downloader = MagicMock()
         mock_manager_instance.downloader = mock_downloader
         yield mock_manager_instance
@@ -225,8 +224,8 @@ def mock_file_sync_manager():
 
 @pytest.fixture
 def admin_user(db):
-    User = get_user_model()
-    return User.objects.create_superuser(username="admin", password="admin", email="admin@example.com")
+    user_model = get_user_model()
+    return user_model.objects.create_superuser(username="admin", password="admin", email="admin@example.com")
 
 
 @pytest.fixture

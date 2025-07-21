@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from hope_dedup_engine.state import state
-from hope_dedup_engine.utils.http import (
+from hope_dedup_engine.utils.url import (
     absolute_reverse,
     absolute_uri,
     get_server_host,

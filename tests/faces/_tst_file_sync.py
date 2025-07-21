@@ -13,7 +13,7 @@ from hope_dedup_engine.apps.faces.managers.file_sync import (
 
 
 @pytest.mark.parametrize(
-    "downloader_key, expected_downloader",
+    ("downloader_key", "expected_downloader"),
     [
         ("github", GithubFileDownloader),
         ("azure", AzureFileDownloader),
@@ -30,7 +30,7 @@ def test_create_downloader_failure():
 
 
 @pytest.mark.parametrize(
-    "active_queues, expected_call_count, multiple_workers, delay_called",
+    ("active_queues", "expected_call_count", "multiple_workers", "delay_called"),
     [
         (None, 0, False, False),
         ({"worker1": "queue"}, 1, False, True),

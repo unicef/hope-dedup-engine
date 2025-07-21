@@ -6,3 +6,6 @@ class DummyModel(models.Model):
         managed = False
         verbose_name = "DNN file"
         verbose_name_plural = "DNN files"
+
+    def __str__(self) -> str:
+        return f"DummyModel({self.pk})"

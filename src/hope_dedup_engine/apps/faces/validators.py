@@ -23,7 +23,6 @@ class IgnorePairsValidator:
 
         result_set = set()
         for pair in ignore:
-            pair = tuple(pair)
-            result_set.add(pair)
-            result_set.add((pair[1], pair[0]))
+            result_set.add(tuple(pair))
+            result_set.add(tuple(reversed(pair)))
         return result_set

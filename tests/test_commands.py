@@ -68,8 +68,6 @@ def test_upgrade_init(verbosity, migrate, monkeypatch, environment, static, stat
 @pytest.mark.parametrize("verbosity", [1, 0], ids=["verbose", ""])
 @pytest.mark.parametrize("migrate", [1, 0], ids=["migrate", ""])
 def test_upgrade(verbosity, migrate, monkeypatch, environment):
-    from testutils.factories import SuperUserFactory
-
     out = StringIO()
     SuperUserFactory()
     with mock.patch.dict(os.environ, environment, clear=True):

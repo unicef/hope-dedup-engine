@@ -5,6 +5,8 @@ from admin_extra_buttons.mixins import ExtraButtonsMixin
 from adminfilters.dates import DateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from rest_framework.reverse import reverse
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
@@ -25,13 +27,13 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     readonly_fields = (
         "id",
         "state",
+        "system",
         "created_at",
         "created_by",
         "updated_at",
         "updated_by",
         "deleted",
     )
-    exclude = ("encodings",)
     search_fields = ("name", "id")
     list_filter = (
         ("state", ChoicesFieldComboFilter),
@@ -53,3 +55,6 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         else:
             button.visible = False
         return None
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
+        return DeduplicationSet.objects.only(*self.get_list_display(request))

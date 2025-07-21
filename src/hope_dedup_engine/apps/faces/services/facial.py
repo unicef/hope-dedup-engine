@@ -8,7 +8,7 @@ from deepface import DeepFace
 from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
-from hope_dedup_engine.types import EncodingType, FindingType, IgnoredPairType
+from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
 

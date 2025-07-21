@@ -3,7 +3,6 @@ from urllib.parse import urlparse
 
 from . import env
 
-# BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
 
@@ -46,9 +45,11 @@ INSTALLED_APPS = (
     "smart_env",
     "django_celery_boost",
     "django_svelte_jsoneditor",
+    "debug_toolbar",
 )
 
 MIDDLEWARE = (
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -68,11 +69,8 @@ AUTHENTICATION_BACKENDS = (
 # path
 MEDIA_ROOT = env("MEDIA_ROOT")
 MEDIA_URL = env("MEDIA_URL")
-#
 STATIC_ROOT = env("STATIC_ROOT")
 STATIC_URL = env("STATIC_URL")
-# #
-# # STATICFILES_DIRS = []
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
@@ -189,7 +187,6 @@ AUTH_USER_MODEL = "security.User"
 
 
 DEFAULT_FROM_EMAIL = "hope@unicef.org"
-# EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend" # TODO: when ready, add djcelery_email
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST", default="")
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")

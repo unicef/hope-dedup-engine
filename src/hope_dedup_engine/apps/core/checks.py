@@ -37,25 +37,24 @@ class StorageErrorCodes:  # pragma: no cover
 
 @register()
 def example_check(app_configs, **kwargs: Any):  # pragma: no cover
-    errors = []
+    errors: list[Error] = []
     for t in settings.TEMPLATES:
-        for d in t["DIRS"]:
-            if not Path(d).is_dir():
-                errors.append(
-                    Error(
-                        f"'{d}' is not a directory",
-                        hint="Remove this directory from settings.TEMPLATES.",
-                        obj=settings,
-                        id="hde.E001",
-                    )
-                )
+        errors.extend(
+            Error(
+                f"'{d}' is not a directory",
+                hint="Remove this directory from settings.TEMPLATES.",
+                obj=settings,
+                id="hde.E001",
+            )
+            for d in t["DIRS"]
+            if not Path(d).is_dir()
+        )
     return errors
 
 
 @register(deploy=True)
 def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: no cover
-    """
-    Checks if the necessary environment variables for Azure storage are configured.
+    """Check if the necessary environment variables for Azure storage are configured.
 
     Args:
         app_configs: Not used, but required by the checks framework.
@@ -64,6 +63,7 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
     Returns:
         list[Error]: A list of Django Error objects, reporting missing environment variables,
                      missing files, or errors while accessing Azure storage containers.
+
     """
     storages = (
         "FILE_STORAGE_HOPE",
@@ -88,7 +88,8 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
             try:
                 storage = AzureStorage(**options)
                 storage.client.exists()
-            except Exception:
+            # we are collecting all possible errors here, so no need to treat them differently
+            except Exception:  # noqa: BLE001
                 errors.append(
                     Error(
                         StorageErrorCodes.STORAGE_CHECK_FAILED.message.format(storage_name=storage_name),

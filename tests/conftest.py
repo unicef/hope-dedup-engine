@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 
 import django
+from django.conf import settings
+from django.core.management import CommandError, call_command
 
 import pytest
 import responses
@@ -35,15 +37,12 @@ def pytest_configure(config):
 
     os.environ["GMAIL_USER"] = "11"
     os.environ["GMAIL_PASSWORD"] = "11"
-    from django.conf import settings
 
     settings.ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
     settings.MEDIA_ROOT = "/tmp/media"
     settings.STATIC_ROOT = "/tmp/static"
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.STATIC_ROOT, exist_ok=True)
-
-    from django.core.management import CommandError, call_command
 
     django.setup()
 
@@ -55,7 +54,13 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True)
 def setup(db):
-    from testutils.factories import GroupFactory
+    # we cannot import this at top-level of a file, because this import requires settings to be initialized. If moved
+    # at top=level of a file, it produces the following
+    #
+    # django.core.exceptions.ImproperlyConfigured:
+    # Requested setting USE_DEPRECATED_PYTZ, but settings are not configured. You must either define the environment
+    # variable DJANGO_SETTINGS_MODULE or call settings.configure() before accessing settings.
+    from testutils.factories import GroupFactory  # noqa: PLC0415
 
     GroupFactory(name=config.NEW_USER_DEFAULT_GROUP)
 

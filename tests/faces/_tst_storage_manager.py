@@ -33,7 +33,7 @@ def test_invalid_key(mock_storage_manager):
 
 
 @pytest.mark.parametrize(
-    "test_input, expected_method",
+    ("test_input", "expected_method"),
     [
         ("images", "exists"),
         ("cv2", "exists"),

@@ -1,7 +1,5 @@
 class DownloaderKeyError(Exception):
-    """
-    Exception raised when the downloader key does not exist.
-    """
+    """Exception raised when the downloader key does not exist."""
 
     def __init__(self, key: str) -> None:
         self.key = key

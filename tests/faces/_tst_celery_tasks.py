@@ -42,7 +42,7 @@ def test_deduplicate_task_locking(mock_redis_client, mock_dd_find, mock_dd, lock
 
 
 @pytest.mark.parametrize(
-    "delay, exception",
+    ("delay", "exception"),
     [
         (CELERY_TASK_DELAYS["SoftTimeLimitExceeded"], SoftTimeLimitExceeded()),
         (CELERY_TASK_DELAYS["TimeLimitExceeded"], TimeLimitExceeded()),
@@ -60,13 +60,13 @@ def test_deduplicate_task_exception_handling(mock_redis_client, mock_dd_find, ti
     time_control.tick(delta=timedelta(seconds=delay))
 
     with (
-        pytest.raises(type(exception)) as exc_info,
         patch(
             "hope_dedup_engine.apps.faces.celery_tasks.DuplicationDetector",
             return_value=mock_dd,
         ),
     ):
-        task = deduplicate.apply(args=(FILENAMES, IGNORE_PAIRS))
+        with pytest.raises(type(exception)) as exc_info:
+            task = deduplicate.apply(args=(FILENAMES, IGNORE_PAIRS))
         assert exc_info.value == exception
         assert isinstance(task.result, exception)
         assert task.state == states.FAILURE
@@ -80,7 +80,7 @@ def test_deduplicate_task_exception_handling(mock_redis_client, mock_dd_find, ti
 
 
 @pytest.mark.parametrize(
-    "force, source",
+    ("force", "source"),
     [
         (False, "github"),
         (True, "github"),
@@ -98,11 +98,9 @@ def test_sync_dnn_files_success(mock_file_sync_manager, force, source):
 
 def test_sync_dnn_files_exception_handling(mock_file_sync_manager):
     mock_file_sync_manager.downloader.sync.side_effect = Exception("Download error")
-    with (
-        patch("hope_dedup_engine.apps.faces.celery_tasks.sync_dnn_files.update_state") as mock_update_state,
-        pytest.raises(Exception),
-    ):
-        sync_dnn_files()
+    with patch("hope_dedup_engine.apps.faces.celery_tasks.sync_dnn_files.update_state") as mock_update_state:
+        with pytest.raises(Exception, match="Download error"):
+            sync_dnn_files()
         mock_update_state.assert_called_once_with(
             state=states.FAILURE,
             meta={"exc_message": "Download error", "traceback": ANY},

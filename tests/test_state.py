@@ -3,7 +3,7 @@ from django.http import HttpResponse
 import pytest
 from freezegun import freeze_time
 
-from hope_dedup_engine.state import State
+from hope_dedup_engine.state import State, Cookie
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def test_configure(state):
 
 @freeze_time("2000-01-01T00:00:00Z")
 def test_add_cookies(state):
-    state.add_cookie("test", 22, 3600, None, "/path/", "domain.example.com", True, True, "lax")
+    state.add_cookie("test", Cookie(22, 3600, None, "/path/", "domain.example.com", True, True, "lax"))
     r: HttpResponse = HttpResponse()
     state.set_cookies(r)
 

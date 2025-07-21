@@ -21,9 +21,9 @@ def test_init_successful(mock_dd, mock_config_defaults):
 
 
 @pytest.mark.parametrize(
-    "ignore_input, expected_output",
+    ("ignore_input", "expected_output"),
     [
-        (list(), set()),
+        ([], set()),
         (
             [
                 ["file1.jpg", "file2.jpg"],
@@ -90,7 +90,6 @@ def test_has_encodings(mock_dd, file_exists):
 
 def test_load_encodings_all_exception_handling_listdir(mock_dd):
     with (
-        pytest.raises(Exception, match="Test exception"),
         patch.object(
             mock_dd.storages.get_storage("encoded"),
             "listdir",
@@ -98,7 +97,8 @@ def test_load_encodings_all_exception_handling_listdir(mock_dd):
         ) as mock_listdir,
         patch.object(mock_dd.logger, "exception") as mock_logger_exception,
     ):
-        mock_dd._load_encodings_all()
+        with pytest.raises(Exception, match="Test exception"):
+            mock_dd._load_encodings_all()
 
         mock_listdir.assert_called_once_with("")
         mock_logger_exception.assert_called_once()
@@ -106,7 +106,6 @@ def test_load_encodings_all_exception_handling_listdir(mock_dd):
 
 def test_load_encodings_all_exception_handling_open(mock_dd):
     with (
-        pytest.raises(Exception, match="Test exception"),
         patch.object(
             mock_dd.storages.get_storage("encoded"),
             "listdir",
@@ -119,7 +118,8 @@ def test_load_encodings_all_exception_handling_open(mock_dd):
         ) as mock_open,
         patch.object(mock_dd.logger, "exception") as mock_logger_exception,
     ):
-        mock_dd._load_encodings_all()
+        with pytest.raises(Exception, match="Test exception"):
+            mock_dd._load_encodings_all()
 
         mock_listdir.assert_called_once_with("")
         mock_open.assert_called_once_with(FILENAME_ENCODED_FORMAT.format(FILENAME), "rb")
@@ -127,7 +127,7 @@ def test_load_encodings_all_exception_handling_open(mock_dd):
 
 
 @pytest.mark.parametrize(
-    "filenames, expected",
+    ("filenames", "expected"),
     [(FILENAMES, {filename: np.array([1, 2, 3]) for filename in FILENAMES}), ([], {})],
 )
 def test_load_encodings_all_files(mock_dd, filenames, expected):
@@ -139,7 +139,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
         return BytesIO()
 
     mock_open_data = {FILENAME_ENCODED_FORMAT.format(filename): BytesIO() for filename in filenames}
-    for _, data in mock_open_data.items():
+    for data in mock_open_data.values():
         np.save(data, np.array([1, 2, 3]))
         data.seek(0)
 
@@ -162,7 +162,7 @@ def test_load_encodings_all_files(mock_dd, filenames, expected):
 
 
 @pytest.mark.parametrize(
-    "has_encodings, mock_encodings, distance_offsets, expected_duplicates_files",
+    ("has_encodings", "mock_encodings", "distance_offsets", "expected_duplicates_files"),
     [
         (
             True,
@@ -196,7 +196,7 @@ def test_find_duplicates_successfull(
     tolerance = mock_config_defaults.duplicates.tolerance
     expected_duplicates = [
         (file1, file2, round(tolerance - offset, 5))
-        for (file1, file2), offset in zip(expected_duplicates_files, distance_offsets)
+        for (file1, file2), offset in zip(expected_duplicates_files, distance_offsets, strict=False)
     ]
 
     with (
@@ -246,7 +246,6 @@ def test_find_duplicates_exception_handling(
     mock_dd, mock_hope_azure_storage, mock_encoded_azure_storage, image_bytes_io
 ):
     with (
-        pytest.raises(Exception, match="Test exception"),
         patch.object(
             mock_dd.storages,
             "get_storage",
@@ -268,5 +267,6 @@ def test_find_duplicates_exception_handling(
         patch.object(mock_dd, "_load_encodings_all", side_effect=Exception("Test exception")),
         patch.object(mock_dd.logger, "exception") as mock_logger_exception,
     ):
-        list(mock_dd.find_duplicates())
+        with pytest.raises(Exception, match="Test exception"):
+            list(mock_dd.find_duplicates())
         mock_logger_exception.assert_called_once()

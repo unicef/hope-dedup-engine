@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 
 class AzuriteManager:  # pragma: no cover
     def __init__(self, storage_name: str, container_options: dict | None = None) -> None:
-        """
-        Initializes the AzuriteManager with the specified storage configuration.
+        """Initialize the AzuriteManager with the specified storage configuration.
 
         Args:
             storage_name (str):
                 The name of the storage configuration as defined in settings.STORAGES.
             container_options (dict, optional):
                 Additional options to configure the Azure Blob Storage container. Defaults to an empty dictionary.
+
         """
         storage = settings.STORAGES.get(storage_name).get("OPTIONS", {})
         self.container_client: ContainerClient = BlobServiceClient.from_connection_string(
@@ -27,8 +27,7 @@ class AzuriteManager:  # pragma: no cover
         self._create_container(container_options)
 
     def _create_container(self, options: dict | None = None) -> None:
-        """
-        Creates a container if it does not already exist.
+        """Create a container if it does not already exist.
 
         Args:
             options (dict, optional):
@@ -36,6 +35,7 @@ class AzuriteManager:  # pragma: no cover
 
         Raises:
             Exception: If the container creation fails for any reason.
+
         """
         options = options or {}
         try:
@@ -50,11 +50,11 @@ class AzuriteManager:  # pragma: no cover
             raise
 
     def list_files(self) -> list[str]:
-        """
-        Lists all files in the Azure Blob Storage container.
+        """List all files in the Azure Blob Storage container.
 
         Returns:
             list[str]: A list of blob names in the container.
+
         """
         try:
             blob_list = self.container_client.list_blobs()
@@ -64,8 +64,7 @@ class AzuriteManager:  # pragma: no cover
             raise
 
     def _upload_file(self, file: Path) -> str:
-        """
-        Uploads a single file to the Azure Blob Storage container.
+        """Upload a single file to the Azure Blob Storage container.
 
         Args:
             file (Path): The local path of the file to upload.
@@ -73,6 +72,7 @@ class AzuriteManager:  # pragma: no cover
 
         Returns:
             str: A message indicating the result of the upload.
+
         """
         if not file.exists():
             message = "File %s does not exist."
@@ -90,14 +90,15 @@ class AzuriteManager:  # pragma: no cover
             raise
 
     def upload_files(self, images_src_path: Path | None = None, batch_size: int = 250) -> list[str]:
-        """
-        Uploads all files from the local directory to the Azure Blob Storage container.
+        """Upload all files from the local directory to the Azure Blob Storage container.
 
         Args:
+            images_src_path (Path | None): The local directory path where files are stored, or None if not specified.
             batch_size (int, optional): The maximum number of concurrent uploads. Defaults to 250.
 
         Returns:
             list[str]: A list of messages indicating the result of each upload.
+
         """
         if images_src_path is None or not images_src_path.is_dir():
             message = "No valid directory provided for container '%s'."
@@ -120,11 +121,11 @@ class AzuriteManager:  # pragma: no cover
         return results
 
     def delete_files(self) -> str:
-        """
-        Deletes all files in the Azure Blob Storage container.
+        """Delete all files in the Azure Blob Storage container.
 
         Returns:
             str: A message indicating the result of the deletion.
+
         """
         try:
             blob_names = self.list_files()
@@ -134,7 +135,8 @@ class AzuriteManager:  # pragma: no cover
                 try:
                     self.container_client.delete_blob(blob_name)
                     logger.debug("Deleted blob: %s", blob_name)
-                except Exception as e:
+                # we do not care about the actual error here, we just collect them
+                except Exception as e:  # noqa: BLE001
                     failed_deletions.append(blob_name)
                     logger.error("Failed to delete blob: %s. Error: %s", blob_name, str(e))
 
@@ -151,11 +153,11 @@ class AzuriteManager:  # pragma: no cover
             raise
 
     def delete_container(self) -> str:
-        """
-        Deletes the Azure Blob Storage container.
+        """Delete the Azure Blob Storage container.
 
         Returns:
             str: A message indicating the result of the container deletion.
+
         """
         try:
             self.container_client.delete_container()

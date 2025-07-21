@@ -125,19 +125,19 @@ def test_encode_face(mock_image_processor, image_bytes_io, mock_face_detections,
 
 
 @pytest.mark.parametrize(
-    "method, exception_str",
-    ((str("face_encodings"), "Test face_encodings exception"),),
+    ("method", "exception_str"),
+    [(str("face_encodings"), "Test face_encodings exception")],
 )
 def test_encode_face_exception_handling(mock_image_processor, mock_net, method: str, exception_str):
     dnn, imdecode, *_ = mock_net
     with (
-        pytest.raises(Exception, match=exception_str),
         patch.object(face_recognition, method, side_effect=Exception(exception_str)) as mock_exception,
         patch.object(mock_image_processor, "net", dnn),
         patch("cv2.imdecode", imdecode),
         patch.object(mock_image_processor.logger, "exception") as mock_logger_exception,
     ):
-        mock_image_processor.encode_face(FILENAME, FILENAME_ENCODED)
+        with pytest.raises(Exception, match=exception_str):
+            mock_image_processor.encode_face(FILENAME, FILENAME_ENCODED)
 
         mock_exception.assert_called_once()
         mock_logger_exception.assert_called_once()

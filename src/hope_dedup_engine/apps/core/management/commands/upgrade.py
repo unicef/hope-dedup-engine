@@ -1,25 +1,103 @@
 import logging
 import os
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 from django.core.management.base import CommandError, SystemCheckError
 from django.core.validators import validate_email
 
+from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
+from hope_dedup_engine.apps.security.models import User
 from hope_dedup_engine.config import env
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
 
+
+class Echo(Protocol):
+    def __call__(self, msg: str, style_func: Callable[[str], str] | None = ...) -> None: ...
+
+
 logger = logging.getLogger(__name__)
+
+
+def noop(*_: Any, **__: Any) -> None:
+    pass
 
 
 class Command(BaseCommand):
     requires_migrations_checks = False
     requires_system_checks = []
+
+    def _run_env(self) -> None:
+        call_command("env", check=True)
+
+    def _run_check(self) -> None:
+        if self.run_check:
+            call_command("check", deploy=True, verbosity=self.verbosity - 1)
+
+    def _run_syncmodels(self, echo: Echo) -> None:
+        if self.sync_models:
+            echo("Run sync pre-trained models")
+            call_command("syncmodels", verbosity=self.verbosity - 1)
+
+    def _run_collectstatic(self, echo: Echo, extra: Mapping[str, Any]) -> None:
+        if self.static:
+            static_root = Path(env("STATIC_ROOT"))
+            echo(f"Run collectstatic to: '{static_root}' - '{static_root.absolute()}")
+            if not static_root.exists():
+                static_root.mkdir(parents=True)
+            call_command("collectstatic", **extra)
+
+    def _run_migrate(self, echo: Echo, extra: Mapping[str, Any]) -> None:
+        if self.migrate:
+            echo("Run migrations")
+            call_command("migrate", **extra)
+            call_command("create_extra_permissions")
+
+    def _run_remove_stale_contenttypes(self, echo: Echo, extra: Mapping[str, Any]) -> None:
+        echo("Remove stale contenttypes")
+        call_command("remove_stale_contenttypes", **extra)
+
+    def _create_superuser(self, echo: Echo) -> None:
+        if self.admin_email:
+            if User.objects.filter(email=self.admin_email).exists():
+                echo(
+                    f"User {self.admin_email} found, skip creation",
+                    style_func=self.style.WARNING,
+                )
+            else:
+                echo(
+                    f"Creating superuser: {self.admin_email}",
+                    style_func=self.style.WARNING,
+                )
+                validate_email(self.admin_email)
+                os.environ["DJANGO_SUPERUSER_USERNAME"] = self.admin_email
+                os.environ["DJANGO_SUPERUSER_EMAIL"] = self.admin_email
+                os.environ["DJANGO_SUPERUSER_PASSWORD"] = self.admin_password
+                call_command(
+                    "createsuperuser",
+                    email=self.admin_email,
+                    username=self.admin_email,
+                    verbosity=self.verbosity - 1,
+                    interactive=False,
+                )
+
+            admin = User.objects.get(email=self.admin_email)
+        else:
+            admin = User.objects.filter(is_superuser=True).first()
+
+        if not admin:
+            raise CommandError("Failure: Error when creating an admin user!")
+
+    def _create_groups(self) -> None:
+        Group.objects.get_or_create(name="Admins")
+        Group.objects.get_or_create(name=DEFAULT_GROUP_NAME)
 
     def add_arguments(self, parser: "ArgumentParser") -> None:
         parser.add_argument(
@@ -108,13 +186,8 @@ class Command(BaseCommand):
         sys.exit(1)
 
     def handle(self, *args: Any, **options: Any) -> None:  # noqa: C901
-        from django.contrib.auth.models import Group
-
         self.get_options(options)
-        if self.verbosity >= 1:
-            echo = self.stdout.write
-        else:
-            echo = lambda *a, **kw: None  # noqa: E731
+        echo = self.stdout.write if self.verbosity >= 1 else noop
 
         try:
             extra = {
@@ -124,64 +197,14 @@ class Command(BaseCommand):
             }
             echo("Running upgrade", style_func=self.style.WARNING)
 
-            call_command("env", check=True)
-
-            if self.run_check:
-                call_command("check", deploy=True, verbosity=self.verbosity - 1)
-
-            if self.sync_models:
-                echo("Run sync pre-trained models")
-                call_command("syncmodels", verbosity=self.verbosity - 1)
-
-            if self.static:
-                static_root = Path(env("STATIC_ROOT"))
-                echo(f"Run collectstatic to: '{static_root}' - '{static_root.absolute()}")
-                if not static_root.exists():
-                    static_root.mkdir(parents=True)
-                call_command("collectstatic", **extra)
-
-            if self.migrate:
-                echo("Run migrations")
-                call_command("migrate", **extra)
-                call_command("create_extra_permissions")
-
-            echo("Remove stale contenttypes")
-            call_command("remove_stale_contenttypes", **extra)
-            from hope_dedup_engine.apps.security.models import User
-
-            if self.admin_email:
-                if User.objects.filter(email=self.admin_email).exists():
-                    echo(
-                        f"User {self.admin_email} found, skip creation",
-                        style_func=self.style.WARNING,
-                    )
-                else:
-                    echo(
-                        f"Creating superuser: {self.admin_email}",
-                        style_func=self.style.WARNING,
-                    )
-                    validate_email(self.admin_email)
-                    os.environ["DJANGO_SUPERUSER_USERNAME"] = self.admin_email
-                    os.environ["DJANGO_SUPERUSER_EMAIL"] = self.admin_email
-                    os.environ["DJANGO_SUPERUSER_PASSWORD"] = self.admin_password
-                    call_command(
-                        "createsuperuser",
-                        email=self.admin_email,
-                        username=self.admin_email,
-                        verbosity=self.verbosity - 1,
-                        interactive=False,
-                    )
-
-                admin = User.objects.get(email=self.admin_email)
-            else:
-                admin = User.objects.filter(is_superuser=True).first()
-            if not admin:
-                raise CommandError("Failure: Error when creating an admin user!")
-
-            from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
-
-            Group.objects.get_or_create(name="Admins")
-            Group.objects.get_or_create(name=DEFAULT_GROUP_NAME)
+            self._run_env()
+            self._run_check()
+            self._run_syncmodels(echo)
+            self._run_collectstatic(echo, extra)
+            self._run_migrate(echo, extra)
+            self._run_remove_stale_contenttypes(echo, extra)
+            self._create_superuser(echo)
+            self._create_groups()
 
             echo("Upgrade completed", style_func=self.style.SUCCESS)
         except ValidationError as e:

@@ -27,7 +27,7 @@ def track_progress(callback: Callable[[int], None], send_zero: bool = True) -> C
 
 def track_progress_multi(
     callback: Callable[[int], None],
-) -> Generator[Callable[[int], None], None, None]:
+) -> Generator[Callable[[int], None]]:
     progress = []
 
     update = callback_filter(callback, STEP)

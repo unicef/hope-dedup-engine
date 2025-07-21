@@ -84,7 +84,7 @@ def test_file_downloader_prepare_local_filepath_force(github_dnn_file_downloader
 
 
 @pytest.mark.parametrize(
-    "downloaded, total, expect_call, expected_percent",
+    ("downloaded", "total", "expect_call", "expected_percent"),
     [
         (50, 100, True, 50),
         (50, 0, False, None),

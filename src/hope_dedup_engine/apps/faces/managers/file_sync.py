@@ -9,12 +9,11 @@ from filelock import FileLock, Timeout
 from storages.backends.azure_storage import AzureStorage
 
 from hope_dedup_engine.apps.core.exceptions import DownloaderKeyError
+import contextlib
 
 
 class FileDownloader:
-    """
-    Base class for downloading files from different sources.
-    """
+    """Base class for downloading files from different sources."""
 
     MESSAGES: Final[dict[str, str]] = {
         "not_implemented": "This method should be overridden by subclasses.",
@@ -24,7 +23,7 @@ class FileDownloader:
     }
 
     def __init__(self, local_base_location: Path) -> None:
-        """Initializes the FileDownloader with a local storage backend."""
+        """Initialize the FileDownloader with a local storage backend."""
         self.local_storage = FileSystemStorage(
             **settings.STORAGES.get("default").get("OPTIONS"),
         )
@@ -38,8 +37,7 @@ class FileDownloader:
         on_progress: Callable[[str, int], None] = None,
         **kwargs,
     ) -> str:
-        """
-        Synchronize a file with lock handling.
+        """Synchronize a file with lock handling.
 
         This method ensures that a file is downloaded to the local storage with proper handling of concurrent access
         using file-based locks. If the file already exists locally or is currently being downloaded by another process,
@@ -55,6 +53,7 @@ class FileDownloader:
 
         Returns:
             str: A message indicating the outcome of the synchronization.
+
         """
         local_filepath = Path(self.local_storage.path(filename))
         lock = FileLock(f"{local_filepath}.lock")
@@ -96,8 +95,7 @@ class FileDownloader:
         *args,
         **kwargs,
     ) -> str:
-        """
-        Synchronize a file from the specified source to the local storage.
+        """Synchronize a file from the specified source to the local storage.
 
         Args:
             local_filepath (str): The local path where the file will be saved.
@@ -113,6 +111,7 @@ class FileDownloader:
 
         Raises:
             NotImplementedError: This method must be implemented in a subclass.
+
         """
         raise NotImplementedError(self.MESSAGES.get("not_implemented"))
 
@@ -120,10 +119,8 @@ class FileDownloader:
         """Clean up the lock file if it exists."""
         lock_path = Path(lock.lock_file)
         if lock_path.exists():
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 lock_path.unlink()
-            except FileNotFoundError:
-                pass
 
     def _report_progress(
         self,
@@ -132,8 +129,7 @@ class FileDownloader:
         total: int,
         on_progress: Callable[[str, int], None] = None,
     ) -> None:
-        """
-        Reports the download progress of a file.
+        """Report the download progress of a file.
 
         Args:
             filename (str): The name of the file being downloaded.
@@ -144,14 +140,14 @@ class FileDownloader:
 
         Returns:
             None
+
         """
         if on_progress and total > 0:
             on_progress(filename, int((downloaded / total) * 100))
 
 
 class GithubFileDownloader(FileDownloader):
-    """
-    Downloader class for downloading files from GitHub.
+    """Downloader class for downloading files from GitHub.
 
     Inherits from FileDownloader and implements the sync method to download files from a given GitHub URL.
     """
@@ -172,8 +168,7 @@ class GithubFileDownloader(FileDownloader):
         timeout: int = 3 * 60,  # 3 minutes
         chunk_size: int = 128 * 1024,  # 128 KB
     ) -> str:
-        """
-        Downloads a file from a specified URL and saves it to local storage.
+        """Download a file from a specified URL and save it to local storage.
 
         Args:
             local_filepath (str): The local path where the file will be saved.
@@ -189,6 +184,7 @@ class GithubFileDownloader(FileDownloader):
         Raises:
             requests.exceptions.HTTPError: If the HTTP request fails with a non-successful status code.
             FileNotFoundError: If the file is empty (size 0 bytes) or the URL is inaccessible.
+
         """
         with requests.get(url, stream=True, timeout=timeout) as r:
             r.raise_for_status()
@@ -206,8 +202,7 @@ class GithubFileDownloader(FileDownloader):
 
 
 class AzureFileDownloader(FileDownloader):
-    """
-    Downloader class for downloading files from Azure Blob Storage.
+    """Downloader class for downloading files from Azure Blob Storage.
 
     Inherits from FileDownloader and implements the sync method to download files from a given Azure Blob Storage.
     """
@@ -219,9 +214,7 @@ class AzureFileDownloader(FileDownloader):
     }
 
     def __init__(self, local_base_location: Path) -> None:
-        """
-        Initializes the AzureFileDownloader with a remote storage backend.
-        """
+        """Initialize the AzureFileDownloader with a remote storage backend."""
         super().__init__(local_base_location)
         self.remote_storage = AzureStorage(**settings.STORAGES.get("dnn").get("OPTIONS"))
 
@@ -232,8 +225,7 @@ class AzureFileDownloader(FileDownloader):
         on_progress: Callable[[str, int], None] = None,
         chunk_size: int = 128 * 1024,
     ) -> str:
-        """
-        Downloads a file from Azure Blob Storage and saves it to local storage.
+        """Download a file from Azure Blob Storage and save it to local storage.
 
         Args:
             local_filepath (str): The local path where the file will be saved.
@@ -247,6 +239,7 @@ class AzureFileDownloader(FileDownloader):
 
         Raises:
             FileNotFoundError: If the specified blob does not exist or is empty (size 0 bytes).
+
         """
         _, files = self.remote_storage.listdir("")
         if blob_name not in files:
@@ -256,24 +249,23 @@ class AzureFileDownloader(FileDownloader):
         if blob_size == 0:
             raise FileNotFoundError(self.MESSAGES.get("empty_file") % blob_name)
 
-        with self.remote_storage.open(blob_name, "rb") as remote_file:
-            with local_filepath.open("wb") as local_file:
-                for chunk in remote_file.chunks(chunk_size=chunk_size):
-                    local_file.write(chunk)
-                    downloaded += len(chunk)
-                    self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
+        with self.remote_storage.open(blob_name, "rb") as remote_file, local_filepath.open("wb") as local_file:
+            for chunk in remote_file.chunks(chunk_size=chunk_size):
+                local_file.write(chunk)
+                downloaded += len(chunk)
+                self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
 
         return self.MESSAGES.get("done")
 
 
 class FileSyncManager:
     def __init__(self, *, source: str, local_base_location: Path | None = None) -> None:
-        """
-        Initialize the FileSyncManager with the specified source.
+        """Initialize the FileSyncManager with the specified source.
 
         Args:
             source (str): The source for downloading files.
             local_base_location (Path): The base location for storing files locally.
+
         """
         if local_base_location is None:
             local_base_location = Path(settings.DEFAULT_ROOT)
@@ -281,8 +273,7 @@ class FileSyncManager:
         self.downloader = self._create_downloader(source)
 
     def _create_downloader(self, source: str) -> FileDownloader:
-        """
-        Create an instance of the appropriate downloader based on the source.
+        """Create an instance of the appropriate downloader based on the source.
 
         Args:
             source (str): The source for downloading files (e.g., 'github' or 'azure').
@@ -292,6 +283,7 @@ class FileSyncManager:
 
         Raises:
             DownloaderKeyError: If the source is not recognized.
+
         """
         downloader_classes = {
             "github": GithubFileDownloader,

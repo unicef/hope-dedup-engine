@@ -55,7 +55,8 @@ class Command(BaseCommand):
                 on_progress(filename, result, is_complete=True)
         except (CommandError, SystemCheckError) as e:
             self.halt(e)
-        except Exception as e:
+        # this clause is for any unexpected exception, so we use a base exception class here
+        except Exception as e:  # noqa: BLE001
             self.stdout.write(self.style.ERROR(MESSAGES["failed"]))
             logger.error(MESSAGES["failed"])
             self.halt(e)
@@ -63,11 +64,11 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(MESSAGES["success"]))
 
     def halt(self, e: Exception) -> None:
-        """
-        Handle an exception by logging the error and exiting the program.
+        """Handle an exception by logging the error and exiting the program.
 
         Args:
             e (Exception): The exception that occurred.
+
         """
         logger.exception(e)
         self.stdout.write(self.style.ERROR(str(e)))

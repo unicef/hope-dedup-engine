@@ -6,22 +6,21 @@ def extend_with_default(validator_class):
     validate_properties = validator_class.VALIDATORS["properties"]
 
     def set_defaults(validator, properties, instance, schema):
-        for property, subschema in properties.items():
+        for prop, subschema in properties.items():
             if "default" in subschema:
                 default_value = subschema["default"]
                 if isinstance(default_value, str) and default_value.startswith("constance.config."):
                     config_name = default_value.split(".")[-1]
                     default_value = getattr(config, config_name, None)
 
-                instance.setdefault(property, default_value)
+                instance.setdefault(prop, default_value)
 
-        for error in validate_properties(
+        yield from validate_properties(
             validator,
             properties,
             instance,
             schema,
-        ):
-            yield error
+        )
 
     return validators.extend(
         validator_class,

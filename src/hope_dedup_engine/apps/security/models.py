@@ -7,6 +7,9 @@ from unicef_security.models import AbstractUser, SecurityMixin
 class System(models.Model):
     name = models.CharField(max_length=255)
 
+    def __str__(self) -> str:
+        return f"{self.name} system"
+
 
 class User(SecurityMixin, AbstractUser):
     class Meta:
@@ -29,3 +32,6 @@ class UserRole(models.Model):
                 fields=["user", "system", "group"],
             ),
         )
+
+    def __str__(self) -> str:
+        return f"{self.user} {self.system} {self.group} role"

@@ -1,14 +1,13 @@
 from typing import TYPE_CHECKING
 
 from django_regex.utils import RegexList
+from flags.state import flag_enabled
 
 if TYPE_CHECKING:
-    from hope_dedup_engine.types.http import AuthHttpRequest
+    from hope_dedup_engine.type_aliases.http import AuthHttpRequest
 
 
 def show_ddt(request: "AuthHttpRequest") -> bool:  # pragma: no-cover
-    from flags.state import flag_enabled
-
     if request.path in RegexList(("/api/.*", "/dal/.*", "/healthcheck/")):
         return False
     return flag_enabled("DEVELOP_DEBUG_TOOLBAR", request=request)
