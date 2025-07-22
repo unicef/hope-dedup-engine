@@ -41,6 +41,7 @@ def backward(apps, _):
 
 class Migration(migrations.Migration):
     dependencies = [
+        ("api", "0023_remove_deduplicationset_external_system"),
         ("security", "0004_create_systems"),
     ]
 

@@ -5,12 +5,15 @@ from django.db import models
 
 from rest_framework.authtoken.models import Token
 
+from hope_dedup_engine.apps.security.models import System
+
 
 class HDEToken(Token):
     """Token model for user to integrate with HOPE."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="auth_tokens", on_delete=models.CASCADE)
     key = models.CharField(max_length=40, primary_key=True, editable=False)
+    system = models.ForeignKey(System, on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):
         if not self.key or self.key.isspace():
