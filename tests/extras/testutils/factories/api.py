@@ -22,6 +22,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
 
 class TokenFactory(DjangoModelFactory):
     user = SubFactory(UserFactory)
+    system = SubFactory(SystemFactory)
 
     class Meta:
         model = HDEToken
