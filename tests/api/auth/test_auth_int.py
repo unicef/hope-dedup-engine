@@ -7,11 +7,11 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from testutils.factories.api import TokenFactory
-from testutils.factories.user import UserFactory
+from testutils.factories.user import UserFactory, SystemFactory
 
 from hope_dedup_engine.apps.api.models import HDEToken
-from hope_dedup_engine.apps.security.models import User
-from tests.api._api_const import (
+from hope_dedup_engine.apps.security.models import User, System
+from api.api_const import (
     BULK_IMAGE_CLEAR_VIEW,
     BULK_IMAGE_LIST_VIEW,
     DEDUPLICATION_SET_DETAIL_VIEW,
@@ -21,7 +21,7 @@ from tests.api._api_const import (
     IMAGE_LIST_VIEW,
     JSON,
 )
-from tests.api._conftest import get_auth_headers
+from api.utils import get_auth_headers
 
 PK = uuid4()
 
@@ -59,8 +59,8 @@ def test_authenticated_can_access(
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 
-def test_multiple_tokens_can_be_used(api_client: APIClient, user: User) -> None:
-    tokens = [TokenFactory(user=user) for _ in range(5)]
+def test_multiple_tokens_can_be_used(api_client: APIClient, user: User, system: System) -> None:
+    tokens = [TokenFactory(user=user, system=system) for _ in range(5)]
     for token in tokens:
         api_client.credentials(**get_auth_headers(token))
         response = api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))
@@ -70,7 +70,8 @@ def test_multiple_tokens_can_be_used(api_client: APIClient, user: User) -> None:
 @pytest.mark.django_db
 def test_hde_token_generation(api_client: APIClient):
     user = UserFactory()
-    token = HDEToken(user=user)
+    system = SystemFactory()
+    token = HDEToken(user=user, system=system)
     token.save()
 
     assert token.key is not None

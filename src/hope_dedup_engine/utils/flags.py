@@ -15,4 +15,4 @@ def development(**kwargs: Any) -> bool:
 
 @conditions.register("server_address")
 def server_address(value: str, **kwargs: Any) -> bool:
-    return state.request.get_host() == value
+    return (request := state.request) and request.get_host() == value
