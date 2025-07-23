@@ -5,6 +5,8 @@ import pytest
 from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
+
+from api.utils import create_api_client
 from testutils.duplicate_finders import (
     AllDuplicateFinder,
     FailingDuplicateFinder,
@@ -14,19 +16,18 @@ from testutils.factories.api import (
     ConfigFactory,
     DedupJobFactory,
     DeduplicationSetFactory,
-    DuplicateFactory,
+    FindingFactory,
     IgnoredFilenamePairFactory,
     IgnoredReferencePkPairFactory,
     ImageFactory,
-    TokenFactory,
 )
-from testutils.factories.user import ExternalSystemFactory, UserFactory
+from testutils.factories.user import SystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
-from hope_dedup_engine.apps.api.models import DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.security.models import User
 
-register(ExternalSystemFactory)
+register(SystemFactory)
 register(UserFactory)
 register(DeduplicationSetFactory, system=LazyFixture("system"))
 register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
@@ -35,7 +36,7 @@ register(
     _name="second_image",
     deduplication_Set=LazyFixture("deduplication_set"),
 )
-register(DuplicateFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(ConfigFactory)
@@ -45,17 +46,6 @@ register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 @pytest.fixture
 def anonymous_api_client() -> APIClient:
     return APIClient()
-
-
-def get_auth_headers(token: HDEToken) -> dict[str, str]:
-    return {"HTTP_AUTHORIZATION": f"Token {token.key}"}
-
-
-def create_api_client(user: User) -> APIClient:
-    token = TokenFactory(user=user)
-    client = APIClient()
-    client.credentials(**get_auth_headers(token))
-    return client
 
 
 @pytest.fixture

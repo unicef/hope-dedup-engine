@@ -1,6 +1,6 @@
 from django.contrib.auth.models import Group
 
-import factory.fuzzy
+import factory
 
 from hope_dedup_engine.apps.security.models import System, User, UserRole
 
@@ -29,6 +29,17 @@ class UserFactory(AutoRegisterModelFactory):
         ret = super()._create(model_class, *args, **kwargs)
         ret._password = cls._password
         return ret
+
+    @factory.post_generation
+    def groups(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for group in extracted:
+                self.groups.add(group)
+        else:
+            self.groups.add(Group.objects.get(name="API users"))
 
 
 class SuperUserFactory(UserFactory):

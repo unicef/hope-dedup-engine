@@ -17,7 +17,7 @@ from rest_framework_nested import viewsets as nested_viewsets
 from hope_dedup_engine.apps.api.auth import (
     CanUseApi,
     HDETokenAuthentication,
-    UserAndDeduplicationSetAreOfTheSameSystem,
+    HasAccessToDeduplicationSet,
 )
 from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET_FILTER,
@@ -56,7 +56,7 @@ class DeduplicationSetViewSet(
     permission_classes = (
         IsAuthenticated,
         CanUseApi,
-        UserAndDeduplicationSetAreOfTheSameSystem,
+        HasAccessToDeduplicationSet,
     )
     serializer_class = DeduplicationSetSerializer
 
@@ -116,7 +116,7 @@ class ImageViewSet(
     permission_classes = (
         IsAuthenticated,
         CanUseApi,
-        UserAndDeduplicationSetAreOfTheSameSystem,
+        HasAccessToDeduplicationSet,
     )
     serializer_class = ImageSerializer
     queryset = Image.objects.all()
@@ -192,7 +192,7 @@ class BulkImageViewSet(
     permission_classes = (
         IsAuthenticated,
         CanUseApi,
-        UserAndDeduplicationSetAreOfTheSameSystem,
+        HasAccessToDeduplicationSet,
     )
     serializer_class = ImageSerializer
     queryset = Image.objects.all()
@@ -240,7 +240,7 @@ class DuplicateViewSet(
     permission_classes = (
         IsAuthenticated,
         CanUseApi,
-        UserAndDeduplicationSetAreOfTheSameSystem,
+        HasAccessToDeduplicationSet,
     )
     serializer_class = DuplicateSerializer
     # TODO: Add filters
@@ -280,7 +280,7 @@ class IgnoredPairViewSet[T: Model](
     permission_classes = (
         IsAuthenticated,
         CanUseApi,
-        UserAndDeduplicationSetAreOfTheSameSystem,
+        HasAccessToDeduplicationSet,
     )
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
