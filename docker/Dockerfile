@@ -2,7 +2,7 @@ ARG CHECKSUM
 ARG VERSION=0.1.0
 ARG BUILD_DATE=not_provided
 
-FROM python:3.12-slim-bookworm AS python_base
+FROM python:3.12-slim-bookworm AS base_os
 
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
@@ -71,8 +71,8 @@ RUN groupadd --gid 1024 unicef \
 COPY docker/bin/* /usr/local/bin/
 COPY docker/conf/* /conf/
 
-# ------------- build_deps -------------
-FROM python_base AS build_deps
+# ------------- builder -------------
+FROM base_os AS builder
 
 RUN set -x \
     && buildDeps="build-essential \
@@ -102,52 +102,38 @@ ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
     PYTHONDONTWRITEBYTCODE=1
 
 # ------------- python_dev_deps -------------
-FROM build_deps AS python_dev_deps
-ARG CHECKSUM
-ENV CHECKSUM=$CHECKSUM
-ARG VERSION
-ENV VERSION=$VERSION
+FROM builder AS tests
 ARG BUILD_DATE
-ENV BUILD_DATE=$BUILD_DATE
-ARG DISTRO
-ENV DISTRO=$DISTRO
 ARG SOURCE_COMMIT
-ENV SOURCE_COMMIT=$SOURCE_COMMIT
-ARG GITHUB_SERVER_URL
-ENV GITHUB_SERVER_URL=$GITHUB_SERVER_URL
-ARG GITHUB_REPOSITORY
-ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
+LABEL distro="tests"
+LABEL org.opencontainers.image.created="$BUILD_DATE"
+LABEL org.opencontainers.image.version="$VERSION"
 
-LABEL date=$BUILD_DATE
-LABEL version=$VERSION
-LABEL checksum=$CHECKSUM
-LABEL distro="test"
+ENV PATH=/venv/bin:/usr/local/bin/:/usr/bin:/bin \
+    DJANGO_SETTINGS_MODULE=country_workspace.config.settings \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    VIRTUAL_ENV=/venv \
+    UWSGI_PROCESSES=4
 
-COPY . /code
-WORKDIR /code
-
-RUN pip install uv uwsgi
+WORKDIR /app
+COPY uv.lock README.md MANIFEST.in pyproject.toml /app/
+COPY src /app/src/
 
 RUN --mount=type=cache,target=/root/.uv-cache \
-    uv sync -v \
-        --cache-dir=/root/.uv-cache \
+    find ./src -name 'node_modules' -prune \
+        -o -name *.py -o -name *.html -o -name *.js -o -name *.css \
+        -type f \
+        -exec ls -l "{}" \;  | sha1sum | awk '{print $1}' > CODE_CHECKSUM \
+    && uv sync --cache-dir=/root/.uv-cache \
         --python=/usr/local/bin/python \
         --python-preference=system \
-        --frozen
-
-RUN <<EOF cat> /RELEASE
-{"version": "$VERSION",
- "commit": "$SOURCE_COMMIT",
- "date": "$BUILD_DATE",
- "distro": "test",
- "checksum": "$CHECKSUM",
- "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
-}
-EOF
+        --frozen --group dev
 
 # ------------- python_prod_deps -------------
-FROM build_deps AS python_prod_deps
+FROM builder AS python_prod_deps
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
 ARG VERSION
@@ -182,7 +168,7 @@ RUN --mount=type=cache,target=/root/.uv-cache \
 
 
 # ------------- dist -------------
-FROM python_base AS dist
+FROM base_os AS dist
 
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
