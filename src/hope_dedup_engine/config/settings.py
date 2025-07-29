@@ -45,11 +45,9 @@ INSTALLED_APPS = (
     "smart_env",
     "django_celery_boost",
     "django_svelte_jsoneditor",
-    "debug_toolbar",
 )
 
 MIDDLEWARE = (
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
