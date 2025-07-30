@@ -97,9 +97,7 @@ RUN set -x \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
-    PYTHONPATH=""\
-    PYTHONDONTWRITEBYTCODE=1
+RUN pip install uv uwsgi
 
 # ------------- python_dev_deps -------------
 FROM builder AS tests
@@ -123,11 +121,7 @@ COPY uv.lock README.md MANIFEST.in pyproject.toml /app/
 COPY src /app/src/
 
 RUN --mount=type=cache,target=/root/.uv-cache \
-    find ./src -name 'node_modules' -prune \
-        -o -name *.py -o -name *.html -o -name *.js -o -name *.css \
-        -type f \
-        -exec ls -l "{}" \;  | sha1sum | awk '{print $1}' > CODE_CHECKSUM \
-    && uv sync --cache-dir=/root/.uv-cache \
+    uv sync --cache-dir=/root/.uv-cache \
         --python=/usr/local/bin/python \
         --python-preference=system \
         --frozen --group dev
@@ -186,7 +180,6 @@ ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 WORKDIR /code
 COPY --chown=hope:unicef --from=python_prod_deps /code/.venv /code/.venv
-COPY --chown=hope:unicef --from=python_prod_deps /code/README.md /code/LICENSE /
 
 ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
     DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \

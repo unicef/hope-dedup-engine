@@ -184,19 +184,11 @@ LOGGING = {
 AUTH_USER_MODEL = "security.User"
 
 
-DEFAULT_FROM_EMAIL = "hope@unicef.org"
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-EMAIL_HOST = env("EMAIL_HOST", default="")
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-EMAIL_PORT = env("EMAIL_PORT", default=25)
-EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=False)
-EMAIL_USE_SSL = env("EMAIL_USE_SSL", default=False)
-
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.debug_toolbar import *  # noqa
+from .fragments.email import *  # noqa
 from .fragments.flags import *  # noqa
 from .fragments.models import *  # noqa
 from .fragments.rest_framework import *  # noqa

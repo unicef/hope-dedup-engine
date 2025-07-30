@@ -121,6 +121,7 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "DEMO_IMAGES_PATH": (str, "demo_images"),
     "DNN_FILES_PATH": (str, "dnn_files"),
+    "EMAIL_BACKEND": (str, "django.core.mail.backends.console.EmailBackend"),
     "EMAIL_HOST": (str, "", "", False, setting("email-host")),
     "EMAIL_HOST_USER": (str, "", "", False, setting("email-host-user")),
     "EMAIL_HOST_PASSWORD": (str, "", "", False, setting("email-host-password")),
