@@ -39,7 +39,7 @@ class ConfigFactory(DjangoModelFactory):
 class DeduplicationSetFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
     system = SubFactory(SystemFactory)
-    state = DeduplicationSet.State.CLEAN
+    state = DeduplicationSet.State.READY
     notification_url = fuzzy.FuzzyText(prefix="https://")
     config = SubFactory(ConfigFactory)
 

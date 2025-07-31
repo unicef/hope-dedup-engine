@@ -18,6 +18,7 @@ requires-python = "==3.12.*"
 classifiers = [ "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.12" ]
 dependencies = [
   "celery[redis]",
+  "celery-types==0.23",
   "deepface",
   "django",
   "django-admin-extra-buttons",
