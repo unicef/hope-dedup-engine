@@ -20,7 +20,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
 )
 
 
-class TokenFactory(DjangoModelFactory):
+class HDETokenFactory(DjangoModelFactory):
     user = SubFactory(UserFactory)
     system = SubFactory(SystemFactory)
 
@@ -74,7 +74,20 @@ class FindingFactory(DjangoModelFactory):
 
     @lazy_attribute
     def status_code(self):
-        return fuzzy.FuzzyChoice(list(Image.StatusCode.values)).fuzz().value if self.score == 0 else None
+        return (
+            fuzzy.FuzzyChoice(
+                [
+                    Image.StatusCode.NO_FILE_FOUND.value,
+                    Image.StatusCode.NO_FACE_DETECTED.value,
+                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                    Image.StatusCode.GENERIC_ERROR.value,
+                ]
+            )
+            .fuzz()
+            .value
+            if self.score == 0
+            else Image.StatusCode.DEDUPLICATE_SUCCESS.value
+        )
 
 
 class IgnoredFilenamePairFactory(DjangoModelFactory):

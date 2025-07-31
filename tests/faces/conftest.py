@@ -1,49 +1,38 @@
 from io import BytesIO
 from unittest.mock import MagicMock, mock_open, patch
 
-from django.contrib.auth import get_user_model
-from django.core.files.storage import FileSystemStorage
-from django.test import Client
-
 import cv2
 import numpy as np
 import pytest
+from PIL import Image
+from django.contrib.auth import get_user_model
+from django.core.files.storage import FileSystemStorage
+from django.test import Client
+from docker import from_env
+from freezegun import freeze_time
+from pytest_mock import MockerFixture
+from storages.backends.azure_storage import AzureStorage
+
 from faces_const import (
     BLOB_SHAPE,
     DEPLOY_PROTO_CONTENT,
-    DEPLOY_PROTO_SHAPE,
     DNN_FILE,
     FILENAMES,
-    IGNORE_PAIRS,
     IMAGE_SIZE,
     RESIZED_IMAGE_SIZE,
 )
-from freezegun import freeze_time
-from PIL import Image
-from pytest_mock import MockerFixture
-from storages.backends.azure_storage import AzureStorage
-from testutils.factories.api import ConfigDefaultsFactory
-
-from docker import from_env
-from hope_dedup_engine.apps.faces.managers import DNNInferenceManager, StorageManager
+from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
     GithubFileDownloader,
 )
-from hope_dedup_engine.apps.faces.services.duplication_detector import (
-    DuplicationDetector,
-)
-from hope_dedup_engine.apps.faces.services.image_processor import (
-    BlobFromImageConfig,
-    ImageProcessor,
-)
 
 
 @pytest.fixture
-def mock_storage_manager(mocker: MockerFixture) -> StorageManager:
+def mock_storage_manager(mocker: MockerFixture) -> ImagesStorageManager:
     mocker.patch.object(FileSystemStorage, "exists", return_value=True)
     mocker.patch.object(AzureStorage, "exists", return_value=True)
-    return StorageManager()
+    return ImagesStorageManager()
 
 
 @pytest.fixture
@@ -95,36 +84,6 @@ def mock_prototxt_file():
 
 
 @pytest.fixture
-def mock_net_manager(mocker: MockerFixture) -> DNNInferenceManager:
-    mock_net = mocker.Mock()
-    mocker.patch("cv2.dnn.readNetFromCaffe", return_value=mock_net)
-    return mock_net
-
-
-@pytest.fixture
-def mock_config_defaults():
-    return ConfigDefaultsFactory()
-
-
-@pytest.fixture
-def mock_image_processor(
-    mocker: MockerFixture,
-    mock_storage_manager,
-    mock_config_defaults,
-    mock_net_manager,
-    mock_open_context_manager,
-) -> ImageProcessor:
-    mocker.patch.object(BlobFromImageConfig, "_get_shape", return_value=DEPLOY_PROTO_SHAPE)
-    mock_processor = ImageProcessor(mock_config_defaults.detection, mock_config_defaults.recognition)
-    mocker.patch.object(
-        mock_processor.storages.get_storage("images"),
-        "open",
-        return_value=mock_open_context_manager,
-    )
-    return mock_processor
-
-
-@pytest.fixture
 def image_bytes_io():
     img_byte_arr = BytesIO()
     image = Image.new("RGB", (300, 300), color="red")
@@ -173,11 +132,6 @@ def mock_net(mock_face_detections):
     mock_resize = MagicMock(return_value=np.ones(RESIZED_IMAGE_SIZE, dtype=np.uint8))
     mock_blob = np.zeros(BLOB_SHAPE)
     return mock_net, mock_imdecode, mock_resize, mock_blob, mock_expected_regions
-
-
-@pytest.fixture
-def mock_dd(mock_image_processor, mock_net_manager, mock_storage_manager, mock_config_defaults):
-    return DuplicationDetector(FILENAMES, mock_config_defaults, IGNORE_PAIRS)
 
 
 @pytest.fixture(scope="session")

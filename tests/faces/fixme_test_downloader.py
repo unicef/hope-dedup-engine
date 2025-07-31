@@ -3,13 +3,13 @@ from unittest.mock import mock_open, patch
 import pytest
 from requests.exceptions import RequestException
 
+from faces.faces_const import DNN_FILE
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
     FileDownloader,
     GithubFileDownloader,
 )
-from tests.faces._faces_const import DNN_FILE
 
 
 def test_github_sync_success(github_dnn_file_downloader, mock_requests_get):

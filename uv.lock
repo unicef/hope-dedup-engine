@@ -1288,7 +1288,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "celery", extras = ["redis"] },
-    { name = "celery-types", specifier = "==0.23.0" },
+    { name = "celery-types" },
     { name = "deepface" },
     { name = "django" },
     { name = "django-admin-extra-buttons" },
