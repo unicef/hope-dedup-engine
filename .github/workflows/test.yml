@@ -146,6 +146,7 @@ jobs:
               -v "./src/:/app/src" \
               -v "./tests:/app/tests" \
               -v "./pytest.ini:/app/pytest.ini" \
+              -v "./tox.ini:/app/tox.ini" \
               -t ${{env.IMAGE}} \
               uv run tox -e unit -- --cov-report xml:./output/coverage.xml --junit-xml=./output/test-results.xml
 
