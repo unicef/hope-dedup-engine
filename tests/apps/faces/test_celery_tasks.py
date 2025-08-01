@@ -13,7 +13,6 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     deduplicate_dataset,
     encode_chunk,
     get_chunks,
-    handle_error,
     handle_task_progress,
     shadow_name,
     sync_dnn_files,
@@ -80,17 +79,6 @@ def test_shadow_name_error(mocker):
 
 
 @pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.send_notification")
-def test_handle_error(mock_send_notification, dedup_set_with_job):
-    """Test that handle_error updates the set's state and sends a notification."""
-    ds = dedup_set_with_job
-    handle_error(ds)
-    ds.refresh_from_db()
-    assert ds.state == DeduplicationSet.State.DIRTY
-    mock_send_notification.assert_called_once_with(ds.notification_url)
-
-
-@pytest.mark.django_db
 def test_handle_task_progress(dedup_set_with_job):
     """Test handle_task_progress correctly increments the job's progress."""
     job = dedup_set_with_job.dedupjob
@@ -137,13 +125,14 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.encode_faces", side_effect=Exception("mock error"))
-@patch("hope_dedup_engine.apps.faces.celery_tasks.handle_error")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_encode_chunk_error(mock_sentry, mock_handle_error, mock_encode_faces, dedup_set_with_job):
+def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
     """Test encode_chunk handles exceptions correctly."""
+    ds = dedup_set_with_job
     with pytest.raises(Exception, match="mock error"):
-        encode_chunk(["file1.jpg"], {"deduplication_set_id": dedup_set_with_job.pk})
-    mock_handle_error.assert_called_once_with(dedup_set_with_job)
+        encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
 
 
@@ -172,21 +161,20 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images", side_effect=Exception("mock error"))
-@patch("hope_dedup_engine.apps.faces.celery_tasks.handle_error")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_dedupe_chunk_error(mock_sentry, mock_handle_error, mock_dedupe_images, dedup_set_with_job):
+def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job):
     """Test dedupe_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
     with pytest.raises(Exception, match="mock error"):
         dedupe_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
-    mock_handle_error.assert_called_once_with(ds)
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.handle_error")
-def test_callback_findings_error_on_update(mock_handle_error, mock_get_ds, dedup_set_with_job, mocker):
+def test_callback_findings_error_on_update(mock_get_ds, dedup_set_with_job, mocker):
     """Test callback_findings handles exceptions during update_findings."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
@@ -195,7 +183,8 @@ def test_callback_findings_error_on_update(mock_handle_error, mock_get_ds, dedup
     with pytest.raises(Exception, match="DB Error"):
         callback_findings([], {"deduplication_set_id": ds.pk})
 
-    mock_handle_error.assert_called_once_with(ds)
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.FAILED
 
 
 @pytest.mark.django_db
@@ -216,7 +205,7 @@ def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_se
 
     ds.refresh_from_db()
     ds.update_findings.assert_called_once_with([("file1.jpg", "file2.jpg", 0.99, 1)])
-    assert ds.state == DeduplicationSet.State.CLEAN
+    assert ds.state == DeduplicationSet.State.READY
     mock_send_notification.assert_called_once()
     assert result["Findings"] == 1
 

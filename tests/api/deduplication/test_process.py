@@ -4,22 +4,10 @@ import pytest
 
 from hope_dedup_engine.apps.api.deduplication.process import (
     find_duplicates,
-    update_job_progress,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 pytestmark = pytest.mark.django_db
-
-
-def test_update_job_progress(dedup_job_factory):
-    """Test that update_job_progress updates the job's progress."""
-    job = dedup_job_factory()
-    assert job.progress == 0
-
-    update_job_progress(job, 50)
-    job.refresh_from_db()
-
-    assert job.progress == 50
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
@@ -46,7 +34,7 @@ def test_find_duplicates_orchestration(
     find_duplicates(job.id, job.version)
 
     dedup_set.refresh_from_db()
-    assert dedup_set.state == DeduplicationSet.State.DIRTY
+    assert dedup_set.state == DeduplicationSet.State.PROCESSING
     mock_send_notification.assert_called_once_with(dedup_set.notification_url)
 
     job.refresh_from_db()
@@ -60,14 +48,12 @@ def test_find_duplicates_orchestration(
 
 
 @patch("sentry_sdk.capture_exception")
-@patch("hope_dedup_engine.apps.api.deduplication.process.handle_error")
 @patch(
     "hope_dedup_engine.apps.api.deduplication.process.send_notification",
     side_effect=Exception("Test Error"),
 )
 def test_find_duplicates_exception(
     mock_send_notification,
-    mock_handle_error,
     mock_capture_exception,
     dedup_job_factory,
 ):
@@ -78,5 +64,6 @@ def test_find_duplicates_exception(
     with pytest.raises(Exception, match="Test Error"):
         find_duplicates(job.id, job.version)
 
-    mock_handle_error.assert_called_once_with(dedup_set)
-    mock_capture_exception.assert_called_once()
+    dedup_set.refresh_from_db()
+    assert dedup_set.state == DeduplicationSet.State.FAILED
+    mock_capture_exception.assert_called()

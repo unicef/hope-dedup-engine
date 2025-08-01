@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 import sentry_sdk
-
+from django.conf import settings
 from hope_dedup_engine.apps.api.models import Image
 
 
@@ -19,11 +19,10 @@ def is_facial_error(value):
     return False
 
 
-DEFAULT_THRESHOLD_SECONDS = 60
-
-
 @contextmanager
-def report_long_execution(message: str, threshold_seconds: int = DEFAULT_THRESHOLD_SECONDS) -> Generator:
+def report_long_execution(message: str, threshold_seconds: int | None = None) -> Generator:
+    if threshold_seconds is None:
+        threshold_seconds = settings.DEFAULT_THRESHOLD_SECONDS
     start = time.time()
     yield
     if (total := time.time() - start) > threshold_seconds:
