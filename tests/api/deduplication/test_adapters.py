@@ -21,7 +21,4 @@ def test_duplicate_face_finder_run_is_not_implemented():
     """Test that the run method is not implemented."""
     mock_dedup_set = Mock(spec=DeduplicationSet)
     finder = DuplicateFaceFinder(deduplication_set=mock_dedup_set)
-
-    # The method body is '...', which returns an Ellipsis object when called.
-    # This indicates it's a placeholder for a real implementation.
-    assert finder.run() is ...
+    assert finder.run() is None

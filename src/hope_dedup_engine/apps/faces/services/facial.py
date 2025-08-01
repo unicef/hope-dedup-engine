@@ -74,20 +74,26 @@ def dedupe_images(  # noqa 901
     findings = defaultdict(list)
     config = options or {}
 
-    for file1 in files:
+    for i, file1 in enumerate(files):
         progress()
         enc1 = encodings[file1]
         if is_facial_error(enc1):
             findings[file1].append([enc1, None])
             continue
-        for file2, enc2 in encodings.items():
+
+        is_secondary_dup = any(file1 == dup[0] for dups in findings.values() for dup in dups)
+        if is_secondary_dup:
+            continue
+
+        for j in range(i + 1, len(files)):
+            file2 = files[j]
+            enc2 = encodings[file2]
             if (
-                file1 == file2
-                or file2 in findings
+                file2 in findings
                 or (file1, file2) in ignored_pairs
                 or (file2, file1) in ignored_pairs
                 or is_facial_error(enc2)
-                or file2 in [x[0] for x in findings.get(file1, [])]
+                or any(file2 == dup[0] for dup in findings.get(file1, []))
             ):
                 continue
             res = DeepFace.verify(enc1, enc2, **config)

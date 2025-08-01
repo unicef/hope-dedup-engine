@@ -122,12 +122,9 @@ def test_track_progress_multi_multiple_trackers():
     mock_callback.reset_mock()
 
     update1(101)
-    # avg(101, 100) = 100.5 -> 100. Same as before, so no call.
     mock_callback.assert_not_called()
 
-    # Test that decreasing progress doesn't trigger a callback
     update1(50)
-    # avg(50, 100) = 75 -> 70. `previous_callback_value` is 100, so no call.
     mock_callback.assert_not_called()
 
 

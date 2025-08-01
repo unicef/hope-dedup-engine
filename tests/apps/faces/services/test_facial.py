@@ -1,3 +1,4 @@
+import copy
 from unittest.mock import Mock
 
 import pytest
@@ -37,7 +38,7 @@ def sample_data():
         "files": ["file1.jpg", "file2.jpg"],
         "encodings": {"file1.jpg": [1.0], "file2.jpg": [1.1]},
         "ignored_pairs": set(),
-        "threshold": 0.9,
+        "dedupe_threshold": 0.9,
     }
 
 
@@ -134,8 +135,9 @@ def test_dedupe_images_similarity_threshold(mock_deepface, sample_data, verify_r
 @pytest.mark.django_db
 def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
     """Test that ignored pairs are not compared."""
-    sample_data["ignored_pairs"] = {("file1.jpg", "file2.jpg")}
-    results = dedupe_images(**sample_data)
+    test_data = copy.deepcopy(sample_data)
+    test_data["ignored_pairs"] = {("file1.jpg", "file2.jpg")}
+    results = dedupe_images(**test_data)
     assert results == []
     mock_deepface.verify.assert_not_called()
 
@@ -143,8 +145,9 @@ def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
 @pytest.mark.django_db
 def test_dedupe_images_with_facial_error(mock_deepface, sample_data):
     """Test that files with facial errors are reported correctly."""
-    sample_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.name
-    results = dedupe_images(**sample_data)
+    test_data = copy.deepcopy(sample_data)
+    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.name
+    results = dedupe_images(**test_data)
     expected = [("file1.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value)]
     assert results == expected
     mock_deepface.verify.assert_not_called()
@@ -162,25 +165,15 @@ def test_dedupe_images_progress_callback(mock_deepface, sample_data):
 
 
 @pytest.mark.django_db
-def test_dedupe_images_complex_scenario(mock_deepface):
+def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_data):
     """Test dedupe_images with a mix of duplicates, non-duplicates, errors, and ignored pairs."""
-    files = ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"]
-    encodings = {
-        "f1.jpg": [1.0],  # duplicate with f2
-        "f2.jpg": [1.01],
-        "f3.jpg": [2.0],  # not a duplicate with anyone
-        "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.name,  # error
-        "f5.jpg": [1.02],  # ignored with f1
-    }
-    ignored_pairs = {("f1.jpg", "f5.jpg")}
-
     mock_deepface.verify.side_effect = [
         {"distance": 0.01},  # f1-f2
         {"distance": 0.5},  # f1-f3
         {"distance": 0.5},  # f2-f3
     ]
 
-    results = dedupe_images(files=files, encodings=encodings, ignored_pairs=ignored_pairs, threshold=0.9)
+    results = dedupe_images(**complex_deduplication_data)
 
     expected_findings = [
         ("f4.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value),

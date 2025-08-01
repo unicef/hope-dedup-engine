@@ -9,7 +9,7 @@ def callback_filter(callback: Callable[[int], None], step: int) -> Callable[[int
 
     def update(progress: int) -> None:
         nonlocal previous_callback_value
-        if (callback_value := progress // step * step) != previous_callback_value:
+        if (callback_value := progress // step * step) > previous_callback_value:
             callback(callback_value)
             previous_callback_value = callback_value
 
