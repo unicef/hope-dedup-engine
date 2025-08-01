@@ -82,7 +82,10 @@ class DeduplicationSetViewSet(
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
-        start_processing(DeduplicationSet.objects.get(pk=pk))
+        deduplication_set = self.get_object()
+        if deduplication_set.state == DeduplicationSet.State.PROCESSING:
+            return Response({"message": "already processing"}, status=status.HTTP_409_CONFLICT)
+        start_processing(deduplication_set)
         return Response({"message": "started"})
 
     @extend_schema(description="List all deduplication sets available to the user")
@@ -132,14 +135,14 @@ class ImageViewSet(
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
         deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.state = DeduplicationSet.State.MODIFIED
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
     def perform_destroy(self, instance: Image) -> None:
         deduplication_set = instance.deduplication_set
         super().perform_destroy(instance)
-        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.state = DeduplicationSet.State.MODIFIED
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
@@ -289,7 +292,7 @@ class IgnoredPairViewSet[T: Model](
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
         deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.DIRTY
+        deduplication_set.state = DeduplicationSet.State.MODIFIED
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 

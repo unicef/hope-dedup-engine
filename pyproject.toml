@@ -21,6 +21,7 @@ classifiers = [
 ]
 dependencies = [
   "celery[redis]",
+  "celery-types",
   "deepface",
   "django",
   "django-admin-extra-buttons",

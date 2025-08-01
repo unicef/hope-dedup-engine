@@ -53,10 +53,20 @@ def shadow_name(task, args, kwargs, options):
         return str(e)
 
 
-def handle_error(ds: DeduplicationSet):
-    ds.state = DeduplicationSet.State.DIRTY
-    ds.save(update_fields=["state"])
+def finish_processing(ds: DeduplicationSet, error: Exception | None = None) -> None:
+    if error:
+        ds.set_state(DeduplicationSet.State.FAILED, error)
+    else:
+        ds.set_state(DeduplicationSet.State.READY)
     send_notification(ds.notification_url)
+
+
+def finish_with_error(ds: DeduplicationSet, error: Exception) -> None:
+    finish_processing(ds, error)
+
+
+def finish_with_success(ds: DeduplicationSet) -> None:
+    finish_processing(ds)
 
 
 @signals.task_prerun.connect
@@ -88,7 +98,7 @@ def encode_chunk(
             ds.update_encodings(results[0])
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        handle_error(ds)
+        finish_with_error(ds, e)
         raise
 
 
@@ -114,7 +124,7 @@ def dedupe_chunk(
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        handle_error(ds)
+        finish_with_error(ds, e)
         raise
 
 
@@ -136,9 +146,7 @@ def callback_findings(
         ]
         ds.update_findings(findings)
 
-        ds.state = DeduplicationSet.State.CLEAN
-        ds.save(update_fields=["state"])
-        send_notification(ds.notification_url)
+        finish_with_success(ds)
 
         return {
             "Files": len(ds.image_set.all()),
@@ -147,7 +155,7 @@ def callback_findings(
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        handle_error(ds)
+        finish_with_error(ds, e)
         raise
 
 
@@ -166,7 +174,7 @@ def callback_encodings(
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        handle_error(ds)
+        finish_with_error(ds, e)
         raise
 
 
@@ -188,7 +196,7 @@ def deduplicate_dataset(
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        handle_error(ds)
+        finish_with_error(ds, e)
         raise
 
 
