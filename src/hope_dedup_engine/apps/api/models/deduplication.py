@@ -1,3 +1,4 @@
+import traceback
 from typing import Any, Final, override
 from uuid import uuid4
 
@@ -10,17 +11,20 @@ from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPai
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
+MAX_ERROR_LENGTH: Final[int] = 255
 
 
 class DeduplicationSet(models.Model):
     """Bucket for entries we want to deduplicate."""
 
     class State(models.IntegerChoices):
-        CLEAN = 0, "Clean"  # Deduplication set is created or already processed
-        DIRTY = (
+        READY = 0, "Ready"  # Deduplication set is created or already processed
+        MODIFIED = (
             1,
-            "Dirty",
+            "Modified",
         )  # Images are added to deduplication set, but not yet processed
+        PROCESSING = 2, "Processing"  # deduplication set is being processed
+        FAILED = 3, "Failed"  # an error occurred
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
@@ -28,7 +32,7 @@ class DeduplicationSet(models.Model):
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(
         choices=State.choices,
-        default=State.CLEAN,
+        default=State.READY,
         db_column="state",
     )
     deleted = models.BooleanField(null=False, blank=False, default=False)
@@ -51,6 +55,7 @@ class DeduplicationSet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
+    error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
@@ -90,6 +95,15 @@ class DeduplicationSet(models.Model):
             for f in findings
         ]
         Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
+
+    def set_state(self, state: State, error: Exception | None = None) -> None:
+        self.state = state.value
+        if error:
+            formatted_error = "".join(traceback.format_exception(error))
+            self.error = formatted_error[:MAX_ERROR_LENGTH]
+        else:
+            self.error = None
+        self.save(update_fields=["state", "error"])
 
 
 class Image(models.Model):

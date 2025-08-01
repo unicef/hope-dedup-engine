@@ -6,7 +6,7 @@ import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
-from testutils.factories.api import TokenFactory
+from testutils.factories.api import HDETokenFactory
 from testutils.factories.user import UserFactory, SystemFactory
 
 from hope_dedup_engine.apps.api.models import HDEToken
@@ -60,7 +60,7 @@ def test_authenticated_can_access(
 
 
 def test_multiple_tokens_can_be_used(api_client: APIClient, user: User, system: System) -> None:
-    tokens = [TokenFactory(user=user, system=system) for _ in range(5)]
+    tokens = [HDETokenFactory(user=user, system=system) for _ in range(5)]
     for token in tokens:
         api_client.credentials(**get_auth_headers(token))
         response = api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))

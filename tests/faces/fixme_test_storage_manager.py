@@ -3,8 +3,7 @@ from django.core.files.storage import FileSystemStorage
 import pytest
 from storages.backends.azure_storage import AzureStorage
 
-from hope_dedup_engine.apps.core.exceptions import StorageKeyError
-from hope_dedup_engine.apps.faces.managers import StorageManager
+from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 
 def test_initialization(mock_storage_manager):
@@ -24,12 +23,7 @@ def test_initialization(mock_storage_manager):
 
 def test_missing_file():
     with pytest.raises(FileNotFoundError):
-        StorageManager()
-
-
-def test_invalid_key(mock_storage_manager):
-    with pytest.raises(StorageKeyError):
-        mock_storage_manager.get_storage("invalid_key")
+        ImagesStorageManager()
 
 
 @pytest.mark.parametrize(

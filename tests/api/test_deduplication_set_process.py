@@ -5,19 +5,20 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
+from api.api_const import DEDUPLICATION_SET_PROCESS_VIEW
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.process import AlreadyProcessingError
-from tests.api._api_const import DEDUPLICATION_SET_PROCESS_VIEW
 
 
 @pytest.mark.parametrize(
     "deduplication_set__state",
     [
-        DeduplicationSet.State.CLEAN,
-        DeduplicationSet.State.DIRTY,
+        DeduplicationSet.State.READY,
+        DeduplicationSet.State.MODIFIED,
+        DeduplicationSet.State.FAILED,
     ],
 )
-def test_can_trigger_deduplication_set_processing_in_any_state(
+def test_can_trigger_deduplication_set_processing_in_non_processing_state(
     api_client: APIClient,
     start_processing: MagicMock,
     deduplication_set: DeduplicationSet,

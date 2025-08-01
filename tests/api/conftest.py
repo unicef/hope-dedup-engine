@@ -7,11 +7,6 @@ from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
 
 from api.utils import create_api_client
-from testutils.duplicate_finders import (
-    AllDuplicateFinder,
-    FailingDuplicateFinder,
-    NoDuplicateFinder,
-)
 from testutils.factories.api import (
     ConfigFactory,
     DedupJobFactory,
@@ -20,12 +15,11 @@ from testutils.factories.api import (
     IgnoredFilenamePairFactory,
     IgnoredReferencePkPairFactory,
     ImageFactory,
+    HDETokenFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory
 
-from hope_dedup_engine.apps.api.deduplication.registry import DuplicateFinder
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.security.models import User
+from hope_dedup_engine.apps.api.models import HDEToken
 
 register(SystemFactory)
 register(UserFactory)
@@ -41,6 +35,7 @@ register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplicatio
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(ConfigFactory)
 register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
 
 
 @pytest.fixture
@@ -49,14 +44,14 @@ def anonymous_api_client() -> APIClient:
 
 
 @pytest.fixture
-def api_client(user: User) -> APIClient:
-    return create_api_client(user)
+def api_client(hde_token: HDEToken) -> APIClient:
+    return create_api_client(hde_token)
 
 
 @pytest.fixture
 def another_system_api_client(db: Any) -> APIClient:
-    another_system_user = UserFactory()
-    return create_api_client(another_system_user)
+    token = HDETokenFactory(user=UserFactory(), system=SystemFactory())
+    return create_api_client(token)
 
 
 @pytest.fixture
@@ -72,33 +67,3 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 @pytest.fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-
-
-@pytest.fixture
-def duplicate_finders(mocker: MockerFixture) -> list[DuplicateFinder]:
-    finders = []
-    mock = mocker.patch("hope_dedup_engine.apps.api.deduplication.process.get_finders")
-    mock.return_value = finders
-    return finders
-
-
-@pytest.fixture
-def all_duplicates_finder(
-    deduplication_set: DeduplicationSet, duplicate_finders: list[DuplicateFinder]
-) -> DuplicateFinder:
-    duplicate_finders.append(finder := AllDuplicateFinder(deduplication_set))
-    return finder
-
-
-@pytest.fixture
-def no_duplicate_finder(duplicate_finders: list[DuplicateFinder]) -> DuplicateFinder:
-    duplicate_finders.append(finder := NoDuplicateFinder())
-    return finder
-
-
-@pytest.fixture
-def failing_duplicate_finder(
-    duplicate_finders: list[DuplicateFinder],
-) -> DuplicateFinder:
-    duplicate_finders.append(finder := FailingDuplicateFinder())
-    return finder

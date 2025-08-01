@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from typing import Any
 
 from django.db.models import F
 
@@ -14,7 +15,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
     encode_chunk,
     get_chunks,
-    handle_error,
+    finish_with_error,
 )
 
 HOUR = 60 * 60
@@ -26,12 +27,11 @@ def update_job_progress(job: DedupJob, progress: int) -> None:
 
 
 @shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
-def find_duplicates(dedup_job_id: int, version: int) -> None:
+def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
     deduplication_set = dedup_job.deduplication_set
     try:
-        deduplication_set.state = DeduplicationSet.State.DIRTY
-        deduplication_set.save(update_fields=["state"])
+        deduplication_set.set_state(DeduplicationSet.State.PROCESSING)
         send_notification(deduplication_set.notification_url)
 
         config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
@@ -55,6 +55,6 @@ def find_duplicates(dedup_job_id: int, version: int) -> None:
             "chunks": len(chunks),
         }
     except Exception as e:
-        handle_error(deduplication_set)
+        finish_with_error(deduplication_set, e)
         sentry_sdk.capture_exception(e)
         raise
