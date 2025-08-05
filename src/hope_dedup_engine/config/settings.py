@@ -187,7 +187,6 @@ AUTH_USER_MODEL = "security.User"
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
-from .fragments.debug_toolbar import *  # noqa
 from .fragments.email import *  # noqa
 from .fragments.flags import *  # noqa
 from .fragments.models import *  # noqa

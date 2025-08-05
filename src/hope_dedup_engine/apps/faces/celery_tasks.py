@@ -25,6 +25,8 @@ CHUNK_SIZE: Final[int] = 25
 
 def get_chunks(files: list[str]) -> list[list[str]]:
     chunk_size = min(CHUNK_SIZE, len(files))
+    if not chunk_size:
+        return []
     return [
         files[i : i + chunk_size]
         for i in range(0, len(files), chunk_size)  # noqa 203

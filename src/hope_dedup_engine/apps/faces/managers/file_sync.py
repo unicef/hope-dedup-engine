@@ -188,9 +188,10 @@ class GithubFileDownloader(FileDownloader):
         """
         with requests.get(url, stream=True, timeout=timeout) as r:
             r.raise_for_status()
-            total, downloaded = int(r.headers.get("Content-Length", 1)), 0
+            total_str = r.headers.get("Content-Length")
+            total, downloaded = (int(total_str), 0) if total_str is not None else (0, 0)
 
-            if total == 0:
+            if total == 0 and total_str is not None:
                 raise FileNotFoundError(self.MESSAGES.get("empty_file") % (local_filepath.name, url))
 
             with local_filepath.open("wb") as f:
@@ -198,6 +199,8 @@ class GithubFileDownloader(FileDownloader):
                     f.write(chunk)
                     downloaded += len(chunk)
                     self._report_progress(local_filepath.name, downloaded, total, on_progress)
+            if on_progress:
+                self._report_progress(local_filepath.name, total or downloaded, total or downloaded, on_progress)
         return self.MESSAGES.get("done")
 
 
@@ -245,7 +248,7 @@ class AzureFileDownloader(FileDownloader):
         if blob_name not in files:
             raise FileNotFoundError(self.MESSAGES.get("does_not_exist") % blob_name)
 
-        blob_size, downloaded = self.remote_storage.size(blob_name) or 1, 0
+        blob_size, downloaded = self.remote_storage.size(blob_name), 0
         if blob_size == 0:
             raise FileNotFoundError(self.MESSAGES.get("empty_file") % blob_name)
 

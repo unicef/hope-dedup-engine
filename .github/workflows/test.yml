@@ -134,7 +134,7 @@ jobs:
 
       - name: Run Test suite
         run: |
-            mkdir output
+            mkdir -p output
             docker run --rm \
               --network host \
               -e PYTHONPATH=/app/src \
@@ -146,8 +146,17 @@ jobs:
               -v "./src/:/app/src" \
               -v "./tests:/app/tests" \
               -v "./pytest.ini:/app/pytest.ini" \
+              -v "./tox.ini:/app/tox.ini" \
               -t ${{env.IMAGE}} \
-              pytest tests/ --create-db -v --maxfail=5 --migrations --cov-report xml:./output/coverage.xml
+              uv run tox -e unit -- --cov-report xml:./output/coverage.xml --junit-xml=./output/test-results.xml
+
+      - name: Test Report
+        uses: dorny/test-reporter@v2
+        if: success() || failure()
+        with:
+          name: Unit Tests
+          path: ./output/test-results.xml
+          reporter: jest-junit
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -155,7 +164,7 @@ jobs:
         with:
           env_vars: OS,PYTHON
           fail_ci_if_error: true
-          files: /app/output/coverage.xml
+          files: ./output/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
           name: codecov-${{env.GITHUB_REF_NAME}}

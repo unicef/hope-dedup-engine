@@ -14,8 +14,11 @@ authors = [
   { name = "ddinicola" },
   { name = "Domenico DiNicola", email = "dom.dinicola@gmail.com" },
 ]
-requires-python = "==3.12.*"
-classifiers = [ "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.12" ]
+requires-python = ">=3.12,<3.13"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+]
 dependencies = [
   "celery[redis]",
   "celery-types",
@@ -30,7 +33,6 @@ dependencies = [
   "django-concurrency",
   "django-constance",
   "django-csp",
-  "django-debug-toolbar",
   "django-environ",
   "django-extensions",
   "django-filter",
@@ -67,22 +69,8 @@ optional-dependencies.docs = [
   "mkdocstrings-python",
 ]
 
-[tool.setuptools.package-data]
-"hope_dedup_engine" = [ "web/templates/**/*", "web/static/**/*" ]
-
-[tool.hatch.build.targets.sdist]
-include = [
-  "src/hope_dedup_engine/**/*.*",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = [
-  "src/hope_dedup_engine",
-]
-
-[tool.uv]
-package = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
   "black",
   "django-webtest",
   "factory-boy",
@@ -119,6 +107,12 @@ dev-dependencies = [
   "unittest-xml-reporting",
   "watchdog",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/hope_dedup_engine" ]
+
+[tool.uv]
+package = true
 
 [tool.django-stubs]
 django_settings_module = "hope_dedup_engine.config.settings"

@@ -21,11 +21,6 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
 HOUR = 60 * 60
 
 
-def update_job_progress(job: DedupJob, progress: int) -> None:
-    job.progress = progress
-    job.save(update_fields=["progress"])
-
-
 @shared_task(soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
 def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)

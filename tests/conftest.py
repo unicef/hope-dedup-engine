@@ -69,3 +69,22 @@ def setup(db):
 def mocked_responses():
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         yield rsps
+
+
+@pytest.fixture
+def complex_deduplication_data():
+    """Provide sample data for a complex deduplication scenario."""
+    from hope_dedup_engine.apps.api.models import Image  # noqa: PLC0415
+
+    return {
+        "files": ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"],
+        "encodings": {
+            "f1.jpg": [1.0],  # duplicate with f2
+            "f2.jpg": [1.01],
+            "f3.jpg": [2.0],  # not a duplicate with anyone
+            "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.name,  # error
+            "f5.jpg": [1.02],  # ignored with f1
+        },
+        "ignored_pairs": {("f1.jpg", "f5.jpg")},
+        "dedupe_threshold": 0.9,
+    }
