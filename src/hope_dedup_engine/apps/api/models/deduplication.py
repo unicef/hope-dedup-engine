@@ -72,8 +72,10 @@ class DeduplicationSet(models.Model):
         )
 
     def update_encodings(self, encodings: EncodingType) -> None:
+        # sort to prevent deadlock
+        filenames = sorted(encodings.keys())
         Encoding.objects.bulk_create(
-            [Encoding(deduplication_set=self, filename=filename, data=data) for filename, data in encodings.items()],
+            [Encoding(deduplication_set=self, filename=filename, data=encodings[filename]) for filename in filenames],
             update_conflicts=True,
             update_fields=["data"],
             unique_fields=["deduplication_set", "filename"],
