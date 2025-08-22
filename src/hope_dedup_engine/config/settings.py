@@ -2,6 +2,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from . import env
+from .utils import get_pool_config
+
 
 SETTINGS_DIR = Path(__file__).parent
 PACKAGE_DIR = SETTINGS_DIR.parent
@@ -11,6 +13,8 @@ DEBUG = env.bool("DEBUG")
 DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
+
+DATABASES["default"]["OPTIONS"] = {"pool": get_pool_config()}
 
 INSTALLED_APPS = (
     "hope_dedup_engine.web",
