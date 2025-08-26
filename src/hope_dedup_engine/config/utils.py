@@ -28,7 +28,8 @@ def get_number_of_disks() -> int:
 
 def get_pool_config() -> PoolConfig:
     # A commonly used formula to estimate pool size: (2 * core_count) + number_of_disks
-    max_connections = 2 * get_core_count() + get_number_of_disks()
+    # on k8s get_core_count can return 0 if no limits are set, so we use max(get_core_count(), 1)
+    max_connections = 2 * max(get_core_count(), 1) + get_number_of_disks()
     min_connections = max_connections // 2
 
     return {
