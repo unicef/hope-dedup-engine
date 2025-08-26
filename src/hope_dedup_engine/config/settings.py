@@ -14,7 +14,11 @@ DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
 
-DATABASES["default"]["OPTIONS"] = {"pool": get_pool_config()}
+DATABASES["default"].setdefault("OPTIONS", {})["pool"] = get_pool_config()
+# it's not possible to pass a custom connection check function to the pool
+# configuration. Django will pass ConnectionPool.check_connection when the flag
+# below is enabled
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 INSTALLED_APPS = (
     "hope_dedup_engine.web",
