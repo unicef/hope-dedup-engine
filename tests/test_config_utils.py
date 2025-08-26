@@ -40,11 +40,11 @@ def test_get_number_of_disks() -> None:
 @pytest.mark.parametrize(
     ("get_core_count_return", "get_number_of_disks_return", "expected_result"),
     [
-        (0, 0, PoolConfig(min_size=1, max_size=2, max_idle=0.5 * 60)),
-        (0, 1, PoolConfig(min_size=1, max_size=3, max_idle=0.5 * 60)),
-        (1, 0, PoolConfig(min_size=1, max_size=2, max_idle=0.5 * 60)),
-        (1, 1, PoolConfig(min_size=1, max_size=3, max_idle=0.5 * 60)),
-        (2, 2, PoolConfig(min_size=3, max_size=6, max_idle=0.5 * 60)),
+        (0, 0, PoolConfig(min_size=1, max_size=2, max_idle=0.5 * 60, timeout=2.0 * 60)),
+        (0, 1, PoolConfig(min_size=1, max_size=3, max_idle=0.5 * 60, timeout=2.0 * 60)),
+        (1, 0, PoolConfig(min_size=1, max_size=2, max_idle=0.5 * 60, timeout=2.0 * 60)),
+        (1, 1, PoolConfig(min_size=1, max_size=3, max_idle=0.5 * 60, timeout=2.0 * 60)),
+        (2, 2, PoolConfig(min_size=3, max_size=6, max_idle=0.5 * 60, timeout=2.0 * 60)),
     ],
 )
 def test_get_pool_config(
