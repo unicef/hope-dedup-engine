@@ -10,6 +10,7 @@ class PoolConfig(TypedDict):
     min_size: int
     max_size: int
     max_idle: float
+    timeout: float
 
 
 def get_core_count() -> int:
@@ -38,4 +39,6 @@ def get_pool_config() -> PoolConfig:
         # we don't need max_size connections all the time, and if connections
         # are not heavily used, we can start shrinking the pool
         "max_idle": 0.5 * 60,
+        # we can have long tasks, so the default timeout must be increased
+        "timeout": 2.0 * 60,
     }
