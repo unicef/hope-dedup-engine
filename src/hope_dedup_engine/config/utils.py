@@ -2,7 +2,6 @@ import multiprocessing
 import os
 from typing import TypedDict
 
-
 # just an assumption
 ASSUMED_DISK_COUNT = 1
 
@@ -10,6 +9,7 @@ ASSUMED_DISK_COUNT = 1
 class PoolConfig(TypedDict):
     min_size: int
     max_size: int
+    max_idle: float
 
 
 def get_core_count() -> int:
@@ -34,4 +34,7 @@ def get_pool_config() -> PoolConfig:
     return {
         "min_size": max(min_connections, 1),
         "max_size": max(max_connections, 1),
+        # we don't need max_size connections all the time, and if connections
+        # are not heavily used, we can start shrinking the pool
+        "max_idle": 0.5 * 60,
     }
