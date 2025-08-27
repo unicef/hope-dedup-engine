@@ -79,9 +79,7 @@ def test_get_pool_config(mocker: MockerFixture) -> None:
     clamp_mock = mocker.patch("hope_dedup_engine.config.utils.clamp")
     calculated_pool_size = core_count * 2 + disk_count
 
-    assert get_pool_config() == PoolConfig(
-        max_idle=0.5 * 60, timeout=15.0 * 60, min_size=clamp_mock.return_value, max_size=clamp_mock.return_value
-    )
+    assert get_pool_config() == PoolConfig(min_size=clamp_mock.return_value, max_size=clamp_mock.return_value)
     get_core_count_mock.assert_called_once_with()
     get_number_of_disks_mock.assert_called_once_with()
     clamp_mock.assert_has_calls(

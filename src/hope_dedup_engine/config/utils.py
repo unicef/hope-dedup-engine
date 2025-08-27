@@ -8,8 +8,6 @@ ASSUMED_DISK_COUNT = 1
 class PoolConfig(TypedDict):
     min_size: int
     max_size: int
-    max_idle: float
-    timeout: float
 
 
 MIN_GREATER_THAN_MAX_ERROR = "min_value must be greater than max_value"
@@ -37,7 +35,7 @@ def get_number_of_disks() -> int:
 
 
 MIN_POOL_SIZE = 3
-MAX_POOL_SIZE = 10
+MAX_POOL_SIZE = 100
 MAX_MIN_POOL_SIZE = MAX_POOL_SIZE // 2
 
 
@@ -50,10 +48,4 @@ def get_pool_config() -> PoolConfig:
     return {
         "min_size": clamp(min_connections, MIN_POOL_SIZE, MAX_MIN_POOL_SIZE),
         "max_size": clamp(max_connections, MIN_POOL_SIZE, MAX_POOL_SIZE),
-        # we don't need max_size connections all the time, and if connections
-        # are not heavily used, we can start shrinking the pool
-        "max_idle": 0.5 * 60,
-        # we can have long tasks (would be nice to refactor them), so the
-        # default timeout must be increased a lot
-        "timeout": 15.0 * 60,
     }
