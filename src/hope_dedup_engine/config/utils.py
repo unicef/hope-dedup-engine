@@ -2,7 +2,6 @@ import multiprocessing
 import os
 from typing import TypedDict
 
-# just an assumption
 ASSUMED_DISK_COUNT = 1
 
 
@@ -11,6 +10,16 @@ class PoolConfig(TypedDict):
     max_size: int
     max_idle: float
     timeout: float
+
+
+MIN_GREATER_THAN_MAX_ERROR = "min_value must be greater than max_value"
+
+
+def clamp(value: int, min_value: int, max_value: int) -> int:
+    if min_value > max_value:
+        raise ValueError(MIN_GREATER_THAN_MAX_ERROR)
+
+    return max(min(value, max_value), min_value)
 
 
 def get_core_count() -> int:
@@ -27,6 +36,11 @@ def get_number_of_disks() -> int:
     return ASSUMED_DISK_COUNT
 
 
+MIN_POOL_SIZE = 3
+MAX_POOL_SIZE = 10
+MAX_MIN_POOL_SIZE = MAX_POOL_SIZE // 2
+
+
 def get_pool_config() -> PoolConfig:
     # A commonly used formula to estimate pool size: (2 * core_count) + number_of_disks
     # on k8s get_core_count can return 0 if no limits are set, so we use max(get_core_count(), 1)
@@ -34,11 +48,12 @@ def get_pool_config() -> PoolConfig:
     min_connections = max_connections // 2
 
     return {
-        "min_size": max(min_connections, 1),
-        "max_size": max(max_connections, 1),
+        "min_size": clamp(min_connections, MIN_POOL_SIZE, MAX_MIN_POOL_SIZE),
+        "max_size": clamp(max_connections, MIN_POOL_SIZE, MAX_POOL_SIZE),
         # we don't need max_size connections all the time, and if connections
         # are not heavily used, we can start shrinking the pool
         "max_idle": 0.5 * 60,
-        # we can have long tasks, so the default timeout must be increased
-        "timeout": 2.0 * 60,
+        # we can have long tasks (would be nice to refactor them), so the
+        # default timeout must be increased a lot
+        "timeout": 15.0 * 60,
     }
