@@ -3,13 +3,12 @@ from functools import partial
 from typing import Any, Final, TYPE_CHECKING
 
 from django.conf import settings
-from django.db.models import F
 
 import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
 from celery.utils.imports import qualname
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
@@ -67,16 +66,6 @@ def finish_with_error(ds: DeduplicationSet, error: Exception) -> None:
 
 def finish_with_success(ds: DeduplicationSet) -> None:
     finish_processing(ds)
-
-
-@signals.task_prerun.connect
-def handle_task_progress(sender=None, task_id=None, dedup_job_id=None, **kwargs):
-    if not dedup_job_id:
-        return
-    dedup_job = DedupJob.objects.filter(pk=dedup_job_id).first()
-    if dedup_job:
-        dedup_job.progress = F("progress") + 1
-        dedup_job.save(update_fields=["progress"])
 
 
 @app.task(bind=True, base=DedupeTask, shadow_name=shadow_name)
