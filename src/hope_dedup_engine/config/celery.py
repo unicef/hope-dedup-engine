@@ -19,5 +19,13 @@ def init_sentry(**_kwargs: Any) -> None:
     sentry_sdk.set_tag("celery", True)
 
 
+@signals.worker_init.connect
+def reset_db_connection_pool(**_kwargs: Any) -> None:
+    from django.db import connections  # noqa: PLC0415
+
+    for connection in connections.all():
+        connection.close()
+
+
 class DedupeTask(Task):
     pass
