@@ -8,6 +8,7 @@ ASSUMED_DISK_COUNT = 1
 class PoolConfig(TypedDict):
     min_size: int
     max_size: int
+    max_idle: float
 
 
 MIN_GREATER_THAN_MAX_ERROR = "min_value must be greater than max_value"
@@ -50,4 +51,5 @@ def get_pool_config() -> PoolConfig:
     return {
         "min_size": clamp(min_connections, MIN_POOL_SIZE, MAX_MIN_POOL_SIZE),
         "max_size": clamp(max_connections, MIN_POOL_SIZE, MAX_POOL_SIZE),
+        "max_idle": 4.0 * 60,
     }
