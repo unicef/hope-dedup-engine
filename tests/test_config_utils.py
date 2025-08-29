@@ -80,7 +80,9 @@ def test_get_pool_config(mocker: MockerFixture) -> None:
     optimal_pool_size = core_count * 2 + disk_count
     max_pool_size = max(optimal_pool_size, MAX_POOL_SIZE)
 
-    assert get_pool_config() == PoolConfig(min_size=clamp_mock.return_value, max_size=clamp_mock.return_value)
+    assert get_pool_config() == PoolConfig(
+        min_size=clamp_mock.return_value, max_size=clamp_mock.return_value, max_idle=4.0 * 60
+    )
     get_core_count_mock.assert_called_once_with()
     get_number_of_disks_mock.assert_called_once_with()
     clamp_mock.assert_has_calls(
