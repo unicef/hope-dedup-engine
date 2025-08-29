@@ -13,7 +13,6 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     deduplicate_dataset,
     encode_chunk,
     get_chunks,
-    handle_task_progress,
     shadow_name,
     sync_dnn_files,
 )
@@ -76,27 +75,6 @@ def test_shadow_name_error(mocker):
     result = shadow_name(Mock(), [], {}, {"chord": None})  # Trigger TypeError
     assert isinstance(result, str)
     mock_capture.assert_called_once()
-
-
-@pytest.mark.django_db
-def test_handle_task_progress(dedup_set_with_job):
-    """Test handle_task_progress correctly increments the job's progress."""
-    job = dedup_set_with_job.dedupjob
-    handle_task_progress(dedup_job_id=job.pk)
-    job.refresh_from_db()
-    assert job.progress == 1
-
-    handle_task_progress(dedup_job_id=job.pk)
-    job.refresh_from_db()
-    assert job.progress == 2
-
-
-@pytest.mark.django_db
-def test_handle_task_progress_no_op():
-    """Test handle_task_progress does nothing if job_id is invalid or None."""
-    handle_task_progress(dedup_job_id=None)
-    handle_task_progress(dedup_job_id=9999)
-    # No crash is a pass
 
 
 @pytest.mark.django_db
