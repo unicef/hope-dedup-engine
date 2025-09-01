@@ -23,8 +23,14 @@ def init_sentry(**_kwargs: Any) -> None:
 def reset_db_connection_pool(**_kwargs: Any) -> None:
     from django.db import connections  # noqa: PLC0415
 
-    for connection in connections.all():
-        connection.close()
+    connections.close_all()
+
+
+@signals.task_postrun.connect
+def on_task_postrun(**_kwargs: Any) -> None:
+    from django.db import connections  # noqa: PLC0415
+
+    connections.close_all()
 
 
 class DedupeTask(Task):
