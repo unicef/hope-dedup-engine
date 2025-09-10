@@ -3,6 +3,8 @@ from typing import Any
 
 import sentry_sdk
 from celery import Celery, Task, signals
+from celery.signals import task_prerun, task_postrun
+from django.db import connection
 
 from hope_dedup_engine.config import settings
 
@@ -14,17 +16,19 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS, related_name="celery_tasks")
 
 
+@task_prerun.connect
+def before_task(**_: Any) -> None:
+    connection.close_if_unusable_or_obsolete()
+
+
+@task_postrun.connect
+def after_task(**_: Any) -> None:
+    connection.close()
+
+
 @signals.celeryd_init.connect
 def init_sentry(**_kwargs: Any) -> None:
     sentry_sdk.set_tag("celery", True)
-
-
-@signals.worker_init.connect
-def reset_db_connection_pool(**_kwargs: Any) -> None:
-    from django.db import connections  # noqa: PLC0415
-
-    for connection in connections.all():
-        connection.close()
 
 
 class DedupeTask(Task):
