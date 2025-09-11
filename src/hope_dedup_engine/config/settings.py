@@ -16,8 +16,8 @@ DATABASES = {
 INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
-    "hope_dedup_engine.apps.security.apps.Config",
     "unicef_security",
+    "hope_dedup_engine.apps.security.apps.Config",
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.humanize",
@@ -149,7 +149,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "social_django.context_processors.backends",
                 "social_django.context_processors.login_redirect",
-                "hope_dedup_engine.web.context_processors.current_state",
+                "unicef_security.context_processors.current_state",
             ],
             "libraries": {
                 "staticfiles": "django.templatetags.static",
