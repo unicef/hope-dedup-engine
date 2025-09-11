@@ -1,8 +1,6 @@
 from dataclasses import asdict
 from typing import Any
 
-from django.db.models import F
-
 import sentry_sdk
 from celery import chord, shared_task
 
@@ -12,8 +10,8 @@ from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Findin
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
-    callback_encodings,
     encode_chunk,
+    find_duplicates_in_set,
     get_chunks,
     finish_with_error,
 )
@@ -36,13 +34,10 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
 
-        weight_total = 1
-        deduplication_set.finding_set.update(score=F("score") / weight_total)
-
         files = deduplication_set.image_set.values_list("filename", flat=True)
         chunks = get_chunks(files)
-        tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
-        chord_id = chord(tasks)(callback_encodings.s(config=config))
+        tasks = [encode_chunk.s(chunk, config, str(deduplication_set.pk)) for chunk in chunks]
+        chord_id = chord(tasks)(find_duplicates_in_set.s(config=config, deduplication_set_id=str(deduplication_set.pk)))
 
         return {
             "deduplication_set": str(deduplication_set),

@@ -37,6 +37,7 @@ dependencies = [
   "django-extensions",
   "django-filter",
   "django-flags",
+  "django-pgvector",
   "django-regex",
   "django-smart-env",
   "django-storages[azure]",

@@ -6,8 +6,9 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from pgvector.django import IVFFlatIndex, VectorField
+
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -59,44 +60,6 @@ class DeduplicationSet(models.Model):
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
-
-    def get_encodings(self) -> EncodingType:
-        return {encoding.filename: encoding.data for encoding in self.encoding_set.all()}
-
-    def get_findings(self) -> FindingType:
-        return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
-
-    def get_ignored_pairs(self) -> IgnoredPairType:
-        return list(self.ignoredreferencepkpair_set.values_list("first", "second")) + list(
-            self.ignoredfilenamepair_set.values_list("first", "second")
-        )
-
-    def update_encodings(self, encodings: EncodingType) -> None:
-        # sort to prevent deadlock
-        filenames = sorted(encodings.keys())
-        Encoding.objects.bulk_create(
-            [Encoding(deduplication_set=self, filename=filename, data=encodings[filename]) for filename in filenames],
-            update_conflicts=True,
-            update_fields=["data"],
-            unique_fields=["deduplication_set", "filename"],
-        )
-
-    def update_findings(self, findings: FindingType) -> None:
-        images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
-        filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
-        findings_to_create = [
-            Finding(
-                deduplication_set=self,
-                first_filename=f[0],
-                first_reference_pk=filename_to_reference_pk.get(f[0]),
-                second_filename=f[1],
-                second_reference_pk=filename_to_reference_pk.get(f[1]),
-                score=f[2],
-                status_code=f[3],
-            )
-            for f in findings
-        ]
-        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
 
     def set_state(self, state: State, error: Exception | None = None) -> None:
         self.state = state.value
@@ -207,13 +170,27 @@ class IgnoredFilenamePair(IgnoredPair):
 class Encoding(models.Model):
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     filename = models.CharField(max_length=FILENAME_LENGTH)
-    data = models.JSONField()
+    embedding = VectorField(dimensions=2622, null=True, blank=True)
+    status_code = models.IntegerField(
+        choices=Image.StatusCode.choices,
+        default=Image.StatusCode.DEDUPLICATE_SUCCESS,
+        null=True,
+    )
 
     class Meta:
         unique_together = (
             "deduplication_set",
             "filename",
         )
+
+        indexes = [
+            IVFFlatIndex(
+                fields=["embedding"],
+                lists=100,
+                name="encoding_embedding_idx",
+                opclasses=["vector_cosine_ops"],
+            )
+        ]
 
     def __str__(self) -> str:
         return f"Encoding({self.filename})"
