@@ -1,4 +1,3 @@
-import traceback
 from functools import partial
 from typing import Any, Final, TYPE_CHECKING
 
@@ -6,12 +5,12 @@ from django.conf import settings
 from django.db import connection
 
 import sentry_sdk
-from celery import Task, shared_task, signals, states
+from celery import Task, chord, group, shared_task, signals
 from celery.utils.imports import qualname
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding, Finding, Image
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Finding, Image
+from hope_dedup_engine.apps.api.models.deduplication import Encoding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
-from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import encode_faces
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
@@ -44,7 +43,7 @@ def shadow_name(task, args, kwargs, options):
         group: str = options["group_id"].split("-")[-1]
         chunk = int(options["group_index"])
         return f"{qualname(s.type)}({group})-{chunk:03}"
-    except Exception as e:
+    except (KeyError, AttributeError, TypeError) as e:
         sentry_sdk.capture_exception(e)
         return str(e)
 
@@ -77,16 +76,9 @@ def encode_chunk(
     try:
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
         encodings_to_update = []
-        with report_long_execution("ds.get_encodings()"):
-            # Fetch existing encodings to avoid re-computing
-            existing_filenames = set(
-                Encoding.objects.filter(deduplication_set=ds, filename__in=files).values_list("filename", flat=True)
-            )
-            files_to_process = [f for f in files if f not in existing_filenames]
-
-        if files_to_process:
+        if files:
             with report_long_execution("encode_faces(...)"):
-                results = encode_faces(files_to_process, config.get("encoding"), progress=callback)
+                results = encode_faces(files, config.get("encoding"), progress=callback)
 
             for filename, result in results.items():
                 if is_facial_error(result):
@@ -138,9 +130,9 @@ def find_duplicates_in_set(
         filename_to_pk = {img["filename"]: img["reference_pk"] for img in images}
 
         # Create findings for images that failed to encode
-        error_encodings = Encoding.objects.filter(deduplication_set=ds, embedding__isnull=True)
-        for enc in error_encodings:
-            findings_to_create.append(
+        error_encodings = Encoding.objects.filter(deduplication_set=ds, embedding__isnull=True).select_related()
+        findings_to_create.extend(
+            [
                 Finding(
                     deduplication_set=ds,
                     first_filename=enc.filename,
@@ -150,7 +142,9 @@ def find_duplicates_in_set(
                     score=0,
                     status_code=enc.status_code,
                 )
-            )
+                for enc in error_encodings
+            ]
+        )
 
         # Find duplicates for successfully encoded images using a single raw SQL query for performance.
         query = f"""
@@ -168,7 +162,7 @@ def find_duplicates_in_set(
                 AND e1.embedding IS NOT NULL
                 AND e2.embedding IS NOT NULL
                 AND (e1.embedding <=> e2.embedding) <= %s
-        """
+        """  # noqa: S608
         with connection.cursor() as cursor:
             cursor.execute(query, [ds.pk, ds.pk, distance_threshold])
             columns = [col[0] for col in cursor.description]
@@ -204,23 +198,30 @@ def find_duplicates_in_set(
 
 
 @shared_task(bind=True)
-def sync_dnn_files(self: Task, force: bool = False) -> bool:
-    """Synchronize DNN files from the specified source to local storage."""
+def process_deduplication_set(self: Task, config: dict[str, Any], deduplication_set_id: str) -> None:
+    """Orchestrator task to run the full deduplication process for a set."""
+    ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
     try:
-        downloader = FileSyncManager("azure").downloader
-        return all(
-            (
-                downloader.sync(
-                    info.get("filename"),
-                    info.get("sources").get("azure"),
-                    force=force,
-                )
-            )
-            for _, info in settings.DNN_FILES.items()
+        all_files = set(ds.image_set.values_list("filename", flat=True))
+        if not all_files:
+            finish_with_success(ds)
+            return
+
+        existing_encoded_files = set(
+            Encoding.objects.filter(deduplication_set=ds, filename__in=all_files).values_list("filename", flat=True)
         )
+        files_to_process = list(all_files - existing_encoded_files)
+
+        chunks = get_chunks(files_to_process)
+        # Create a group of encoding tasks
+        encode_tasks = group(encode_chunk.s(chunk, config, deduplication_set_id) for chunk in chunks)
+
+        # Create a chord that runs find_duplicates_in_set after all encoding tasks are done
+        callback = find_duplicates_in_set.s(config, deduplication_set_id)
+
+        chord(encode_tasks)(callback)
+
     except Exception as e:
-        self.update_state(
-            state=states.FAILURE,
-            meta={"exc_message": str(e), "traceback": traceback.format_exc()},
-        )
-        raise e
+        finish_with_error(ds, e)
+        sentry_sdk.capture_exception(e)
+        raise

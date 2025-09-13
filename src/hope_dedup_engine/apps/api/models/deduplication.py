@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from pgvector.django import IVFFlatIndex, VectorField
+from pgvector.django import IvfflatIndex, VectorField
 
 from hope_dedup_engine.apps.security.models import System
 
@@ -184,7 +184,7 @@ class Encoding(models.Model):
         )
 
         indexes = [
-            IVFFlatIndex(
+            IvfflatIndex(
                 fields=["embedding"],
                 lists=100,
                 name="encoding_embedding_idx",

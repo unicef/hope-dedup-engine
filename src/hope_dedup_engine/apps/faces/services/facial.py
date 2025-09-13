@@ -17,7 +17,7 @@ def default_progress(*args):
 
 def encode_faces(
     files: list[str],
-    options=None,
+    options: dict | None = None,
     progress=None,
 ) -> EncodingType:
     if not callable(progress):
@@ -31,8 +31,12 @@ def encode_faces(
         with report_long_execution("progress()"):
             progress()
         try:
-            with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
-                result = DeepFace.represent(storage.load_image(file), **(options or {}))
+            # Ensure a pgvector-compatible model is used by default.
+            model_options = options or {}
+            model_options.setdefault("model_name", "ArcFace")
+
+            with report_long_execution(f"DeepFace.represent(..., model_name='{model_options['model_name']}')"):
+                result = DeepFace.represent(storage.load_image(file), **model_options)
             if len(result) > 1:
                 encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.name
             else:

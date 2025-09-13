@@ -146,6 +146,63 @@ class FileDownloader:
             on_progress(filename, int((downloaded / total) * 100))
 
 
+class AzureFileDownloader(FileDownloader):
+    """Downloader class for downloading files from Azure Blob Storage.
+
+    Inherits from FileDownloader and implements the sync method to download files from a given Azure Blob Storage.
+    """
+
+    MESSAGES: Final[dict[str, str]] = {
+        **FileDownloader.MESSAGES,
+        "does_not_exist": "File '%s' does not exist in remote storage.",
+        "empty_file": "File '%s' is empty (size is 0 bytes).",
+    }
+
+    def __init__(self, local_base_location: Path) -> None:
+        """Initialize the AzureFileDownloader with a remote storage backend."""
+        super().__init__(local_base_location)
+        self.remote_storage = AzureStorage(**settings.STORAGES.get("dnn").get("OPTIONS"))
+
+    def _execute_download(
+        self,
+        local_filepath: str,
+        blob_name: str,
+        on_progress: Callable[[str, int], None] = None,
+        chunk_size: int = 128 * 1024,
+    ) -> str:
+        """Download a file from Azure Blob Storage and save it to local storage.
+
+        Args:
+            local_filepath (str): The local path where the file will be saved.
+            blob_name (str): The name of the blob to be downloaded from Azure Blob Storage.
+            on_progress (Callable[[str, int], None], optional): A callback function for reporting download progress.
+                The callback receives the filename and download progress as a percentage.
+            chunk_size (int): The size of each chunk to download in bytes. Defaults to 128 KB.
+
+        Returns:
+            str: A message indicating the status of the download. Typically "Done." if successful.
+
+        Raises:
+            FileNotFoundError: If the specified blob does not exist or is empty (size 0 bytes).
+
+        """
+        _, files = self.remote_storage.listdir("")
+        if blob_name not in files:
+            raise FileNotFoundError(self.MESSAGES.get("does_not_exist") % blob_name)
+
+        blob_size, downloaded = self.remote_storage.size(blob_name), 0
+        if blob_size == 0:
+            raise FileNotFoundError(self.MESSAGES.get("empty_file") % blob_name)
+
+        with self.remote_storage.open(blob_name, "rb") as remote_file, local_filepath.open("wb") as local_file:
+            for chunk in remote_file.chunks(chunk_size=chunk_size):
+                local_file.write(chunk)
+                downloaded += len(chunk)
+                self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
+
+        return self.MESSAGES.get("done")
+
+
 class GithubFileDownloader(FileDownloader):
     """Downloader class for downloading files from GitHub.
 
@@ -201,63 +258,6 @@ class GithubFileDownloader(FileDownloader):
                     self._report_progress(local_filepath.name, downloaded, total, on_progress)
             if on_progress:
                 self._report_progress(local_filepath.name, total or downloaded, total or downloaded, on_progress)
-        return self.MESSAGES.get("done")
-
-
-class AzureFileDownloader(FileDownloader):
-    """Downloader class for downloading files from Azure Blob Storage.
-
-    Inherits from FileDownloader and implements the sync method to download files from a given Azure Blob Storage.
-    """
-
-    MESSAGES: Final[dict[str, str]] = {
-        **FileDownloader.MESSAGES,
-        "does_not_exist": "File '%s' does not exist in remote storage.",
-        "empty_file": "File '%s' is empty (size is 0 bytes).",
-    }
-
-    def __init__(self, local_base_location: Path) -> None:
-        """Initialize the AzureFileDownloader with a remote storage backend."""
-        super().__init__(local_base_location)
-        self.remote_storage = AzureStorage(**settings.STORAGES.get("dnn").get("OPTIONS"))
-
-    def _execute_download(
-        self,
-        local_filepath: str,
-        blob_name: str,
-        on_progress: Callable[[str, int], None] = None,
-        chunk_size: int = 128 * 1024,
-    ) -> str:
-        """Download a file from Azure Blob Storage and save it to local storage.
-
-        Args:
-            local_filepath (str): The local path where the file will be saved.
-            blob_name (str): The name of the blob to be downloaded from Azure Blob Storage.
-            on_progress (Callable[[str, int], None], optional): A callback function for reporting download progress.
-                The callback receives the filename and download progress as a percentage.
-            chunk_size (int): The size of each chunk to download in bytes. Defaults to 128 KB.
-
-        Returns:
-            str: A message indicating the status of the download. Typically "Done." if successful.
-
-        Raises:
-            FileNotFoundError: If the specified blob does not exist or is empty (size 0 bytes).
-
-        """
-        _, files = self.remote_storage.listdir("")
-        if blob_name not in files:
-            raise FileNotFoundError(self.MESSAGES.get("does_not_exist") % blob_name)
-
-        blob_size, downloaded = self.remote_storage.size(blob_name), 0
-        if blob_size == 0:
-            raise FileNotFoundError(self.MESSAGES.get("empty_file") % blob_name)
-
-        with self.remote_storage.open(blob_name, "rb") as remote_file, local_filepath.open("wb") as local_file:
-            for chunk in remote_file.chunks(chunk_size=chunk_size):
-                local_file.write(chunk)
-                downloaded += len(chunk)
-                self._report_progress(local_filepath.name, downloaded, blob_size, on_progress)
-
         return self.MESSAGES.get("done")
 
 
