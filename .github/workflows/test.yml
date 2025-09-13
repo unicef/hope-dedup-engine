@@ -65,7 +65,7 @@ jobs:
         ports:
           - 16379:6379
       db:
-        image: postgres:14
+        image: pgvector/pgvector:pg14
         env:
           POSTGRES_DATABASE: dedup_engine
           POSTGRES_PASSWORD: postgres
