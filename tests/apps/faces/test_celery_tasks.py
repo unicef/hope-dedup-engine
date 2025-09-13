@@ -80,12 +80,18 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, mock_
     """Test encode_chunk successfully encodes faces and saves them to the database."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mock_encode_faces.return_value = {
-        "file1.jpg": [1.0],  # Success
-        "file2.jpg": "NO_FACE_DETECTED",  # Error
-    }
 
-    encode_chunk.s(["file1.jpg", "file2.jpg"], {}, ds.pk).apply()
+    # Define a side_effect function that mimics the real encode_faces
+    def encode_faces_side_effect(files, options, progress):
+        progress()  # This will call our notify_status callback
+        return {
+            "file1.jpg": [1.0],  # Success
+            "file2.jpg": "NO_FACE_DETECTED",  # Error
+        }
+
+    mock_encode_faces.side_effect = encode_faces_side_effect
+
+    encode_chunk(["file1.jpg", "file2.jpg"], {}, ds.pk)
 
     mock_get_ds.assert_called_once_with(pk=ds.pk)
     mock_encode_faces.assert_called_once()
@@ -111,7 +117,7 @@ def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
     """Test encode_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
     with pytest.raises(Exception, match="mock error"):
-        encode_chunk.s(["file1.jpg"], {}, ds.pk).apply(throw=True)
+        encode_chunk(["file1.jpg"], {}, ds.pk)
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()

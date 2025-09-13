@@ -35,27 +35,10 @@ def test_encode_faces_success(mock_deepface, mock_storage):
     files = ["file1.jpg", "file2.jpg"]
     mock_deepface.represent.side_effect = [[{"embedding": [1.0]}], [{"embedding": [2.0]}]]
 
-    encoded, added, existing = encode_faces(files)
+    encoded = encode_faces(files)
 
-    assert added == 2
-    assert existing == 1000  # Based on hardcoded value in function
     assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
     assert mock_deepface.represent.call_count == 2
-
-
-@pytest.mark.django_db
-def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
-    """Test that files with pre-existing encodings are not re-encoded."""
-    files = ["file1.jpg", "file2.jpg"]
-    pre_encodings = {"file1.jpg": [1.0]}
-    mock_deepface.represent.return_value = [{"embedding": [2.0]}]
-
-    encoded, added, existing = encode_faces(files, pre_encodings=pre_encodings)
-
-    assert added == 1
-    assert existing == 1001
-    assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
-    mock_deepface.represent.assert_called_once_with("image_data")
 
 
 @pytest.mark.django_db
@@ -86,7 +69,7 @@ def test_encode_faces_deepface_outcomes(mock_deepface, mock_storage, represent_k
     files = ["file1.jpg"]
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encoded, _, _ = encode_faces(files)
+    encoded = encode_faces(files)
     assert encoded["file1.jpg"] == expected_status.name
 
 
@@ -96,6 +79,6 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     files = ["file1.jpg"]
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encoded, _, _ = encode_faces(files)
+    encoded = encode_faces(files)
     assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.name
     mock_deepface.represent.assert_not_called()
