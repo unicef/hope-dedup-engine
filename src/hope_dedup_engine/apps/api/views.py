@@ -25,6 +25,7 @@ from hope_dedup_engine.apps.api.const import (
 )
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
+    Encoding,
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
@@ -78,7 +79,18 @@ class DeduplicationSetViewSet(
     @extend_schema(
         request=EmptySerializer,
         responses=EmptySerializer,
-        description="Run duplicate search process for the deduplication set",
+        description="""To launch the deduplication process again, you need to call the `process`
+endpoint with a `POST` request.
+
+Here is the command:
+
+```bash
+curl -X POST http://localhost:8000/api/deduplication-sets/{id}/process/ \\
+-H 'Authorization: Token <your_token>'
+```
+
+After running this, the deduplication set's state will change to "Processing",
+and the Celery task will start executing.""",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
@@ -87,6 +99,43 @@ class DeduplicationSetViewSet(
             return Response({"message": "already processing"}, status=status.HTTP_409_CONFLICT)
         start_processing(deduplication_set)
         return Response({"message": "started"})
+
+    @extend_schema(
+        request=EmptySerializer,
+        responses=EmptySerializer,
+        description="""Stop the current task and clear results.
+This will terminate the active Celery task, clear any existing findings
+or encodings for this set, and reset its state so it can be processed again.
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/deduplication-sets/{id}/clear_results/ \\
+-H 'Authorization: Token <your_token>'
+```
+
+You should receive a confirmation message like:
+`{"message":"Processing results cleared. You can now start the process again."}`.""",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def clear_results(self, request: Request, pk: UUID | None = None) -> Response:
+        deduplication_set = self.get_object()
+
+        # Best-effort attempt to stop any running tasks.
+        try:
+            if dedup_job := deduplication_set.dedupjob:
+                dedup_job.terminate()
+                dedup_job.delete()
+        except DeduplicationSet.dedupjob.RelatedObjectDoesNotExist:
+            pass
+
+        # Clean up derived data
+        Encoding.objects.filter(deduplication_set=deduplication_set).delete()
+        Finding.objects.filter(deduplication_set=deduplication_set).delete()
+
+        # Reset state to allow reprocessing.
+        deduplication_set.set_state(DeduplicationSet.State.MODIFIED)
+
+        return Response({"message": "Processing results cleared. You can now start the process again."})
 
     @extend_schema(description="List all deduplication sets available to the user")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:

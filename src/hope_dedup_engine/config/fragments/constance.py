@@ -4,7 +4,7 @@ CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
     "FACE_RECOGNITION_MODEL": (
-        "VGG-Face",
+        "ArcFace",
         "Specifies the face recognition model to be used for encoding face landmarks.",
         "face_recognition_models",
     ),
@@ -55,7 +55,7 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "face_recognition_models": [
         "django.forms.ChoiceField",
         {
-            "choices": (("VGG-Face", "VGG-Face"),),
+            "choices": (("ArcFace", "ArcFace"),),
         },
     ],
     "face_detector_backend": [

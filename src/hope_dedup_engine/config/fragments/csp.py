@@ -1,14 +1,15 @@
 # CSP_DEFAULT_SRC = ["'self'", "'unsafe-inline'", "'same-origin'", "fonts.googleapis.com", 'fonts.gstatic.com', 'data:',
 #                    'blob:', "cdn.redoc.ly"]
-CSP_DEFAULT_SRC = ["'self'", "'unsafe-inline'"]
+CSP_DEFAULT_SRC = ["'self'", "'unsafe-inline'", "localhost:10000"]
 CSP_STYLE_SRC = [
     "'self'",
     "'unsafe-inline'",
     "same-origin",
     "fonts.googleapis.com",
     "fonts.gstatic.com",
+    "localhost:10000",
 ]
-CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "same-origin", "blob:"]
+CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'", "same-origin", "blob:", "localhost:10000"]
 CSP_IMG_SRC = [
     "'self'",
     "'unsafe-inline'",
@@ -16,6 +17,7 @@ CSP_IMG_SRC = [
     "blob:",
     "data:",
     "cdn.redoc.ly",
+    "localhost:10000",
 ]
 CSP_FONT_SRC = [
     "'self'",
@@ -24,4 +26,5 @@ CSP_FONT_SRC = [
     "fonts.googleapis.com",
     "fonts.gstatic.com",
     "blob:",
+    "localhost:10000",
 ]

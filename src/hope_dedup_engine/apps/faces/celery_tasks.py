@@ -1,14 +1,14 @@
 from functools import partial
 from typing import Any, Final, TYPE_CHECKING
 
-from django.conf import settings
+from constance import config as constance_cfg
 from django.db import connection
 
 import sentry_sdk
 from celery import Task, chord, group, shared_task, signals
 from celery.utils.imports import qualname
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Finding, Image
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Finding, Image
 from hope_dedup_engine.apps.api.models.deduplication import Encoding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.services.facial import encode_faces
@@ -29,7 +29,7 @@ def get_chunks(files: list[str]) -> list[list[str]]:
     return [files[i : i + chunk_size] for i in range(0, len(files), chunk_size)]
 
 
-def notify_status(task: Task, dedup_job_id: int, **kwargs):
+def notify_status(current_step: int, current_file: str, task: Task, dedup_job_id: int, **kwargs: Any) -> None:
     signals.task_prerun.send(
         sender=task,
         task_id=task.request.id,
@@ -82,12 +82,15 @@ def encode_chunk(
 
             for filename, result in results.items():
                 if is_facial_error(result):
+                    status_code = result
+                    if isinstance(result, str):
+                        status_code = Image.StatusCode[result].value
                     encodings_to_update.append(
                         Encoding(
                             deduplication_set=ds,
                             filename=filename,
                             embedding=None,
-                            status_code=Image.StatusCode[result].value,
+                            status_code=status_code,
                         )
                     )
                 else:
@@ -120,7 +123,7 @@ def find_duplicates_in_set(
     """Find duplicates using pgvector, create Findings, and finalize the process."""
     ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
     try:
-        threshold = config.get("deduplicate", {}).get("threshold", settings.FACE_DISTANCE_THRESHOLD)
+        threshold = config.get("deduplicate", {}).get("threshold", constance_cfg.FACE_DISTANCE_THRESHOLD)
         # pgvector cosine distance is 1 - similarity. So similarity >= threshold is distance <= 1 - threshold
         distance_threshold = 1 - threshold
         findings_to_create = []
@@ -198,9 +201,14 @@ def find_duplicates_in_set(
 
 
 @shared_task(bind=True)
-def process_deduplication_set(self: Task, config: dict[str, Any], deduplication_set_id: str) -> None:
+def process_deduplication_set(self: Task, *args: Any, **kwargs: Any) -> None:
     """Orchestrator task to run the full deduplication process for a set."""
-    ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
+    # The task can be called with incorrect arguments; we fetch the correct objects via the task ID.
+    dedup_job = DedupJob.objects.select_related("deduplication_set__config").get(curr_async_result_id=self.request.id)
+    ds = dedup_job.deduplication_set
+    deduplication_set_id = str(ds.id)
+    config = ds.config.settings if ds.config and ds.config.settings else {}
+
     try:
         all_files = set(ds.image_set.values_list("filename", flat=True))
         if not all_files:

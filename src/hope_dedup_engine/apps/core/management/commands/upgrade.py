@@ -5,11 +5,25 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 from django.core.management.base import CommandError, SystemCheckError
 from django.core.validators import validate_email
+
+# azure storage support
+try:
+    from azure.core.exceptions import ResourceExistsError
+    from azure.storage.blob import CorsRule
+    from django.contrib.staticfiles.storage import staticfiles_storage
+    from storages.backends.azure_storage import AzureStorage
+except ImportError:
+    AzureStorage = None  # type: ignore
+    ResourceExistsError = None  # type: ignore
+    staticfiles_storage = None  # type: ignore
+    CorsRule = None  # type: ignore
+
 
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 from hope_dedup_engine.apps.security.models import User
@@ -48,6 +62,40 @@ class Command(BaseCommand):
 
     def _run_collectstatic(self, echo: Echo, extra: Mapping[str, Any]) -> None:
         if self.static:
+            if AzureStorage and ResourceExistsError:
+                storages_to_configure = [
+                    AzureStorage(**config.get("OPTIONS"))
+                    for config in settings.STORAGES.values()
+                    if "storages.backends.azure_storage.AzureStorage" in config.get("BACKEND", "")
+                ]
+                if storages_to_configure:
+                    # Configure CORS once on the service client.
+                    if not CorsRule:
+                        raise CommandError(
+                            "'azure-storage-blob' is not installed, which is required for CORS configuration. "
+                            "Please run: uv pip install 'django-storages[azure]'"
+                        )
+                    echo("Configuring CORS for Azure Storage.")
+                    cors_rule = CorsRule(
+                        allowed_origins=["*"],
+                        allowed_methods=["GET", "HEAD", "OPTIONS", "PUT", "POST", "DELETE"],
+                        allowed_headers=["*"],
+                        exposed_headers=["*"],
+                        max_age_in_seconds=86400,
+                    )
+                    storages_to_configure[0].service_client.set_service_properties(cors=[cors_rule])
+                    echo("CORS for Azure Storage configured to allow all origins.")
+
+                    # Ensure all containers exist.
+                    for storage in storages_to_configure:
+                        echo(f"Ensuring Azure Storage container '{storage.azure_container}' exists.")
+                        try:
+                            container_client = storage.service_client.get_container_client(storage.azure_container)
+                            container_client.create_container()
+                            echo(f"Container '{storage.azure_container}' created.")
+                        except ResourceExistsError:
+                            echo(f"Container '{storage.azure_container}' already exists.")
+
             static_root = Path(env("STATIC_ROOT"))
             echo(f"Run collectstatic to: '{static_root}' - '{static_root.absolute()}")
             if not static_root.exists():

@@ -170,7 +170,7 @@ class IgnoredFilenamePair(IgnoredPair):
 class Encoding(models.Model):
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     filename = models.CharField(max_length=FILENAME_LENGTH)
-    embedding = VectorField(dimensions=2622, null=True, blank=True)
+    embedding = VectorField(dimensions=512, null=True, blank=True)
     status_code = models.IntegerField(
         choices=Image.StatusCode.choices,
         default=Image.StatusCode.DEDUPLICATE_SUCCESS,

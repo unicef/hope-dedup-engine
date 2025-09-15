@@ -1,76 +1,62 @@
-import logging
-import sys
-from typing import Any, Final
+import os
+import shutil
+from pathlib import Path
 
-from django.conf import settings
-from django.core.management import BaseCommand
-from django.core.management.base import CommandError, SystemCheckError
-
-from hope_dedup_engine.apps.faces.managers.file_sync import FileSyncManager
-
-logger = logging.getLogger(__name__)
-
-
-MESSAGES: Final[dict[str, str]] = {
-    "sync": "Starting synchronization of models pre-trained-weights files from github to '%s'.",
-    "success": "Finished synchronizing models pre-trained-weights files successfully.",
-    "failed": "Failed to synchronize models pre-trained-weights files.",
-    "halted": "\n\n***\nSYSTEM HALTED\nUnable to start without models pre-trained-weights files...",
-    "progress": "\rDownloading file '%s': %s",
-}
+import numpy as np
+from constance import config as constance_cfg
+from deepface import DeepFace
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = "Synchronizes models pre-trained-weights files from the specified source to local storage"
+    help = "Downloads and caches pre-trained models for DeepFace if they are missing."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--force",
             action="store_true",
-            default=False,
-            help="Force the re-download of files even if they already exist locally",
+            help="Force deletion of existing models before syncing to ensure a clean state.",
         )
 
-    def handle(self, *args: Any, **options: dict[str, Any]) -> None:
-        def on_progress(filename: str, percent: int, is_complete: bool = False) -> None:
-            self.stdout.write(MESSAGES["progress"] % (filename, percent), ending="")
-            if is_complete:
-                self.stdout.write("\n")
+    def handle(self, *args, **options):
+        force_sync = options["force"]
+        deepface_home = os.getenv("DEEPFACE_HOME")
+        if not deepface_home:
+            self.stderr.write(self.style.ERROR("DEEPFACE_HOME environment variable is not set."))
+            return
 
-        self.stdout.write(self.style.WARNING(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION))
-        logger.info(MESSAGES["sync"] % settings.DEEPFACE_WEIGHTS_BASE_LOCATION)
+        if force_sync:
+            deepface_dir = Path(deepface_home) / ".deepface"
+            if deepface_dir.exists():
+                self.stdout.write(f"Removing existing DeepFace model directory due to --force flag: {deepface_dir}")
+                try:
+                    shutil.rmtree(deepface_dir)
+                    self.stdout.write(self.style.SUCCESS("Successfully removed existing models."))
+                except OSError as e:
+                    self.stderr.write(self.style.ERROR(f"Error removing directory {deepface_dir}: {e}"))
+                    return
 
-        try:
-            downloader = FileSyncManager(
-                source="github",
-                local_base_location=settings.DEEPFACE_WEIGHTS_BASE_LOCATION,
-            ).downloader
-            for filename, url in settings.DEEPFACE_WEIGHTS.items():
-                result = downloader.sync(
-                    filename,
-                    url,
-                    force=options.get("force"),
-                    on_progress=on_progress,
-                )
-                on_progress(filename, result, is_complete=True)
-        except (CommandError, SystemCheckError) as e:
-            self.halt(e)
-        # this clause is for any unexpected exception, so we use a base exception class here
-        except Exception as e:  # noqa: BLE001
-            self.stdout.write(self.style.ERROR(MESSAGES["failed"]))
-            logger.error(MESSAGES["failed"])
-            self.halt(e)
+        self.stdout.write("Ensuring pre-trained models for DeepFace are available...")
 
-        self.stdout.write(self.style.SUCCESS(MESSAGES["success"]))
+        models_to_sync = [constance_cfg.FACE_RECOGNITION_MODEL]
+        detectors_to_sync = [constance_cfg.FACE_DETECTOR_BACKEND]
 
-    def halt(self, e: Exception) -> None:
-        """Handle an exception by logging the error and exiting the program.
+        for model_name in models_to_sync:
+            self.stdout.write(f"  - Checking model: {model_name}")
+            try:
+                DeepFace.build_model(model_name)
+                self.stdout.write(self.style.SUCCESS(f"    '{model_name}' model is available."))
+            except (ValueError, RuntimeError) as e:
+                self.stderr.write(self.style.ERROR(f"    Failed to load model '{model_name}': {e}"))
 
-        Args:
-            e (Exception): The exception that occurred.
+        dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        """
-        logger.exception(e)
-        self.stdout.write(self.style.ERROR(str(e)))
-        self.stdout.write(self.style.ERROR(MESSAGES["halted"]))
-        sys.exit(1)
+        for backend in detectors_to_sync:
+            self.stdout.write(f"  - Checking detector backend: {backend}")
+            try:
+                DeepFace.extract_faces(img_path=dummy_image, detector_backend=backend, enforce_detection=False)
+                self.stdout.write(self.style.SUCCESS(f"    '{backend}' detector is available."))
+            except (ValueError, RuntimeError) as e:
+                self.stderr.write(self.style.ERROR(f"    Failed to load detector '{backend}': {e}"))
+
+        self.stdout.write(self.style.SUCCESS("Finished model check."))
