@@ -168,30 +168,28 @@ class ListDataWrapper:
         for item in self.data:
             item[key] = value
 
-
-class WrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
-        request = super().initialize_request(request, *args, **kwargs)
-        request._full_data = ListDataWrapper(request.data)
-        return request
+    def __iter__(self):
+        return iter(self.data)
 
 
-class UnwrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
-        request = super().initialize_request(request, *args, **kwargs)
-        request._full_data = request._full_data.data
-        return request
-
-
-# drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
-# UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkImageViewSet(
-    UnwrapRequestDataMixin,
     nested_viewsets.NestedViewSetMixin[Image],
-    WrapRequestDataMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        if isinstance(request.data, list):
+            request._full_data = ListDataWrapper(request.data)
+            if hasattr(request, "_data"):
+                delattr(request, "_data")
+
+        super().initial(request, *args, **kwargs)
+
+        if isinstance(request.data, ListDataWrapper):
+            request._full_data = request.data.data
+            if hasattr(request, "_data"):
+                delattr(request, "_data")
+
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
