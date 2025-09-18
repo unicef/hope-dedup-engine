@@ -1,6 +1,6 @@
 import traceback
 from functools import partial
-import pickle
+import json
 import os
 from typing import Any, Final, TYPE_CHECKING
 
@@ -51,7 +51,6 @@ def shadow_name(task, args, kwargs, options):
         group: str = options["group_id"].split("-")[-1]
         chunk = int(options["group_index"])
         return f"{qualname(s.type)}({group})-{chunk:03}"
-    # we do not care about the actual error here
     except Exception as e:  # noqa: BLE001
         sentry_sdk.capture_exception(e)
         return str(e)
@@ -104,30 +103,23 @@ def dedupe_chunk(
     cached_data_path: str | None = None,
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
-    # Resolve deduplication set early so we can compute a default cached_data_path
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        # If caller omitted cached_data_path, derive the path the real flow uses
         if not cached_data_path:
             cached_data_path = f"temp_encodings/{ds.pk}.pkl"
 
-        # Try to load cached encodings/ignored pairs from storage. If the cached
-        # file does not exist (e.g. when the task is invoked directly in tests or
-        # older callers), fall back to fetching the data from the DeduplicationSet.
         encodings = {}
         ignored_pairs = set()
         try:
             if default_storage.exists(cached_data_path):
-                with default_storage.open(cached_data_path, "rb") as f:
-                    cached_data = pickle.load(f)
+                with default_storage.open(cached_data_path, "r") as f:
+                    cached_data = json.load(f)
                 encodings = cached_data.get("encodings", {})
-                ignored_pairs = cached_data.get("ignored_pairs", set())
+                ignored_pairs = {tuple(p) for p in cached_data.get("ignored_pairs", [])}
             else:
-                # Cached file not present — use dataset accessors
                 encodings = ds.get_encodings()
                 ignored_pairs = set(ds.get_ignored_pairs())
         except FileNotFoundError:
-            # Defensive: storage.path/open may raise FileNotFoundError on some storages
             encodings = ds.get_encodings()
             ignored_pairs = set(ds.get_ignored_pairs())
 
@@ -196,10 +188,22 @@ def callback_encodings(
         if hasattr(default_storage, "path"):
             full_path = default_storage.path(cached_data_path)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            with default_storage.open(cached_data_path, "wb") as f:
-                pickle.dump(cached_data, f)
+            with default_storage.open(cached_data_path, "w") as f:
+                json.dump(
+                    {
+                        "encodings": cached_data["encodings"],
+                        "ignored_pairs": list(cached_data.get("ignored_pairs", [])),
+                    },
+                    f,
+                )
         else:
-            default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
+            payload = json.dumps(
+                {
+                    "encodings": cached_data["encodings"],
+                    "ignored_pairs": list(cached_data.get("ignored_pairs", [])),
+                }
+            )
+            default_storage.save(cached_data_path, ContentFile(payload.encode()))
 
         deduplicate_dataset.delay(
             config=config,
@@ -223,8 +227,8 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        with default_storage.open(cached_data_path, "rb") as f:
-            encodings = pickle.load(f)["encodings"]
+        with default_storage.open(cached_data_path, "r") as f:
+            encodings = json.load(f).get("encodings", {})
 
         chunks = get_chunks(list(encodings.keys()))
 

@@ -68,7 +68,6 @@ ignore = [
     "SIM108", # Use ternary operator instead of...
     "PLR2004", # Magic value used in comparison
     "DJ001", # Avoid using `null=True` on string-based fields such as `CharField`
-    "S301", # Allow picle
 ]
 
 [format]

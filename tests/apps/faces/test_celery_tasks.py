@@ -17,7 +17,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     sync_dnn_files,
 )
 
-import pickle
+import json
 import os
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -217,16 +217,15 @@ def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job
     mock_get_ds.return_value = ds
     mocker.patch.object(ds, "get_encodings", return_value={"f1": [1], "f2": [2], "f3": [3]})
     cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-    # Create the cached pickle file that deduplicate_dataset expects to read.
 
-    cached_data = {"encodings": ds.get_encodings()}
+    cached_data = {"encodings": ds.get_encodings(), "ignored_pairs": []}
     if hasattr(default_storage, "path"):
         full_path = default_storage.path(cached_data_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with default_storage.open(cached_data_path, "wb") as f:
-            pickle.dump(cached_data, f)
+        with default_storage.open(cached_data_path, "w") as f:
+            json.dump(cached_data, f)
     else:
-        default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
+        default_storage.save(cached_data_path, ContentFile(json.dumps(cached_data).encode()))
 
     result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
     assert result["chunks"] == 1
@@ -245,16 +244,15 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     mocker.patch.object(ds, "get_encodings", return_value=encodings)
 
     cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-    # Create the cached pickle file that deduplicate_dataset expects to read.
 
-    cached_data = {"encodings": encodings}
+    cached_data = {"encodings": encodings, "ignored_pairs": []}
     if hasattr(default_storage, "path"):
         full_path = default_storage.path(cached_data_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with default_storage.open(cached_data_path, "wb") as f:
-            pickle.dump(cached_data, f)
+        with default_storage.open(cached_data_path, "w") as f:
+            json.dump(cached_data, f)
     else:
-        default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
+        default_storage.save(cached_data_path, ContentFile(json.dumps(cached_data).encode()))
 
     result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
 
