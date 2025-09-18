@@ -17,6 +17,11 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     sync_dnn_files,
 )
 
+import pickle
+import os
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
 
 @pytest.fixture
 def dedup_set_with_job(db):
@@ -158,8 +163,9 @@ def test_callback_findings_error_on_update(mock_get_ds, dedup_set_with_job, mock
     mock_get_ds.return_value = ds
     mocker.patch.object(ds, "update_findings", side_effect=Exception("DB Error"))
 
+    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
     with pytest.raises(Exception, match="DB Error"):
-        callback_findings([], {"deduplication_set_id": ds.pk})
+        callback_findings([], cached_data_path, {"deduplication_set_id": ds.pk})
 
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
@@ -179,7 +185,8 @@ def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_se
         [("file2.jpg", "file1.jpg", 0.99, 1)],  # Duplicate pair
     ]
 
-    result = callback_findings(results, {"deduplication_set_id": ds.pk})
+    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+    result = callback_findings(results, cached_data_path, {"deduplication_set_id": ds.pk})
 
     ds.refresh_from_db()
     ds.update_findings.assert_called_once_with([("file1.jpg", "file2.jpg", 0.99, 1)])
@@ -197,7 +204,8 @@ def test_callback_encodings_success(mock_delay, mock_get_ds, dedup_set_with_job)
     config = {"deduplication_set_id": dedup_set_with_job.pk}
     result = callback_encodings([], config)
     assert result == {"Encoded": True}
-    mock_delay.assert_called_once_with(config)
+    expected_cached = f"temp_encodings/{dedup_set_with_job.pk}.pkl"
+    mock_delay.assert_called_once_with(config=config, cached_data_path=expected_cached)
 
 
 @pytest.mark.django_db
@@ -208,7 +216,19 @@ def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
     mocker.patch.object(ds, "get_encodings", return_value={"f1": [1], "f2": [2], "f3": [3]})
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk})
+    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+    # Create the cached pickle file that deduplicate_dataset expects to read.
+
+    cached_data = {"encodings": ds.get_encodings()}
+    if hasattr(default_storage, "path"):
+        full_path = default_storage.path(cached_data_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with default_storage.open(cached_data_path, "wb") as f:
+            pickle.dump(cached_data, f)
+    else:
+        default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
+
+    result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
     assert result["chunks"] == 1
     mock_chord.assert_called_once()
 
@@ -224,7 +244,19 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     encodings = {f"f{i}": [i] for i in range(5)}  # 5 files, chunk size 2 -> 3 chunks
     mocker.patch.object(ds, "get_encodings", return_value=encodings)
 
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk})
+    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+    # Create the cached pickle file that deduplicate_dataset expects to read.
+
+    cached_data = {"encodings": encodings}
+    if hasattr(default_storage, "path"):
+        full_path = default_storage.path(cached_data_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with default_storage.open(cached_data_path, "wb") as f:
+            pickle.dump(cached_data, f)
+    else:
+        default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
+
+    result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
 
     assert result["chunks"] == 3
     mock_chord.assert_called_once()

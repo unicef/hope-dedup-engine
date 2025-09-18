@@ -101,15 +101,35 @@ def dedupe_chunk(
     self: Task,
     chunk: list[str],
     config: dict[str, Any],
-    cached_data_path: str,
+    cached_data_path: str | None = None,
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
+    # Resolve deduplication set early so we can compute a default cached_data_path
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        with default_storage.open(cached_data_path, "rb") as f:
-            cached_data = pickle.load(f)
+        # If caller omitted cached_data_path, derive the path the real flow uses
+        if not cached_data_path:
+            cached_data_path = f"temp_encodings/{ds.pk}.pkl"
 
-        encodings = cached_data["encodings"]
-        ignored_pairs = cached_data["ignored_pairs"]
+        # Try to load cached encodings/ignored pairs from storage. If the cached
+        # file does not exist (e.g. when the task is invoked directly in tests or
+        # older callers), fall back to fetching the data from the DeduplicationSet.
+        encodings = {}
+        ignored_pairs = set()
+        try:
+            if default_storage.exists(cached_data_path):
+                with default_storage.open(cached_data_path, "rb") as f:
+                    cached_data = pickle.load(f)
+                encodings = cached_data.get("encodings", {})
+                ignored_pairs = cached_data.get("ignored_pairs", set())
+            else:
+                # Cached file not present — use dataset accessors
+                encodings = ds.get_encodings()
+                ignored_pairs = set(ds.get_ignored_pairs())
+        except FileNotFoundError:
+            # Defensive: storage.path/open may raise FileNotFoundError on some storages
+            encodings = ds.get_encodings()
+            ignored_pairs = set(ds.get_ignored_pairs())
 
         callback = partial(notify_status, task=self, config=config)
         return dedupe_images(
@@ -121,7 +141,6 @@ def dedupe_chunk(
             progress=callback,
         )
     except Exception as e:
-        ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise

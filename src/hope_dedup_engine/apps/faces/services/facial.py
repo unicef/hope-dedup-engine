@@ -100,7 +100,17 @@ def dedupe_images(  # noqa 901
 
             enc1_np = encodings_np[file1]
             enc2_np = encodings_np[file2]
-            similarity = np.dot(enc1_np, enc2_np) / (norm(enc1_np) * norm(enc2_np))
+
+            similarity = None
+            try:
+                verify_result = DeepFace.verify(enc1_np, enc2_np)
+                if isinstance(verify_result, dict) and "distance" in verify_result:
+                    similarity = 1.0 - float(verify_result["distance"])
+            except (ValueError, TypeError, KeyError, RuntimeError):
+                similarity = None
+
+            if similarity is None:
+                similarity = float(np.dot(enc1_np, enc2_np) / (norm(enc1_np) * norm(enc2_np)))
 
             if similarity >= dedupe_threshold:
                 findings[file1].append([file2, similarity])

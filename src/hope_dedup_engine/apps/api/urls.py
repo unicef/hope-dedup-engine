@@ -27,7 +27,7 @@ from hope_dedup_engine.apps.api.views import (
 )
 
 router = routers.SimpleRouter()
-router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET)
+router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST)
 
 deduplication_sets_router = nested_routers.NestedSimpleRouter(router, DEDUPLICATION_SET_LIST, lookup=DEDUPLICATION_SET)
 deduplication_sets_router.register(IMAGE_LIST, ImageViewSet, basename=IMAGE_LIST)
