@@ -10,8 +10,8 @@ urlpatterns = [
     path(r"accounts/", include("django.contrib.auth.urls")),
     path(r"adminactions/", include("adminactions.urls")),
     path(r"sentry_debug/", lambda _: 1 / 0),
+    path("api/", include("hope_dedup_engine.apps.api.urls")),
     path(r"", include("hope_dedup_engine.web.urls")),
-    path("", include("hope_dedup_engine.apps.api.urls")),
 ]
 
 if settings.DEBUG:

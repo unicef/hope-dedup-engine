@@ -1,9 +1,11 @@
 import traceback
 from functools import partial
 import pickle
+import os
 from typing import Any, Final, TYPE_CHECKING
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 
 import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
@@ -168,17 +170,18 @@ def callback_encodings(
     """Cache encodings and ignored pairs, then start deduplication."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        # Query DB once for all data needed by workers
         encodings = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
-
-        # Cache the data to a temporary file in default storage
         cached_data = {"encodings": encodings, "ignored_pairs": ignored_pairs}
         cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-        with default_storage.open(cached_data_path, "wb") as f:
-            pickle.dump(cached_data, f)
+        if hasattr(default_storage, "path"):
+            full_path = default_storage.path(cached_data_path)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            with default_storage.open(cached_data_path, "wb") as f:
+                pickle.dump(cached_data, f)
+        else:
+            default_storage.save(cached_data_path, ContentFile(pickle.dumps(cached_data)))
 
-        # Start the deduplication process, passing the path to the cached data
         deduplicate_dataset.delay(
             config=config,
             cached_data_path=cached_data_path,
@@ -201,13 +204,11 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        # Load encodings from cache just to get the keys for chunking
         with default_storage.open(cached_data_path, "rb") as f:
             encodings = pickle.load(f)["encodings"]
 
         chunks = get_chunks(list(encodings.keys()))
 
-        # Pass the cache path to each worker and to the final callback
         tasks = [dedupe_chunk.s(chunk, config, cached_data_path) for chunk in chunks]
         callback = callback_findings.s(config=config, cached_data_path=cached_data_path)
         chord_id = chord(tasks)(callback)

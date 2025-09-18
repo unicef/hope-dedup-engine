@@ -55,7 +55,7 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "face_recognition_models": [
         "django.forms.ChoiceField",
         {
-            "choices": (("VGG-Face", "VGG-Face"), ("ArcFace", "ArcFace")),
+            "choices": (("ArcFace", "ArcFace"),),
         },
     ],
     "face_detector_backend": [

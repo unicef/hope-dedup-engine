@@ -59,6 +59,7 @@ class DeduplicationSetViewSet(
         HasAccessToDeduplicationSet,
     )
     serializer_class = DeduplicationSetSerializer
+    queryset = DeduplicationSet.objects.all()
 
     def get_queryset(self) -> QuerySet:
         return DeduplicationSet.objects.filter(system=self.request.auth.system, deleted=False)

@@ -35,6 +35,7 @@ INSTALLED_APPS = (
     "adminfilters",
     "adminfilters.depot",
     "constance",
+    "django_extensions",
     "rest_framework",
     "django_celery_beat",
     "django_celery_results",

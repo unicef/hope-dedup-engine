@@ -27,7 +27,7 @@ from hope_dedup_engine.apps.api.views import (
 )
 
 router = routers.SimpleRouter()
-router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST)
+router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET)
 
 deduplication_sets_router = nested_routers.NestedSimpleRouter(router, DEDUPLICATION_SET_LIST, lookup=DEDUPLICATION_SET)
 deduplication_sets_router.register(IMAGE_LIST, ImageViewSet, basename=IMAGE_LIST)
@@ -43,14 +43,14 @@ deduplication_sets_router.register(
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(deduplication_sets_router.urls)),
-    path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
+    path("rest/", SpectacularAPIView.as_view(), name="schema"),
     path(
-        "api/rest/swagger/",
+        "rest/swagger/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
     path(
-        "api/rest/redoc/",
+        "rest/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
