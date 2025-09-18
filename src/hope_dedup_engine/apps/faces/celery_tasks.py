@@ -1,11 +1,13 @@
 import traceback
 from functools import partial
+import pickle
 from typing import Any, Final, TYPE_CHECKING
 
 from django.conf import settings
 
 import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
+from django.core.files.storage import default_storage
 from celery.utils.imports import qualname
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
@@ -32,7 +34,8 @@ def get_chunks(files: list[str]) -> list[list[str]]:
     ]
 
 
-def notify_status(task: Task, dedup_job_id: int, **kwargs):
+def notify_status(task: Task, config: dict[str, Any], **kwargs):
+    dedup_job_id = config.get("dedup_job_id")
     signals.task_prerun.send(
         sender=task,
         task_id=task.request.id,
@@ -78,7 +81,7 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
+        callback = partial(notify_status, task=self, config=config)
         with report_long_execution("ds.get_encodings()"):
             pre_encodings = ds.get_encodings()
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
@@ -94,24 +97,29 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    files: list[str],
+    chunk: list[str],
     config: dict[str, Any],
+    cached_data_path: str,
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
-    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
-        encoded = ds.get_encodings()
-        ignored_pairs = set(ds.get_ignored_pairs())
+        with default_storage.open(cached_data_path, "rb") as f:
+            cached_data = pickle.load(f)
+
+        encodings = cached_data["encodings"]
+        ignored_pairs = cached_data["ignored_pairs"]
+
+        callback = partial(notify_status, task=self, config=config)
         return dedupe_images(
-            files,
-            encoded,
+            chunk,
+            encodings,
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
             progress=callback,
         )
     except Exception as e:
+        ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
@@ -121,6 +129,7 @@ def dedupe_chunk(
 def callback_findings(
     self: Task,
     results: FindingType,
+    cached_data_path: str,
     config: dict[str, Any],
 ) -> dict[str, Any]:
     """Aggregate and save findings."""
@@ -146,6 +155,8 @@ def callback_findings(
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
+    finally:
+        default_storage.delete(cached_data_path)
 
 
 @app.task(bind=True, base=DedupeTask)
@@ -154,10 +165,24 @@ def callback_encodings(
     results: list[None],
     config: dict[str, Any],
 ) -> dict[str, Any]:
-    """Aggregate and save encodings."""
+    """Cache encodings and ignored pairs, then start deduplication."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        deduplicate_dataset.delay(config)
+        # Query DB once for all data needed by workers
+        encodings = ds.get_encodings()
+        ignored_pairs = set(ds.get_ignored_pairs())
+
+        # Cache the data to a temporary file in default storage
+        cached_data = {"encodings": encodings, "ignored_pairs": ignored_pairs}
+        cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+        with default_storage.open(cached_data_path, "wb") as f:
+            pickle.dump(cached_data, f)
+
+        # Start the deduplication process, passing the path to the cached data
+        deduplicate_dataset.delay(
+            config=config,
+            cached_data_path=cached_data_path,
+        )
         return {
             "Encoded": True,
         }
@@ -171,13 +196,21 @@ def callback_encodings(
 def deduplicate_dataset(
     self: Task,
     config: dict[str, Any],
+    cached_data_path: str,
 ) -> dict[str, Any]:
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunks = get_chunks(list(ds.get_encodings().keys()))
-        tasks = [dedupe_chunk.s(chunk, config) for chunk in chunks]
-        chord_id = chord(tasks)(callback_findings.s(config=config))
+        # Load encodings from cache just to get the keys for chunking
+        with default_storage.open(cached_data_path, "rb") as f:
+            encodings = pickle.load(f)["encodings"]
+
+        chunks = get_chunks(list(encodings.keys()))
+
+        # Pass the cache path to each worker and to the final callback
+        tasks = [dedupe_chunk.s(chunk, config, cached_data_path) for chunk in chunks]
+        callback = callback_findings.s(config=config, cached_data_path=cached_data_path)
+        chord_id = chord(tasks)(callback)
         return {
             "deduplication_set": str(ds),
             "chord_id": str(chord_id),

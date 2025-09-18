@@ -30,6 +30,7 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         send_notification(deduplication_set.notification_url)
 
         config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
+        config["dedup_job_id"] = dedup_job_id
 
         # clean results
         Finding.objects.filter(deduplication_set=deduplication_set).delete()

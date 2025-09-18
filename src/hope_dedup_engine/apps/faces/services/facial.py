@@ -4,6 +4,8 @@ from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
+import numpy as np
+from numpy.linalg import norm
 
 from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
@@ -72,7 +74,7 @@ def dedupe_images(  # noqa 901
         progress = default_progress
 
     findings = defaultdict(list)
-    config = options or {}
+    encodings_np = {file: np.array(enc) for file, enc in encodings.items() if not is_facial_error(enc)}
 
     for i, file1 in enumerate(files):
         progress()
@@ -87,17 +89,19 @@ def dedupe_images(  # noqa 901
 
         for j in range(i + 1, len(files)):
             file2 = files[j]
-            enc2 = encodings[file2]
             if (
                 file2 in findings
                 or (file1, file2) in ignored_pairs
                 or (file2, file1) in ignored_pairs
-                or is_facial_error(enc2)
+                or file2 not in encodings_np
                 or any(file2 == dup[0] for dup in findings.get(file1, []))
             ):
                 continue
-            res = DeepFace.verify(enc1, enc2, **config)
-            similarity = float(1 - res["distance"])
+
+            enc1_np = encodings_np[file1]
+            enc2_np = encodings_np[file2]
+            similarity = np.dot(enc1_np, enc2_np) / (norm(enc1_np) * norm(enc2_np))
+
             if similarity >= dedupe_threshold:
                 findings[file1].append([file2, similarity])
 
