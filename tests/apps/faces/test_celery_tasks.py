@@ -79,7 +79,7 @@ def test_shadow_name_success(mocker):
 
 def test_shadow_name_error(mocker):
     """Test shadow_name handles errors gracefully and reports to Sentry."""
-    mock_capture = mocker.patch("sentry_sdk.capture_exception")
+    mock_capture = mocker.patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk.capture_exception")
     result = shadow_name(Mock(), [], {}, {"chord": None})
     assert isinstance(result, str)
     mock_capture.assert_called_once()
@@ -135,15 +135,15 @@ def test_encode_chunk_with_local_storage(
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.encode_faces", side_effect=Exception("mock error"))
-@patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
+@patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk.capture_exception")
+def test_encode_chunk_error(mock_capture_exception, mock_encode_faces, dedup_set_with_job):
     """Test encode_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
     with pytest.raises(Exception, match="mock error"):
         encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
-    mock_sentry.capture_exception.assert_called_once()
+    mock_capture_exception.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -178,8 +178,8 @@ def test_dedupe_chunk_success(mock_dedupe_images, dedup_set_with_job):
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images", side_effect=Exception("mock error"))
-@patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job):
+@patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk.capture_exception")
+def test_dedupe_chunk_error(mock_capture_exception, mock_dedupe_images, dedup_set_with_job):
     """Test dedupe_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
     config = {"deduplication_set_id": ds.pk}
@@ -197,7 +197,7 @@ def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job)
 
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
-    mock_sentry.capture_exception.assert_called_once()
+    mock_capture_exception.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -359,3 +359,12 @@ def test_sync_dnn_files_one_fails(mock_fsm, settings):
     mock_fsm.return_value.downloader.sync.side_effect = [True, False]
     assert sync_dnn_files() is False
     assert mock_fsm.return_value.downloader.sync.call_count == 2
+
+
+@patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")
+def test_sync_dnn_files_no_files(mock_fsm, settings):
+    """Test sync_dnn_files when DNN_FILES is empty."""
+    settings.DNN_FILES = {}
+    assert sync_dnn_files() is True
+    mock_fsm.assert_called_once_with("azure")
+    mock_fsm.return_value.downloader.sync.assert_not_called()

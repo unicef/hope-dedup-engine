@@ -235,3 +235,26 @@ def test_dedupe_images_with_zero_norm_vector():
 
     assert len(results) == 1
     assert results[0][:2] == ("file1.jpg", "file3.jpg")
+
+
+@pytest.mark.django_db
+def test_dedupe_images_inter_chunk():
+    """Test inter-chunk comparison logic."""
+    encodings1 = {"file1.jpg": [1.0, 0.0]}
+    encodings2 = {"file2.jpg": [0.9, 0.1], "file3.jpg": [0.0, 1.0]}
+    results = dedupe_images(encodings1, encodings2, ignored_pairs=set(), dedupe_threshold=0.9)
+    assert len(results) == 1
+    assert results[0][:2] == ("file1.jpg", "file2.jpg")
+
+
+@pytest.mark.django_db
+def test_dedupe_images_inter_chunk_with_error():
+    """Test inter-chunk comparison with a facial error in one chunk."""
+    encodings1 = {"file1.jpg": [1.0, 0.0]}
+    encodings2 = {
+        "file2.jpg": Image.StatusCode.NO_FACE_DETECTED.name,
+        "file3.jpg": [0.9, 0.1],
+    }
+    results = dedupe_images(encodings1, encodings2, ignored_pairs=set(), dedupe_threshold=0.9)
+    assert len(results) == 1
+    assert results[0][:2] == ("file1.jpg", "file3.jpg")

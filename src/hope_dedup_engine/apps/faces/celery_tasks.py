@@ -7,7 +7,7 @@ from typing import Any, Final, TYPE_CHECKING
 from django.conf import settings
 from django.core.files.base import ContentFile
 
-from sentry_sdk import capture_exception
+import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
 from django.core.files.storage import default_storage
 from celery.utils.imports import qualname
@@ -51,7 +51,7 @@ def shadow_name(task, args, kwargs, options):
         chunk = int(options["group_index"])
         return f"{qualname(s.type)}({group})-{chunk:03}"
     except Exception as e:  # noqa: BLE001
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         return str(e)
 
 
@@ -90,7 +90,7 @@ def encode_chunk(
             ds.update_encodings(results[0])
         return results[1]
     except Exception as e:
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -128,7 +128,7 @@ def dedupe_chunk(
             progress=callback,
         )
     except Exception as e:
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -163,7 +163,7 @@ def callback_findings(
             "Findings": len(findings),
         }
     except Exception as e:
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
     finally:
@@ -177,7 +177,7 @@ def callback_findings(
                 chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
                 default_storage.delete(chunk_path)
         except OSError as e:
-            capture_exception(e)
+            sentry_sdk.capture_exception(e)
 
 
 @app.task(bind=True, base=DedupeTask)
@@ -232,7 +232,7 @@ def callback_encodings(
             "Encoded": True,
         }
     except Exception as e:
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -280,7 +280,7 @@ def deduplicate_dataset(
             "tasks": len(tasks),
         }
     except Exception as e:
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
 

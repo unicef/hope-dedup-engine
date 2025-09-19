@@ -51,7 +51,7 @@ def test_find_duplicates_orchestration(
     mock_chord.return_value.assert_called_once_with(mock_callback_encodings.s.return_value)
 
 
-@patch("sentry_sdk.capture_exception")
+@patch("hope_dedup_engine.apps.api.deduplication.process.sentry_sdk.capture_exception")
 @patch(
     "hope_dedup_engine.apps.api.deduplication.process.send_notification",
     side_effect=Exception("Test Error"),

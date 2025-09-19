@@ -3,7 +3,7 @@ from typing import Any
 
 from django.db.models import F
 
-from sentry_sdk import capture_exception
+import sentry_sdk
 from celery import chord, shared_task
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
@@ -52,5 +52,5 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         }
     except Exception as e:
         finish_with_error(deduplication_set, e)
-        capture_exception(e)
+        sentry_sdk.capture_exception(e)
         raise
