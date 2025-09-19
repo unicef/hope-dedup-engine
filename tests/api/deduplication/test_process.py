@@ -41,8 +41,12 @@ def test_find_duplicates_orchestration(
     assert job.progress == 0
     assert dedup_set.finding_set.count() == 0
 
-    assert mock_encode_chunk.s.call_count == 1
-    mock_chord.assert_called_once_with([mock_encode_chunk.s.return_value])
+    assert mock_encode_chunk.s.call_count == 2
+
+    mock_chord.assert_called_once()
+    tasks_arg = mock_chord.call_args.args[0]
+    assert len(tasks_arg) == 2
+
     mock_callback_encodings.s.assert_called_once()
     mock_chord.return_value.assert_called_once_with(mock_callback_encodings.s.return_value)
 

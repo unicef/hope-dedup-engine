@@ -1,3 +1,6 @@
+import os
+import random
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -67,3 +70,16 @@ def start_processing(mocker: MockerFixture) -> MagicMock:
 @pytest.fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+
+
+@pytest.fixture(scope="session")
+def images_dir() -> Path:
+    """Returns the absolute path to the test images directory."""
+    return Path(__file__).parent.parent / "utils" / "images"
+
+
+@pytest.fixture
+def random_image_filename(images_dir: Path) -> str:
+    """Returns a random filename from the test images directory."""
+    files = [f for f in os.listdir(images_dir) if os.path.isfile(images_dir / f)]
+    return random.choice(files)

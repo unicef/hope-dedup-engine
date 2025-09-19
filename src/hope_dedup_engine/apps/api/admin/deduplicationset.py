@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.admin import ModelAdmin, register
 
 from admin_extra_buttons.decorators import button, link
@@ -9,7 +10,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 
 
 @register(DeduplicationSet)
@@ -55,6 +56,36 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         else:
             button.visible = False
         return None
+
+    @button(
+        label="Terminate Job",
+        permission=lambda request, obj, **kwargs: (
+            request.user.is_staff
+            and obj
+            and obj.state not in [DeduplicationSet.State.FAILED, DeduplicationSet.State.CANCELED]
+        ),
+        confirm="Are you sure you want to terminate the running job for this deduplication set?",
+    )
+    def terminate_job(self, request: HttpRequest, pk: str) -> None:
+        ds = self.get_object(request, pk)
+
+        job = None
+        try:
+            if ds.dedupjob and ds.dedupjob.curr_async_result_id:
+                job = ds.dedupjob
+        except DedupJob.DoesNotExist:
+            pass  # No job is associated with this set, so job remains None.
+
+        if job:
+            job.terminate()
+            self.message_user(request, "Job termination initiated.", messages.SUCCESS)
+        else:
+            self.message_user(
+                request,
+                "No active job found. Setting state to Canceled.",
+                messages.WARNING,
+            )
+        ds.set_state(DeduplicationSet.State.CANCELED)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return DeduplicationSet.objects.only(*self.get_list_display(request))

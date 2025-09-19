@@ -38,7 +38,6 @@ INSTALLED_APPS = (
     "django_extensions",
     "rest_framework",
     "django_celery_beat",
-    "django_celery_results",
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
@@ -90,6 +89,9 @@ STORAGES = {
 }
 DEFAULT_ROOT = env("DEFAULT_ROOT")
 STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
+
+IMAGE_STORAGE_BACKEND = env("IMAGE_STORAGE_BACKEND", default="azure")
+LOCAL_IMAGE_DIR = env("LOCAL_IMAGE_DIR", default="")
 
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")

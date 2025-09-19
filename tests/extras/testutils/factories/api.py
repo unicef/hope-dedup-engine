@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from factory import Factory, SubFactory, fuzzy, lazy_attribute
 from factory.django import DjangoModelFactory
+from pytest_factoryboy import LazyFixture
 from testutils.factories import SystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import (
@@ -49,7 +50,7 @@ class DeduplicationSetFactory(DjangoModelFactory):
 
 class ImageFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
-    filename = fuzzy.FuzzyText()
+    filename = LazyFixture("random_image_filename")
     reference_pk = fuzzy.FuzzyText()
 
     class Meta:

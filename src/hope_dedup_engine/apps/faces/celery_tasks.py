@@ -23,17 +23,16 @@ from hope_dedup_engine.type_aliases import FindingType
 if TYPE_CHECKING:
     from celery.canvas import Signature
 
-CHUNK_SIZE: Final[int] = 25
+TARGET_CHUNKS: Final[int] = 30
 
 
 def get_chunks(files: list[str]) -> list[list[str]]:
-    chunk_size = min(CHUNK_SIZE, len(files))
-    if not chunk_size:
+    """Divide elements into a target number of chunks for parallel processing."""
+    if not files:
         return []
-    return [
-        files[i : i + chunk_size]
-        for i in range(0, len(files), chunk_size)  # noqa 203
-    ]
+    num_chunks = min(len(files), TARGET_CHUNKS)
+    chunk_size = (len(files) + num_chunks - 1) // num_chunks
+    return [files[i : i + chunk_size] for i in range(0, len(files), chunk_size)]
 
 
 def notify_status(task: Task, config: dict[str, Any], **kwargs):
@@ -72,12 +71,12 @@ def finish_with_success(ds: DeduplicationSet) -> None:
     finish_processing(ds)
 
 
-@app.task(bind=True, base=DedupeTask, shadow_name=shadow_name)
+@app.task(bind=True, base=DedupeTask, shadow_name=shadow_name, acks_late=True)
 def encode_chunk(
     self: DedupeTask,
     files: list[str],
     config: dict[str, Any],
-) -> None:
+) -> list[str]:
     """Encode faces in a chunk of files."""
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
@@ -89,44 +88,40 @@ def encode_chunk(
             results = encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
+        return results[1]
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
         raise
 
 
-@app.task(bind=True, base=DedupeTask)
+@app.task(bind=True, base=DedupeTask, acks_late=True)
 def dedupe_chunk(
     self: Task,
-    chunk: list[str],
+    chunk_path1: str,
+    chunk_path2: str,
+    ignored_pairs_path: str,
     config: dict[str, Any],
-    cached_data_path: str | None = None,
 ) -> FindingType:
-    """Deduplicate faces in a chunk of files."""
+    """Deduplicate faces between two chunks of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        if not cached_data_path:
-            cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+        with default_storage.open(chunk_path1, "r") as f:
+            encodings1 = json.load(f)
 
-        encodings = {}
-        ignored_pairs = set()
-        try:
-            if default_storage.exists(cached_data_path):
-                with default_storage.open(cached_data_path, "r") as f:
-                    cached_data = json.load(f)
-                encodings = cached_data.get("encodings", {})
-                ignored_pairs = {tuple(p) for p in cached_data.get("ignored_pairs", [])}
-            else:
-                encodings = ds.get_encodings()
-                ignored_pairs = set(ds.get_ignored_pairs())
-        except FileNotFoundError:
-            encodings = ds.get_encodings()
-            ignored_pairs = set(ds.get_ignored_pairs())
+        if chunk_path1 == chunk_path2:
+            encodings2 = encodings1
+        else:
+            with default_storage.open(chunk_path2, "r") as f:
+                encodings2 = json.load(f)
+
+        with default_storage.open(ignored_pairs_path, "r") as f:
+            ignored_pairs = {tuple(p) for p in json.load(f)}
 
         callback = partial(notify_status, task=self, config=config)
         return dedupe_images(
-            chunk,
-            encodings,
+            encodings1,
+            encodings2,
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
@@ -142,11 +137,14 @@ def dedupe_chunk(
 def callback_findings(
     self: Task,
     results: FindingType,
-    cached_data_path: str,
+    context: dict[str, Any],
     config: dict[str, Any],
 ) -> dict[str, Any]:
     """Aggregate and save findings."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    cached_data_dir = context["cached_data_dir"]
+    num_new_chunks = context["num_new_chunks"]
+    num_existing_chunks = context["num_existing_chunks"]
     try:
         seen_pairs = set()
         findings = [
@@ -169,45 +167,66 @@ def callback_findings(
         finish_with_error(ds, e)
         raise
     finally:
-        default_storage.delete(cached_data_path)
+        try:
+            ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
+            default_storage.delete(ignored_pairs_path)
+            for i in range(num_new_chunks):
+                chunk_path = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
+                default_storage.delete(chunk_path)
+            for i in range(num_existing_chunks):
+                chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
+                default_storage.delete(chunk_path)
+        except OSError as e:
+            sentry_sdk.capture_exception(e)
 
 
 @app.task(bind=True, base=DedupeTask)
 def callback_encodings(
     self: Task,
-    results: list[None],
+    results: list[list[str]],
     config: dict[str, Any],
 ) -> dict[str, Any]:
     """Cache encodings and ignored pairs, then start deduplication."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
+        new_files = {file for file_list in results for file in file_list}
         encodings = ds.get_encodings()
-        ignored_pairs = set(ds.get_ignored_pairs())
-        cached_data = {"encodings": encodings, "ignored_pairs": ignored_pairs}
-        cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-        if hasattr(default_storage, "path"):
-            full_path = default_storage.path(cached_data_path)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            with default_storage.open(cached_data_path, "w") as f:
-                json.dump(
-                    {
-                        "encodings": cached_data["encodings"],
-                        "ignored_pairs": list(cached_data.get("ignored_pairs", [])),
-                    },
-                    f,
-                )
-        else:
-            payload = json.dumps(
-                {
-                    "encodings": cached_data["encodings"],
-                    "ignored_pairs": list(cached_data.get("ignored_pairs", [])),
-                }
-            )
-            default_storage.save(cached_data_path, ContentFile(payload.encode()))
+        ignored_pairs = list(ds.get_ignored_pairs())  # Must be list for json
+
+        new_encodings = {f: encodings[f] for f in new_files if f in encodings}
+        existing_encodings = {f: e for f, e in encodings.items() if f not in new_files}
+
+        # Split encodings into chunks
+        new_key_chunks = get_chunks(list(new_encodings.keys()))
+        existing_key_chunks = get_chunks(list(existing_encodings.keys()))
+        num_new_chunks = len(new_key_chunks)
+        num_existing_chunks = len(existing_key_chunks)
+
+        cached_data_dir = f"encodings/{ds.pk}"
+
+        # Save ignored pairs
+        ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
+        payload = json.dumps(ignored_pairs)
+        default_storage.save(ignored_pairs_path, ContentFile(payload.encode()))
+
+        # Save encoding chunks
+        for i, key_chunk in enumerate(new_key_chunks):
+            chunk_encodings = {k: new_encodings[k] for k in key_chunk}
+            chunk_path = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
+            payload = json.dumps(chunk_encodings)
+            default_storage.save(chunk_path, ContentFile(payload.encode()))
+
+        for i, key_chunk in enumerate(existing_key_chunks):
+            chunk_encodings = {k: existing_encodings[k] for k in key_chunk}
+            chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
+            payload = json.dumps(chunk_encodings)
+            default_storage.save(chunk_path, ContentFile(payload.encode()))
 
         deduplicate_dataset.delay(
             config=config,
-            cached_data_path=cached_data_path,
+            cached_data_dir=cached_data_dir,
+            num_new_chunks=num_new_chunks,
+            num_existing_chunks=num_existing_chunks,
         )
         return {
             "Encoded": True,
@@ -222,23 +241,43 @@ def callback_encodings(
 def deduplicate_dataset(
     self: Task,
     config: dict[str, Any],
-    cached_data_path: str,
+    cached_data_dir: str,
+    num_new_chunks: int,
+    num_existing_chunks: int,
 ) -> dict[str, Any]:
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        with default_storage.open(cached_data_path, "r") as f:
-            encodings = json.load(f).get("encodings", {})
+        tasks = []
+        ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
+        # new vs new
+        for i in range(num_new_chunks):
+            for j in range(i, num_new_chunks):
+                chunk_path1 = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
+                chunk_path2 = os.path.join(cached_data_dir, f"new_chunk_{j}.json")
+                tasks.append(dedupe_chunk.s(chunk_path1, chunk_path2, ignored_pairs_path, config))
 
-        chunks = get_chunks(list(encodings.keys()))
+        # new vs existing
+        for i in range(num_new_chunks):
+            for j in range(num_existing_chunks):
+                chunk_path1 = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
+                chunk_path2 = os.path.join(cached_data_dir, f"existing_chunk_{j}.json")
+                tasks.append(dedupe_chunk.s(chunk_path1, chunk_path2, ignored_pairs_path, config))
 
-        tasks = [dedupe_chunk.s(chunk, config, cached_data_path) for chunk in chunks]
-        callback = callback_findings.s(config=config, cached_data_path=cached_data_path)
+        context = {
+            "cached_data_dir": cached_data_dir,
+            "num_new_chunks": num_new_chunks,
+            "num_existing_chunks": num_existing_chunks,
+        }
+        callback = callback_findings.s(
+            config=config,
+            context=context,
+        )
         chord_id = chord(tasks)(callback)
         return {
             "deduplication_set": str(ds),
             "chord_id": str(chord_id),
-            "chunks": len(chunks),
+            "tasks": len(tasks),
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)

@@ -1,4 +1,3 @@
-import copy
 from unittest.mock import Mock
 
 import pytest
@@ -25,8 +24,9 @@ def mock_deepface(mocker):
 
 @pytest.fixture
 def mock_storage(mocker):
-    """Fixture to mock the ImagesStorageManager."""
-    storage_mock = mocker.patch("hope_dedup_engine.apps.faces.services.facial.ImagesStorageManager").return_value
+    """Fixture to mock the get_storage_manager function."""
+    mock_get_storage = mocker.patch("hope_dedup_engine.apps.faces.services.facial.get_storage_manager")
+    storage_mock = mock_get_storage.return_value
     storage_mock.load_image.return_value = "image_data"
     return storage_mock
 
@@ -48,10 +48,11 @@ def test_encode_faces_success(mock_deepface, mock_storage):
     files = ["file1.jpg", "file2.jpg"]
     mock_deepface.represent.side_effect = [[{"embedding": [1.0]}], [{"embedding": [2.0]}]]
 
-    encoded, added, existing = encode_faces(files)
+    encoded, newly_encoded, added, existing = encode_faces(files)
 
     assert added == 2
-    assert existing == 1000  # Based on hardcoded value in function
+    assert existing == 0
+    assert newly_encoded == files
     assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
     assert mock_deepface.represent.call_count == 2
 
@@ -63,10 +64,11 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
     pre_encodings = {"file1.jpg": [1.0]}
     mock_deepface.represent.return_value = [{"embedding": [2.0]}]
 
-    encoded, added, existing = encode_faces(files, pre_encodings=pre_encodings)
+    encoded, newly_encoded, added, existing = encode_faces(files, pre_encodings=pre_encodings)
 
     assert added == 1
-    assert existing == 1001
+    assert existing == 1
+    assert newly_encoded == ["file2.jpg"]
     assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
     mock_deepface.represent.assert_called_once_with("image_data")
 
@@ -99,7 +101,7 @@ def test_encode_faces_deepface_outcomes(mock_deepface, mock_storage, represent_k
     files = ["file1.jpg"]
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encoded, _, _ = encode_faces(files)
+    encoded, _, _, _ = encode_faces(files)
     assert encoded["file1.jpg"] == expected_status.name
 
 
@@ -109,78 +111,103 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     files = ["file1.jpg"]
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encoded, _, _ = encode_faces(files)
+    encoded, _, _, _ = encode_faces(files)
     assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.name
     mock_deepface.represent.assert_not_called()
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    ("verify_return", "expected_result"),
-    [
-        ({"distance": 0.05}, [("file1.jpg", "file2.jpg", 0.95, Image.StatusCode.DEDUPLICATE_SUCCESS.value)]),
-        ({"distance": 0.2}, []),
-    ],
-)
-def test_dedupe_images_similarity_threshold(mock_deepface, sample_data, verify_return, expected_result):
+def test_dedupe_images_similarity_threshold():
     """Test dedupe_images with different similarity scores."""
-    mock_deepface.verify.return_value = verify_return
-    results = dedupe_images(**sample_data)
-    assert results == expected_result
-    mock_deepface.verify.assert_called_once_with(
-        sample_data["encodings"]["file1.jpg"], sample_data["encodings"]["file2.jpg"]
-    )
+    encodings = {
+        "file1.jpg": [1.0, 0.0],  # vector for file1
+        "file2.jpg": [0.9, 0.1],  # very similar to file1
+        "file3.jpg": [0.0, 1.0],  # very different from file1
+    }
+    results = dedupe_images(encodings, encodings, ignored_pairs=set(), dedupe_threshold=0.9)
+    assert len(results) == 1
+    assert results[0][:2] == ("file1.jpg", "file2.jpg")
+    assert results[0][2] == pytest.approx(0.994, abs=1e-3)
 
-
-@pytest.mark.django_db
-def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
-    """Test that ignored pairs are not compared."""
-    test_data = copy.deepcopy(sample_data)
-    test_data["ignored_pairs"] = {("file1.jpg", "file2.jpg")}
-    results = dedupe_images(**test_data)
+    results = dedupe_images(encodings, encodings, ignored_pairs=set(), dedupe_threshold=0.995)
     assert results == []
-    mock_deepface.verify.assert_not_called()
 
 
 @pytest.mark.django_db
-def test_dedupe_images_with_facial_error(mock_deepface, sample_data):
+def test_dedupe_images_with_ignored_pair(sample_data):
+    """Test that ignored pairs are not compared."""
+    encodings = sample_data["encodings"]
+    ignored = {("file1.jpg", "file2.jpg")}
+    results = dedupe_images(encodings, encodings, ignored_pairs=ignored, dedupe_threshold=0.9)
+    assert results == []
+
+
+@pytest.mark.django_db
+def test_dedupe_images_with_facial_error(sample_data):
     """Test that files with facial errors are reported correctly."""
-    test_data = copy.deepcopy(sample_data)
-    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.name
-    results = dedupe_images(**test_data)
+    encodings = sample_data["encodings"]
+    encodings["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.name
+    results = dedupe_images(encodings, encodings, ignored_pairs=set(), dedupe_threshold=0.9)
     expected = [("file1.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value)]
     assert results == expected
-    mock_deepface.verify.assert_not_called()
 
 
 @pytest.mark.django_db
-def test_dedupe_images_progress_callback(mock_deepface, sample_data):
+def test_dedupe_images_progress_callback(sample_data):
     """Test that the progress callback is called for each file."""
-    mock_deepface.verify.return_value = {"distance": 0.2}
     progress_mock = Mock()
-    sample_data["progress"] = progress_mock
-
-    dedupe_images(**sample_data)
-    assert progress_mock.call_count == len(sample_data["files"])
+    encodings = sample_data["encodings"]
+    dedupe_images(
+        encodings,
+        encodings,
+        ignored_pairs=set(),
+        dedupe_threshold=0.9,
+        progress=progress_mock,
+    )
+    assert progress_mock.call_count == len(encodings)
 
 
 @pytest.mark.django_db
-def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_data):
+def test_dedupe_images_complex_scenario():
     """Test dedupe_images with a mix of duplicates, non-duplicates, errors, and ignored pairs."""
-    mock_deepface.verify.side_effect = [
-        {"distance": 0.01},  # f1-f2
-        {"distance": 0.5},  # f1-f3
-        {"distance": 0.5},  # f2-f3
-    ]
+    encodings = {
+        "f1.jpg": [1.0, 0.0],  # a
+        "f2.jpg": [0.9, 0.1],  # similar to a
+        "f3.jpg": [0.0, 1.0],  # b
+        "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.name,  # error
+        "f5.jpg": [0.8, 0.2],  # also similar to a
+        "f6.jpg": [0.85, 0.15],  # also similar to a, and to f5. and ignored with f5
+    }
+    ignored = {("f5.jpg", "f6.jpg")}
+    dedupe_threshold = 0.9
 
-    results = dedupe_images(**complex_deduplication_data)
+    results = dedupe_images(encodings, encodings, ignored, dedupe_threshold)
 
-    expected_findings = [
-        ("f4.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value),
-        ("f1.jpg", "f2.jpg", 0.99, Image.StatusCode.DEDUPLICATE_SUCCESS.value),
-    ]
+    # Expected findings:
+    # f4 -> error finding
+    # f1 -> f2 (sim ~0.99)
+    # f1 -> f5 (sim ~0.98)
+    # f1 -> f6 (sim ~0.99)
+    # f2 -> f5 (sim ~0.99)
+    # f2 -> f6 (sim ~1.0)
+    # f5 -> f6 (ignored)
+    expected_pairs = {
+        ("f1.jpg", "f2.jpg"),
+        ("f1.jpg", "f5.jpg"),
+        ("f1.jpg", "f6.jpg"),
+        ("f2.jpg", "f5.jpg"),
+        ("f2.jpg", "f6.jpg"),
+    }
+    error_finding_found = False
+    found_pairs = set()
 
-    # The order of findings might not be guaranteed
-    assert len(results) == len(expected_findings)
-    # Convert to set of tuples for order-agnostic comparison
-    assert {tuple(item) for item in results} == {tuple(item) for item in expected_findings}
+    for finding in results:
+        if finding[0] == "f4.jpg":
+            assert finding[3] == Image.StatusCode.NO_FACE_DETECTED.value
+            error_finding_found = True
+        else:
+            assert finding[3] == Image.StatusCode.DEDUPLICATE_SUCCESS.value
+            found_pairs.add(tuple(sorted((finding[0], finding[1]))))
+
+    assert error_finding_found
+    assert found_pairs == expected_pairs

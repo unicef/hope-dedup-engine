@@ -168,6 +168,20 @@ CONFIG: "dict[str, ConfigItem]" = {
         "storages.backends.azure_storage.AzureStorage",
         setting("storages"),
     ),
+    "IMAGE_STORAGE_BACKEND": (
+        str,
+        "azure",
+        "local",
+        False,
+        "Storage backend for images ('azure' or 'local')",
+    ),
+    "LOCAL_IMAGE_DIR": (
+        str,
+        "",
+        "",
+        False,
+        "Path to local image directory when using 'local' storage backend",
+    ),
     "LOG_LEVEL": (str, "CRITICAL", "DEBUG", False, setting("logging-level")),
     "MEDIA_ROOT": (
         str,

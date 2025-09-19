@@ -25,6 +25,7 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
+        CANCELED = 4, "Canceled"  # Process was canceled by a user
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)

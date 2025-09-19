@@ -42,19 +42,22 @@ def mock_task():
 
 
 @pytest.mark.parametrize(
-    ("files", "chunk_size", "expected_chunks"),
+    ("files", "target_chunks", "expected_num_chunks"),
     [
-        (list(range(50)), 25, [list(range(25)), list(range(25, 50))]),
-        (list(range(30)), 25, [list(range(25)), list(range(25, 30))]),
-        (list(range(10)), 25, [list(range(10))]),
-        ([], 25, []),
-        (list(range(5)), 2, [list(range(2)), list(range(2, 4)), [4]]),
+        (list(range(50)), 10, 10),  # 50 files, target 10 -> 10 chunks of 5
+        (list(range(30)), 10, 10),  # 30 files, target 10 -> 10 chunks of 3
+        (list(range(9)), 10, 9),  # 9 files, target 10 -> 9 chunks of 1
+        ([], 10, 0),
+        (list(range(5)), 2, 2),  # 5 files, target 2 -> 2 chunks ([0,1,2], [3,4])
     ],
 )
-def test_get_chunks(files, chunk_size, expected_chunks, monkeypatch):
-    """Test that get_chunks splits a list into chunks of the correct size."""
-    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.CHUNK_SIZE", chunk_size)
-    assert get_chunks(files) == expected_chunks
+def test_get_chunks(files, target_chunks, expected_num_chunks, monkeypatch):
+    """Test that get_chunks splits a list into a target number of chunks."""
+    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.TARGET_CHUNKS", target_chunks)
+    chunks = get_chunks(files)
+    assert len(chunks) == expected_num_chunks
+    if files:
+        assert sorted([item for sublist in chunks for item in sublist]) == sorted(files)
 
 
 def test_shadow_name_success(mocker):
@@ -77,7 +80,7 @@ def test_shadow_name_success(mocker):
 def test_shadow_name_error(mocker):
     """Test shadow_name handles errors gracefully and reports to Sentry."""
     mock_capture = mocker.patch("sentry_sdk.capture_exception")
-    result = shadow_name(Mock(), [], {}, {"chord": None})  # Trigger TypeError
+    result = shadow_name(Mock(), [], {}, {"chord": None})
     assert isinstance(result, str)
     mock_capture.assert_called_once()
 
@@ -95,15 +98,39 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
 
     def encode_side_effect(*args, **kwargs):
         kwargs["progress"]()
-        return {"file1.jpg": [1.0]}, 1, 0
+        return {"file1.jpg": [1.0]}, ["file1.jpg"], 1, 0
 
     mock_encode_faces.side_effect = encode_side_effect
 
-    encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk, "encoding": {}})
+    newly_encoded = encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk, "encoding": {}})
 
     mock_encode_faces.assert_called_once()
     ds.update_encodings.assert_called_once_with({"file1.jpg": [1.0]})
+    assert newly_encoded == ["file1.jpg"]
     mock_notify.assert_called()
+
+
+@pytest.mark.django_db
+@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
+@patch("hope_dedup_engine.apps.faces.services.facial.DeepFace.represent")
+@patch("hope_dedup_engine.apps.faces.services.facial.get_storage_manager")
+def test_encode_chunk_with_local_storage(
+    mock_get_storage_manager, mock_deepface, mock_get_ds, dedup_set_with_job, settings
+):
+    """Test encode_chunk uses the configured local storage manager."""
+    settings.IMAGE_STORAGE_BACKEND = "local"
+
+    mock_storage = Mock()
+    mock_get_storage_manager.return_value = mock_storage
+
+    ds = dedup_set_with_job
+    mock_get_ds.return_value = ds
+    mock_deepface.return_value = [{"embedding": [1.0]}]
+
+    encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+
+    mock_get_storage_manager.assert_called_once()
+    mock_storage.load_image.assert_called_once_with("file1.jpg")
 
 
 @pytest.mark.django_db
@@ -120,26 +147,33 @@ def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
 
 
 @pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.notify_status")
-def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedup_set_with_job, mocker):
-    """Test dedupe_chunk successfully finds duplicates."""
+def test_dedupe_chunk_success(mock_dedupe_images, dedup_set_with_job):
+    """Test dedupe_chunk successfully finds duplicates using storage files."""
     ds = dedup_set_with_job
-    mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "get_encodings", return_value={})
-    mocker.patch.object(ds, "get_ignored_pairs", return_value=set())
+    config = {"deduplication_set_id": ds.pk}
+    cached_data_dir = f"encodings/{ds.pk}"
+    chunk_path1 = os.path.join(cached_data_dir, "chunk1.json")
+    chunk_path2 = os.path.join(cached_data_dir, "chunk2.json")
+    ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
 
-    def dedupe_side_effect(*args, **kwargs):
-        kwargs["progress"]()
-        return "findings"
+    default_storage.save(chunk_path1, ContentFile(json.dumps({"f1": [1.0]}).encode()))
+    default_storage.save(chunk_path2, ContentFile(json.dumps({"f2": [2.0]}).encode()))
+    default_storage.save(ignored_pairs_path, ContentFile(json.dumps([]).encode()))
 
-    mock_dedupe_images.side_effect = dedupe_side_effect
+    mock_dedupe_images.return_value = "findings"
 
-    result = dedupe_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+    result = dedupe_chunk(chunk_path1, chunk_path2, ignored_pairs_path, config)
 
     assert result == "findings"
-    mock_notify.assert_called()
+    mock_dedupe_images.assert_called_once_with(
+        {"f1": [1.0]},
+        {"f2": [2.0]},
+        set(),
+        dedupe_threshold=ANY,
+        options=ANY,
+        progress=ANY,
+    )
 
 
 @pytest.mark.django_db
@@ -148,8 +182,19 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
 def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job):
     """Test dedupe_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
+    config = {"deduplication_set_id": ds.pk}
+    cached_data_dir = f"encodings/{ds.pk}"
+    chunk_path1 = os.path.join(cached_data_dir, "chunk1.json")
+    chunk_path2 = os.path.join(cached_data_dir, "chunk2.json")
+    ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
+
+    default_storage.save(chunk_path1, ContentFile(b"{}"))
+    default_storage.save(chunk_path2, ContentFile(b"{}"))
+    default_storage.save(ignored_pairs_path, ContentFile(b"[]"))
+
     with pytest.raises(Exception, match="mock error"):
-        dedupe_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+        dedupe_chunk(chunk_path1, chunk_path2, ignored_pairs_path, config)
+
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
@@ -157,36 +202,47 @@ def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job)
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-def test_callback_findings_error_on_update(mock_get_ds, dedup_set_with_job, mocker):
-    """Test callback_findings handles exceptions during update_findings."""
+@patch("django.core.files.storage.default_storage.delete")
+def test_callback_findings_error_on_update(mock_delete, mock_get_ds, dedup_set_with_job, mocker):
+    """Test callback_findings handles exceptions and still cleans up files."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
     mocker.patch.object(ds, "update_findings", side_effect=Exception("DB Error"))
 
-    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+    config = {"deduplication_set_id": ds.pk}
+    cached_data_dir = f"encodings/{ds.pk}"
+    num_new, num_existing = 1, 1
+
     with pytest.raises(Exception, match="DB Error"):
-        callback_findings([], cached_data_path, {"deduplication_set_id": ds.pk})
+        callback_findings([], cached_data_dir, num_new, num_existing, config)
 
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
+    assert mock_delete.call_count == 3
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "ignored_pairs.json"))
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "new_chunk_0.json"))
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "existing_chunk_0.json"))
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.send_notification")
-def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_set_with_job, mocker):
-    """Test callback_findings aggregates results and updates the dataset."""
+@patch("django.core.files.storage.default_storage.delete")
+def test_callback_findings_success(mock_delete, mock_send_notification, mock_get_ds, dedup_set_with_job, mocker):
+    """Test callback_findings aggregates results, updates dataset, and cleans up files."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
     mocker.patch.object(ds.image_set, "all", return_value=[1, 2, 3])
     mocker.patch.object(ds, "update_findings")
     results = [
         [("file1.jpg", "file2.jpg", 0.99, 1)],
-        [("file2.jpg", "file1.jpg", 0.99, 1)],  # Duplicate pair
+        [("file2.jpg", "file1.jpg", 0.99, 1)],
     ]
+    config = {"deduplication_set_id": ds.pk}
+    cached_data_dir = f"encodings/{ds.pk}"
+    num_new, num_existing = 2, 1
 
-    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-    result = callback_findings(results, cached_data_path, {"deduplication_set_id": ds.pk})
+    result = callback_findings(results, cached_data_dir, num_new, num_existing, config)
 
     ds.refresh_from_db()
     ds.update_findings.assert_called_once_with([("file1.jpg", "file2.jpg", 0.99, 1)])
@@ -194,72 +250,69 @@ def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_se
     mock_send_notification.assert_called_once()
     assert result["Findings"] == 1
 
+    assert mock_delete.call_count == 4
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "ignored_pairs.json"))
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "new_chunk_1.json"))
+    mock_delete.assert_any_call(os.path.join(cached_data_dir, "existing_chunk_0.json"))
+
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.deduplicate_dataset.delay")
-def test_callback_encodings_success(mock_delay, mock_get_ds, dedup_set_with_job):
-    """Test callback_encodings triggers the next step in the deduplication process."""
-    mock_get_ds.return_value = dedup_set_with_job
-    config = {"deduplication_set_id": dedup_set_with_job.pk}
-    result = callback_encodings([], config)
-    assert result == {"Encoded": True}
-    expected_cached = f"temp_encodings/{dedup_set_with_job.pk}.pkl"
-    mock_delay.assert_called_once_with(config=config, cached_data_path=expected_cached)
-
-
-@pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
-def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job, mocker):
-    """Test deduplicate_dataset creates a chord of deduplication tasks."""
+@patch("django.core.files.storage.default_storage.save")
+def test_callback_encodings_success(mock_save, mock_delay, mock_get_ds, dedup_set_with_job, mocker):
+    """Test callback_encodings creates chunk files and triggers the next step."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "get_encodings", return_value={"f1": [1], "f2": [2], "f3": [3]})
-    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
-
-    cached_data = {"encodings": ds.get_encodings(), "ignored_pairs": []}
-    if hasattr(default_storage, "path"):
-        full_path = default_storage.path(cached_data_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with default_storage.open(cached_data_path, "w") as f:
-            json.dump(cached_data, f)
-    else:
-        default_storage.save(cached_data_path, ContentFile(json.dumps(cached_data).encode()))
-
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
-    assert result["chunks"] == 1
-    mock_chord.assert_called_once()
-
-
-@pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
-def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_with_job, mocker, monkeypatch):
-    """Test deduplicate_dataset with enough encodings to create multiple chunks."""
-    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.CHUNK_SIZE", 2)
-    ds = dedup_set_with_job
-    mock_get_ds.return_value = ds
-    encodings = {f"f{i}": [i] for i in range(5)}  # 5 files, chunk size 2 -> 3 chunks
+    mocker.patch.object(ds, "get_ignored_pairs", return_value={("f1", "f2")})
+    encodings = {"new1": [1.0], "existing1": [2.0]}
     mocker.patch.object(ds, "get_encodings", return_value=encodings)
 
-    cached_data_path = f"temp_encodings/{ds.pk}.pkl"
+    results_from_encoding = [["new1"]]
+    config = {"deduplication_set_id": ds.pk}
 
-    cached_data = {"encodings": encodings, "ignored_pairs": []}
-    if hasattr(default_storage, "path"):
-        full_path = default_storage.path(cached_data_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with default_storage.open(cached_data_path, "w") as f:
-            json.dump(cached_data, f)
-    else:
-        default_storage.save(cached_data_path, ContentFile(json.dumps(cached_data).encode()))
+    result = callback_encodings(results_from_encoding, config)
+    assert result == {"Encoded": True}
 
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk}, cached_data_path)
+    cached_data_dir = f"encodings/{ds.pk}"
 
-    assert result["chunks"] == 3
+    assert mock_save.call_count == 3
+
+    mock_delay.assert_called_once_with(
+        config=config,
+        cached_data_dir=cached_data_dir,
+        num_new_chunks=1,
+        num_existing_chunks=1,
+    )
+
+
+@pytest.mark.django_db
+@patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
+def test_deduplicate_dataset(mock_chord, dedup_set_with_job):
+    """Test deduplicate_dataset creates a chord with the correct number of tasks."""
+    ds = dedup_set_with_job
+    config = {"deduplication_set_id": ds.pk}
+    cached_data_dir = f"encodings/{ds.pk}"
+
+    num_new, num_existing = 3, 2
+    result = deduplicate_dataset(config, cached_data_dir, num_new, num_existing)
+
+    assert result["tasks"] == 12
     mock_chord.assert_called_once()
-    header = mock_chord.call_args[0][0]
-    assert len(header) == 3
+    tasks_list = mock_chord.call_args[0][0]
+    assert len(tasks_list) == 12
+
+    callback_sig = mock_chord.return_value.call_args[0][0]
+    assert callback_sig.task == callback_findings.name
+    assert callback_sig.kwargs["cached_data_dir"] == cached_data_dir
+    assert callback_sig.kwargs["num_new_chunks"] == num_new
+    assert callback_sig.kwargs["num_existing_chunks"] == num_existing
+
+    mock_chord.reset_mock()
+    num_new, num_existing = 4, 0
+    result = deduplicate_dataset(config, cached_data_dir, num_new, num_existing)
+    assert result["tasks"] == 10
+    assert len(mock_chord.call_args[0][0]) == 10
 
 
 @patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")

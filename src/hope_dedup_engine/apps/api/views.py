@@ -1,9 +1,9 @@
-from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any
 from uuid import UUID
 
 from django.db.models import Q, QuerySet, Model
+from django.http import HttpRequest
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status, viewsets
@@ -160,36 +160,11 @@ class ImageViewSet(
         return super().destroy(request, *args, **kwargs)
 
 
-@dataclass
-class ListDataWrapper:
-    data: list[dict[str, Any]]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        for item in self.data:
-            item[key] = value
-
-    def __iter__(self):
-        return iter(self.data)
-
-
 class BulkImageViewSet(
     nested_viewsets.NestedViewSetMixin[Image],
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
-    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
-        if isinstance(request.data, list):
-            request._full_data = ListDataWrapper(request.data)
-            if hasattr(request, "_data"):
-                delattr(request, "_data")
-
-        super().initial(request, *args, **kwargs)
-
-        if isinstance(request.data, ListDataWrapper):
-            request._full_data = request.data.data
-            if hasattr(request, "_data"):
-                delattr(request, "_data")
-
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (
         IsAuthenticated,
@@ -202,14 +177,45 @@ class BulkImageViewSet(
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
+    def _inject_parent_lookup_kwargs(self, request_data: Any, view_kwargs: dict) -> None:
+        """Inject parent lookup kwargs into request data, handling list-based data for bulk operations."""
+        if getattr(self, "swagger_fake_view", False):
+            return
+
+        for url_kwarg, fk_filter in self._get_parent_lookup_kwargs().items():
+            parent_arg = fk_filter.partition("__")[0]
+            parent_pk = view_kwargs[url_kwarg]
+
+            if isinstance(request_data, list):
+                for item in request_data:
+                    if isinstance(item, dict):
+                        item[parent_arg] = parent_pk
+            elif isinstance(request_data, dict):
+                request_data[parent_arg] = parent_pk
+
+    def initialize_request(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Request:
+        """Override to bypass faulty drf-nested-routers logic and inject parent kwargs correctly."""
+        drf_request: Request = super(nested_viewsets.NestedViewSetMixin, self).initialize_request(
+            request, *args, **kwargs
+        )
+        self._inject_parent_lookup_kwargs(drf_request.data, kwargs)
+        return drf_request
+
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        """Override to bypass faulty drf-nested-routers logic and inject parent kwargs correctly."""
+        super(nested_viewsets.NestedViewSetMixin, self).initial(request, *args, **kwargs)
+        self._inject_parent_lookup_kwargs(request.data, kwargs)
+
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
         if self.action == "create":
-            return CreateImageSerializer(*args, **kwargs, many=True)
-        return super().get_serializer(*args, **kwargs, many=True)
+            kwargs.setdefault("many", True)
+            return CreateImageSerializer(*args, **kwargs)
+        return super().get_serializer(*args, **kwargs)
 
     def perform_create(self, serializer: Serializer) -> None:
         super().perform_create(serializer)
-        if deduplication_set := (serializer.instance[0].deduplication_set if serializer.instance else None):
+        if serializer.instance:
+            deduplication_set = serializer.instance[0].deduplication_set
             deduplication_set.updated_by = self.request.user
             deduplication_set.save()
 
