@@ -7,7 +7,7 @@ from typing import Any, Final, TYPE_CHECKING
 from django.conf import settings
 from django.core.files.base import ContentFile
 
-import sentry_sdk
+from sentry_sdk import capture_exception
 from celery import Task, chord, shared_task, signals, states
 from django.core.files.storage import default_storage
 from celery.utils.imports import qualname
@@ -51,7 +51,7 @@ def shadow_name(task, args, kwargs, options):
         chunk = int(options["group_index"])
         return f"{qualname(s.type)}({group})-{chunk:03}"
     except Exception as e:  # noqa: BLE001
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         return str(e)
 
 
@@ -90,7 +90,7 @@ def encode_chunk(
             ds.update_encodings(results[0])
         return results[1]
     except Exception as e:
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -128,7 +128,7 @@ def dedupe_chunk(
             progress=callback,
         )
     except Exception as e:
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -163,7 +163,7 @@ def callback_findings(
             "Findings": len(findings),
         }
     except Exception as e:
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         finish_with_error(ds, e)
         raise
     finally:
@@ -177,7 +177,7 @@ def callback_findings(
                 chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
                 default_storage.delete(chunk_path)
         except OSError as e:
-            sentry_sdk.capture_exception(e)
+            capture_exception(e)
 
 
 @app.task(bind=True, base=DedupeTask)
@@ -191,7 +191,7 @@ def callback_encodings(
     try:
         new_files = {file for file_list in results for file in file_list}
         encodings = ds.get_encodings()
-        ignored_pairs = list(ds.get_ignored_pairs())  # Must be list for json
+        ignored_pairs = list(ds.get_ignored_pairs())
 
         new_encodings = {f: encodings[f] for f in new_files if f in encodings}
         existing_encodings = {f: e for f, e in encodings.items() if f not in new_files}
@@ -232,7 +232,7 @@ def callback_encodings(
             "Encoded": True,
         }
     except Exception as e:
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         finish_with_error(ds, e)
         raise
 
@@ -280,7 +280,7 @@ def deduplicate_dataset(
             "tasks": len(tasks),
         }
     except Exception as e:
-        sentry_sdk.capture_exception(e)
+        capture_exception(e)
         finish_with_error(ds, e)
         raise
 
