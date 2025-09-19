@@ -213,8 +213,13 @@ def test_callback_findings_error_on_update(mock_delete, mock_get_ds, dedup_set_w
     cached_data_dir = f"encodings/{ds.pk}"
     num_new, num_existing = 1, 1
 
+    context = {
+        "cached_data_dir": cached_data_dir,
+        "num_new_chunks": num_new,
+        "num_existing_chunks": num_existing,
+    }
     with pytest.raises(Exception, match="DB Error"):
-        callback_findings([], cached_data_dir, num_new, num_existing, config)
+        callback_findings([], context, config)
 
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
@@ -242,7 +247,12 @@ def test_callback_findings_success(mock_delete, mock_send_notification, mock_get
     cached_data_dir = f"encodings/{ds.pk}"
     num_new, num_existing = 2, 1
 
-    result = callback_findings(results, cached_data_dir, num_new, num_existing, config)
+    context = {
+        "cached_data_dir": cached_data_dir,
+        "num_new_chunks": num_new,
+        "num_existing_chunks": num_existing,
+    }
+    result = callback_findings(results, context, config)
 
     ds.refresh_from_db()
     ds.update_findings.assert_called_once_with([("file1.jpg", "file2.jpg", 0.99, 1)])
@@ -304,9 +314,10 @@ def test_deduplicate_dataset(mock_chord, dedup_set_with_job):
 
     callback_sig = mock_chord.return_value.call_args[0][0]
     assert callback_sig.task == callback_findings.name
-    assert callback_sig.kwargs["cached_data_dir"] == cached_data_dir
-    assert callback_sig.kwargs["num_new_chunks"] == num_new
-    assert callback_sig.kwargs["num_existing_chunks"] == num_existing
+    context = callback_sig.kwargs["context"]
+    assert context["cached_data_dir"] == cached_data_dir
+    assert context["num_new_chunks"] == num_new
+    assert context["num_existing_chunks"] == num_existing
 
     mock_chord.reset_mock()
     num_new, num_existing = 4, 0
@@ -336,3 +347,15 @@ def test_sync_dnn_files_error(mock_fsm, mock_update_state, settings):
         state=states.FAILURE,
         meta={"exc_message": "FSM Error", "traceback": ANY},
     )
+
+
+@patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")
+def test_sync_dnn_files_one_fails(mock_fsm, settings):
+    """Test sync_dnn_files when one file fails to sync."""
+    settings.DNN_FILES = {
+        "model1": {"filename": "f1.dat", "sources": {"azure": "b1"}},
+        "model2": {"filename": "f2.dat", "sources": {"azure": "b2"}},
+    }
+    mock_fsm.return_value.downloader.sync.side_effect = [True, False]
+    assert sync_dnn_files() is False
+    assert mock_fsm.return_value.downloader.sync.call_count == 2

@@ -211,3 +211,27 @@ def test_dedupe_images_complex_scenario():
 
     assert error_finding_found
     assert found_pairs == expected_pairs
+
+
+@pytest.mark.django_db
+def test_dedupe_images_no_progress_callback(sample_data):
+    """Test that dedupe_images runs without a progress callback."""
+    encodings = sample_data["encodings"]
+    results = dedupe_images(encodings, encodings, ignored_pairs=set(), dedupe_threshold=0.9, progress=None)
+    assert len(results) > 0
+
+
+@pytest.mark.django_db
+def test_dedupe_images_with_zero_norm_vector():
+    """Test that encodings with a zero-norm vector are handled correctly."""
+    encodings = {
+        "file1.jpg": [1.0, 0.0],
+        "file2.jpg": [0.0, 0.0],  # Zero-norm vector
+        "file3.jpg": [0.9, 0.1],  # Similar to file1
+    }
+    results = dedupe_images(encodings, encodings, ignored_pairs=set(), dedupe_threshold=0.9)
+    found_files = {item for res in results for item in res[:2]}
+    assert "file2.jpg" not in found_files
+
+    assert len(results) == 1
+    assert results[0][:2] == ("file1.jpg", "file3.jpg")
