@@ -77,7 +77,6 @@ def dedupe_images(  # noqa 901
     findings = defaultdict(list)
     all_encodings = {**encodings1, **encodings2}
     encodings_np = {file: np.array(enc) for file, enc in all_encodings.items() if not is_facial_error(enc)}
-    encodings_norm = {file: norm(enc) for file, enc in encodings_np.items()}
 
     files1 = list(encodings1.keys())
 
@@ -88,16 +87,10 @@ def dedupe_images(  # noqa 901
         if file1 not in encodings_np or file2 not in encodings_np:
             return
 
-        norm1 = encodings_norm[file1]
-        norm2 = encodings_norm[file2]
-
-        if norm1 == 0 or norm2 == 0:
-            return
-
         enc1_np = encodings_np[file1]
         enc2_np = encodings_np[file2]
 
-        similarity = float(np.dot(enc1_np, enc2_np))
+        similarity = float(np.dot(enc1_np, enc2_np) / (norm(enc1_np) * norm(enc2_np)))
 
         if similarity >= dedupe_threshold:
             findings[file1].append([file2, similarity])
