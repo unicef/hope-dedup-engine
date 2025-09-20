@@ -97,7 +97,7 @@ def dedupe_images(  # noqa 901
         enc1_np = encodings_np[file1]
         enc2_np = encodings_np[file2]
 
-        similarity = float(np.dot(enc1_np, enc2_np) / (norm1 * norm2))
+        similarity = float(np.dot(enc1_np, enc2_np))
 
         if similarity >= dedupe_threshold:
             findings[file1].append([file2, similarity])
@@ -107,8 +107,7 @@ def dedupe_images(  # noqa 901
             progress()
             enc1 = encodings1[file1]
             if is_facial_error(enc1):
-                if file1 not in findings:
-                    findings[file1].append([enc1, None])
+                findings[file1].append([enc1, None])
                 continue
 
             for j in range(i + 1, len(files1)):
@@ -120,8 +119,7 @@ def dedupe_images(  # noqa 901
             progress()
             enc1 = encodings1[file1]
             if is_facial_error(enc1):
-                if file1 not in findings:
-                    findings[file1].append([enc1, None])
+                findings[file1].append([enc1, None])
                 continue
 
             for file2 in files2:

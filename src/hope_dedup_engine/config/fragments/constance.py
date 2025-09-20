@@ -14,7 +14,7 @@ CONSTANCE_CONFIG = {
         "face_detector_backend",
     ),
     "FACE_DISTANCE_THRESHOLD": (
-        0.4,
+        0.32,
         """
         Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
         This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
