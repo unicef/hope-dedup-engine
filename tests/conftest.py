@@ -1,14 +1,39 @@
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import django
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
+from django.test import Client
 
 import pytest
 import responses
 from constance import config
+
+if TYPE_CHECKING:
+    from rest_framework.test import APIClient
+    from hope_dedup_engine.apps.api.models import (
+        DeduplicationSet,
+        HDEToken,
+        Image,
+        Finding,
+        IgnoredFilenamePair,
+        IgnoredReferencePkPair,
+    )
+    from hope_dedup_engine.apps.security.models import System, User
+    from testutils.factories.api import (
+        DedupJobFactory,
+        FindingFactory,
+        IgnoredFilenamePairFactory,
+        IgnoredReferencePkPairFactory,
+        ImageFactory,
+    )
+
 
 here = Path(__file__).parent
 sys.path.insert(0, str(here / "../src"))
@@ -88,3 +113,119 @@ def complex_deduplication_data():
         "ignored_pairs": {("f1.jpg", "f5.jpg")},
         "dedupe_threshold": 0.9,
     }
+
+
+@pytest.fixture
+def admin_user(db):
+    user_model = get_user_model()
+    return user_model.objects.create_superuser(username="admin", password="admin", email="admin@example.com")
+
+
+@pytest.fixture
+def client(admin_user):
+    client = Client()
+    client.force_login(admin_user)
+    return client
+
+
+@pytest.fixture
+def system() -> "System":
+    from testutils.factories.user import SystemFactory  # noqa: PLC0415
+
+    return SystemFactory()
+
+
+@pytest.fixture
+def user() -> "User":
+    from testutils.factories.user import UserFactory  # noqa: PLC0415
+
+    return UserFactory()
+
+
+@pytest.fixture
+def hdetoken(user: "User", system: "System") -> "HDEToken":
+    from testutils.factories.api import HDETokenFactory  # noqa: PLC0415
+
+    return HDETokenFactory(user=user, system=system)
+
+
+@pytest.fixture
+def deduplication_set(system: "System") -> "DeduplicationSet":
+    from testutils.factories.api import DeduplicationSetFactory  # noqa: PLC0415
+
+    return DeduplicationSetFactory(system=system)
+
+
+@pytest.fixture
+def api_client(hdetoken: "HDEToken") -> "APIClient":
+    from api.utils import create_api_client  # noqa: PLC0415
+
+    return create_api_client(hdetoken)
+
+
+@pytest.fixture
+def dedup_job_factory() -> type[DedupJobFactory]:
+    """Provides the DedupJobFactory class to tests."""
+    from testutils.factories.api import DedupJobFactory  # noqa: PLC0415
+
+    return DedupJobFactory
+
+
+@pytest.fixture
+def image_factory() -> type[ImageFactory]:
+    """Provides the ImageFactory class to tests."""
+    from testutils.factories.api import ImageFactory  # noqa: PLC0415
+
+    return ImageFactory
+
+
+@pytest.fixture
+def finding_factory() -> type[FindingFactory]:
+    """Provides the FindingFactory class to tests."""
+    from testutils.factories.api import FindingFactory  # noqa: PLC0415
+
+    return FindingFactory
+
+
+@pytest.fixture
+def ignored_filename_pair_factory() -> type[IgnoredFilenamePairFactory]:
+    """Provides the IgnoredFilenamePairFactory class to tests."""
+    from testutils.factories.api import IgnoredFilenamePairFactory  # noqa: PLC0415
+
+    return IgnoredFilenamePairFactory
+
+
+@pytest.fixture
+def ignored_reference_pk_pair_factory() -> type[IgnoredReferencePkPairFactory]:
+    """Provides the IgnoredReferencePkPairFactory class to tests."""
+    from testutils.factories.api import IgnoredReferencePkPairFactory  # noqa: PLC0415
+
+    return IgnoredReferencePkPairFactory
+
+
+@pytest.fixture
+def image(image_factory: type[ImageFactory], deduplication_set: "DeduplicationSet") -> "Image":
+    """Provides an Image instance linked to a deduplication_set."""
+    return image_factory(deduplication_set=deduplication_set)
+
+
+@pytest.fixture
+def finding(finding_factory: type[FindingFactory], deduplication_set: "DeduplicationSet") -> "Finding":
+    """Provides a Finding instance linked to a deduplication_set."""
+    return finding_factory(deduplication_set=deduplication_set)
+
+
+@pytest.fixture
+def ignored_filename_pair(
+    ignored_filename_pair_factory: type[IgnoredFilenamePairFactory], deduplication_set: "DeduplicationSet"
+) -> "IgnoredFilenamePair":
+    """Provides an IgnoredFilenamePair instance linked to a deduplication_set."""
+    return ignored_filename_pair_factory(deduplication_set=deduplication_set)
+
+
+@pytest.fixture
+def ignored_reference_pk_pair(
+    ignored_reference_pk_pair_factory: type[IgnoredReferencePkPairFactory], deduplication_set: "DeduplicationSet"
+) -> "IgnoredReferencePkPair":
+    """Provides an IgnoredReferencePkPair instance linked to a deduplication_set."""
+    return ignored_reference_pk_pair_factory(deduplication_set=deduplication_set)

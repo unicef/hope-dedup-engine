@@ -22,6 +22,7 @@ def test_can_trigger_deduplication_set_processing_in_non_processing_state(
     api_client: APIClient,
     start_processing: MagicMock,
     deduplication_set: DeduplicationSet,
+    deduplication_set__state: str,
 ) -> None:
     response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_200_OK

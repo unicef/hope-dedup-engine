@@ -5,9 +5,7 @@ import cv2
 import numpy as np
 import pytest
 from PIL import Image
-from django.contrib.auth import get_user_model
 from django.core.files.storage import FileSystemStorage
-from django.test import Client
 from docker import from_env
 from freezegun import freeze_time
 from pytest_mock import MockerFixture
@@ -174,16 +172,3 @@ def mock_file_sync_manager():
         mock_downloader = MagicMock()
         mock_manager_instance.downloader = mock_downloader
         yield mock_manager_instance
-
-
-@pytest.fixture
-def admin_user(db):
-    user_model = get_user_model()
-    return user_model.objects.create_superuser(username="admin", password="admin", email="admin@example.com")
-
-
-@pytest.fixture
-def client(admin_user):
-    client = Client()
-    client.force_login(admin_user)
-    return client

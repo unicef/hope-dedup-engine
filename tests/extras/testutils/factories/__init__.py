@@ -20,6 +20,7 @@ from .user import (  # noqa
     UserFactory,
 )
 from .userrole import UserRole, UserRoleFactory  # noqa
+from .api import DedupJobFactory, DeduplicationSetFactory, HDETokenFactory  # noqa
 
 for _, name, _ in pkgutil.iter_modules([str(Path(__file__).parent)]):
     importlib.import_module(f".{name}", __package__)

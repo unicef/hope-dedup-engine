@@ -1,58 +1,32 @@
+from __future__ import annotations
+
 import os
 import random
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+    from pytest_mock import MockerFixture
+    from rest_framework.test import APIClient
+
 
 import pytest
-from pytest_factoryboy import LazyFixture, register
-from pytest_mock import MockerFixture
-from rest_framework.test import APIClient
-
-from api.utils import create_api_client
-from testutils.factories.api import (
-    ConfigFactory,
-    DedupJobFactory,
-    DeduplicationSetFactory,
-    FindingFactory,
-    IgnoredFilenamePairFactory,
-    IgnoredReferencePkPairFactory,
-    ImageFactory,
-    HDETokenFactory,
-)
-from testutils.factories.user import SystemFactory, UserFactory
-
-from hope_dedup_engine.apps.api.models import HDEToken
-
-register(SystemFactory)
-register(UserFactory)
-register(DeduplicationSetFactory, system=LazyFixture("system"))
-register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(
-    ImageFactory,
-    _name="second_image",
-    deduplication_Set=LazyFixture("deduplication_set"),
-)
-register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(ConfigFactory)
-register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
 
 
 @pytest.fixture
 def anonymous_api_client() -> APIClient:
+    from rest_framework.test import APIClient  # noqa: PLC0415
+
     return APIClient()
 
 
 @pytest.fixture
-def api_client(hde_token: HDEToken) -> APIClient:
-    return create_api_client(hde_token)
-
-
-@pytest.fixture
 def another_system_api_client(db: Any) -> APIClient:
+    from api.utils import create_api_client  # noqa: PLC0415
+    from testutils.factories.api import HDETokenFactory  # noqa: PLC0415
+    from testutils.factories.user import SystemFactory, UserFactory  # noqa: PLC0415
+
     token = HDETokenFactory(user=UserFactory(), system=SystemFactory())
     return create_api_client(token)
 

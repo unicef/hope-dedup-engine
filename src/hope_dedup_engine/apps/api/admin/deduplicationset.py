@@ -9,8 +9,8 @@ from adminfilters.mixin import AdminFiltersMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
-
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from django.utils.translation import gettext as _
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
 @register(DeduplicationSet)
@@ -64,25 +64,24 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
             and obj
             and obj.state not in [DeduplicationSet.State.FAILED, DeduplicationSet.State.CANCELED]
         ),
-        confirm="Are you sure you want to terminate the running job for this deduplication set?",
+        confirm=_("Are you sure you want to terminate the running job for this deduplication set?"),
     )
     def terminate_job(self, request: HttpRequest, pk: str) -> None:
         ds = self.get_object(request, pk)
 
-        job = None
-        try:
-            if ds.dedupjob and ds.dedupjob.curr_async_result_id:
-                job = ds.dedupjob
-        except DedupJob.DoesNotExist:
-            pass  # No job is associated with this set, so job remains None.
+        job = getattr(ds, "dedupjob", None)
 
-        if job:
-            job.terminate()
-            self.message_user(request, "Job termination initiated.", messages.SUCCESS)
+        if job and job.curr_async_result_id:
+            new_status = job.terminate()
+            self.message_user(
+                request,
+                f"Job termination initiated. New job status: {new_status}.",
+                messages.SUCCESS,
+            )
         else:
             self.message_user(
                 request,
-                "No active job found. Setting state to Canceled.",
+                _("No active job found. Setting state to Canceled."),
                 messages.WARNING,
             )
         ds.set_state(DeduplicationSet.State.CANCELED)
