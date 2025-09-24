@@ -1,15 +1,13 @@
 import traceback
 from functools import partial
 import json
-import os
 from typing import Any, Final, TYPE_CHECKING
 
 from django.conf import settings
-from django.core.files.base import ContentFile
+from django_redis import get_redis_connection
 
 import sentry_sdk
 from celery import Task, chord, shared_task, signals, states
-from django.core.files.storage import default_storage
 from celery.utils.imports import qualname
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
@@ -98,25 +96,23 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask, acks_late=True)
 def dedupe_chunk(
     self: Task,
-    chunk_path1: str,
-    chunk_path2: str,
-    ignored_pairs_path: str,
+    chunk_key1: str,
+    chunk_key2: str,
+    ignored_pairs_key: str,
     config: dict[str, Any],
 ) -> FindingType:
     """Deduplicate faces between two chunks of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        with default_storage.open(chunk_path1, "r") as f:
-            encodings1 = json.load(f)
+        redis_conn = get_redis_connection("default")
+        encodings1 = json.loads(redis_conn.get(chunk_key1))
 
-        if chunk_path1 == chunk_path2:
+        if chunk_key1 == chunk_key2:
             encodings2 = encodings1
         else:
-            with default_storage.open(chunk_path2, "r") as f:
-                encodings2 = json.load(f)
+            encodings2 = json.loads(redis_conn.get(chunk_key2))
 
-        with default_storage.open(ignored_pairs_path, "r") as f:
-            ignored_pairs = {tuple(p) for p in json.load(f)}
+        ignored_pairs = {tuple(p) for p in json.loads(redis_conn.get(ignored_pairs_key))}
 
         callback = partial(notify_status, task=self, config=config)
         return dedupe_images(
@@ -142,9 +138,7 @@ def callback_findings(
 ) -> dict[str, Any]:
     """Aggregate and save findings."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
-    cached_data_dir = context["cached_data_dir"]
-    num_new_chunks = context["num_new_chunks"]
-    num_existing_chunks = context["num_existing_chunks"]
+    keys_to_delete = context["keys_to_delete"]
     try:
         seen_pairs = set()
         findings = [
@@ -168,14 +162,9 @@ def callback_findings(
         raise
     finally:
         try:
-            ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
-            default_storage.delete(ignored_pairs_path)
-            for i in range(num_new_chunks):
-                chunk_path = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
-                default_storage.delete(chunk_path)
-            for i in range(num_existing_chunks):
-                chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
-                default_storage.delete(chunk_path)
+            if keys_to_delete:
+                redis_conn = get_redis_connection("default")
+                redis_conn.delete(*keys_to_delete)
         except OSError as e:
             sentry_sdk.capture_exception(e)
 
@@ -199,34 +188,37 @@ def callback_encodings(
         # Split encodings into chunks
         new_key_chunks = get_chunks(list(new_encodings.keys()))
         existing_key_chunks = get_chunks(list(existing_encodings.keys()))
-        num_new_chunks = len(new_key_chunks)
-        num_existing_chunks = len(existing_key_chunks)
 
-        cached_data_dir = f"encodings/{ds.pk}"
+        redis_conn = get_redis_connection("default")
+        dedup_prefix = f"hde:dedup:{ds.pk}"
 
         # Save ignored pairs
-        ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
+        ignored_pairs_key = f"{dedup_prefix}:ignored_pairs"
         payload = json.dumps(ignored_pairs)
-        default_storage.save(ignored_pairs_path, ContentFile(payload.encode()))
+        redis_conn.set(ignored_pairs_key, payload, ex=86400)
 
         # Save encoding chunks
+        new_chunk_keys = []
         for i, key_chunk in enumerate(new_key_chunks):
             chunk_encodings = {k: new_encodings[k] for k in key_chunk}
-            chunk_path = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
+            key = f"{dedup_prefix}:chunk:new:{i}"
             payload = json.dumps(chunk_encodings)
-            default_storage.save(chunk_path, ContentFile(payload.encode()))
+            redis_conn.set(key, payload, ex=86400)
+            new_chunk_keys.append(key)
 
+        existing_chunk_keys = []
         for i, key_chunk in enumerate(existing_key_chunks):
             chunk_encodings = {k: existing_encodings[k] for k in key_chunk}
-            chunk_path = os.path.join(cached_data_dir, f"existing_chunk_{i}.json")
+            key = f"{dedup_prefix}:chunk:existing:{i}"
             payload = json.dumps(chunk_encodings)
-            default_storage.save(chunk_path, ContentFile(payload.encode()))
+            redis_conn.set(key, payload, ex=86400)
+            existing_chunk_keys.append(key)
 
         deduplicate_dataset.delay(
             config=config,
-            cached_data_dir=cached_data_dir,
-            num_new_chunks=num_new_chunks,
-            num_existing_chunks=num_existing_chunks,
+            new_chunk_keys=new_chunk_keys,
+            existing_chunk_keys=existing_chunk_keys,
+            ignored_pairs_key=ignored_pairs_key,
         )
         return {
             "Encoded": True,
@@ -241,33 +233,29 @@ def callback_encodings(
 def deduplicate_dataset(
     self: Task,
     config: dict[str, Any],
-    cached_data_dir: str,
-    num_new_chunks: int,
-    num_existing_chunks: int,
+    new_chunk_keys: list[str],
+    existing_chunk_keys: list[str],
+    ignored_pairs_key: str,
 ) -> dict[str, Any]:
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        tasks = []
-        ignored_pairs_path = os.path.join(cached_data_dir, "ignored_pairs.json")
         # new vs new
-        for i in range(num_new_chunks):
-            for j in range(i, num_new_chunks):
-                chunk_path1 = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
-                chunk_path2 = os.path.join(cached_data_dir, f"new_chunk_{j}.json")
-                tasks.append(dedupe_chunk.s(chunk_path1, chunk_path2, ignored_pairs_path, config))
+        tasks = [
+            dedupe_chunk.s(new_chunk_keys[i], new_chunk_keys[j], ignored_pairs_key, config)
+            for i in range(len(new_chunk_keys))
+            for j in range(i, len(new_chunk_keys))
+        ]
 
         # new vs existing
-        for i in range(num_new_chunks):
-            for j in range(num_existing_chunks):
-                chunk_path1 = os.path.join(cached_data_dir, f"new_chunk_{i}.json")
-                chunk_path2 = os.path.join(cached_data_dir, f"existing_chunk_{j}.json")
-                tasks.append(dedupe_chunk.s(chunk_path1, chunk_path2, ignored_pairs_path, config))
+        tasks.extend(
+            dedupe_chunk.s(chunk_key1, chunk_key2, ignored_pairs_key, config)
+            for chunk_key1 in new_chunk_keys
+            for chunk_key2 in existing_chunk_keys
+        )
 
         context = {
-            "cached_data_dir": cached_data_dir,
-            "num_new_chunks": num_new_chunks,
-            "num_existing_chunks": num_existing_chunks,
+            "keys_to_delete": new_chunk_keys + existing_chunk_keys + [ignored_pairs_key],
         }
         callback = callback_findings.s(
             config=config,

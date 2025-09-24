@@ -87,8 +87,6 @@ STORAGES = {
     # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
     "dnn": env.storage("FILE_STORAGE_DNN"),
 }
-DEFAULT_ROOT = env("DEFAULT_ROOT")
-STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 
 IMAGE_STORAGE_BACKEND = env("IMAGE_STORAGE_BACKEND", default="azure")
 LOCAL_IMAGE_DIR = env("LOCAL_IMAGE_DIR", default="")
@@ -124,8 +122,12 @@ CACHE_URL = env("CACHE_URL")
 REDIS_URL = urlparse(CACHE_URL).hostname
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": CACHE_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "COMPRESSOR": "django_redis.compressors.zstd.ZStdCompressor",
+        },
     }
 }
 X_FRAME_OPTIONS = "SAMEORIGIN"
