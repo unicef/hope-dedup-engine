@@ -33,11 +33,8 @@ def get_chunks(files: list[str]) -> list[list[str]]:
 
 
 def notify_status(task: Task, dedup_job_id: int, **kwargs):
-    signals.task_prerun.send(
-        sender=task,
-        task_id=task.request.id,
-        dedup_job_id=dedup_job_id,
-    )
+    # This is temporary and should be replaced with proper logging or removed completely
+    return True
 
 
 def shadow_name(task, args, kwargs, options):
