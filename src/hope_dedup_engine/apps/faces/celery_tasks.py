@@ -5,7 +5,7 @@ from typing import Any, Final, TYPE_CHECKING
 from django.conf import settings
 
 import sentry_sdk
-from celery import Task, chord, shared_task, signals, states
+from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
