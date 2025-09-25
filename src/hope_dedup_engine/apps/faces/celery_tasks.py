@@ -79,10 +79,8 @@ def encode_chunk(
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
-        with report_long_execution("ds.get_encodings()"):
-            pre_encodings = ds.get_encodings()
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+            results = encode_faces(files, config.get("encoding"), progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
     except Exception as e:
