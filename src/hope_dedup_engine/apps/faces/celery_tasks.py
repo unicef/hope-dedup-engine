@@ -1,12 +1,11 @@
 import traceback
-from functools import partial
-from typing import Any, Final, TYPE_CHECKING
-
-from django.conf import settings
-
 import sentry_sdk
+from functools import partial
+from typing import TYPE_CHECKING, Any, Final
+
 from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
+from django.conf import settings
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import send_notification
