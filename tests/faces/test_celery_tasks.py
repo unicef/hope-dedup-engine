@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
     callback_findings,
@@ -23,11 +24,18 @@ def mock_redis(mocker):
     return mock_redis_conn
 
 
+@pytest.fixture
+def deduplication_set(db):
+    """Fixture to create a DeduplicationSet with a system."""
+    system, _ = System.objects.get_or_create(name="default")
+    return DeduplicationSet.objects.create(system=system)
+
+
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.deduplicate_dataset.delay")
-def test_callback_encodings(mock_deduplicate_delay, mock_redis, mocker):
+def test_callback_encodings(mock_deduplicate_delay, mock_redis, mocker, deduplication_set):
     """Test that callback_encodings correctly caches data in Redis and starts the next phase."""
-    deduplication_set = DeduplicationSet.objects.create()
+    mocker.patch("hope_dedup_engine.apps.faces.celery_tasks.TARGET_CHUNKS", 1)
     mocker.patch.object(
         DeduplicationSet,
         "get_encodings",
@@ -61,9 +69,8 @@ def test_callback_encodings(mock_deduplicate_delay, mock_redis, mocker):
 
 
 @pytest.mark.django_db
-def test_dedupe_chunk(mock_redis):
+def test_dedupe_chunk(mock_redis, deduplication_set):
     """Test that dedupe_chunk correctly deserializes data from Redis and calls dedupe_images."""
-    deduplication_set = DeduplicationSet.objects.create()
     config = {
         "deduplication_set_id": deduplication_set.pk,
         "deduplicate": {"threshold": 0.8},
@@ -98,14 +105,13 @@ def test_dedupe_chunk(mock_redis):
 @patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_chunk")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.callback_findings")
-def test_deduplicate_dataset(mock_callback, mock_dedupe, mock_chord):
+def test_deduplicate_dataset(mock_callback, mock_dedupe, mock_chord, deduplication_set):
     """Test that deduplicate_dataset constructs the correct chord of dedupe tasks."""
-    deduplication_set = DeduplicationSet.objects.create()
     config = {"deduplication_set_id": str(deduplication_set.pk)}
     new_keys = ["new1", "new2"]
     existing_keys = ["old1"]
     ignored_key = "ignored"
-    deduplicate_dataset.delay(config, new_keys, existing_keys, ignored_key)
+    deduplicate_dataset(config, new_keys, existing_keys, ignored_key)
 
     assert mock_dedupe.s.call_count == 5
 
@@ -116,11 +122,13 @@ def test_deduplicate_dataset(mock_callback, mock_dedupe, mock_chord):
     chord_callback = mock_chord.return_value
     chord_callback.assert_called_once_with(mock_callback.s.return_value)
 
+    context = {"keys_to_delete": new_keys + existing_keys + [ignored_key]}
+    mock_callback.s.assert_called_once_with(context=context, config=config)
+
 
 @pytest.mark.django_db
-def test_callback_findings(mock_redis):
+def test_callback_findings(mock_redis, deduplication_set):
     """Test that callback_findings aggregates results, saves them, and cleans up Redis."""
-    deduplication_set = DeduplicationSet.objects.create()
     config = {"deduplication_set_id": str(deduplication_set.pk)}
     keys_to_delete = ["key1", "key2", "ignored"]
     context = {"keys_to_delete": keys_to_delete}
