@@ -1,12 +1,11 @@
 import traceback
-from functools import partial
-from typing import Any, Final, TYPE_CHECKING
-
-from django.conf import settings
-
 import sentry_sdk
-from celery import Task, chord, shared_task, signals, states
+from functools import partial
+from typing import TYPE_CHECKING, Any, Final
+
+from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
+from django.conf import settings
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import send_notification
@@ -33,11 +32,8 @@ def get_chunks(files: list[str]) -> list[list[str]]:
 
 
 def notify_status(task: Task, dedup_job_id: int, **kwargs):
-    signals.task_prerun.send(
-        sender=task,
-        task_id=task.request.id,
-        dedup_job_id=dedup_job_id,
-    )
+    # This is temporary and should be replaced with proper logging or removed completely
+    return True
 
 
 def shadow_name(task, args, kwargs, options):
@@ -79,10 +75,8 @@ def encode_chunk(
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self, dedup_job_id=ds.dedupjob.pk)
-        with report_long_execution("ds.get_encodings()"):
-            pre_encodings = ds.get_encodings()
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+            results = encode_faces(files, config.get("encoding"), progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
     except Exception as e:
