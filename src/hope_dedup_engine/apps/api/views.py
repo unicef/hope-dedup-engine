@@ -28,6 +28,7 @@ from hope_dedup_engine.apps.api.models import (
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
+    DedupJob,
 )
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
@@ -40,9 +41,11 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredFilenamePairSerializer,
     IgnoredReferencePkPairSerializer,
     ImageSerializer,
+    FileDataSerializer,
 )
-from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
+
 from hope_dedup_engine.apps.api.filters import FindingFilter
+from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
 class DeduplicationSetViewSet(
@@ -82,10 +85,12 @@ class DeduplicationSetViewSet(
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
+        serializer = FileDataSerializer(data=request.data, many=True)
+        serializer.is_valid(raise_exception=True)
+
         deduplication_set = self.get_object()
-        if deduplication_set.state == DeduplicationSet.State.PROCESSING:
-            return Response({"message": "already processing"}, status=status.HTTP_409_CONFLICT)
-        start_processing(deduplication_set)
+        job = DedupJob.objects.create(deduplication_set=deduplication_set, files_data=serializer.validated_data)
+        job.queue()
         return Response({"message": "started"})
 
     @extend_schema(description="List all deduplication sets available to the user")
