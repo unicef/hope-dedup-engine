@@ -153,6 +153,9 @@ class Finding(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        indexes = [
+            models.Index(fields=["deduplication_set", "-updated_at", "-id"], name="finding_order_idx"),
+        ]
         unique_together = (
             "deduplication_set",
             "first_reference_pk",

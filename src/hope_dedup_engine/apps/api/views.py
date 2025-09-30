@@ -3,9 +3,8 @@ from http import HTTPMethod
 from typing import Any
 from uuid import UUID
 
-from django.db.models import Q, QuerySet, Model
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from django.db.models import QuerySet, Model
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -43,6 +42,7 @@ from hope_dedup_engine.apps.api.serializers import (
     ImageSerializer,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
+from hope_dedup_engine.apps.api.filters import FindingFilter
 
 
 class DeduplicationSetViewSet(
@@ -231,9 +231,6 @@ class BulkImageViewSet(
         return super().create(request, *args, **kwargs)
 
 
-REFERENCE_PK = "reference_pk"
-
-
 class DuplicateViewSet(
     nested_viewsets.NestedViewSetMixin[Finding],
     mixins.ListModelMixin,
@@ -246,28 +243,14 @@ class DuplicateViewSet(
         HasAccessToDeduplicationSet,
     )
     serializer_class = DuplicateSerializer
-    # TODO: Add filters
-    queryset = Finding.objects.all()
+    queryset = Finding.objects.all().order_by("-updated_at", "-id")
+    filterset_class = FindingFilter
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
-    def get_queryset(self) -> QuerySet[Finding]:
-        queryset = super().get_queryset()
-        if reference_pk := self.request.query_params.get(REFERENCE_PK):
-            return queryset.filter(Q(first_reference_pk=reference_pk) | Q(second_reference_pk=reference_pk))
-        return queryset
-
     @extend_schema(
         description="List all duplicates found in the deduplication set",
-        parameters=[
-            OpenApiParameter(
-                REFERENCE_PK,
-                OpenApiTypes.STR,
-                OpenApiParameter.QUERY,
-                description="Filters results by reference pk",
-            )
-        ],
     )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)

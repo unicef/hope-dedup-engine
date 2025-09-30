@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from operator import attrgetter
 from urllib.parse import urlencode
-
+from datetime import timedelta
 from factory.fuzzy import FuzzyText
 import pytest
 from rest_framework import status
@@ -11,7 +11,11 @@ from rest_framework.test import APIClient
 from api.api_const import DUPLICATE_LIST_VIEW
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding
-from hope_dedup_engine.apps.api.views import REFERENCE_PK
+
+
+REFERENCE_PK = "reference_pk"
+UPDATED_AFTER = "updated_after"
+UPDATED_BEFORE = "updated_before"
 
 
 def test_can_list_duplicates(api_client: APIClient, deduplication_set: DeduplicationSet, finding: Finding) -> None:
@@ -56,3 +60,49 @@ def test_can_filter_by_reference_pk(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data) == expected_amount
+
+
+@pytest.mark.parametrize(
+    ("delta_hours", "filter_param", "expected"),
+    [
+        (-1, UPDATED_AFTER, 1),
+        (1, UPDATED_AFTER, 0),
+        (1, UPDATED_BEFORE, 1),
+        (-1, UPDATED_BEFORE, 0),
+    ],
+)
+def test_filter_by_datetime(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    finding: Finding,
+    delta_hours: int,
+    filter_param: str,
+    expected: int,
+) -> None:
+    dt = (finding.updated_at + timedelta(hours=delta_hours)).isoformat()
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode({filter_param: dt})}"
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()) == expected
+
+
+def test_filter_by_date_range(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    finding: Finding,
+) -> None:
+    params = {
+        UPDATED_AFTER: (finding.updated_at - timedelta(hours=1)).isoformat(),
+        UPDATED_BEFORE: (finding.updated_at + timedelta(hours=1)).isoformat(),
+    }
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode(params)}"
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()) == 1
+
+
+def test_invalid_datetime_returns_400(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode({UPDATED_AFTER: 'invalid'})}"
+    response = api_client.get(url)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert UPDATED_AFTER in response.json()
