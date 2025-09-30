@@ -129,3 +129,18 @@ class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
 
 class EmptySerializer(serializers.Serializer):
     pass
+
+
+class NonEmptyListSerializer(serializers.ListSerializer):
+    def validate(self, data):
+        if not data:
+            raise serializers.ValidationError("This list cannot be empty.")
+        return data
+
+
+class FileDataSerializer(serializers.Serializer):
+    filename = serializers.CharField(required=True)
+    reference_pk = serializers.CharField(required=True)
+
+    class Meta:
+        list_serializer_class = NonEmptyListSerializer
