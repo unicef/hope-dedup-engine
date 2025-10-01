@@ -76,7 +76,7 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
+        callback = partial(notify_status, task=self, dedup_job_id=None)
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
             results = encode_faces(files, config.get("encoding"), progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
@@ -97,7 +97,7 @@ def dedupe_chunk(
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
+        callback = partial(notify_status, task=self, dedup_job_id=None)
         encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
         return dedupe_images(
