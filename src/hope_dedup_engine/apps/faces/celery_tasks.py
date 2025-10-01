@@ -1,7 +1,9 @@
 import traceback
 import sentry_sdk
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Iterable
+from enum import IntEnum
+from itertools import batched
 
 from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
@@ -15,20 +17,18 @@ from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
 from hope_dedup_engine.type_aliases import FindingType
 
+
 if TYPE_CHECKING:
     from celery.canvas import Signature
 
-CHUNK_SIZE: Final[int] = 25
+
+class ChunkPurpose(IntEnum):
+    ENCODE = 25
+    DEDUPE = 1000
 
 
-def get_chunks(files: list[str]) -> list[list[str]]:
-    chunk_size = min(CHUNK_SIZE, len(files))
-    if not chunk_size:
-        return []
-    return [
-        files[i : i + chunk_size]
-        for i in range(0, len(files), chunk_size)  # noqa 203
-    ]
+def get_chunks(filenames: Iterable[str], *, purpose: ChunkPurpose) -> list[list[str]]:
+    return [list(b) for b in batched(filenames, int(purpose))]  # noqa: B911
 
 
 def notify_status(task: Task, dedup_job_id: int, **kwargs):
@@ -169,7 +169,7 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunks = get_chunks(list(ds.get_encodings().keys()))
+        chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
         tasks = [dedupe_chunk.s(chunk, config) for chunk in chunks]
         chord_id = chord(tasks)(callback_findings.s(config=config))
         return {

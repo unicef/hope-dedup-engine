@@ -16,6 +16,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     encode_chunk,
     get_chunks,
     finish_with_error,
+    ChunkPurpose,
 )
 
 HOUR = 60 * 60
@@ -39,8 +40,8 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         weight_total = 1
         deduplication_set.finding_set.update(score=F("score") / weight_total)
 
-        files = deduplication_set.image_set.values_list("filename", flat=True)
-        chunks = get_chunks(files)
+        filenames = deduplication_set.filenames_without_encodings()
+        chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
         tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
         chord_id = chord(tasks)(callback_encodings.s(config=config))
 

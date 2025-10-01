@@ -5,6 +5,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Exists, OuterRef
 
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
@@ -63,6 +64,16 @@ class DeduplicationSet(models.Model):
     def get_encodings(self) -> EncodingType:
         return {encoding.filename: encoding.data for encoding in self.encoding_set.all()}
 
+    def filenames_without_encodings(self):
+        enc_any = Encoding.objects.filter(filename=OuterRef("filename"))
+        return (
+            self.image_set.annotate(has_enc=Exists(enc_any))
+            .filter(has_enc=False)
+            .order_by("filename")
+            .values_list("filename", flat=True)
+            .distinct()
+        )
+
     def get_findings(self) -> FindingType:
         return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
 
@@ -109,7 +120,7 @@ class DeduplicationSet(models.Model):
 
 
 class Image(models.Model):
-    """# TODO: rename to Entity/Entry."""
+    """# TODO: Rename to Entity/Entry. Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
 
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
@@ -217,6 +228,7 @@ class Encoding(models.Model):
             "deduplication_set",
             "filename",
         )
+        indexes = [models.Index(fields=["filename"])]
 
     def __str__(self) -> str:
         return f"Encoding({self.filename})"

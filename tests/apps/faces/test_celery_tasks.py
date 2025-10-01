@@ -1,5 +1,5 @@
 from unittest.mock import ANY, Mock, patch
-
+from enum import IntEnum
 import pytest
 from celery import states
 from celery.canvas import Signature
@@ -15,6 +15,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     get_chunks,
     shadow_name,
     sync_dnn_files,
+    ChunkPurpose,
 )
 
 
@@ -37,19 +38,27 @@ def mock_task():
 
 
 @pytest.mark.parametrize(
-    ("files", "chunk_size", "expected_chunks"),
+    ("filenames", "purpose"),
     [
-        (list(range(50)), 25, [list(range(25)), list(range(25, 50))]),
-        (list(range(30)), 25, [list(range(25)), list(range(25, 30))]),
-        (list(range(10)), 25, [list(range(10))]),
-        ([], 25, []),
-        (list(range(5)), 2, [list(range(2)), list(range(2, 4)), [4]]),
+        (["f0", "f1", "f2", "f3", "f4"], ChunkPurpose.ENCODE),
+        (["a", "b", "c", "d", "e"], 2),
     ],
+    ids=["enum", "numeric"],
 )
-def test_get_chunks(files, chunk_size, expected_chunks, monkeypatch):
-    """Test that get_chunks splits a list into chunks of the correct size."""
-    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.CHUNK_SIZE", chunk_size)
-    assert get_chunks(files) == expected_chunks
+def test_get_chunks(filenames, purpose):
+    size = int(purpose)
+    expected = [filenames[i : i + size] for i in range(0, len(filenames), size)]
+
+    out = get_chunks(filenames, purpose=purpose)
+
+    assert out == expected
+    assert isinstance(out, list)
+    assert all(isinstance(c, list) for c in out)
+
+
+@pytest.mark.parametrize("purpose", list(ChunkPurpose))
+def test_get_chunks_empty_for_all_enum_values(purpose):
+    assert get_chunks([], purpose=purpose) == []
 
 
 def test_shadow_name_success(mocker):
@@ -218,18 +227,25 @@ def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job
 @patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
 def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_with_job, mocker, monkeypatch):
     """Test deduplicate_dataset with enough encodings to create multiple chunks."""
-    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.CHUNK_SIZE", 2)
+    chunks = 3
+    chunk_size = 2
+    filenames_count = 2 * chunk_size + 1
+
+    class _P(IntEnum):
+        DEDUPE = chunk_size
+
+    monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.ChunkPurpose", _P)
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    encodings = {f"f{i}": [i] for i in range(5)}  # 5 files, chunk size 2 -> 3 chunks
+    encodings = {f"f{i}": [i] for i in range(filenames_count)}
     mocker.patch.object(ds, "get_encodings", return_value=encodings)
 
     result = deduplicate_dataset({"deduplication_set_id": ds.pk})
 
-    assert result["chunks"] == 3
+    assert result["chunks"] == chunks
     mock_chord.assert_called_once()
     header = mock_chord.call_args[0][0]
-    assert len(header) == 3
+    assert len(header) == chunks
 
 
 @patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")

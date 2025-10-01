@@ -13,6 +13,7 @@ from hope_dedup_engine.apps.api.deduplication.config import (
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
+    Encoding,
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
@@ -54,6 +55,16 @@ class ImageFactory(DjangoModelFactory):
 
     class Meta:
         model = Image
+
+
+class EncodingFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+    filename = fuzzy.FuzzyText()
+    data = fuzzy.FuzzyAttribute(lambda: [fuzzy.FuzzyFloat(0.0, 1.0).fuzz() for _ in range(8)])
+
+    class Meta:
+        model = Encoding
+        django_get_or_create = ("deduplication_set", "filename")
 
 
 class FindingFactory(DjangoModelFactory):
