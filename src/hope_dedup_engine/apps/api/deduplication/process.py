@@ -13,6 +13,7 @@ from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
+    deduplicate_dataset,
     encode_chunk,
     get_chunks,
     finish_with_error,
@@ -41,9 +42,14 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         deduplication_set.finding_set.update(score=F("score") / weight_total)
 
         filenames = deduplication_set.filenames_without_encodings()
-        chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
-        tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
-        chord_id = chord(tasks)(callback_encodings.s(config=config))
+        if not filenames:
+            deduplicate_dataset.delay(config)
+            chord_id = None
+            chunks = []
+        else:
+            chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
+            tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
+            chord_id = chord(tasks)(callback_encodings.s(config=config))
 
         return {
             "deduplication_set": str(deduplication_set),

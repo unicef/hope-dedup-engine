@@ -1,4 +1,6 @@
 import traceback
+from itertools import combinations_with_replacement
+
 import sentry_sdk
 from functools import partial
 from typing import TYPE_CHECKING, Any, Iterable
@@ -88,7 +90,8 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    files: list[str],
+    files0: list[str],
+    files1: list[str],
     config: dict[str, Any],
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
@@ -98,7 +101,8 @@ def dedupe_chunk(
         encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
         return dedupe_images(
-            files,
+            files0,
+            files1,
             encoded,
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
@@ -169,8 +173,17 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
-        tasks = [dedupe_chunk.s(chunk, config) for chunk in chunks]
+        enc_keys = list(ds.get_encodings().keys())
+        if not enc_keys:
+            finish_with_success(ds)
+            return {
+                "deduplication_set": str(ds),
+                "chord_id": None,
+                "chunks": 0,
+                "findings": 0,
+            }
+        chunks = get_chunks(enc_keys, purpose=ChunkPurpose.DEDUPE)
+        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations_with_replacement(chunks, 2)]
         chord_id = chord(tasks)(callback_findings.s(config=config))
         return {
             "deduplication_set": str(ds),
