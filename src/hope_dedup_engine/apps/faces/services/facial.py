@@ -61,7 +61,8 @@ def encode_faces(
 
 
 def dedupe_images(  # noqa 901
-    files: list[str],
+    files0: list[str],
+    files1: list[str],
     encodings: EncodingType,
     ignored_pairs: IgnoredPairType,
     dedupe_threshold: float,
@@ -74,7 +75,7 @@ def dedupe_images(  # noqa 901
     findings = defaultdict(list)
     config = options or {}
 
-    for i, file1 in enumerate(files):
+    for i, file1 in enumerate(files0):
         progress()
         enc1 = encodings[file1]
         if is_facial_error(enc1):
@@ -85,8 +86,12 @@ def dedupe_images(  # noqa 901
         if is_secondary_dup:
             continue
 
-        for j in range(i + 1, len(files)):
-            file2 = files[j]
+        if files0 == files1:
+            files1_ = files1[i + 1 :]
+        else:
+            files1_ = files1
+
+        for file2 in files1_:
             enc2 = encodings[file2]
             if (
                 file2 in findings
