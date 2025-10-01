@@ -82,10 +82,6 @@ def dedupe_images(  # noqa 901
             findings[file1].append([enc1, None])
             continue
 
-        is_secondary_dup = any(file1 == dup[0] for dups in findings.values() for dup in dups)
-        if is_secondary_dup:
-            continue
-
         if files0 == files1:
             files1_ = files1[i + 1 :]
         else:
