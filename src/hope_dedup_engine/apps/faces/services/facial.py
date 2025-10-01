@@ -87,9 +87,11 @@ def dedupe_images(  # noqa 901
             continue
 
         if files0 == files1:
-            files1 = files1[i + 1 :]
+            files1_ = files1[i + 1 :]
+        else:
+            files1_ = files1
 
-        for file2 in files1:
+        for file2 in files1_:
             enc2 = encodings[file2]
             if (
                 file2 in findings

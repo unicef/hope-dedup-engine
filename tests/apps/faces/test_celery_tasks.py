@@ -140,7 +140,7 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
 
     mock_dedupe_images.side_effect = dedupe_side_effect
 
-    result = dedupe_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+    result = dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
 
     assert result == "findings"
     mock_notify.assert_called()
@@ -153,7 +153,7 @@ def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job)
     """Test dedupe_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
     with pytest.raises(Exception, match="mock error"):
-        dedupe_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+        dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
@@ -245,7 +245,7 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     assert result["chunks"] == chunks
     mock_chord.assert_called_once()
     header = mock_chord.call_args[0][0]
-    assert len(header) == chunks
+    assert len(header) == chunk_size * chunks
 
 
 @patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")

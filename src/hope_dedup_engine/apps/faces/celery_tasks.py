@@ -1,5 +1,5 @@
 import traceback
-from itertools import combinations
+from itertools import combinations_with_replacement
 
 import sentry_sdk
 from functools import partial
@@ -174,7 +174,7 @@ def deduplicate_dataset(
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
-        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations(chunks, 2)]
+        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations_with_replacement(chunks, 2)]
         chord_id = chord(tasks)(callback_findings.s(config=config))
         return {
             "deduplication_set": str(ds),

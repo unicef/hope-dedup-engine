@@ -35,7 +35,8 @@ def mock_storage(mocker):
 def sample_data():
     """Provide sample data for deduplication tests."""
     return {
-        "files": ["file1.jpg", "file2.jpg"],
+        "files0": ["file1.jpg"],
+        "files1": ["file2.jpg"],
         "encodings": {"file1.jpg": [1.0], "file2.jpg": [1.1]},
         "ignored_pairs": set(),
         "dedupe_threshold": 0.9,
@@ -161,7 +162,7 @@ def test_dedupe_images_progress_callback(mock_deepface, sample_data):
     sample_data["progress"] = progress_mock
 
     dedupe_images(**sample_data)
-    assert progress_mock.call_count == len(sample_data["files"])
+    assert progress_mock.call_count == len(sample_data["files0"])
 
 
 @pytest.mark.django_db
@@ -170,7 +171,14 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
     mock_deepface.verify.side_effect = [
         {"distance": 0.01},  # f1-f2
         {"distance": 0.5},  # f1-f3
-        {"distance": 0.5},  # f2-f3
+        # f1-f4 skipped because of no face detected in f4
+        # f1-f5 in ignored pairs
+        # f2-f3 skipped because f2 is in findings already
+        # f2-f4 skipped because of no face detected in f4
+        # f2-f5 skipped because f2 is in findings already
+        # f3-f4 skipped because of no face detected in f4
+        {"distance": 0.5},  # f3-f5
+        # f4-f5 skipped because of no face detected in f4
     ]
 
     results = dedupe_images(**complex_deduplication_data)
@@ -184,3 +192,6 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
     assert len(results) == len(expected_findings)
     # Convert to set of tuples for order-agnostic comparison
     assert {tuple(item) for item in results} == {tuple(item) for item in expected_findings}
+    # check all all expected calls were made
+    with pytest.raises(StopIteration):
+        mock_deepface.verify()
