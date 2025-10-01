@@ -40,7 +40,7 @@ def find_duplicates(dedup_job_id: int, version: int) -> dict[str, Any]:
         weight_total = 1
         deduplication_set.finding_set.update(score=F("score") / weight_total)
 
-        filenames = deduplication_set.filenames_without_encodings()
+        filenames = list(deduplication_set.filenames_without_encodings(only_filenames=dedup_job.get_filenames()))
         chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
         tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
         chord_id = chord(tasks)(callback_encodings.s(config=config))

@@ -5,7 +5,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, QuerySet
 
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
@@ -64,15 +64,12 @@ class DeduplicationSet(models.Model):
     def get_encodings(self) -> EncodingType:
         return {encoding.filename: encoding.data for encoding in self.encoding_set.all()}
 
-    def filenames_without_encodings(self):
+    def filenames_without_encodings(self, only_filenames: list[str] | None = None) -> QuerySet[str]:
         enc_any = Encoding.objects.filter(filename=OuterRef("filename"))
-        return (
-            self.image_set.annotate(has_enc=Exists(enc_any))
-            .filter(has_enc=False)
-            .order_by("filename")
-            .values_list("filename", flat=True)
-            .distinct()
-        )
+        qs = self.image_set.annotate(has_enc=Exists(enc_any)).filter(has_enc=False)
+        if only_filenames:
+            qs = qs.filter(filename__in=only_filenames)
+        return qs.order_by("filename").values_list("filename", flat=True).distinct()
 
     def get_findings(self) -> FindingType:
         return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))

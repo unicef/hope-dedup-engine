@@ -67,3 +67,22 @@ def test_filenames_without_encodings_cross_ds(ds, make_images, make_encodings):
     make_encodings(other_ds, ["shared.jpg"])
 
     assert list(ds.filenames_without_encodings()) == ["unique.jpg"]
+
+
+@pytest.mark.parametrize(
+    ("filenames", "filenames_with_encodings", "only_filenames", "expected"),
+    [
+        (["a.jpg", "b.jpg", "c.jpg"], [], ["a.jpg", "b.jpg"], ["a.jpg", "b.jpg"]),
+        (["a.jpg", "b.jpg", "c.jpg"], ["a.jpg"], ["a.jpg", "b.jpg"], ["b.jpg"]),
+        (["a.jpg", "b.jpg"], ["a.jpg", "b.jpg"], ["a.jpg", "b.jpg"], []),
+        (["a.jpg", "b.jpg"], [], ["nonexistent.jpg"], []),
+    ],
+    ids=["filter_subset", "filter_with_encoded", "filter_all_encoded", "filter_nonexistent"],
+)
+def test_filenames_without_encodings_with_filter(
+    ds, make_images, make_encodings, filenames, filenames_with_encodings, only_filenames, expected
+):
+    make_images(ds, filenames)
+    make_encodings(ds, filenames_with_encodings)
+
+    assert list(ds.filenames_without_encodings(only_filenames=only_filenames)) == expected

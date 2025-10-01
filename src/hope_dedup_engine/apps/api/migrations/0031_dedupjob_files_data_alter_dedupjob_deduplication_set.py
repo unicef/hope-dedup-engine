@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0029_finding_finding_order_idx"),
+        ("api", "0030_encoding_api_encodin_filenam_50e86a_idx"),
     ]
 
     operations = [
