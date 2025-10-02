@@ -80,6 +80,19 @@ def test_filtering_by_multiple_reference_keys(
     assert len(data) == 14
 
 
+def test_filtering_by_empty_reference_keys(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+):
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode({REFERENCE_PK: " "})
+    response = api_client.get(url)
+    data = response.json()
+
+    assert response.status_code == status.HTTP_200_OK
+    assert isinstance(data, list)
+    assert not data
+
+
 @pytest.mark.parametrize(
     ("delta_hours", "filter_param", "expected"),
     [
