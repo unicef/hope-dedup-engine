@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 from api.api_const import DUPLICATE_LIST_VIEW
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding
-
+from testutils.factories.api import FindingFactory
 
 REFERENCE_PK = "reference_pk"
 UPDATED_AFTER = "updated_after"
@@ -60,6 +60,24 @@ def test_can_filter_by_reference_pk(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data) == expected_amount
+
+
+def test_filtering_by_multiple_reference_keys(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+):
+    findings = FindingFactory.create_batch(25, deduplication_set=deduplication_set)
+    reference_pks = [f.first_reference_pk for f in findings[:10]] + [f.second_reference_pk for f in findings[11:15]]
+
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
+        {REFERENCE_PK: ",".join(reference_pks)}
+    )
+    response = api_client.get(url)
+    data = response.json()
+
+    assert response.status_code == status.HTTP_200_OK
+    assert isinstance(data, list)
+    assert len(data) == 14
 
 
 @pytest.mark.parametrize(
