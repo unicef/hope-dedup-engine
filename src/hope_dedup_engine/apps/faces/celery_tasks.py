@@ -136,7 +136,7 @@ def callback_findings(
         finish_with_success(ds)
 
         return {
-            "Files": len(ds.image_set.all()),
+            "Files": ds.image_set.count(),
             "Config": config.get("deduplicate"),
             "Findings": len(findings),
         }
