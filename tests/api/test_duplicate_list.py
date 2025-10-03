@@ -7,8 +7,9 @@ import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
-
+from constance.test import override_config
 from api.api_const import DUPLICATE_LIST_VIEW
+
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding
 from testutils.factories.api import FindingFactory
@@ -137,3 +138,36 @@ def test_invalid_datetime_returns_400(api_client: APIClient, deduplication_set: 
     response = api_client.get(url)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert UPDATED_AFTER in response.json()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("allowed_pks_count", "pks_count_in_request", "expected_status_code"),
+    [
+        (11, 11, status.HTTP_200_OK),
+        (11, 12, status.HTTP_400_BAD_REQUEST),
+    ],
+)
+def test_filtering_with_too_many_references(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    allowed_pks_count: int,
+    pks_count_in_request: int,
+    expected_status_code: int,
+):
+    reference_pks = ["1235465487981"] * pks_count_in_request
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
+        {REFERENCE_PK: ",".join(reference_pks)}
+    )
+
+    with override_config(MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS=allowed_pks_count):
+        response = api_client.get(url)
+        data = response.json()
+
+        assert response.status_code == expected_status_code
+
+        if expected_status_code == status.HTTP_400_BAD_REQUEST:
+            assert isinstance(data, dict)
+            from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
+
+            assert data.get("detail") == TooManyReferencePksException.default_detail
