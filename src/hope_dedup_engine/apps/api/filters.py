@@ -1,6 +1,8 @@
 from django_filters import rest_framework as filters
 from django.db.models import Q, QuerySet
+from constance import config
 
+from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
 from hope_dedup_engine.apps.api.models import Finding
 
 
@@ -28,4 +30,8 @@ class FindingFilter(filters.FilterSet):
     def filter_by_references(self, qs: QuerySet[Finding], name: str, values: list[str]) -> QuerySet[Finding]:
         if not values:
             return qs
+
+        if len(values) > config.MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS:
+            raise TooManyReferencePksException()
+
         return qs.filter(Q(first_reference_pk__in=values) | Q(second_reference_pk__in=values))
