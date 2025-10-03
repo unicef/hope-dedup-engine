@@ -9,6 +9,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from constance.test import override_config
 from api.api_const import DUPLICATE_LIST_VIEW
+from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding
@@ -168,6 +169,4 @@ def test_filtering_with_too_many_references(
 
         if expected_status_code == status.HTTP_400_BAD_REQUEST:
             assert isinstance(data, dict)
-            from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
-
-            assert data.get("detail") == TooManyReferencePksException.default_detail
+            assert data.get("detail") == TooManyReferencePksException().detail
