@@ -24,7 +24,7 @@ def test_can_list_duplicates(api_client: APIClient, deduplication_set: Deduplica
     response = api_client.get(reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert len(data) == 1
+    assert len(data.get("results")) == 1
 
 
 def test_cannot_list_duplicates_between_systems(
@@ -61,7 +61,7 @@ def test_can_filter_by_reference_pk(
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert len(data) == expected_amount
+    assert len(data.get("results")) == expected_amount
 
 
 def test_filtering_by_multiple_reference_keys(
@@ -78,8 +78,8 @@ def test_filtering_by_multiple_reference_keys(
     data = response.json()
 
     assert response.status_code == status.HTTP_200_OK
-    assert isinstance(data, list)
-    assert len(data) == 14
+    assert isinstance(data, dict)
+    assert len(data.get("results")) == 14
 
 
 def test_filtering_by_empty_reference_keys(
@@ -91,8 +91,8 @@ def test_filtering_by_empty_reference_keys(
     data = response.json()
 
     assert response.status_code == status.HTTP_200_OK
-    assert isinstance(data, list)
-    assert not data
+    assert isinstance(data, dict)
+    assert not data.get("results")
 
 
 @pytest.mark.parametrize(
@@ -116,7 +116,7 @@ def test_filter_by_datetime(
     url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode({filter_param: dt})}"
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.json()) == expected
+    assert len(response.json().get("results")) == expected
 
 
 def test_filter_by_date_range(
@@ -131,7 +131,7 @@ def test_filter_by_date_range(
     url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode(params)}"
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.json()) == 1
+    assert len(response.json().get("results")) == 1
 
 
 def test_invalid_datetime_returns_400(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
