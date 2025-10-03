@@ -101,7 +101,7 @@ def test_encode_faces_deepface_outcomes(mock_deepface, mock_storage, represent_k
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
     encoded, _, _ = encode_faces(files)
-    assert encoded["file1.jpg"] == expected_status.name
+    assert encoded["file1.jpg"] == expected_status.value
 
 
 @pytest.mark.django_db
@@ -111,7 +111,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
     encoded, _, _ = encode_faces(files)
-    assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.name
+    assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.value
     mock_deepface.represent.assert_not_called()
 
 
@@ -147,7 +147,7 @@ def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
 def test_dedupe_images_with_facial_error(mock_deepface, sample_data):
     """Test that files with facial errors are reported correctly."""
     test_data = copy.deepcopy(sample_data)
-    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.name
+    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.value
     results = dedupe_images(**test_data)
     expected = [("file1.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value)]
     assert results == expected

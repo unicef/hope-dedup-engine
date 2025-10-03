@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from factory import Factory, SubFactory, fuzzy, lazy_attribute
+from factory import Factory, SubFactory, Sequence, fuzzy, lazy_attribute, Trait
 from factory.django import DjangoModelFactory
 from testutils.factories import SystemFactory, UserFactory
 
@@ -58,13 +58,26 @@ class ImageFactory(DjangoModelFactory):
 
 
 class EncodingFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-    filename = fuzzy.FuzzyText()
-    data = fuzzy.FuzzyAttribute(lambda: [fuzzy.FuzzyFloat(0.0, 1.0).fuzz() for _ in range(8)])
+    filename = Sequence(lambda n: f"img_{n}.jpg")
+    embedding = fuzzy.FuzzyAttribute(lambda: [fuzzy.FuzzyFloat(0.0, 1.0).fuzz() for _ in range(8)])
+    status_code = None
 
     class Meta:
         model = Encoding
-        django_get_or_create = ("deduplication_set", "filename")
+        django_get_or_create = ("filename",)
+
+    class Params:
+        with_error = Trait(
+            embedding=None,
+            status_code=fuzzy.FuzzyChoice(
+                [
+                    Image.StatusCode.NO_FILE_FOUND.value,
+                    Image.StatusCode.NO_FACE_DETECTED.value,
+                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                    Image.StatusCode.GENERIC_ERROR.value,
+                ]
+            ),
+        )
 
 
 class FindingFactory(DjangoModelFactory):

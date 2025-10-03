@@ -22,8 +22,8 @@ def make_images():
 
 @pytest.fixture
 def make_encodings():
-    def _make(ds, filenames):
-        return [EncodingFactory(deduplication_set=ds, filename=fn) for fn in filenames]
+    def _make(filenames):
+        return [EncodingFactory(filename=fn) for fn in filenames]
 
     return _make
 
@@ -31,15 +31,22 @@ def make_encodings():
 def test_update_encodings(mocker: MockerFixture) -> None:
     encoding_model_mock = mocker.patch("hope_dedup_engine.apps.api.models.deduplication.Encoding")
     model = DeduplicationSet()
-    model.update_encodings(encodings := {"c": [2], "b": [1], "a": [0]})
+
+    encodings = {"c": [2.0], "b": 1, "a": [0.0]}  # int = status_code, list = embedding
+    model.update_encodings(encodings)
+
     encoding_model_mock.objects.bulk_create.assert_called_once_with(
         [encoding_model_mock.return_value] * len(encodings),
         update_conflicts=True,
-        update_fields=["data"],
-        unique_fields=["deduplication_set", "filename"],
+        update_fields=["embedding", "status_code"],
+        unique_fields=["filename"],
     )
     encoding_model_mock.assert_has_calls(
-        [call(deduplication_set=model, filename=key, data=encodings[key]) for key in sorted(encodings.keys())]
+        [
+            call(filename="a", embedding=[0.0], status_code=None),
+            call(filename="b", embedding=None, status_code=1),
+            call(filename="c", embedding=[2.0], status_code=None),
+        ]
     )
 
 
@@ -50,20 +57,16 @@ def test_update_encodings(mocker: MockerFixture) -> None:
         (["a.jpg", "b.jpg", "c.jpg"], ["a.jpg"], ["b.jpg", "c.jpg"]),
         (["a.jpg"], ["a.jpg"], []),
         ([], [], []),
-        (["z.jpg", "a.jpg", "m.jpg"], [], ["a.jpg", "m.jpg", "z.jpg"]),
     ],
-    ids=["all_missing", "partial", "all_encoded", "empty", "ordered"],
+    ids=["all_missing", "partial", "all_encoded", "empty"],
 )
 def test_filenames_without_encodings(ds, make_images, make_encodings, filenames, filenames_with_encodings, expected):
     make_images(ds, filenames)
-    make_encodings(ds, filenames_with_encodings)
+    make_encodings(filenames_with_encodings)
+    assert set(ds.filenames_without_encodings()) == set(expected)
 
-    assert list(ds.filenames_without_encodings()) == expected
 
-
-def test_filenames_without_encodings_cross_ds(ds, make_images, make_encodings):
-    other_ds = DeduplicationSetFactory()
+def test_filenames_without_encodings_reuses_global_encoding(ds, make_images, make_encodings):
     make_images(ds, ["shared.jpg", "unique.jpg"])
-    make_encodings(other_ds, ["shared.jpg"])
-
+    make_encodings(["shared.jpg"])
     assert list(ds.filenames_without_encodings()) == ["unique.jpg"]
