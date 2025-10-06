@@ -173,9 +173,9 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
         {"distance": 0.5},  # f1-f3
         # f1-f4 skipped because of no face detected in f4
         # f1-f5 in ignored pairs
-        # f2-f3 skipped because f2 is in findings already
+        {"distance": 0.5},  # f2-f3
         # f2-f4 skipped because of no face detected in f4
-        # f2-f5 skipped because f2 is in findings already
+        {"distance": 0.5},  # f2-f5
         # f3-f4 skipped because of no face detected in f4
         {"distance": 0.5},  # f3-f5
         # f4-f5 skipped because of no face detected in f4
