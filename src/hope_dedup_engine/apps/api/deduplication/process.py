@@ -51,7 +51,7 @@ def try_acquire_processing_lock(deduplication_set_pk: int) -> DeduplicationSet |
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
 
-    deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set.pk)
+    deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set_id)
 
     if deduplication_set is None:
         self.apply_async(
