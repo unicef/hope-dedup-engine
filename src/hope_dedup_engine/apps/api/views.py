@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
+from hope_dedup_engine.apps.api.models.jobs import DedupJob
 from hope_dedup_engine.apps.api.auth import (
     CanUseApi,
     HDETokenAuthentication,
@@ -41,7 +42,7 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredReferencePkPairSerializer,
     ImageSerializer,
 )
-from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
+from hope_dedup_engine.apps.api.utils.process import delete_model_data
 from hope_dedup_engine.apps.api.filters import FindingFilter
 
 
@@ -83,9 +84,8 @@ class DeduplicationSetViewSet(
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
         deduplication_set = self.get_object()
-        if deduplication_set.state == DeduplicationSet.State.PROCESSING:
-            return Response({"message": "already processing"}, status=status.HTTP_409_CONFLICT)
-        start_processing(deduplication_set)
+        job = DedupJob.objects.create(deduplication_set=deduplication_set)
+        job.queue()
         return Response({"message": "started"})
 
     @extend_schema(description="List all deduplication sets available to the user")
