@@ -174,6 +174,8 @@ class Finding(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["deduplication_set", "-updated_at", "-id"], name="finding_order_idx"),
+            models.Index(fields=["deduplication_set", "first_reference_pk"], name="finding_first_ref_idx"),
+            models.Index(fields=["deduplication_set", "second_reference_pk"], name="finding_second_ref_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
