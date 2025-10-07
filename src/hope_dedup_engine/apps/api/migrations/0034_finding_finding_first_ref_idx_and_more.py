@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0030_encoding_api_encodin_filenam_50e86a_idx"),
+        ("api", "0033_remove_dedupjob_serialized_lock_and_more"),
     ]
 
     operations = [
