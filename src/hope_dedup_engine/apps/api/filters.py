@@ -1,11 +1,17 @@
 from django_filters import rest_framework as filters
 from django.db.models import Q, QuerySet
+from constance import config
 
+from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
 from hope_dedup_engine.apps.api.models import Finding
 
 
+class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+    pass
+
+
 class FindingFilter(filters.FilterSet):
-    reference_pk = filters.CharFilter(method="filter_by_reference", help_text="Filters by reference pk")
+    reference_pk = CharInFilter(method="filter_by_references", help_text="Filter by one or more reference pks")
     updated_after = filters.DateTimeFilter(
         field_name="updated_at",
         lookup_expr="gte",
@@ -21,5 +27,11 @@ class FindingFilter(filters.FilterSet):
         model = Finding
         fields = []
 
-    def filter_by_reference(self, qs: QuerySet[Finding], name: str, value: str) -> QuerySet[Finding]:
-        return qs.filter(Q(first_reference_pk=value) | Q(second_reference_pk=value))
+    def filter_by_references(self, qs: QuerySet[Finding], name: str, values: list[str]) -> QuerySet[Finding]:
+        if not values:
+            return qs
+
+        if len(values) > config.MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS:
+            raise TooManyReferencePksException()
+
+        return qs.filter(Q(first_reference_pk__in=values) | Q(second_reference_pk__in=values))

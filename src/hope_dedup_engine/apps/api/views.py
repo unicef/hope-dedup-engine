@@ -30,6 +30,7 @@ from hope_dedup_engine.apps.api.models import (
     IgnoredReferencePkPair,
     Image,
 )
+from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
     CreateIgnoredFilenamePairSerializer,
@@ -248,6 +249,7 @@ class DuplicateViewSet(
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
+    pagination_class = FindingResultsPagination
 
     @extend_schema(
         description="List all duplicates found in the deduplication set",
