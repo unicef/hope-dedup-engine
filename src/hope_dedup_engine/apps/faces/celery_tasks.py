@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 class ChunkPurpose(IntEnum):
     ENCODE = 25
-    DEDUPE = 25
+    DEDUPE = 3000
 
 
 def get_chunks(filenames: Iterable[str], *, purpose: ChunkPurpose) -> list[list[str]]:
