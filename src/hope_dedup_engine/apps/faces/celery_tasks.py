@@ -1,24 +1,22 @@
 import traceback
-from itertools import combinations_with_replacement
+from enum import IntEnum
+from functools import partial
+from itertools import batched
+from typing import TYPE_CHECKING, Any, Iterable
 
 import sentry_sdk
-from functools import partial
-from typing import TYPE_CHECKING, Any, Iterable
-from enum import IntEnum
-from itertools import batched
-
 from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationChunk
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
 from hope_dedup_engine.type_aliases import FindingType
-
 
 if TYPE_CHECKING:
     from celery.canvas import Signature
@@ -90,25 +88,25 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    files0: list[str],
-    files1: list[str],
+    chunk_id: int,
     config: dict[str, Any],
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    chunk = DeduplicationChunk.objects.get(pk=chunk_id)
     try:
         callback = partial(notify_status, task=self)
-        encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
-        return dedupe_images(
-            files0,
-            files1,
-            encoded,
+        results = dedupe_images(
+            chunk.pairs(),
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
             progress=callback,
         )
+        chunk.ready = True
+        chunk.save(update_fields=["ready"])
+        return results
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
@@ -173,13 +171,13 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
-        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations_with_replacement(chunks, 2)]
+        chunk_ids = tuple(DeduplicationChunk.create_chunks(deduplication_set=ds, size=ChunkPurpose.DEDUPE))
+        tasks = [dedupe_chunk.s(chunk_id, config) for chunk_id in chunk_ids]
         chord_id = chord(tasks)(callback_findings.s(config=config))
         return {
             "deduplication_set": str(ds),
             "chord_id": str(chord_id),
-            "chunks": len(chunks),
+            "chunk_ids": chunk_ids,
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)

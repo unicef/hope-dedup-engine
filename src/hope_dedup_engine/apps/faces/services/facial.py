@@ -1,11 +1,11 @@
 import logging
-from collections import defaultdict
+from collections.abc import Iterable
 from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Image, Encoding
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
@@ -61,54 +61,30 @@ def encode_faces(
 
 
 def dedupe_images(  # noqa 901
-    files0: list[str],
-    files1: list[str],
-    encodings: EncodingType,
+    encoding_pairs: Iterable[tuple[Encoding, Encoding]],
     ignored_pairs: IgnoredPairType,
     dedupe_threshold: float,
     options: dict[str, Any] | None = None,
     progress=None,
 ) -> FindingType:
-    if not callable(progress):
-        progress = default_progress
-
-    findings = defaultdict(list)
     config = options or {}
-
-    for i, file1 in enumerate(files0):
-        progress()
-        enc1 = encodings[file1]
-        if is_facial_error(enc1):
-            findings[file1].append([enc1, None])
-            continue
-
-        if files0 == files1:
-            files1_ = files1[i + 1 :]
-        else:
-            files1_ = files1
-
-        for file2 in files1_:
-            enc2 = encodings[file2]
-            if (
-                file2 in findings
-                or (file1, file2) in ignored_pairs
-                or (file2, file1) in ignored_pairs
-                or is_facial_error(enc2)
-                or any(file2 == dup[0] for dup in findings.get(file1, []))
-            ):
-                continue
-            res = DeepFace.verify(enc1, enc2, **config)
-            similarity = float(1 - res["distance"])
-            if similarity >= dedupe_threshold:
-                findings[file1].append([file2, similarity])
-
     results: FindingType = []
 
-    for img, duplicates in findings.items():
-        for dup in duplicates:
-            if is_facial_error(dup[0]):
-                results.append((img, "", 0, Image.StatusCode(dup[0]).value))
-            else:
-                results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
+    for encoding0, encoding1 in encoding_pairs:
+        if is_facial_error(encoding0.status_code) or is_facial_error(encoding1.status_code):
+            continue
+
+        if (encoding0.filename, encoding1.filename) in ignored_pairs or (
+            encoding1.filename,
+            encoding0.filename,
+        ) in ignored_pairs:
+            continue
+
+        res = DeepFace.verify(encoding0.embedding, encoding1.embedding, **config)
+        similarity = float(1 - res["distance"])
+        if similarity >= dedupe_threshold:
+            results.append(
+                (encoding0.filename, encoding1.filename, similarity, Image.StatusCode.DEDUPLICATE_SUCCESS.value)
+            )
 
     return results

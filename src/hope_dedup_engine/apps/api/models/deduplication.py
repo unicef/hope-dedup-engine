@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import traceback
-from typing import Any, Final, override
+from typing import Any, Final, override, TYPE_CHECKING
 from uuid import uuid4
 
 from django.conf import settings
@@ -8,8 +10,12 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Exists, OuterRef, Q
 
+from hope_dedup_engine.apps.api.utils.pairs.query import count_pairs, pairs
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
+
+if TYPE_CHECKING:
+    from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
+    from collections.abc import Generator
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -58,13 +64,9 @@ class DeduplicationSet(models.Model):
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    def get_encodings(self) -> EncodingType:
-        return {
-            fn: (emb if emb is not None else sc)
-            for fn, emb, sc in Encoding.objects.filter(
-                filename__in=self.image_set.values_list("filename", flat=True)
-            ).values_list("filename", "embedding", "status_code")
-        }
+    @property
+    def encodings_query(self) -> models.QuerySet[Encoding]:
+        return Encoding.objects.filter(filename__in=self.image_set.values_list("filename", flat=True)).order_by("id")
 
     def filenames_without_encodings(self) -> list[str]:
         enc_facial_errors = Encoding.objects.filter(filename=OuterRef("filename")).filter(
@@ -269,3 +271,27 @@ class Encoding(models.Model):
 
     def __str__(self) -> str:
         return f"Encoding({self.filename})"
+
+
+class DeduplicationChunk(models.Model):
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    start = models.IntegerField()
+    end = models.IntegerField()
+    ready = models.BooleanField(default=False)
+
+    def __str__(self) -> str:
+        return f"DeduplicationChunk({self.deduplication_set.name}, {self.start}, {self.end}, {self.ready})"
+
+    @staticmethod
+    def create_chunks(deduplication_set: DeduplicationSet, size: int) -> Generator[int]:
+        total_pairs = count_pairs(deduplication_set.encodings_query)
+        max_pair = deduplication_set.deduplicationchunk_set.aggregate(models.Max("end", default=0))["end__max"]
+        for start in range(max_pair, total_pairs, size):
+            end = min(start + size, total_pairs)
+            deduplication_chunk = DeduplicationChunk.objects.create(
+                deduplication_set=deduplication_set, start=start, end=end
+            )
+            yield deduplication_chunk.pk
+
+    def pairs(self) -> Generator[tuple[Encoding, Encoding]]:
+        yield from pairs(self.deduplication_set.encodings_query, self.start, self.end)
