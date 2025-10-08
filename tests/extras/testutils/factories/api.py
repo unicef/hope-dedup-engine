@@ -67,13 +67,20 @@ class EncodingFactory(DjangoModelFactory):
         django_get_or_create = ("filename",)
 
     class Params:
-        with_error = Trait(
+        face_detect_error = Trait(
+            embedding=None,
+            status_code=fuzzy.FuzzyChoice(
+                [
+                    Image.StatusCode.NO_FACE_DETECTED.value,
+                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                ]
+            ),
+        )
+        system_error = Trait(
             embedding=None,
             status_code=fuzzy.FuzzyChoice(
                 [
                     Image.StatusCode.NO_FILE_FOUND.value,
-                    Image.StatusCode.NO_FACE_DETECTED.value,
-                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
                     Image.StatusCode.GENERIC_ERROR.value,
                 ]
             ),

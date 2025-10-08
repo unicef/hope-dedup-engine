@@ -67,9 +67,10 @@ class DeduplicationSet(models.Model):
         }
 
     def filenames_without_encodings(self) -> list[str]:
-        return self.image_set.filter(~Exists(Encoding.objects.filter(filename=OuterRef("filename")))).values_list(
-            "filename", flat=True
+        enc_facial_errors = Encoding.objects.filter(filename=OuterRef("filename")).filter(
+            Q(embedding__isnull=False) | Q(status_code__in=ImageErrorGroup.FACE_DETECT)
         )
+        return list(self.image_set.filter(~Exists(enc_facial_errors)).values_list("filename", flat=True))
 
     def get_findings(self) -> FindingType:
         return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
@@ -152,6 +153,11 @@ class Image(models.Model):
 
     def __str__(self) -> str:
         return f"Image {self.filename}"
+
+
+class ImageErrorGroup:
+    FACE_DETECT = (Image.StatusCode.NO_FACE_DETECTED, Image.StatusCode.MULTIPLE_FACES_DETECTED)
+    SYSTEM = (Image.StatusCode.NO_FILE_FOUND, Image.StatusCode.GENERIC_ERROR)
 
 
 class Finding(models.Model):
