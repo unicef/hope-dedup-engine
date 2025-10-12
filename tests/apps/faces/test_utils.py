@@ -1,33 +1,7 @@
-from unittest.mock import patch
-
 import pytest
 
 from hope_dedup_engine.apps.api.models import Image
-from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
-
-
-@pytest.mark.parametrize(
-    ("time_side_effect", "should_be_called"),
-    [
-        ([0, 1], False),
-        ([0, 6], True),
-    ],
-)
-@patch("hope_dedup_engine.apps.faces.utils.sentry_sdk")
-def test_report_long_execution(mock_sentry, time_side_effect, should_be_called, settings):
-    """Test that `report_long_execution` only sends a message to Sentry for long executions."""
-    settings.DEFAULT_THRESHOLD_SECONDS = 5
-    with patch("time.time", side_effect=time_side_effect):
-        with report_long_execution("Test Task"):
-            pass
-
-    if should_be_called:
-        mock_sentry.capture_message.assert_called_once()
-        message = mock_sentry.capture_message.call_args.args[0]
-        assert "Execution took" in message
-        assert "seconds: Test Task" in message
-    else:
-        mock_sentry.capture_message.assert_not_called()
+from hope_dedup_engine.apps.faces.utils import is_facial_error
 
 
 @pytest.mark.parametrize(

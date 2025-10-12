@@ -2,14 +2,14 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+import numpy as np
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
-import numpy as np
 from numpy.linalg import norm
 
 from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers.storage import get_storage_manager
-from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
+from hope_dedup_engine.apps.faces.utils import coerce_status_code, is_facial_error
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
@@ -28,37 +28,35 @@ def encode_faces(
     if not callable(progress):
         progress = default_progress
 
-    with report_long_execution("get_storage_manager()"):
-        storage = get_storage_manager()
+    options = options or {}
+
+    storage = get_storage_manager()
 
     encoded = {}
     if pre_encodings:
-        with report_long_execution("encoded.update(pre_encodings)"):
-            encoded.update(pre_encodings)
+        encoded.update(pre_encodings)
     added_cnt = existing_cnt = 0
     newly_encoded_files = []
     for file in files:
-        with report_long_execution("progress()"):
-            progress()
+        progress()
         if file in encoded:
             existing_cnt += 1
             continue
         newly_encoded_files.append(file)
         try:
-            with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
-                result = DeepFace.represent(storage.load_image(file), **(options or {}))
+            result = DeepFace.represent(storage.load_image(file), **options)
             if len(result) > 1:
-                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
+                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.name
             else:
                 encoded[file] = result[0]["embedding"]
                 added_cnt += 1
         except TypeError as e:
             logger.exception(e)
-            encoded[file] = Image.StatusCode.GENERIC_ERROR.value
+            encoded[file] = Image.StatusCode.GENERIC_ERROR.name
         except ValueError:
-            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.name
         except ResourceNotFoundError:
-            encoded[file] = Image.StatusCode.NO_FILE_FOUND.value
+            encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
 
     return encoded, newly_encoded_files, added_cnt, existing_cnt
 
@@ -123,7 +121,9 @@ def dedupe_images(  # noqa 901
     for img, duplicates in findings.items():
         for dup in duplicates:
             if is_facial_error(dup[0]):
-                results.append((img, "", 0, Image.StatusCode(dup[0]).value))
+                status = coerce_status_code(dup[0])
+                status_value = status.value if status is not None else Image.StatusCode.GENERIC_ERROR.value
+                results.append((img, "", 0, status_value))
             else:
                 results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
 

@@ -10,7 +10,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
 from django.utils.translation import gettext as _
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 
 
 @register(DeduplicationSet)
@@ -69,10 +69,10 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     def terminate_job(self, request: HttpRequest, pk: str) -> None:
         ds = self.get_object(request, pk)
 
-        job = getattr(ds, "dedupjob", None)
+        job = DedupJob.objects.filter(deduplication_set=ds).exclude(curr_async_result_id__isnull=True).first()
 
         if job and job.curr_async_result_id:
-            new_status = job.terminate()
+            new_status = job.terminate(job.curr_async_result_id)
             self.message_user(
                 request,
                 f"Job termination initiated. New job status: {new_status}.",

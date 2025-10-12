@@ -1,29 +1,33 @@
-import time
-from contextlib import contextmanager
-from typing import Generator
+from typing import Any
 
-import sentry_sdk
-from django.conf import settings
 from hope_dedup_engine.apps.api.models import Image
 
 
-def is_facial_error(value):
-    if isinstance(value, int | str):
-        return value not in {
-            Image.StatusCode.DEDUPLICATE_SUCCESS,
-            Image.StatusCode.DEDUPLICATE_SUCCESS.name,
-            Image.StatusCode.DEDUPLICATE_SUCCESS.label,
-        } and value in (
-            Image.StatusCode.values + Image.StatusCode.names + [choice.label for choice in Image.StatusCode]
-        )
-    return False
+def coerce_status_code(value: Any) -> Image.StatusCode | None:
+    if value is None:
+        return None
+
+    if isinstance(value, Image.StatusCode):
+        return value
+
+    try:
+        return Image.StatusCode(value)
+    except (ValueError, TypeError):
+        pass
+
+    if isinstance(value, str):
+        try:
+            return Image.StatusCode[value]
+        except KeyError:
+            pass
+
+        for status in Image.StatusCode:
+            if value == status.label:
+                return status
+
+    return None
 
 
-@contextmanager
-def report_long_execution(message: str, threshold_seconds: int | None = None) -> Generator:
-    if threshold_seconds is None:
-        threshold_seconds = settings.DEFAULT_THRESHOLD_SECONDS
-    start = time.time()
-    yield
-    if (total := time.time() - start) > threshold_seconds:
-        sentry_sdk.capture_message(f"Execution took {total} seconds: {message}")
+def is_facial_error(value: Any) -> bool:
+    status = coerce_status_code(value)
+    return status is not None and status != Image.StatusCode.DEDUPLICATE_SUCCESS

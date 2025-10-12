@@ -15,7 +15,6 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
-from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
 from hope_dedup_engine.type_aliases import FindingType
 
@@ -78,16 +77,12 @@ def encode_chunk(
     config: dict[str, Any],
 ) -> list[str]:
     """Encode faces in a chunk of files."""
-    with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
-        ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self, config=config)
-        with report_long_execution("ds.get_encodings()"):
-            ds.get_encodings()
-        with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), progress=callback)
-        with report_long_execution("ds.update_encodings(results[0])"):
-            ds.update_encodings(results[0])
+        ds.get_encodings()
+        results = encode_faces(files, config.get("encoding"), progress=callback)
+        ds.update_encodings(results[0])
         return results[1]
     except Exception as e:
         sentry_sdk.capture_exception(e)
