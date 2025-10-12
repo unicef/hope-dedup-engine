@@ -7,6 +7,7 @@ from django.conf import settings
 from django_redis import get_redis_connection
 
 import sentry_sdk
+
 from celery import Task, chord, shared_task, signals, states
 from celery.utils.imports import qualname
 
@@ -17,6 +18,7 @@ from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_f
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
 from hope_dedup_engine.type_aliases import FindingType
+
 
 if TYPE_CHECKING:
     from celery.canvas import Signature
@@ -81,9 +83,9 @@ def encode_chunk(
     try:
         callback = partial(notify_status, task=self, config=config)
         with report_long_execution("ds.get_encodings()"):
-            pre_encodings = ds.get_encodings()
+            ds.get_encodings()
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)
+            results = encode_faces(files, config.get("encoding"), progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
         return results[1]
@@ -152,7 +154,7 @@ def callback_findings(
         finish_with_success(ds)
 
         return {
-            "Files": len(ds.image_set.all()),
+            "Files": ds.image_set.count(),
             "Config": config.get("deduplicate"),
             "Findings": len(findings),
         }

@@ -35,7 +35,8 @@ def mock_storage(mocker):
 def sample_data():
     """Provide sample data for deduplication tests."""
     return {
-        "files": ["file1.jpg", "file2.jpg"],
+        "files0": ["file1.jpg"],
+        "files1": ["file2.jpg"],
         "encodings": {"file1.jpg": [1.0], "file2.jpg": [1.1]},
         "ignored_pairs": set(),
         "dedupe_threshold": 0.9,

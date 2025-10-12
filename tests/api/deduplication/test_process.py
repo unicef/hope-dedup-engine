@@ -1,9 +1,12 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+from django.utils import timezone
 
 from hope_dedup_engine.apps.api.deduplication.process import (
     find_duplicates,
+    RESCHEDULE_INTERVAL,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
@@ -71,3 +74,47 @@ def test_find_duplicates_exception(
     dedup_set.refresh_from_db()
     assert dedup_set.state == DeduplicationSet.State.FAILED
     mock_capture_exception.assert_called()
+
+
+@patch("hope_dedup_engine.apps.api.deduplication.process.find_duplicates.apply_async")
+def test_find_duplicates_reschedules_when_processing(
+    mock_apply_async,
+    dedup_job_factory,
+):
+    """Test that find_duplicates reschedules when dataset is already being processed."""
+    job = dedup_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
+
+    result = find_duplicates(job.id, job.version)
+
+    assert result["status"] == "rescheduled"
+    assert result["retry_in_seconds"] == RESCHEDULE_INTERVAL
+    mock_apply_async.assert_called_once_with(
+        args=[job.id, job.version],
+        countdown=RESCHEDULE_INTERVAL,
+    )
+
+
+@patch("hope_dedup_engine.apps.api.deduplication.process.chord")
+@patch("hope_dedup_engine.apps.api.deduplication.process.encode_chunk")
+@patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+@patch("hope_dedup_engine.apps.api.deduplication.process.sentry_sdk")
+def test_find_duplicates_proceeds_when_stale(
+    mock_sentry,
+    mock_send_notification,
+    mock_encode_chunk,
+    mock_chord,
+    dedup_job_factory,
+):
+    """Test that find_duplicates proceeds when PROCESSING state is stale (>24h)."""
+    job = dedup_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
+    dedup_set = job.deduplication_set
+
+    DeduplicationSet.objects.filter(pk=dedup_set.pk).update(updated_at=timezone.now() - timedelta(hours=25))
+
+    find_duplicates(job.id, job.version)
+
+    dedup_set.refresh_from_db()
+    assert dedup_set.state == DeduplicationSet.State.PROCESSING
+
+    mock_sentry.capture_message.assert_called_once()
+    assert "Stale PROCESSING state" in mock_sentry.capture_message.call_args[0][0]

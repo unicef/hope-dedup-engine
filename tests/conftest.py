@@ -102,12 +102,13 @@ def complex_deduplication_data():
     from hope_dedup_engine.apps.api.models import Image  # noqa: PLC0415
 
     return {
-        "files": ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"],
+        "files0": (files := ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"]),
+        "files1": files,
         "encodings": {
             "f1.jpg": [1.0],  # duplicate with f2
             "f2.jpg": [1.01],
             "f3.jpg": [2.0],  # not a duplicate with anyone
-            "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.name,  # error
+            "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.value,  # error
             "f5.jpg": [1.02],  # ignored with f1
         },
         "ignored_pairs": {("f1.jpg", "f5.jpg")},

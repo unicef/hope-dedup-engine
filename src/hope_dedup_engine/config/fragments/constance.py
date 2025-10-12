@@ -29,6 +29,7 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
+    "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS": (1000, "Set count of allowed reference pks as query params", int),
 }
 
 
@@ -43,6 +44,10 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     "User settings": {
         "fields": ("NEW_USER_IS_STAFF", "NEW_USER_DEFAULT_GROUP"),
+        "collapse": False,
+    },
+    "API settings": {
+        "fields": ("MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS",),
         "collapse": False,
     },
 }

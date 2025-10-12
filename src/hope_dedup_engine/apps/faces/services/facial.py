@@ -48,17 +48,17 @@ def encode_faces(
             with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
                 result = DeepFace.represent(storage.load_image(file), **(options or {}))
             if len(result) > 1:
-                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.name
+                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
             else:
                 encoded[file] = result[0]["embedding"]
                 added_cnt += 1
         except TypeError as e:
             logger.exception(e)
-            encoded[file] = Image.StatusCode.GENERIC_ERROR.name
+            encoded[file] = Image.StatusCode.GENERIC_ERROR.value
         except ValueError:
-            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.name
+            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
         except ResourceNotFoundError:
-            encoded[file] = Image.StatusCode.NO_FILE_FOUND.name
+            encoded[file] = Image.StatusCode.NO_FILE_FOUND.value
 
     return encoded, newly_encoded_files, added_cnt, existing_cnt
 
@@ -68,7 +68,7 @@ def dedupe_images(  # noqa 901
     encodings2: EncodingType,
     ignored_pairs: IgnoredPairType,
     dedupe_threshold: float,
-    options: dict[str, Any] = None,
+    options: dict[str, Any] | None = None,
     progress=None,
 ) -> FindingType:
     if not callable(progress):
@@ -123,7 +123,7 @@ def dedupe_images(  # noqa 901
     for img, duplicates in findings.items():
         for dup in duplicates:
             if is_facial_error(dup[0]):
-                results.append((img, "", 0, Image.StatusCode[dup[0]].value))
+                results.append((img, "", 0, Image.StatusCode(dup[0]).value))
             else:
                 results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
 

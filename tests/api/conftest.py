@@ -36,11 +36,6 @@ def delete_model_data(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.views.delete_model_data")
 
 
-@pytest.fixture
-def start_processing(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.api.views.start_processing")
-
-
 @pytest.fixture(autouse=True)
 def send_notification(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")

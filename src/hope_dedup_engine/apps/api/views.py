@@ -2,10 +2,9 @@ from http import HTTPMethod
 from typing import Any
 from uuid import UUID
 
-from django.db.models import Q, QuerySet, Model
+from django.db.models import QuerySet, Model
 from django.http import HttpRequest
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
+from hope_dedup_engine.apps.api.models.jobs import DedupJob
 from hope_dedup_engine.apps.api.auth import (
     CanUseApi,
     HDETokenAuthentication,
@@ -30,6 +30,7 @@ from hope_dedup_engine.apps.api.models import (
     IgnoredReferencePkPair,
     Image,
 )
+from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
     CreateIgnoredFilenamePairSerializer,
@@ -42,7 +43,8 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredReferencePkPairSerializer,
     ImageSerializer,
 )
-from hope_dedup_engine.apps.api.utils.process import delete_model_data, start_processing
+from hope_dedup_engine.apps.api.utils.process import delete_model_data
+from hope_dedup_engine.apps.api.filters import FindingFilter
 
 
 class DeduplicationSetViewSet(
@@ -84,9 +86,8 @@ class DeduplicationSetViewSet(
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: UUID | None = None) -> Response:
         deduplication_set = self.get_object()
-        if deduplication_set.state == DeduplicationSet.State.PROCESSING:
-            return Response({"message": "already processing"}, status=status.HTTP_409_CONFLICT)
-        start_processing(deduplication_set)
+        job = DedupJob.objects.create(deduplication_set=deduplication_set)
+        job.queue()
         return Response({"message": "started"})
 
     @extend_schema(description="List all deduplication sets available to the user")
@@ -236,9 +237,6 @@ class BulkImageViewSet(
         return super().create(request, *args, **kwargs)
 
 
-REFERENCE_PK = "reference_pk"
-
-
 class DuplicateViewSet(
     nested_viewsets.NestedViewSetMixin[Finding],
     mixins.ListModelMixin,
@@ -251,28 +249,15 @@ class DuplicateViewSet(
         HasAccessToDeduplicationSet,
     )
     serializer_class = DuplicateSerializer
-    # TODO: Add filters
-    queryset = Finding.objects.all()
+    queryset = Finding.objects.all().order_by("-updated_at", "-id")
+    filterset_class = FindingFilter
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
-
-    def get_queryset(self) -> QuerySet[Finding]:
-        queryset = super().get_queryset()
-        if reference_pk := self.request.query_params.get(REFERENCE_PK):
-            return queryset.filter(Q(first_reference_pk=reference_pk) | Q(second_reference_pk=reference_pk))
-        return queryset
+    pagination_class = FindingResultsPagination
 
     @extend_schema(
         description="List all duplicates found in the deduplication set",
-        parameters=[
-            OpenApiParameter(
-                REFERENCE_PK,
-                OpenApiTypes.STR,
-                OpenApiParameter.QUERY,
-                description="Filters results by reference pk",
-            )
-        ],
     )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)

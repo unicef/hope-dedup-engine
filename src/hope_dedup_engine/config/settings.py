@@ -37,6 +37,7 @@ INSTALLED_APPS = (
     "constance",
     "django_extensions",
     "rest_framework",
+    "django_filters",
     "django_celery_beat",
     "drf_spectacular",
     "drf_spectacular_sidecar",
