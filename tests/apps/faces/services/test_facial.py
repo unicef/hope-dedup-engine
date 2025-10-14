@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Image, Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_images,
     default_progress,
@@ -32,12 +32,10 @@ def mock_storage(mocker):
 
 
 @pytest.fixture
-def sample_data():
+def sample_data(encoding_factory: Encoding):
     """Provide sample data for deduplication tests."""
     return {
-        "files0": ["file1.jpg"],
-        "files1": ["file2.jpg"],
-        "encodings": {"file1.jpg": [1.0], "file2.jpg": [1.1]},
+        "encoding_pairs": [(encoding_factory(filename="file1.jpg"), encoding_factory(filename="file2.jpg"))],
         "ignored_pairs": set(),
         "dedupe_threshold": 0.9,
     }
@@ -79,7 +77,7 @@ def test_encode_faces_progress_callback(mock_deepface, mock_storage):
     mock_deepface.represent.return_value = [{"embedding": [1.0]}]
     progress_mock = Mock()
 
-    encode_faces(files, progress=progress_mock)
+    encode_faces(files, progress=progress_mock, process_encoding_error={}.__setitem__)
     assert progress_mock.call_count == len(files)
 
 

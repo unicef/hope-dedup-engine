@@ -10,12 +10,10 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Exists, OuterRef, Q
 
-from hope_dedup_engine.apps.api.utils.pairs.query import count_pairs, pairs
 from hope_dedup_engine.apps.security.models import System
 
 if TYPE_CHECKING:
     from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
-    from collections.abc import Generator
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -60,6 +58,7 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
+    total_pairs = models.IntegerField(default=0)
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
@@ -271,27 +270,3 @@ class Encoding(models.Model):
 
     def __str__(self) -> str:
         return f"Encoding({self.filename})"
-
-
-class DeduplicationChunk(models.Model):
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    start = models.IntegerField()
-    end = models.IntegerField()
-    ready = models.BooleanField(default=False)
-
-    def __str__(self) -> str:
-        return f"DeduplicationChunk({self.deduplication_set.name}, {self.start}, {self.end}, {self.ready})"
-
-    @staticmethod
-    def create_chunks(deduplication_set: DeduplicationSet, size: int) -> Generator[int]:
-        total_pairs = count_pairs(deduplication_set.encodings_query)
-        max_pair = deduplication_set.deduplicationchunk_set.aggregate(models.Max("end", default=0))["end__max"]
-        for start in range(max_pair, total_pairs, size):
-            end = min(start + size, total_pairs)
-            deduplication_chunk = DeduplicationChunk.objects.create(
-                deduplication_set=deduplication_set, start=start, end=end
-            )
-            yield deduplication_chunk.pk
-
-    def pairs(self) -> Generator[tuple[Encoding, Encoding]]:
-        yield from pairs(self.deduplication_set.encodings_query, self.start, self.end)

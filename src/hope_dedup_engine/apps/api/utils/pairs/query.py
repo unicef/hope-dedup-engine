@@ -10,9 +10,9 @@ from hope_dedup_engine.apps.api.utils.pairs.rows import pairs as pairs_from_rows
 
 def flatten_indices(rows: tuple[Row, ...]) -> tuple[int | None, ...]:
     index_set = set()
-    for r in rows:
-        index_set.update(r.first_index)
-        index_set.add(r.last_index)
+    for row in rows:
+        index_set.update(row.first_index)
+        index_set.add(row.last_index)
 
     return tuple(index if index in index_set else None for index in range(min(index_set), max(index_set) + 1))
 
@@ -37,6 +37,12 @@ def load_models[T: Model](query: QuerySet[T], rows: tuple[Row, ...]) -> Mapping[
 def count_pairs(query: QuerySet[Model]) -> int:
     number_of_records = query.count()
     return count_pairs_for_row(number_of_records - 2)
+
+
+def calculate_chunks(query: QuerySet[Model], total: int, offset: int, size: int) -> Generator[tuple[int, int]]:
+    for start in range(offset, total, size):
+        end = min(start + size, total)
+        yield start, end
 
 
 def pairs[T: Model](query: QuerySet[T], start: int, end: int) -> Generator[tuple[T, T]]:

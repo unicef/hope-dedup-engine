@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Callable
 from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
@@ -19,6 +19,7 @@ def default_progress(*args):
 
 def encode_faces(
     files: list[str],
+    process_encoding_error: Callable[[str, Image.StatusCode], None],
     options=None,
     pre_encodings=None,
     progress=None,
@@ -43,19 +44,25 @@ def encode_faces(
             continue
         try:
             with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
-                result = DeepFace.represent(storage.load_image(file), **(options or {}))
+                result = DeepFace.represent(
+                    storage.load_image(file), max_faces=2, enforce_detection=False, **(options or {})
+                )
             if len(result) > 1:
                 encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
+                process_encoding_error(file, Image.StatusCode.MULTIPLE_FACES_DETECTED)
+            elif result[0]["face_confidence"] == 0.0:
+                encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+                process_encoding_error(file, Image.StatusCode.NO_FACE_DETECTED)
             else:
                 encoded[file] = result[0]["embedding"]
                 added_cnt += 1
         except TypeError as e:
             logger.exception(e)
             encoded[file] = Image.StatusCode.GENERIC_ERROR.value
-        except ValueError:
-            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+            process_encoding_error(file, Image.StatusCode.GENERIC_ERROR)
         except ResourceNotFoundError:
             encoded[file] = Image.StatusCode.NO_FILE_FOUND.value
+            process_encoding_error(file, Image.StatusCode.NO_FILE_FOUND)
 
     return encoded, added_cnt, existing_cnt
 

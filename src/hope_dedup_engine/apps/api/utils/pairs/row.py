@@ -28,7 +28,7 @@ def pairs(row: Row) -> Generator[tuple[int, int]]:
     yield from zip(row.first_index, repeat(row.last_index))
 
 
-def row_index(pair_index: int) -> int:
+def row_for(pair_index: int) -> int:
     return cast("int", round((2 * (pair_index + 1)) ** 0.5) - 1)
 
 

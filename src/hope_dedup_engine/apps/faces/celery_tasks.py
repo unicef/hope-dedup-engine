@@ -9,9 +9,9 @@ from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationChunk
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
 from hope_dedup_engine.apps.api.utils.notification import send_notification
+from hope_dedup_engine.apps.api.utils.pairs.query import calculate_chunks, pairs, count_pairs
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
@@ -75,10 +75,20 @@ def encode_chunk(
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self)
+        failed_encodings: dict[str, Image.StatusCode] = {}
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), progress=callback)
+            results = encode_faces(
+                files,
+                process_encoding_error=failed_encodings.__setitem__,
+                options=config.get("encoding"),
+                progress=callback,
+            )
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
+        if failed_encodings:
+            ds.update_findings(
+                (filename, "", 0, status_code.value) for filename, status_code in failed_encodings.items()
+            )
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
@@ -88,25 +98,22 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    chunk_id: int,
+    start: int,
+    end: int,
     config: dict[str, Any],
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
-    chunk = DeduplicationChunk.objects.get(pk=chunk_id)
     try:
         callback = partial(notify_status, task=self)
         ignored_pairs = set(ds.get_ignored_pairs())
-        results = dedupe_images(
-            chunk.pairs(),
+        return dedupe_images(
+            pairs(ds.encodings_query, start, end),
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
             progress=callback,
         )
-        chunk.ready = True
-        chunk.save(update_fields=["ready"])
-        return results
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
@@ -171,13 +178,20 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunk_ids = tuple(DeduplicationChunk.create_chunks(deduplication_set=ds, size=ChunkPurpose.DEDUPE))
-        tasks = [dedupe_chunk.s(chunk_id, config) for chunk_id in chunk_ids]
+        total_pairs = count_pairs(ds.encodings_query)
+        tasks = [
+            dedupe_chunk.s(start, end, config)
+            for start, end in calculate_chunks(
+                query=ds.encodings_query, total=total_pairs, offset=ds.total_pairs, size=ChunkPurpose.DEDUPE
+            )
+        ]
         chord_id = chord(tasks)(callback_findings.s(config=config))
+        ds.total_pairs = total_pairs
+        ds.save(update_fields=["total_pairs"])
         return {
             "deduplication_set": str(ds),
+            "chunks": len(tasks),
             "chord_id": str(chord_id),
-            "chunk_ids": chunk_ids,
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
