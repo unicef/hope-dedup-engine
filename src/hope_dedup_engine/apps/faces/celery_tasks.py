@@ -181,9 +181,7 @@ def deduplicate_dataset(
         total_pairs = count_pairs(ds.encodings_query)
         tasks = [
             dedupe_chunk.s(start, end, config)
-            for start, end in calculate_chunks(
-                query=ds.encodings_query, total=total_pairs, offset=ds.total_pairs, size=ChunkPurpose.DEDUPE
-            )
+            for start, end in calculate_chunks(total=total_pairs, offset=ds.total_pairs, size=ChunkPurpose.DEDUPE)
         ]
         chord_id = chord(tasks)(callback_findings.s(config=config))
         ds.total_pairs = total_pairs

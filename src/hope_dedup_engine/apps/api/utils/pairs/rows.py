@@ -23,7 +23,7 @@ def adjust_end(rows: list[Row], end: int) -> None:
 
 def rows_from_pair_range(start: int, end: int) -> tuple[Row, ...]:
     first_index = row_for(pair_index=start)
-    last_index = row_for(pair_index=end)
+    last_index = row_for(pair_index=end - 1)
 
     rows = [row_at(index=index) for index in range(first_index, last_index + 1)]
     adjust_start(rows, start)

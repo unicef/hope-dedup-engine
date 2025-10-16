@@ -39,7 +39,7 @@ def count_pairs(query: QuerySet[Model]) -> int:
     return count_pairs_for_row(number_of_records - 2)
 
 
-def calculate_chunks(query: QuerySet[Model], total: int, offset: int, size: int) -> Generator[tuple[int, int]]:
+def calculate_chunks(total: int, offset: int, size: int) -> Generator[tuple[int, int]]:
     for start in range(offset, total, size):
         end = min(start + size, total)
         yield start, end

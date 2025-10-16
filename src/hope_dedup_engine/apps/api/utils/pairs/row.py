@@ -14,8 +14,7 @@ def adjust_start(row: Row, start: int) -> Row:
 
 
 def adjust_end(row: Row, end: int) -> Row:
-    inverted_end = end - len(row.first_index)
-    return Row(row.index, row.first_index[:inverted_end], row.last_index)
+    return Row(row.index, row.first_index[:end], row.last_index)
 
 
 def count_pairs(index: int) -> int:
