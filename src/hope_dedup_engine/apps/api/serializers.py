@@ -74,6 +74,16 @@ class CreateImageSerializer(serializers.ModelSerializer):
         model = Image
         fields = ("reference_pk", "filename", "deduplication_set")
 
+    def get_unique_together_constraints(self, model):
+        # Here the constraint for deduplication set + reference_pk is disabled
+        # to allow the Image model to update filename if an image object with
+        # the same reference_pk is added to the deduplication set
+        for constraint in super().get_unique_together_constraints(model):
+            fields, *_ = constraint
+            if fields == ("deduplication_set", "reference_pk"):
+                continue
+            yield constraint
+
 
 class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
