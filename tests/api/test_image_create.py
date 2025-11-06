@@ -81,3 +81,20 @@ def test_deduplication_set_is_updated(
     assert response.status_code == status.HTTP_201_CREATED
     deduplication_set.refresh_from_db()
     assert deduplication_set.updated_by == user
+
+
+def test_image_with_same_reference_pk_is_updated(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    image = ImageFactory.create(deduplication_set=deduplication_set)
+
+    data = ImageSerializer(image).data
+    new_filename = "new_filename.jpg"
+    data["filename"] = new_filename
+    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+
+    assert response.status_code == status.HTTP_201_CREATED
+    image.refresh_from_db()
+    assert image.filename == new_filename
+    assert Image.objects.count() == 1

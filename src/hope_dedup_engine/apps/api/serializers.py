@@ -1,3 +1,4 @@
+from itertools import filterfalse
 from typing import Any
 
 from rest_framework import serializers
@@ -61,6 +62,11 @@ class ImageSerializer(serializers.ModelSerializer):
         read_only_fields = "created_by", "created_at"
 
 
+def is_deduplication_set_reference_pk_constraint(constraint) -> bool:
+    fields, *_ = constraint
+    return fields == ("deduplication_set", "reference_pk")
+
+
 class CreateImageSerializer(serializers.ModelSerializer):
     deduplication_set = serializers.PrimaryKeyRelatedField(
         queryset=DeduplicationSet.objects.all(),
@@ -73,6 +79,14 @@ class CreateImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
         fields = ("reference_pk", "filename", "deduplication_set")
+
+    def get_unique_together_constraints(self, model):
+        # Here the constraint for deduplication set + reference_pk is disabled
+        # to allow the Image model to update filename if an image object with
+        # the same reference_pk is added to the deduplication set
+        yield from filterfalse(
+            is_deduplication_set_reference_pk_constraint, super().get_unique_together_constraints(model)
+        )
 
 
 class EntrySerializer(serializers.Serializer):

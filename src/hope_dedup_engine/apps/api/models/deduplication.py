@@ -123,6 +123,17 @@ class DeduplicationSet(models.Model):
         self.save(update_fields=["state", "error"])
 
 
+class ImageManager(models.Manager["Image"]):
+    def create(self, **kwargs: Any) -> "Image":
+        """We override this method to make image creation idempotent."""
+        deduplication_set = kwargs.pop("deduplication_set")
+        reference_pk = kwargs.pop("reference_pk")
+        image, _ = self.update_or_create(
+            deduplication_set=deduplication_set, reference_pk=reference_pk, defaults=kwargs
+        )
+        return image
+
+
 class Image(models.Model):
     """# TODO: Rename to Entity/Entry. Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
 
@@ -145,10 +156,15 @@ class Image(models.Model):
         related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    objects = ImageManager()
 
     class Meta:
         indexes = [
             models.Index(fields=["deduplication_set", "filename"]),
+        ]
+        unique_together = [
+            # Here we assume reference_pk is unique per deduplication set
+            ("deduplication_set", "reference_pk"),
         ]
 
     def __str__(self) -> str:
