@@ -100,7 +100,6 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
     mocker.patch.object(ds, "update_encodings")
 
     def encode_side_effect(*args, **kwargs):
-        kwargs["progress"]()
         return {"file1.jpg": [1.0]}, 1, 0
 
     mock_encode_faces.side_effect = encode_side_effect
@@ -109,7 +108,6 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
 
     mock_encode_faces.assert_called_once()
     ds.update_encodings.assert_called_once_with({"file1.jpg": [1.0]})
-    mock_notify.assert_called()
 
 
 @pytest.mark.django_db
@@ -137,7 +135,6 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     mocker.patch.object(ds, "get_ignored_pairs", return_value=set())
 
     def dedupe_side_effect(*args, **kwargs):
-        kwargs["progress"]()
         return "findings"
 
     mock_dedupe_images.side_effect = dedupe_side_effect
@@ -145,7 +142,6 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     result = dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
 
     assert result == "findings"
-    mock_notify.assert_called()
 
 
 @pytest.mark.django_db

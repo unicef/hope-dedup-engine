@@ -1,5 +1,4 @@
 import copy
-from unittest.mock import Mock
 
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
@@ -54,7 +53,7 @@ def test_encode_faces_success(mock_deepface, mock_storage):
     encoded, added, existing = encode_faces(files, process_encoding_error=lambda *_: None)
 
     assert added == 2
-    assert existing == 1000  # Based on hardcoded value in function
+    assert existing == 0
     assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
     assert mock_deepface.represent.call_count == 2
 
@@ -69,20 +68,9 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
     encoded, added, existing = encode_faces(files, pre_encodings=pre_encodings, process_encoding_error={}.__setitem__)
 
     assert added == 1
-    assert existing == 1001
+    assert existing == 1
     assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
     mock_deepface.represent.assert_called_once_with("image_data", max_faces=2, enforce_detection=False)
-
-
-@pytest.mark.django_db
-def test_encode_faces_progress_callback(mock_deepface, mock_storage):
-    """Test that the progress callback is called for each file."""
-    files = ["file1.jpg", "file2.jpg"]
-    mock_deepface.represent.return_value = [{"embedding": [1.0], "face_confidence": 0.1}]
-    progress_mock = Mock()
-
-    encode_faces(files, progress=progress_mock, process_encoding_error={}.__setitem__)
-    assert progress_mock.call_count == len(files)
 
 
 @pytest.mark.django_db
