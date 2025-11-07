@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0034_finding_finding_first_ref_idx_and_more"),
+        ("api", "0035_alter_image_unique_together"),
     ]
 
     operations = [
