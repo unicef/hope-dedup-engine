@@ -170,17 +170,15 @@ class ListDataWrapper:
 
 
 class WrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
-        request = super().initialize_request(request, *args, **kwargs)
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        super().initial(request, *args, **kwargs)
         request._full_data = ListDataWrapper(request.data)
-        return request
 
 
 class UnwrapRequestDataMixin:
-    def initialize_request(self, request: Request, *args: Any, **kwargs: Any) -> Request:
-        request = super().initialize_request(request, *args, **kwargs)
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        super().initial(request, *args, **kwargs)
         request._full_data = request._full_data.data
-        return request
 
 
 # drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
