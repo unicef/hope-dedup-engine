@@ -22,11 +22,7 @@ def encode_faces(
     process_encoding_error: Callable[[str, Image.StatusCode], None],
     options=None,
     pre_encodings=None,
-    progress=None,
 ) -> tuple[EncodingType, int, int]:
-    if not callable(progress):
-        progress = default_progress
-
     with report_long_execution("ImagesStorageManager()"):
         storage = ImagesStorageManager()
 
@@ -35,10 +31,7 @@ def encode_faces(
         with report_long_execution("encoded.update(pre_encodings)"):
             encoded.update(pre_encodings)
     added_cnt = existing_cnt = 0
-    existing_cnt = 1000
     for file in files:
-        with report_long_execution("progress()"):
-            progress()
         if file in encoded:
             existing_cnt += 1
             continue
@@ -72,7 +65,6 @@ def dedupe_images(  # noqa 901
     ignored_pairs: IgnoredPairType,
     dedupe_threshold: float,
     options: dict[str, Any] | None = None,
-    progress=None,
 ) -> FindingType:
     config = options or {}
     results: FindingType = []

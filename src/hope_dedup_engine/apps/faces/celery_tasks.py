@@ -1,6 +1,5 @@
 import traceback
 from enum import IntEnum
-from functools import partial
 from itertools import batched
 from typing import TYPE_CHECKING, Any, Iterable
 
@@ -74,14 +73,12 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
         failed_encodings: dict[str, Image.StatusCode] = {}
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
             results = encode_faces(
                 files,
                 process_encoding_error=failed_encodings.__setitem__,
                 options=config.get("encoding"),
-                progress=callback,
             )
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
@@ -105,14 +102,12 @@ def dedupe_chunk(
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
         ignored_pairs = set(ds.get_ignored_pairs())
         return dedupe_images(
             pairs(ds.encodings_query, start, end),
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
-            progress=callback,
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
