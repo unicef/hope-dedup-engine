@@ -105,7 +105,7 @@ class AzuriteManager:  # pragma: no cover
             logger.warning(message, self.container_client.container_name)
             return [message % self.container_client.container_name]
 
-        files = [f for f in images_src_path.glob("*.*") if f.is_file()]
+        files = [f for f in images_src_path.glob("**/*.*") if f.is_file()]
         results: list[str] = []
         with ThreadPoolExecutor(max_workers=batch_size) as executor:
             futures = {executor.submit(self._upload_file, f): f for f in files}

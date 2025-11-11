@@ -1,24 +1,21 @@
 import traceback
-from itertools import combinations_with_replacement
-
-import sentry_sdk
-from functools import partial
-from typing import TYPE_CHECKING, Any, Iterable
 from enum import IntEnum
 from itertools import batched
+from typing import TYPE_CHECKING, Any, Iterable
 
+import sentry_sdk
 from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
 from hope_dedup_engine.apps.api.utils.notification import send_notification
+from hope_dedup_engine.apps.api.utils.pairs.query import calculate_chunks, pairs, count_pairs
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
 from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
 from hope_dedup_engine.type_aliases import FindingType
-
 
 if TYPE_CHECKING:
     from celery.canvas import Signature
@@ -76,11 +73,19 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
+        failed_encodings: dict[str, Image.StatusCode] = {}
         with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), progress=callback)
+            results = encode_faces(
+                files,
+                process_encoding_error=failed_encodings.__setitem__,
+                options=config.get("encoding"),
+            )
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
+        if failed_encodings:
+            ds.update_findings(
+                (filename, "", 0, status_code.value) for filename, status_code in failed_encodings.items()
+            )
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
@@ -90,24 +95,19 @@ def encode_chunk(
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    files0: list[str],
-    files1: list[str],
+    start: int,
+    end: int,
     config: dict[str, Any],
 ) -> FindingType:
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
-        encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
         return dedupe_images(
-            files0,
-            files1,
-            encoded,
+            pairs(ds.encodings_query, start, end),
             ignored_pairs,
             dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
             options=config.get("deduplicate"),
-            progress=callback,
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -173,13 +173,18 @@ def deduplicate_dataset(
     """Deduplicate the dataset."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
-        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations_with_replacement(chunks, 2)]
+        total_pairs = count_pairs(ds.encodings_query)
+        tasks = [
+            dedupe_chunk.s(start, end, config)
+            for start, end in calculate_chunks(total=total_pairs, offset=ds.total_pairs, size=ChunkPurpose.DEDUPE)
+        ]
         chord_id = chord(tasks)(callback_findings.s(config=config))
+        ds.total_pairs = total_pairs
+        ds.save(update_fields=["total_pairs"])
         return {
             "deduplication_set": str(ds),
+            "chunks": len(tasks),
             "chord_id": str(chord_id),
-            "chunks": len(chunks),
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
