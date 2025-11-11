@@ -14,8 +14,6 @@ here = Path(__file__).parent
 sys.path.insert(0, str(here / "../src"))
 sys.path.insert(0, str(here / "extras"))
 
-from testutils.factories.api import EncodingFactory  # noqa: E402
-
 
 def pytest_configure(config):
     os.environ.update(DJANGO_SETTINGS_MODULE="hope_dedup_engine.config.settings")
@@ -78,29 +76,16 @@ def complex_deduplication_data():
     """Provide sample data for a complex deduplication scenario."""
     from hope_dedup_engine.apps.api.models import Image  # noqa: PLC0415
 
-    encodings = (
-        EncodingFactory(filename="f1.jpg", embedding=[1.0]),
-        EncodingFactory(filename="f2.jpg", embedding=[1.01]),  # duplicate with f1
-        EncodingFactory(filename="f3.jpg", embedding=[2.0]),  # not a duplicate with anyone
-        EncodingFactory(
-            filename="f4.jpg", embedding=None, status_code=Image.StatusCode.NO_FACE_DETECTED.value
-        ),  # error
-        EncodingFactory(filename="f5.jpg", embedding=[1.02]),  # ignored with f1
-    )
-
     return {
-        "encoding_pairs": (
-            (encodings[0], encodings[1]),
-            (encodings[0], encodings[2]),
-            (encodings[1], encodings[2]),
-            (encodings[0], encodings[3]),
-            (encodings[1], encodings[3]),
-            (encodings[2], encodings[3]),
-            (encodings[0], encodings[4]),
-            (encodings[1], encodings[4]),
-            (encodings[2], encodings[4]),
-            (encodings[3], encodings[4]),
-        ),
+        "files0": (files := ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"]),
+        "files1": files,
+        "encodings": {
+            "f1.jpg": [1.0],  # duplicate with f2
+            "f2.jpg": [1.01],
+            "f3.jpg": [2.0],  # not a duplicate with anyone
+            "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.value,  # error
+            "f5.jpg": [1.02],  # ignored with f1
+        },
         "ignored_pairs": {("f1.jpg", "f5.jpg")},
         "dedupe_threshold": 0.9,
     }

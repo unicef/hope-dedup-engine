@@ -3,6 +3,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 import sentry_sdk
@@ -10,7 +11,7 @@ from celery import chord, shared_task
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Finding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
@@ -68,8 +69,13 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
 
         config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
 
+        # clean results
+        Finding.objects.filter(deduplication_set=deduplication_set).delete()
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
+
+        weight_total = 1
+        deduplication_set.finding_set.update(score=F("score") / weight_total)
 
         filenames = deduplication_set.filenames_without_encodings()
         chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
