@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 import traceback
-from typing import Any, Final, override, TYPE_CHECKING
+from typing import Any, Final, override
 from uuid import uuid4
 
 from django.conf import settings
@@ -11,9 +9,7 @@ from django.db import models
 from django.db.models import Exists, OuterRef, Q
 
 from hope_dedup_engine.apps.security.models import System
-
-if TYPE_CHECKING:
-    from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
+from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -58,14 +54,17 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
-    total_pairs = models.IntegerField(default=0)
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    @property
-    def encodings_query(self) -> models.QuerySet[Encoding]:
-        return Encoding.objects.filter(filename__in=self.image_set.values_list("filename", flat=True)).order_by("id")
+    def get_encodings(self) -> EncodingType:
+        return {
+            fn: (emb if emb is not None else sc)
+            for fn, emb, sc in Encoding.objects.filter(
+                filename__in=self.image_set.values_list("filename", flat=True)
+            ).values_list("filename", "embedding", "status_code")
+        }
 
     def filenames_without_encodings(self) -> list[str]:
         enc_facial_errors = Encoding.objects.filter(filename=OuterRef("filename")).filter(

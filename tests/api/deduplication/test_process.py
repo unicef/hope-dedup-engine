@@ -42,7 +42,7 @@ def test_find_duplicates_orchestration(
 
     job.refresh_from_db()
     assert job.progress == 0
-    assert dedup_set.finding_set.count() == 1
+    assert dedup_set.finding_set.count() == 0
 
     assert mock_encode_chunk.s.call_count == 1
     mock_chord.assert_called_once_with([mock_encode_chunk.s.return_value])

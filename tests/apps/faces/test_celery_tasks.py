@@ -3,10 +3,8 @@ from enum import IntEnum
 import pytest
 from celery import states
 from celery.canvas import Signature
-from django.db.models import QuerySet
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
-from hope_dedup_engine.apps.api.utils.pairs.row import row_for
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
@@ -96,10 +94,11 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
     """Test encode_chunk successfully encodes faces and updates the dataset."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(DeduplicationSet, "encodings_query", new_callable=mocker.PropertyMock, return_value=[])
+    mocker.patch.object(ds, "get_encodings", return_value={})
     mocker.patch.object(ds, "update_encodings")
 
     def encode_side_effect(*args, **kwargs):
+        kwargs["progress"]()
         return {"file1.jpg": [1.0]}, 1, 0
 
     mock_encode_faces.side_effect = encode_side_effect
@@ -108,6 +107,7 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
 
     mock_encode_faces.assert_called_once()
     ds.update_encodings.assert_called_once_with({"file1.jpg": [1.0]})
+    mock_notify.assert_called()
 
 
 @pytest.mark.django_db
@@ -131,10 +131,11 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     """Test dedupe_chunk successfully finds duplicates."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(DeduplicationSet, "encodings_query", new_callable=mocker.PropertyMock, return_value=[])
+    mocker.patch.object(ds, "get_encodings", return_value={})
     mocker.patch.object(ds, "get_ignored_pairs", return_value=set())
 
     def dedupe_side_effect(*args, **kwargs):
+        kwargs["progress"]()
         return "findings"
 
     mock_dedupe_images.side_effect = dedupe_side_effect
@@ -142,6 +143,7 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     result = dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
 
     assert result == "findings"
+    mock_notify.assert_called()
 
 
 @pytest.mark.django_db
@@ -214,11 +216,7 @@ def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job
     """Test deduplicate_dataset creates a chord of deduplication tasks."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    queryset_mock = Mock(spec=QuerySet)
-    queryset_mock.count.return_value = 3
-    mocker.patch.object(
-        DeduplicationSet, "encodings_query", new_callable=mocker.PropertyMock, return_value=queryset_mock
-    )
+    mocker.patch.object(ds, "get_encodings", return_value={"f1": [1], "f2": [2], "f3": [3]})
     result = deduplicate_dataset({"deduplication_set_id": ds.pk})
     assert result["chunks"] == 1
     mock_chord.assert_called_once()
@@ -231,7 +229,7 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     """Test deduplicate_dataset with enough encodings to create multiple chunks."""
     chunks = 3
     chunk_size = 2
-    filenames_count = row_for(chunks * chunk_size - 1) + 2
+    filenames_count = 2 * chunk_size + 1
 
     class _P(IntEnum):
         DEDUPE = chunk_size
@@ -239,18 +237,15 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.ChunkPurpose", _P)
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    queryset_mock = Mock(spec=QuerySet)
-    queryset_mock.count.return_value = filenames_count
-    mocker.patch.object(
-        DeduplicationSet, "encodings_query", new_callable=mocker.PropertyMock, return_value=queryset_mock
-    )
+    encodings = {f"f{i}": [i] for i in range(filenames_count)}
+    mocker.patch.object(ds, "get_encodings", return_value=encodings)
 
     result = deduplicate_dataset({"deduplication_set_id": ds.pk})
 
     assert result["chunks"] == chunks
     mock_chord.assert_called_once()
     header = mock_chord.call_args[0][0]
-    assert len(header) == chunks
+    assert len(header) == chunk_size * chunks
 
 
 @patch("hope_dedup_engine.apps.faces.celery_tasks.FileSyncManager")
