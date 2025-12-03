@@ -1,7 +1,7 @@
 from django.contrib.admin import ModelAdmin, register
 
 from adminfilters.autocomplete import AutoCompleteFilter
-from adminfilters.dates import DateRangeFilter
+from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
 
@@ -19,7 +19,7 @@ class ImageAdmin(AdminFiltersMixin, ModelAdmin):
 
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
-        ("created_at", DateRangeFilter),
+        ("created_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
 
