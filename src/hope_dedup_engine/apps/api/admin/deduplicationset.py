@@ -2,7 +2,7 @@ from django.contrib.admin import ModelAdmin, register
 
 from admin_extra_buttons.decorators import button, link
 from admin_extra_buttons.mixins import ExtraButtonsMixin
-from adminfilters.dates import DateRangeFilter
+from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
 from django.db.models import QuerySet
@@ -37,8 +37,8 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     search_fields = ("name", "id")
     list_filter = (
         ("state", ChoicesFieldComboFilter),
-        ("created_at", DateRangeFilter),
-        ("updated_at", DateRangeFilter),
+        ("created_at", DateInDateRangeFilter),
+        ("updated_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
 
