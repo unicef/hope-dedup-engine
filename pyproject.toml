@@ -23,7 +23,7 @@ dependencies = [
   "celery[redis]",
   "celery-types",
   "deepface",
-  "django",
+  "django<6",
   "django-admin-extra-buttons",
   "django-adminactions",
   "django-adminfilters",
