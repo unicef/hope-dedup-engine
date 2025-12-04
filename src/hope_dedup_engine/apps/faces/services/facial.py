@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from collections import defaultdict
 from typing import Any
 
@@ -18,13 +19,10 @@ def default_progress(*args):
 
 def encode_faces(  # noqa 901
     files: list[str],
+    process_encoding_error: Callable[[str, Image.StatusCode], None],
     config: dict[str, Any] | None = None,
     pre_encodings=None,
-    progress=None,
 ) -> tuple[EncodingType, int, int]:
-    if not callable(progress):
-        progress = default_progress
-
     with report_long_execution("ImagesStorageManager()"):
         storage = ImagesStorageManager()
 
@@ -33,14 +31,10 @@ def encode_faces(  # noqa 901
         with report_long_execution("encoded.update(pre_encodings)"):
             encoded.update(pre_encodings)
     added_cnt = existing_cnt = 0
-    existing_cnt = 1000
 
     options = config.get("encoding") if config else {}
-    confidence_threshold = config.get("face_confidence_threshold") if config else None
 
     for file in files:
-        with report_long_execution("progress()"):
-            progress()
         if file in encoded:
             existing_cnt += 1
             continue
@@ -48,30 +42,32 @@ def encode_faces(  # noqa 901
             with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
                 result = DeepFace.represent(storage.load_image(file), **(options or {}))
 
-            if not result:
-                encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
-                continue
-            if len(result) > 1:
-                encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
-                continue
+            face_confidence = float(result[0]["face_confidence"])
+            threshold = config.get("face_confidence_threshold", 0.0)
+            match (len(result), face_confidence):
+                case (l, _) if l > 1:
+                    encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
+                    process_encoding_error(file, Image.StatusCode.MULTIPLE_FACES_DETECTED)
 
-            face_obj = result[0]
-            if confidence_threshold is not None:
-                face_confidence = face_obj.get("face_confidence")
-                if isinstance(face_confidence, (int | float)) and face_confidence < confidence_threshold:
+                case (_, fc) if fc == 0.0:
+                    encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+                    process_encoding_error(file, Image.StatusCode.NO_FACE_DETECTED)
+
+                case (_, fc) if 0.0 < fc <= 1.0 and fc < threshold:
                     encoded[file] = Image.StatusCode.NO_FACE_ACCEPTED.value
-                    continue
+                    process_encoding_error(file, Image.StatusCode.NO_FACE_ACCEPTED)
 
-            encoded[file] = face_obj["embedding"]
-            added_cnt += 1
+                case _:
+                    encoded[file] = result[0]["embedding"]
+                    added_cnt += 1
 
         except TypeError as e:
             logger.exception(e)
             encoded[file] = Image.StatusCode.GENERIC_ERROR.value
-        except ValueError:
-            encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+            process_encoding_error(file, Image.StatusCode.GENERIC_ERROR)
         except ResourceNotFoundError:
             encoded[file] = Image.StatusCode.NO_FILE_FOUND.value
+            process_encoding_error(file, Image.StatusCode.NO_FILE_FOUND)
 
     return encoded, added_cnt, existing_cnt
 
@@ -82,16 +78,11 @@ def dedupe_images(  # noqa 901
     encodings: EncodingType,
     ignored_pairs: IgnoredPairType,
     config: dict[str, Any] | None = None,
-    progress=None,
 ) -> FindingType:
-    if not callable(progress):
-        progress = default_progress
-
     findings = defaultdict(list)
     options = config.get("deduplicate") if config else {}
 
     for i, file1 in enumerate(files0):
-        progress()
         enc1 = encodings[file1]
         if is_facial_error(enc1):
             findings[file1].append([enc1, None])
@@ -113,8 +104,7 @@ def dedupe_images(  # noqa 901
             ):
                 continue
             res = DeepFace.verify(enc1, enc2, **options)
-            confidence = res.get("confidence", 0)
-            if confidence >= config.get("duplicate_confidence_threshold", 0):
+            if (confidence := res.get("confidence", 0)) >= config.get("duplicate_confidence_threshold", 0):
                 findings[file1].append([file2, confidence / 100])
 
     results: FindingType = []

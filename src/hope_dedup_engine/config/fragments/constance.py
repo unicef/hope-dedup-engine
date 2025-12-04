@@ -24,15 +24,15 @@ CONSTANCE_CONFIG = {
         "The effective range and typical values depend on the selected DETECTOR_BACKEND. "
         "Higher values keep only strong, well-localised faces; lower values also allow more uncertain "
         "or partially visible faces to pass.",
-        float,
+        "bounded_confidence_0_1",
     ),
     "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD": (
-        60.0,
-        "Threshold on the face match confidence score (0..100). "
+        0.5,
+        "Threshold on the face match confidence score (0..1). "
         "Only pairs with confidence at or above this value are treated as duplicates. "
         "Raising the threshold makes matching stricter (fewer false duplicates but more missed ones); "
         "lowering it makes matching more permissive (more potential duplicates and more false matches).",
-        float,
+        "bounded_confidence_0_1",
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
@@ -73,6 +73,13 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     "email": [
         "django.forms.EmailField",
         {},
+    ],
+    "bounded_confidence_0_1": [
+        "django.forms.FloatField",
+        {
+            "min_value": 0.0,
+            "max_value": 1.0,
+        },
     ],
     "recognition_model": [
         "django.forms.ChoiceField",

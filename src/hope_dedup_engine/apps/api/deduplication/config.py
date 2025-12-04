@@ -20,7 +20,9 @@ class ModelOptions:
 
 
 @dataclass
-class EncodingOptions(ModelOptions): ...
+class EncodingOptions(ModelOptions):
+    max_faces: int = 2  # Maximum number of faces to detect and encode per image
+    enforce_detection: bool = False  #  # Don't raise exception if no face detected
 
 
 @dataclass
@@ -38,8 +40,8 @@ class DeduplicationSetConfig:
         default_factory=lambda: constance_cfg.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD
     )
     duplicate_confidence_threshold: float = field(
-        default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD
-    )
+        default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD * 100
+    )  # Normalized to 0..100 range
 
     def update(self, overrides: dict[str, Any]) -> None:
         if not isinstance(overrides, dict):
