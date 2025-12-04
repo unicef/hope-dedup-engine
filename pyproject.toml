@@ -45,7 +45,6 @@ dependencies = [
   "drf-nested-routers",
   "drf-spectacular[sidecar]",
   "flower",
-  "jsonschema",
   "numpy<2",
   "psycopg[binary]",
   "psycopg-pool",
