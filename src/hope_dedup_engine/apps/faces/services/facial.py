@@ -4,7 +4,6 @@ from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
-
 from hope_dedup_engine.apps.api.models import Image
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
@@ -17,9 +16,9 @@ def default_progress(*args):
     return True
 
 
-def encode_faces(
+def encode_faces(  # noqa 901
     files: list[str],
-    options=None,
+    config: dict[str, Any] | None = None,
     pre_encodings=None,
     progress=None,
 ) -> tuple[EncodingType, int, int]:
@@ -35,6 +34,10 @@ def encode_faces(
             encoded.update(pre_encodings)
     added_cnt = existing_cnt = 0
     existing_cnt = 1000
+
+    options = config.get("encoding") if config else {}
+    confidence_threshold = config.get("face_confidence_threshold") if config else None
+
     for file in files:
         with report_long_execution("progress()"):
             progress()
@@ -44,11 +47,24 @@ def encode_faces(
         try:
             with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
                 result = DeepFace.represent(storage.load_image(file), **(options or {}))
+
+            if not result:
+                encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
+                continue
             if len(result) > 1:
                 encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
-            else:
-                encoded[file] = result[0]["embedding"]
-                added_cnt += 1
+                continue
+
+            face_obj = result[0]
+            if confidence_threshold is not None:
+                face_confidence = face_obj.get("face_confidence")
+                if isinstance(face_confidence, (int | float)) and face_confidence < confidence_threshold:
+                    encoded[file] = Image.StatusCode.NO_FACE_ACCEPTED.value
+                    continue
+
+            encoded[file] = face_obj["embedding"]
+            added_cnt += 1
+
         except TypeError as e:
             logger.exception(e)
             encoded[file] = Image.StatusCode.GENERIC_ERROR.value
@@ -65,15 +81,14 @@ def dedupe_images(  # noqa 901
     files1: list[str],
     encodings: EncodingType,
     ignored_pairs: IgnoredPairType,
-    dedupe_threshold: float,
-    options: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
     progress=None,
 ) -> FindingType:
     if not callable(progress):
         progress = default_progress
 
     findings = defaultdict(list)
-    config = options or {}
+    options = config.get("deduplicate") if config else {}
 
     for i, file1 in enumerate(files0):
         progress()
@@ -97,10 +112,10 @@ def dedupe_images(  # noqa 901
                 or any(file2 == dup[0] for dup in findings.get(file1, []))
             ):
                 continue
-            res = DeepFace.verify(enc1, enc2, **config)
-            similarity = float(1 - res["distance"])
-            if similarity >= dedupe_threshold:
-                findings[file1].append([file2, similarity])
+            res = DeepFace.verify(enc1, enc2, **options)
+            confidence = res.get("confidence", 0)
+            if confidence >= config.get("duplicate_confidence_threshold", 0):
+                findings[file1].append([file2, confidence / 100])
 
     results: FindingType = []
 

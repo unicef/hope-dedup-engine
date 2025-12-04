@@ -55,6 +55,7 @@ dependencies = [
   "social-auth-app-django",
   "social-auth-core",
   "tf-keras",
+  "ultralytics",
   "unicef-security",
 ]
 

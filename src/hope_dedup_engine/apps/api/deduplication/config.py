@@ -9,8 +9,9 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 @dataclass
 class ModelOptions:
-    model_name: str = field(default_factory=lambda: constance_cfg.FACE_RECOGNITION_MODEL)
-    detector_backend: str = field(default_factory=lambda: constance_cfg.FACE_DETECTOR_BACKEND)
+    model_name: str = field(default_factory=lambda: constance_cfg.DEFAULT_RECOGNITION_MODEL)
+    detector_backend: str = field(default_factory=lambda: constance_cfg.DEFAULT_DETECTOR_BACKEND)
+    align: bool = True  # Flag to enable face alignment
 
     def update(self, overrides: dict[str, Any]) -> None:
         for k, v in overrides.items():
@@ -19,14 +20,13 @@ class ModelOptions:
 
 
 @dataclass
-class EncodingOptions(ModelOptions):
-    pass
+class EncodingOptions(ModelOptions): ...
 
 
 @dataclass
 class DeduplicateOptions(ModelOptions):
-    threshold: float = field(default_factory=lambda: constance_cfg.FACE_DISTANCE_THRESHOLD)
-    silent: bool = True
+    distance_metric: str = field(default_factory=lambda: constance_cfg.DEFAULT_DISTANCE_METRIC)
+    silent: bool = True  # Suppress or allow some log messages for a quieter analysis process
 
 
 @dataclass
@@ -34,6 +34,12 @@ class DeduplicationSetConfig:
     deduplication_set_id: UUID | None = None
     encoding: EncodingOptions = field(default_factory=EncodingOptions)
     deduplicate: DeduplicateOptions = field(default_factory=DeduplicateOptions)
+    face_confidence_threshold: float = field(
+        default_factory=lambda: constance_cfg.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD
+    )
+    duplicate_confidence_threshold: float = field(
+        default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD
+    )
 
     def update(self, overrides: dict[str, Any]) -> None:
         if not isinstance(overrides, dict):

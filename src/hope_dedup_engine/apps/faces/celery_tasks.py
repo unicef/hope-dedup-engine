@@ -77,8 +77,8 @@ def encode_chunk(
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
         callback = partial(notify_status, task=self)
-        with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), progress=callback)
+        with report_long_execution("encode_faces(files, config, pre_encodings, progress=callback)"):
+            results = encode_faces(files, config, progress=callback)
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
     except Exception as e:
@@ -105,8 +105,7 @@ def dedupe_chunk(
             files1,
             encoded,
             ignored_pairs,
-            dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
-            options=config.get("deduplicate"),
+            config=config,
             progress=callback,
         )
     except Exception as e:
@@ -137,7 +136,7 @@ def callback_findings(
 
         return {
             "Files": ds.image_set.count(),
-            "Config": config.get("deduplicate"),
+            "Config": config,
             "Findings": len(findings),
         }
     except Exception as e:
