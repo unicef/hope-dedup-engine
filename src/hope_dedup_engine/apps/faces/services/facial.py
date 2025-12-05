@@ -13,10 +13,6 @@ from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPai
 logger = logging.getLogger(__name__)
 
 
-def default_progress(*args):
-    return True
-
-
 def encode_faces(  # noqa 901
     files: list[str],
     process_encoding_error: Callable[[str, Image.StatusCode], None],
@@ -43,7 +39,7 @@ def encode_faces(  # noqa 901
                 result = DeepFace.represent(storage.load_image(file), **(options or {}))
 
             face_confidence = float(result[0]["face_confidence"])
-            threshold = config.get("face_confidence_threshold", 0.0)
+            threshold = config.get("face_confidence_threshold", 0.0) if config else 0.0
             match (len(result), face_confidence):
                 case (l, _) if l > 1:
                     encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value

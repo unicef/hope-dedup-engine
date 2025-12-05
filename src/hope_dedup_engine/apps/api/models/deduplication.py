@@ -173,7 +173,11 @@ class Image(models.Model):
 
 
 class ImageErrorGroup:
-    FACE_DETECT = (Image.StatusCode.NO_FACE_DETECTED, Image.StatusCode.MULTIPLE_FACES_DETECTED)
+    FACE_DETECT = (
+        Image.StatusCode.NO_FACE_ACCEPTED,
+        Image.StatusCode.NO_FACE_DETECTED,
+        Image.StatusCode.MULTIPLE_FACES_DETECTED,
+    )
     SYSTEM = (Image.StatusCode.NO_FILE_FOUND, Image.StatusCode.GENERIC_ERROR)
 
 

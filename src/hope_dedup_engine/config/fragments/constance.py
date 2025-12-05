@@ -89,7 +89,8 @@ CONSTANCE_ADDITIONAL_FIELDS = {
                 ("Facenet", "FaceNet 128D"),
                 ("VGG-Face", "VGG-Face"),
                 ("ArcFace", "ArcFace"),
-                ("DeepFace", "DeepFace"),
+                # ("DeepFace", "DeepFace") Deepface model is commented out due to compatibility issues with TensorFlow
+                # versions. Requires LocallyConnected2D but it is no longer supported after tf 2.12 but you have 2.19.
                 ("OpenFace", "OpenFace"),
                 ("DeepID", "DeepID"),
                 ("Dlib", "Dlib"),

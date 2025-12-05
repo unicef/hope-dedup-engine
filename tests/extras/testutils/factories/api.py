@@ -73,6 +73,7 @@ class EncodingFactory(DjangoModelFactory):
                 [
                     Image.StatusCode.NO_FACE_DETECTED.value,
                     Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                    Image.StatusCode.NO_FACE_ACCEPTED.value,
                 ]
             ),
         )
