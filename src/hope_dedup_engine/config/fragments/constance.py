@@ -3,25 +3,36 @@ from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
 CONSTANCE_CONFIG = {
-    "FACE_RECOGNITION_MODEL": (
-        "VGG-Face",
+    "DEFAULT_RECOGNITION_MODEL": (
+        "Facenet512",
         "Specifies the face recognition model to be used for encoding face landmarks.",
-        "face_recognition_models",
+        "recognition_model",
     ),
-    "FACE_DETECTOR_BACKEND": (
+    "DEFAULT_DETECTOR_BACKEND": (
         "retinaface",
         "Specifies the face detector backend to be used for detecting faces in images.",
-        "face_detector_backend",
+        "detector_backend",
     ),
-    "FACE_DISTANCE_THRESHOLD": (
-        0.4,
-        """
-        Specifies the maximum allowable distance between two face embeddings for them to be considered a match.
-        This tolerance threshold is crucial for assessing whether two faces belong to the same individual,
-        as it establishes the similarity limit. Lower values result in stricter matching, while higher values allow
-        for more lenient matches.
-        """,
-        float,
+    "DEFAULT_DISTANCE_METRIC": (
+        "cosine",
+        "Metric for measuring similarity.",
+        "distance_metric",
+    ),
+    "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD": (
+        0.90,
+        "Minimum confidence score (0..1) required for a detected face to be accepted. "
+        "The effective range and typical values depend on the selected DETECTOR_BACKEND. "
+        "Higher values keep only strong, well-localised faces; lower values also allow more uncertain "
+        "or partially visible faces to pass.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD": (
+        0.5,
+        "Threshold on the face match confidence score (0..1). "
+        "Only pairs with confidence at or above this value are treated as duplicates. "
+        "Raising the threshold makes matching stricter (fewer false duplicates but more missed ones); "
+        "lowering it makes matching more permissive (more potential duplicates and more false matches).",
+        "bounded_confidence_0_1",
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
@@ -29,16 +40,22 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
-    "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS": (1000, "Set count of allowed reference pks as query params", int),
+    "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS": (
+        1000,
+        "Set count of allowed reference pks as query params",
+        int,
+    ),
 }
 
 
 CONSTANCE_CONFIG_FIELDSETS = {
     "Face detection and recognition settings": {
         "fields": (
-            "FACE_RECOGNITION_MODEL",
-            "FACE_DETECTOR_BACKEND",
-            "FACE_DISTANCE_THRESHOLD",
+            "DEFAULT_RECOGNITION_MODEL",
+            "DEFAULT_DETECTOR_BACKEND",
+            "DEFAULT_DISTANCE_METRIC",
+            "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD",
+            "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD",
         ),
         "collapse": False,
     },
@@ -57,16 +74,65 @@ CONSTANCE_ADDITIONAL_FIELDS = {
         "django.forms.EmailField",
         {},
     ],
-    "face_recognition_models": [
-        "django.forms.ChoiceField",
+    "bounded_confidence_0_1": [
+        "django.forms.FloatField",
         {
-            "choices": (("VGG-Face", "VGG-Face"),),
+            "min_value": 0.0,
+            "max_value": 1.0,
         },
     ],
-    "face_detector_backend": [
+    "recognition_model": [
         "django.forms.ChoiceField",
         {
-            "choices": (("retinaface", "RetinaFace"),),
+            "choices": (
+                ("Facenet512", "FaceNet 512D"),
+                ("Facenet", "FaceNet 128D"),
+                ("VGG-Face", "VGG-Face"),
+                ("ArcFace", "ArcFace"),
+                # ("DeepFace", "DeepFace") Deepface model is commented out due to compatibility issues with TensorFlow
+                # versions. Requires LocallyConnected2D but it is no longer supported after tf 2.12 but you have 2.19.
+                ("OpenFace", "OpenFace"),
+                ("DeepID", "DeepID"),
+                ("Dlib", "Dlib"),
+                ("SFace", "SFace"),
+                ("GhostFaceNet", "GhostFaceNet"),
+            ),
+        },
+    ],
+    "detector_backend": [
+        "django.forms.ChoiceField",
+        {
+            "choices": (
+                ("retinaface", "RetinaFace"),
+                ("mtcnn", "MTCNN"),
+                ("ssd", "SSD"),
+                ("dlib", "Dlib"),
+                ("mediapipe", "MediaPipe"),
+                ("opencv", "OpenCV"),
+                ("yolov8n", "YOLOv8n"),
+                ("yolov8m", "YOLOv8m"),
+                ("yolov8l", "YOLOv8l"),
+                ("yolov11n", "YOLOv11n"),
+                ("yolov11s", "YOLOv11s"),
+                ("yolov11m", "YOLOv11m"),
+                ("yolov11l", "YOLOv11l"),
+                ("yolov12n", "YOLOv12n"),
+                ("yolov12s", "YOLOv12s"),
+                ("yolov12m", "YOLOv12m"),
+                ("yolov12l", "YOLOv12l"),
+                ("centerface", "CenterFace"),
+            ),
+        },
+    ],
+    "distance_metric": [
+        "django.forms.ChoiceField",
+        {
+            "choices": (
+                ("cosine", "Cosine"),
+                ("euclidean", "Euclidean"),
+                ("euclidean_l2", "Euclidean L2"),
+                ("angular", "Angular"),
+            ),
         },
     ],
 }

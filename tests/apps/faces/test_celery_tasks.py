@@ -16,6 +16,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     shadow_name,
     sync_dnn_files,
     ChunkPurpose,
+    notify_status,
 )
 
 
@@ -89,8 +90,7 @@ def test_shadow_name_error(mocker):
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.encode_faces")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.notify_status")
-def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup_set_with_job, mocker):
+def test_encode_chunk_success(mock_encode_faces, mock_get_ds, dedup_set_with_job, mocker):
     """Test encode_chunk successfully encodes faces and updates the dataset."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
@@ -98,7 +98,6 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
     mocker.patch.object(ds, "update_encodings")
 
     def encode_side_effect(*args, **kwargs):
-        kwargs["progress"]()
         return {"file1.jpg": [1.0]}, 1, 0
 
     mock_encode_faces.side_effect = encode_side_effect
@@ -107,7 +106,6 @@ def test_encode_chunk_success(mock_notify, mock_encode_faces, mock_get_ds, dedup
 
     mock_encode_faces.assert_called_once()
     ds.update_encodings.assert_called_once_with({"file1.jpg": [1.0]})
-    mock_notify.assert_called()
 
 
 @pytest.mark.django_db
@@ -126,8 +124,7 @@ def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.notify_status")
-def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedup_set_with_job, mocker):
+def test_dedupe_chunk_success(mock_dedupe_images, mock_get_ds, dedup_set_with_job, mocker):
     """Test dedupe_chunk successfully finds duplicates."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
@@ -135,7 +132,6 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     mocker.patch.object(ds, "get_ignored_pairs", return_value=set())
 
     def dedupe_side_effect(*args, **kwargs):
-        kwargs["progress"]()
         return "findings"
 
     mock_dedupe_images.side_effect = dedupe_side_effect
@@ -143,7 +139,6 @@ def test_dedupe_chunk_success(mock_notify, mock_dedupe_images, mock_get_ds, dedu
     result = dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
 
     assert result == "findings"
-    mock_notify.assert_called()
 
 
 @pytest.mark.django_db
@@ -269,3 +264,8 @@ def test_sync_dnn_files_error(mock_fsm, mock_update_state, settings):
         state=states.FAILURE,
         meta={"exc_message": "FSM Error", "traceback": ANY},
     )
+
+
+def test_notify_status_always_returns_true():
+    result = notify_status(task=None, dedup_job_id=None)
+    assert result is True

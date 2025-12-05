@@ -3,7 +3,6 @@ from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
-from django.db.models import F
 from django.utils import timezone
 
 import sentry_sdk
@@ -73,9 +72,6 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         Finding.objects.filter(deduplication_set=deduplication_set).delete()
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
-
-        weight_total = 1
-        deduplication_set.finding_set.update(score=F("score") / weight_total)
 
         filenames = deduplication_set.filenames_without_encodings()
         chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)

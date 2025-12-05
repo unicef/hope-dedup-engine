@@ -2,7 +2,6 @@ import traceback
 from itertools import combinations_with_replacement
 
 import sentry_sdk
-from functools import partial
 from typing import TYPE_CHECKING, Any, Iterable
 from enum import IntEnum
 from itertools import batched
@@ -11,7 +10,7 @@ from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
@@ -76,11 +75,20 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
-        with report_long_execution('encode_faces(files, config.get("encoding"), pre_encodings, progress=callback)'):
-            results = encode_faces(files, config.get("encoding"), progress=callback)
+        failed_encodings: dict[str, Image.StatusCode] = {}
+        with report_long_execution("encode_faces(files, config, pre_encodings, progress=callback)"):
+            results = encode_faces(
+                files,
+                process_encoding_error=failed_encodings.__setitem__,
+                config=config,
+            )
+
         with report_long_execution("ds.update_encodings(results[0])"):
             ds.update_encodings(results[0])
+        if failed_encodings:
+            ds.update_findings(
+                (filename, "", 0, status_code.value) for filename, status_code in failed_encodings.items()
+            )
     except Exception as e:
         sentry_sdk.capture_exception(e)
         finish_with_error(ds, e)
@@ -97,7 +105,6 @@ def dedupe_chunk(
     """Deduplicate faces in a chunk of files."""
     ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        callback = partial(notify_status, task=self)
         encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
         return dedupe_images(
@@ -105,9 +112,7 @@ def dedupe_chunk(
             files1,
             encoded,
             ignored_pairs,
-            dedupe_threshold=config.get("deduplicate", {}).get("threshold"),
-            options=config.get("deduplicate"),
-            progress=callback,
+            config=config,
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -137,7 +142,7 @@ def callback_findings(
 
         return {
             "Files": ds.image_set.count(),
-            "Config": config.get("deduplicate"),
+            "Config": config,
             "Findings": len(findings),
         }
     except Exception as e:

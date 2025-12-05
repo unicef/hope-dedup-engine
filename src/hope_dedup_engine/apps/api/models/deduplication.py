@@ -141,6 +141,7 @@ class Image(models.Model):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
         NO_FILE_FOUND = 404, "no file found"
         NO_FACE_DETECTED = 412, "no face detected"
+        NO_FACE_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
@@ -172,7 +173,11 @@ class Image(models.Model):
 
 
 class ImageErrorGroup:
-    FACE_DETECT = (Image.StatusCode.NO_FACE_DETECTED, Image.StatusCode.MULTIPLE_FACES_DETECTED)
+    FACE_DETECT = (
+        Image.StatusCode.NO_FACE_ACCEPTED,
+        Image.StatusCode.NO_FACE_DETECTED,
+        Image.StatusCode.MULTIPLE_FACES_DETECTED,
+    )
     SYSTEM = (Image.StatusCode.NO_FILE_FOUND, Image.StatusCode.GENERIC_ERROR)
 
 

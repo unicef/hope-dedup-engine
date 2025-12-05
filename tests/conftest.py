@@ -87,5 +87,8 @@ def complex_deduplication_data():
             "f5.jpg": [1.02],  # ignored with f1
         },
         "ignored_pairs": {("f1.jpg", "f5.jpg")},
-        "dedupe_threshold": 0.9,
+        "config": {
+            "deduplicate": {},
+            "duplicate_confidence_threshold": 60.0,
+        },
     }

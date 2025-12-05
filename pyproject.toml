@@ -42,10 +42,11 @@ dependencies = [
   "django-storages[azure]",
   "django-svelte-jsoneditor",
   "djangorestframework",
+  "dlib",
   "drf-nested-routers",
   "drf-spectacular[sidecar]",
   "flower",
-  "jsonschema",
+  "mediapipe",
   "numpy<2",
   "psycopg[binary]",
   "psycopg-pool",
@@ -55,6 +56,7 @@ dependencies = [
   "social-auth-app-django",
   "social-auth-core",
   "tf-keras",
+  "ultralytics",
   "unicef-security",
 ]
 
