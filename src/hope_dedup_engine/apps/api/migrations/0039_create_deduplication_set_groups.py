@@ -28,7 +28,7 @@ def backward(apps: StateApps, _: BaseDatabaseSchemaEditor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0037_deduplicationset_group"),
+        ("api", "0038_deduplicationset_group"),
     ]
 
     operations = [

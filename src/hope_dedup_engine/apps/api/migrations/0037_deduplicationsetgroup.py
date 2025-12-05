@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0035_alter_image_unique_together"),
+        ("api", "0036_alter_encoding_status_code_alter_finding_status_code"),
         ("security", "0008_delete_externalsystem"),
     ]
 

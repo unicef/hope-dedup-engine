@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0041_alter_deduplicationset_state"),
+        ("api", "0042_alter_deduplicationset_state"),
     ]
 
     operations = [
