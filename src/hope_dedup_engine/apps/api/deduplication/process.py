@@ -11,6 +11,7 @@ from celery import chord, shared_task
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Finding
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
@@ -26,9 +27,9 @@ RESCHEDULE_INTERVAL = 6 * HOUR
 STALE_PROCESSING_THRESHOLD = 24 * HOUR
 
 
-def try_acquire_processing_lock(deduplication_set_pk: int) -> DeduplicationSet | None:
+def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> DeduplicationSet | None:
     with transaction.atomic():
-        deduplication_set = DeduplicationSet.objects.select_for_update().get(pk=deduplication_set_pk)
+        DeduplicationSetGroup.objects.select_for_update().get(pk=deduplication_set.group_id)
 
         if deduplication_set.state == DeduplicationSet.State.PROCESSING:
             time_since_update = timezone.now() - deduplication_set.updated_at
@@ -50,7 +51,7 @@ def try_acquire_processing_lock(deduplication_set_pk: int) -> DeduplicationSet |
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
 
-    deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set_id)
+    deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set)
 
     if deduplication_set is None:
         self.apply_async(

@@ -66,5 +66,5 @@ def test_has_access_to_deduplication_set(
         drf_view_kwargs_get_calls.append(mocker.call("pk"))
     drf_view.kwargs.get.assert_has_calls(drf_view_kwargs_get_calls)
     deduplication_set_model_mock.objects.filter.assert_called_once_with(
-        system=drf_request.auth.system, pk=deduplication_set_pk or pk
+        group__system=drf_request.auth.system, pk=deduplication_set_pk or pk
     )

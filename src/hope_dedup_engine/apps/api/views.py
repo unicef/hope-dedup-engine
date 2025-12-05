@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework_nested import viewsets as nested_viewsets
 
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.models.jobs import DedupJob
 from hope_dedup_engine.apps.api.auth import (
     CanUseApi,
@@ -42,6 +43,7 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredFilenamePairSerializer,
     IgnoredReferencePkPairSerializer,
     ImageSerializer,
+    EncodingReferencePks,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 from hope_dedup_engine.apps.api.filters import FindingFilter
@@ -62,18 +64,45 @@ class DeduplicationSetViewSet(
     )
     serializer_class = DeduplicationSetSerializer
 
+    def _update_set_or_encodings(
+        self,
+        request: Request,
+        deduplication_set_state: DeduplicationSet.State,
+        exclude_encoding_state: Image.State,
+        encoding_state: Image.State,
+    ) -> None:
+        deduplication_set = self.get_object()
+
+        if request.data:
+            deduplication_set.image_set.filter(reference_pk__in=request.data["reference_pks"]).update(
+                state=encoding_state
+            )
+        else:
+            deduplication_set.image_set.exclude(state=exclude_encoding_state).update(state=encoding_state)
+            deduplication_set.state = deduplication_set_state
+
+        deduplication_set.updated_by = self.request.user
+        deduplication_set.save()
+
     def get_queryset(self) -> QuerySet:
-        return DeduplicationSet.objects.filter(system=self.request.auth.system, deleted=False)
+        return DeduplicationSet.objects.filter(group__system=self.request.auth.system, group__deleted=False).exclude(
+            state__in=[DeduplicationSet.State.APPROVED, DeduplicationSet.State.REJECTED]
+        )
 
     def perform_create(self, serializer: Serializer) -> None:
+        reference_pk = serializer.validated_data.pop("group", {}).get("reference_pk")
+        group, _ = DeduplicationSetGroup.objects.get_or_create(
+            reference_pk=reference_pk, system=self.request.auth.system
+        )
         serializer.save(
+            group=group,
             created_by=self.request.user,
-            system=self.request.auth.system,
         )
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
         instance.updated_by = self.request.user
-        instance.deleted = True
+        instance.group.deleted = True
+        instance.group.save()
         instance.save()
         delete_model_data(instance)
 
@@ -88,6 +117,36 @@ class DeduplicationSetViewSet(
         job = DedupJob.objects.create(deduplication_set=deduplication_set)
         job.queue()
         return Response({"message": "started"})
+
+    @extend_schema(
+        request=EncodingReferencePks,
+        responses=EmptySerializer,
+        description="Approve deduplication set or individual records",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def approve(self, request: Request, pk: UUID | None = None) -> Response:
+        self._update_set_or_encodings(
+            request,
+            deduplication_set_state=DeduplicationSet.State.APPROVED,
+            exclude_encoding_state=Image.State.REJECTED,
+            encoding_state=Image.State.APPROVED,
+        )
+        return Response({"message": "approved"})
+
+    @extend_schema(
+        request=EncodingReferencePks,
+        responses=EmptySerializer,
+        description="Reject deduplication set or individual records",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def reject(self, request: Request, pk: UUID | None = None) -> Response:
+        self._update_set_or_encodings(
+            request,
+            deduplication_set_state=DeduplicationSet.State.REJECTED,
+            exclude_encoding_state=Image.State.APPROVED,
+            encoding_state=Image.State.REJECTED,
+        )
+        return Response({"message": "rejected"})
 
     @extend_schema(description="List all deduplication sets available to the user")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:

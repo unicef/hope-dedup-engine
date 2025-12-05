@@ -16,6 +16,16 @@ FILENAME_LENGTH: Final[int] = 255
 MAX_ERROR_LENGTH: Final[int] = 255
 
 
+class DeduplicationSetGroup(models.Model):
+    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, unique=True)  # source_id
+    system = models.ForeignKey(System, on_delete=models.CASCADE)
+    settings = models.JSONField(default=dict, null=True, blank=True)
+    deleted = models.BooleanField(null=False, blank=False, default=False)
+
+    def __str__(self) -> str:
+        return f"{self.reference_pk}({self.system.name})"
+
+
 class DeduplicationSet(models.Model):
     """Bucket for entries we want to deduplicate."""
 
@@ -27,14 +37,14 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
+        APPROVED = 4, "Approved"
+        REJECTED = 5, "Rejected"
 
     id = models.UUIDField(primary_key=True, default=uuid4)
+    group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE)
     name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
     description = models.TextField(null=True, blank=True)
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
     state = models.IntegerField(choices=State, default=State.READY, db_column="state")
-    deleted = models.BooleanField(null=False, blank=False, default=False)
-    system = models.ForeignKey(System, on_delete=models.CASCADE)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -52,7 +62,6 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
-    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
 
     def __str__(self) -> str:
@@ -137,6 +146,11 @@ class ImageManager(models.Manager["Image"]):
 class Image(models.Model):
     """# TODO: Rename to Entity/Entry. Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
 
+    class State(models.IntegerChoices):
+        ACTIVE = 0, "Active"
+        APPROVED = 1, "Approved"
+        REJECTED = 2, "Rejected"
+
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
         NO_FILE_FOUND = 404, "no file found"
@@ -146,6 +160,7 @@ class Image(models.Model):
         GENERIC_ERROR = 500, "generic error"
 
     id = models.UUIDField(primary_key=True, default=uuid4)
+    state = models.IntegerField(choices=State, default=State.ACTIVE)
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
     filename = models.CharField(max_length=FILENAME_LENGTH)

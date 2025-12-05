@@ -11,13 +11,13 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     ModelOptions,
 )
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
-from hope_dedup_engine.apps.api.models.config import Config
 from hope_dedup_engine.apps.api.models.deduplication import (
     Encoding,
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Image,
+    DeduplicationSetGroup,
 )
 
 
@@ -29,20 +29,18 @@ class HDETokenFactory(DjangoModelFactory):
         model = HDEToken
 
 
-class ConfigFactory(DjangoModelFactory):
-    name = fuzzy.FuzzyText()
-    settings = {}
+class DeduplicationSetGroupFactory(DjangoModelFactory):
+    reference_pk = fuzzy.FuzzyText()
+    system = SubFactory(SystemFactory)
 
     class Meta:
-        model = Config
+        model = DeduplicationSetGroup
 
 
 class DeduplicationSetFactory(DjangoModelFactory):
-    reference_pk = fuzzy.FuzzyText()
-    system = SubFactory(SystemFactory)
+    group = SubFactory(DeduplicationSetGroupFactory)
     state = DeduplicationSet.State.READY
     notification_url = fuzzy.FuzzyText(prefix="https://")
-    config = SubFactory(ConfigFactory)
 
     class Meta:
         model = DeduplicationSet

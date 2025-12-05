@@ -17,22 +17,17 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "name",
-        "reference_pk",
         "state",
-        "config",
         "created_at",
         "updated_at",
-        "deleted",
     )
     readonly_fields = (
         "id",
         "state",
-        "system",
         "created_at",
         "created_by",
         "updated_at",
         "updated_by",
-        "deleted",
     )
     search_fields = ("name", "id")
     list_filter = (

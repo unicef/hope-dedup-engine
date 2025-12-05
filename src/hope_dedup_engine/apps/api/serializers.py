@@ -4,7 +4,6 @@ from typing import Any
 from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models import (
-    Config,
     DeduplicationSet,
     Finding,
     IgnoredFilenamePair,
@@ -13,34 +12,25 @@ from hope_dedup_engine.apps.api.models import (
 )
 
 
-class ConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Config
-        exclude = ("id",)
-
-
 class DeduplicationSetSerializer(serializers.ModelSerializer):
+    reference_pk = serializers.CharField(source="group.reference_pk")
     state = serializers.CharField(source="get_state_display", read_only=True)
-    config = ConfigSerializer(required=False)
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("deleted",)
+        exclude = ()
         read_only_fields = (
-            "system",
+            "group",
             "created_at",
             "created_by",
-            "deleted",
             "updated_at",
             "updated_by",
         )
 
 
-class CreateConfigSerializer(ConfigSerializer):
-    pass
-
-
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+    reference_pk = serializers.CharField(source="group.reference_pk")
+
     class Meta:
         model = DeduplicationSet
         fields = ("reference_pk", "notification_url")
@@ -143,3 +133,7 @@ class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
 
 class EmptySerializer(serializers.Serializer):
     pass
+
+
+class EncodingReferencePks(serializers.Serializer):
+    reference_pks = serializers.ListField(child=serializers.CharField())

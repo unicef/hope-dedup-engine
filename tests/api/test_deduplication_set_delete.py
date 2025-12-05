@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from api.api_const import DEDUPLICATION_SET_DETAIL_VIEW
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.security.models import User
 
 
@@ -15,7 +16,7 @@ def test_can_delete_deduplication_set(
     deduplication_set: DeduplicationSet,
     delete_model_data: MagicMock,
 ) -> None:
-    assert not deduplication_set.deleted
+    assert not deduplication_set.group.deleted
     assert deduplication_set.updated_by is None
     previous_amount = DeduplicationSet.objects.count()
 
@@ -25,7 +26,7 @@ def test_can_delete_deduplication_set(
     # object is only marked as deleted
     assert DeduplicationSet.objects.count() == previous_amount
     deduplication_set.refresh_from_db()
-    assert deduplication_set.deleted
+    assert deduplication_set.group.deleted
     assert deduplication_set.updated_by == user
 
     delete_model_data.assert_called_once_with(deduplication_set)
@@ -36,10 +37,10 @@ def test_cannot_delete_deduplication_set_between_systems(
     deduplication_set: DeduplicationSet,
     delete_model_data: MagicMock,
 ) -> None:
-    set_count = DeduplicationSet.objects.filter(deleted=False).count()
+    set_count = DeduplicationSetGroup.objects.filter(deleted=False).count()
     response = another_system_api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert DeduplicationSet.objects.filter(deleted=False).count() == set_count
+    assert DeduplicationSetGroup.objects.filter(deleted=False).count() == set_count
 
 
 def test_unauthorized_deletion_does_not_trigger_model_data_deletion(

@@ -5,6 +5,7 @@ from celery import states
 from celery.canvas import Signature
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.apps.faces.celery_tasks import (
     callback_encodings,
@@ -24,7 +25,8 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
 def dedup_set_with_job(db):
     """Fixture to create a DeduplicationSet with an associated DedupJob."""
     system, _ = System.objects.get_or_create(name="default")
-    ds = DeduplicationSet.objects.create(name="test_set", system=system)
+    dsg = DeduplicationSetGroup.objects.create(reference_pk="test_group", system=system)
+    ds = DeduplicationSet.objects.create(name="test_set", group=dsg)
     DedupJob.objects.create(deduplication_set=ds, progress=0)
     return ds
 

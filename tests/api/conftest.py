@@ -8,7 +8,6 @@ from rest_framework.test import APIClient
 
 from api.utils import create_api_client
 from testutils.factories.api import (
-    ConfigFactory,
     DedupJobFactory,
     DeduplicationSetFactory,
     FindingFactory,
@@ -17,6 +16,7 @@ from testutils.factories.api import (
     ImageFactory,
     HDETokenFactory,
     EncodingFactory,
+    DeduplicationSetGroupFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory
 
@@ -24,7 +24,8 @@ from hope_dedup_engine.apps.api.models import HDEToken
 
 register(SystemFactory)
 register(UserFactory)
-register(DeduplicationSetFactory, system=LazyFixture("system"))
+register(DeduplicationSetGroupFactory, system=LazyFixture("system"))
+register(DeduplicationSetFactory, group=LazyFixture("deduplication_set_group"))
 register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(
     ImageFactory,
@@ -35,7 +36,6 @@ register(EncodingFactory)
 register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(ConfigFactory)
 register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
 
