@@ -3,7 +3,7 @@ import copy
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_images,
     encode_faces,
@@ -83,10 +83,10 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [2.0], "face_confidence": 0.5},
                 ]
             },
-            Image.StatusCode.MULTIPLE_FACES_DETECTED,
+            Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
         ),
         # 2) generic error
-        ({"side_effect": TypeError("generic error")}, Image.StatusCode.GENERIC_ERROR),
+        ({"side_effect": TypeError("generic error")}, Encoding.StatusCode.GENERIC_ERROR),
         # 3) no face — through face_confidence == 0.0
         (
             {
@@ -94,7 +94,7 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [1.0], "face_confidence": 0.0},
                 ]
             },
-            Image.StatusCode.NO_FACE_DETECTED,
+            Encoding.StatusCode.NO_FACE_DETECTED,
         ),
         # 4) weak face — NO_FACE_ACCEPTED (fc > 0, but below threshold)
         (
@@ -103,7 +103,7 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [1.0], "face_confidence": 0.3},
                 ]
             },
-            Image.StatusCode.NO_FACE_ACCEPTED,
+            Encoding.StatusCode.NO_FACE_ACCEPTED,
         ),
     ],
 )
@@ -126,7 +126,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
     encoded, _, _ = encode_faces(files, process_encoding_error={}.__setitem__)
-    assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.value
+    assert encoded["file1.jpg"] == Encoding.StatusCode.NO_FILE_FOUND.value
     mock_deepface.represent.assert_not_called()
 
 
@@ -136,7 +136,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     [
         (
             {"confidence": 70.0},
-            [("file1.jpg", "file2.jpg", 0.7, Image.StatusCode.DEDUPLICATE_SUCCESS.value)],
+            [("file1.jpg", "file2.jpg", 0.7, Encoding.StatusCode.DEDUPLICATE_SUCCESS.value)],
         ),
         ({"confidence": 50.0}, []),
     ],
@@ -167,9 +167,9 @@ def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
 def test_dedupe_images_with_facial_error(mock_deepface, sample_data):
     """Test that files with facial errors are reported correctly."""
     test_data = copy.deepcopy(sample_data)
-    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.value
+    test_data["encodings"]["file1.jpg"] = Encoding.StatusCode.NO_FACE_DETECTED.value
     results = dedupe_images(**test_data)
-    expected = [("file1.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value)]
+    expected = [("file1.jpg", "", 0, Encoding.StatusCode.NO_FACE_DETECTED.value)]
     assert results == expected
     mock_deepface.verify.assert_not_called()
 
@@ -193,8 +193,8 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
     results = dedupe_images(**complex_deduplication_data)
 
     expected_findings = [
-        ("f4.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value),
-        ("f1.jpg", "f2.jpg", 0.99, Image.StatusCode.DEDUPLICATE_SUCCESS.value),
+        ("f4.jpg", "", 0, Encoding.StatusCode.NO_FACE_DETECTED.value),
+        ("f1.jpg", "f2.jpg", 0.99, Encoding.StatusCode.DEDUPLICATE_SUCCESS.value),
     ]
 
     # The order of findings might not be guaranteed

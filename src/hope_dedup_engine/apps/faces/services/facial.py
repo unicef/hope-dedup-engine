@@ -5,7 +5,7 @@ from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def encode_faces(  # noqa 901
     files: list[str],
-    process_encoding_error: Callable[[str, Image.StatusCode], None],
+    process_encoding_error: Callable[[str, Encoding.StatusCode], None],
     config: dict[str, Any] | None = None,
     pre_encodings=None,
 ) -> tuple[EncodingType, int, int]:
@@ -42,16 +42,16 @@ def encode_faces(  # noqa 901
             threshold = config.get("face_confidence_threshold", 0.0) if config else 0.0
             match (len(result), face_confidence):
                 case (l, _) if l > 1:
-                    encoded[file] = Image.StatusCode.MULTIPLE_FACES_DETECTED.value
-                    process_encoding_error(file, Image.StatusCode.MULTIPLE_FACES_DETECTED)
+                    encoded[file] = Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value
+                    process_encoding_error(file, Encoding.StatusCode.MULTIPLE_FACES_DETECTED)
 
                 case (_, fc) if fc == 0.0:
-                    encoded[file] = Image.StatusCode.NO_FACE_DETECTED.value
-                    process_encoding_error(file, Image.StatusCode.NO_FACE_DETECTED)
+                    encoded[file] = Encoding.StatusCode.NO_FACE_DETECTED.value
+                    process_encoding_error(file, Encoding.StatusCode.NO_FACE_DETECTED)
 
                 case (_, fc) if 0.0 < fc <= 1.0 and fc < threshold:
-                    encoded[file] = Image.StatusCode.NO_FACE_ACCEPTED.value
-                    process_encoding_error(file, Image.StatusCode.NO_FACE_ACCEPTED)
+                    encoded[file] = Encoding.StatusCode.NO_FACE_ACCEPTED.value
+                    process_encoding_error(file, Encoding.StatusCode.NO_FACE_ACCEPTED)
 
                 case _:
                     encoded[file] = result[0]["embedding"]
@@ -59,11 +59,11 @@ def encode_faces(  # noqa 901
 
         except TypeError as e:
             logger.exception(e)
-            encoded[file] = Image.StatusCode.GENERIC_ERROR.value
-            process_encoding_error(file, Image.StatusCode.GENERIC_ERROR)
+            encoded[file] = Encoding.StatusCode.GENERIC_ERROR.value
+            process_encoding_error(file, Encoding.StatusCode.GENERIC_ERROR)
         except ResourceNotFoundError:
-            encoded[file] = Image.StatusCode.NO_FILE_FOUND.value
-            process_encoding_error(file, Image.StatusCode.NO_FILE_FOUND)
+            encoded[file] = Encoding.StatusCode.NO_FILE_FOUND.value
+            process_encoding_error(file, Encoding.StatusCode.NO_FILE_FOUND)
 
     return encoded, added_cnt, existing_cnt
 
@@ -108,8 +108,8 @@ def dedupe_images(  # noqa 901
     for img, duplicates in findings.items():
         for dup in duplicates:
             if is_facial_error(dup[0]):
-                results.append((img, "", 0, Image.StatusCode(dup[0]).value))
+                results.append((img, "", 0, Encoding.StatusCode(dup[0]).value))
             else:
-                results.append((img, dup[0], dup[1], Image.StatusCode.DEDUPLICATE_SUCCESS.value))
+                results.append((img, dup[0], dup[1], Encoding.StatusCode.DEDUPLICATE_SUCCESS.value))
 
     return results

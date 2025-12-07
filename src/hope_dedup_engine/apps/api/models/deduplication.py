@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
@@ -62,6 +62,7 @@ class DeduplicationSet(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     notification_url = models.CharField(max_length=255, null=True, blank=True)
+    notify = models.BooleanField(default=True)
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
 
     def __str__(self) -> str:
@@ -70,16 +71,13 @@ class DeduplicationSet(models.Model):
     def get_encodings(self) -> EncodingType:
         return {
             fn: (emb if emb is not None else sc)
-            for fn, emb, sc in Encoding.objects.filter(
-                filename__in=self.image_set.values_list("filename", flat=True)
-            ).values_list("filename", "embedding", "status_code")
+            for fn, emb, sc in self.encoding_set.values_list("filename", "embedding", "embedding_status_code")
         }
 
-    def filenames_without_encodings(self) -> list[str]:
-        enc_facial_errors = Encoding.objects.filter(filename=OuterRef("filename")).filter(
-            Q(embedding__isnull=False) | Q(status_code__in=ImageErrorGroup.FACE_DETECT)
+    def encodings_without_embeddings(self) -> QuerySet["Encoding"]:
+        return self.encoding_set.filter(embedding__isnull=True).exclude(
+            embedding_status_code__in=EncodingErrorGroup.FACE_DETECT
         )
-        return list(self.image_set.filter(~Exists(enc_facial_errors)).values_list("filename", flat=True))
 
     def get_findings(self) -> FindingType:
         return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
@@ -106,7 +104,7 @@ class DeduplicationSet(models.Model):
         )
 
     def update_findings(self, findings: FindingType) -> None:
-        images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
+        images = Encoding.objects.filter(deduplication_set=self).values("filename", "reference_pk")
         filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
         findings_to_create = [
             Finding(
@@ -132,8 +130,8 @@ class DeduplicationSet(models.Model):
         self.save(update_fields=["state", "error"])
 
 
-class ImageManager(models.Manager["Image"]):
-    def create(self, **kwargs: Any) -> "Image":
+class EncodingManager(models.Manager["Encoding"]):
+    def create(self, **kwargs: Any) -> "Encoding":
         """We override this method to make image creation idempotent."""
         deduplication_set = kwargs.pop("deduplication_set")
         reference_pk = kwargs.pop("reference_pk")
@@ -143,8 +141,8 @@ class ImageManager(models.Manager["Image"]):
         return image
 
 
-class Image(models.Model):
-    """# TODO: Rename to Entity/Entry. Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
+class Encoding(models.Model):
+    """# TODO: Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
 
     class State(models.IntegerChoices):
         ACTIVE = 0, "Active"
@@ -164,6 +162,8 @@ class Image(models.Model):
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
     filename = models.CharField(max_length=FILENAME_LENGTH)
+    embedding = ArrayField(models.FloatField(), null=True, blank=True)
+    embedding_status_code = models.IntegerField(choices=StatusCode, null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -172,7 +172,7 @@ class Image(models.Model):
         related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    objects = ImageManager()
+    objects = EncodingManager()
 
     class Meta:
         indexes = [
@@ -182,18 +182,28 @@ class Image(models.Model):
             # Here we assume reference_pk is unique per deduplication set
             ("deduplication_set", "reference_pk"),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(embedding__isnull=True, embedding_status_code__isnull=True)
+                    | Q(embedding__isnull=False, embedding_status_code__isnull=True)
+                    | Q(embedding__isnull=True, embedding_status_code__isnull=False)
+                ),
+                name="encoding_embedding_or_status",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Image {self.filename}"
 
 
-class ImageErrorGroup:
+class EncodingErrorGroup:
     FACE_DETECT = (
-        Image.StatusCode.NO_FACE_ACCEPTED,
-        Image.StatusCode.NO_FACE_DETECTED,
-        Image.StatusCode.MULTIPLE_FACES_DETECTED,
+        Encoding.StatusCode.NO_FACE_ACCEPTED,
+        Encoding.StatusCode.NO_FACE_DETECTED,
+        Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
-    SYSTEM = (Image.StatusCode.NO_FILE_FOUND, Image.StatusCode.GENERIC_ERROR)
+    SYSTEM = (Encoding.StatusCode.NO_FILE_FOUND, Encoding.StatusCode.GENERIC_ERROR)
 
 
 class Finding(models.Model):
@@ -209,7 +219,7 @@ class Finding(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         verbose_name="Similarity Score",
     )
-    status_code = models.IntegerField(choices=Image.StatusCode, default=Image.StatusCode.DEDUPLICATE_SUCCESS)
+    status_code = models.IntegerField(choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -269,23 +279,3 @@ class IgnoredFilenamePair(IgnoredPair):
 
     def __str__(self) -> str:
         return f"IgnoredFilenamePair({self.first}, {self.second})"
-
-
-class Encoding(models.Model):
-    filename = models.CharField(max_length=FILENAME_LENGTH, unique=True)
-    embedding = ArrayField(models.FloatField(), null=True, blank=True)
-    status_code = models.IntegerField(choices=Image.StatusCode, null=True, blank=True)
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                condition=(
-                    Q(embedding__isnull=False, status_code__isnull=True)
-                    | Q(embedding__isnull=True, status_code__isnull=False)
-                ),
-                name="encoding_embedding_or_status",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"Encoding({self.filename})"

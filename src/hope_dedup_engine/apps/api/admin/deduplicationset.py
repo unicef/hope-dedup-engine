@@ -1,3 +1,6 @@
+from typing import cast
+
+from django.contrib import messages
 from django.contrib.admin import ModelAdmin, register
 
 from admin_extra_buttons.decorators import button, link
@@ -10,6 +13,26 @@ from django.http import HttpRequest
 from rest_framework.reverse import reverse
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+
+
+@register(DeduplicationSetGroup)
+class DeduplicationSetGroupAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
+    readonly_fields = ("reference_pk",)
+    search_fields = ("reference_pk",)
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    @button(change_form=True)
+    def reset(self, request: HttpRequest, pk: str) -> None:
+        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        for deduplication_set in group.deduplicationset_set.all():
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+            deduplication_set.finding_set.all().delete()
+        group.settings = {}
+        group.save(update_fields=["settings"])
+        self.message_user(request, "Findings/encodings removed. Config reset.", level=messages.SUCCESS)
 
 
 @register(DeduplicationSet)
@@ -24,6 +47,7 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     readonly_fields = (
         "id",
         "state",
+        "group",
         "created_at",
         "created_by",
         "updated_at",

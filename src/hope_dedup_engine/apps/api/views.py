@@ -29,20 +29,20 @@ from hope_dedup_engine.apps.api.models import (
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
-    Image,
+    Encoding,
 )
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
     CreateIgnoredFilenamePairSerializer,
     CreateIgnoredReferencePkPairSerializer,
-    CreateImageSerializer,
+    CreateEncodingSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
     IgnoredFilenamePairSerializer,
     IgnoredReferencePkPairSerializer,
-    ImageSerializer,
+    EncodingSerializer,
     EncodingReferencePks,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
@@ -68,17 +68,15 @@ class DeduplicationSetViewSet(
         self,
         request: Request,
         deduplication_set_state: DeduplicationSet.State,
-        exclude_encoding_state: Image.State,
-        encoding_state: Image.State,
+        exclude_encoding_state: Encoding.State,
+        encoding_state: Encoding.State,
     ) -> None:
         deduplication_set = self.get_object()
 
-        if request.data:
-            deduplication_set.image_set.filter(reference_pk__in=request.data["reference_pks"]).update(
-                state=encoding_state
-            )
+        if request.data and (reference_pks := request.data.get("reference_pks")):
+            deduplication_set.encoding_set.filter(reference_pk__in=reference_pks).update(state=encoding_state)
         else:
-            deduplication_set.image_set.exclude(state=exclude_encoding_state).update(state=encoding_state)
+            deduplication_set.encoding_set.exclude(state=exclude_encoding_state).update(state=encoding_state)
             deduplication_set.state = deduplication_set_state
 
         deduplication_set.updated_by = self.request.user
@@ -128,8 +126,8 @@ class DeduplicationSetViewSet(
         self._update_set_or_encodings(
             request,
             deduplication_set_state=DeduplicationSet.State.APPROVED,
-            exclude_encoding_state=Image.State.REJECTED,
-            encoding_state=Image.State.APPROVED,
+            exclude_encoding_state=Encoding.State.REJECTED,
+            encoding_state=Encoding.State.APPROVED,
         )
         return Response({"message": "approved"})
 
@@ -143,8 +141,8 @@ class DeduplicationSetViewSet(
         self._update_set_or_encodings(
             request,
             deduplication_set_state=DeduplicationSet.State.REJECTED,
-            exclude_encoding_state=Image.State.APPROVED,
-            encoding_state=Image.State.REJECTED,
+            exclude_encoding_state=Encoding.State.APPROVED,
+            encoding_state=Encoding.State.REJECTED,
         )
         return Response({"message": "rejected"})
 
@@ -168,8 +166,8 @@ class DeduplicationSetViewSet(
         return super().destroy(request, *args, **kwargs)
 
 
-class ImageViewSet(
-    nested_viewsets.NestedViewSetMixin[Image],
+class EncodingViewSet(
+    nested_viewsets.NestedViewSetMixin[Encoding],
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
@@ -181,15 +179,15 @@ class ImageViewSet(
         CanUseApi,
         HasAccessToDeduplicationSet,
     )
-    serializer_class = ImageSerializer
-    queryset = Image.objects.all()
+    serializer_class = EncodingSerializer
+    queryset = Encoding.objects.all()
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
     def get_serializer_class(self) -> type[Serializer]:
         if self.action == "create":
-            return CreateImageSerializer
+            return CreateEncodingSerializer
         return super().get_serializer_class()
 
     def perform_create(self, serializer: Serializer) -> None:
@@ -199,7 +197,7 @@ class ImageViewSet(
         deduplication_set.updated_by = self.request.user
         deduplication_set.save()
 
-    def perform_destroy(self, instance: Image) -> None:
+    def perform_destroy(self, instance: Encoding) -> None:
         deduplication_set = instance.deduplication_set
         super().perform_destroy(instance)
         deduplication_set.state = DeduplicationSet.State.MODIFIED
@@ -210,7 +208,7 @@ class ImageViewSet(
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(request=CreateImageSerializer, description="Add image to the deduplication set")
+    @extend_schema(request=CreateEncodingSerializer, description="Add image to the deduplication set")
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)
 
@@ -242,9 +240,9 @@ class UnwrapRequestDataMixin:
 
 # drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
 # UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
-class BulkImageViewSet(
+class BulkEncodingViewSet(
     UnwrapRequestDataMixin,
-    nested_viewsets.NestedViewSetMixin[Image],
+    nested_viewsets.NestedViewSetMixin[Encoding],
     WrapRequestDataMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
@@ -255,15 +253,15 @@ class BulkImageViewSet(
         CanUseApi,
         HasAccessToDeduplicationSet,
     )
-    serializer_class = ImageSerializer
-    queryset = Image.objects.all()
+    serializer_class = EncodingSerializer
+    queryset = Encoding.objects.all()
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_PARAM: DEDUPLICATION_SET_FILTER,
     }
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
         if self.action == "create":
-            return CreateImageSerializer(*args, **kwargs, many=True)
+            return CreateEncodingSerializer(*args, **kwargs, many=True)
         return super().get_serializer(*args, **kwargs, many=True)
 
     def perform_create(self, serializer: Serializer) -> None:
@@ -276,13 +274,13 @@ class BulkImageViewSet(
     @action(detail=False, methods=(HTTPMethod.DELETE,))
     def clear(self, request: Request, deduplication_set_pk: str) -> Response:
         deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_pk)
-        Image.objects.filter(deduplication_set=deduplication_set).delete()
+        Encoding.objects.filter(deduplication_set=deduplication_set).delete()
         deduplication_set.updated_by = request.user
         deduplication_set.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
-        request=CreateImageSerializer(many=True),
+        request=CreateEncodingSerializer(many=True),
         description="Add multiple images to the deduplication set",
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:

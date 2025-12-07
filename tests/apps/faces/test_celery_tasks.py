@@ -178,7 +178,7 @@ def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_se
     """Test callback_findings aggregates results and updates the dataset."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds.image_set, "all", return_value=[1, 2, 3])
+    mocker.patch.object(ds.encoding_set, "all", return_value=[1, 2, 3])
     mocker.patch.object(ds, "update_findings")
     results = [
         [("file1.jpg", "file2.jpg", 0.99, 1)],

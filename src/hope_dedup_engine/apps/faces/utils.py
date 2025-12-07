@@ -4,17 +4,17 @@ from typing import Generator
 
 import sentry_sdk
 from django.conf import settings
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 
 
 def is_facial_error(value):
     if isinstance(value, int | str):
         return value not in {
-            Image.StatusCode.DEDUPLICATE_SUCCESS,
-            Image.StatusCode.DEDUPLICATE_SUCCESS.name,
-            Image.StatusCode.DEDUPLICATE_SUCCESS.label,
+            Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+            Encoding.StatusCode.DEDUPLICATE_SUCCESS.name,
+            Encoding.StatusCode.DEDUPLICATE_SUCCESS.label,
         } and value in (
-            Image.StatusCode.values + Image.StatusCode.names + [choice.label for choice in Image.StatusCode]
+            Encoding.StatusCode.values + Encoding.StatusCode.names + [choice.label for choice in Encoding.StatusCode]
         )
     return False
 

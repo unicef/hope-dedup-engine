@@ -13,9 +13,8 @@ from testutils.factories.api import (
     FindingFactory,
     IgnoredFilenamePairFactory,
     IgnoredReferencePkPairFactory,
-    ImageFactory,
-    HDETokenFactory,
     EncodingFactory,
+    HDETokenFactory,
     DeduplicationSetGroupFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory
@@ -26,13 +25,12 @@ register(SystemFactory)
 register(UserFactory)
 register(DeduplicationSetGroupFactory, system=LazyFixture("system"))
 register(DeduplicationSetFactory, group=LazyFixture("deduplication_set_group"))
-register(ImageFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(EncodingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(
-    ImageFactory,
+    EncodingFactory,
     _name="second_image",
     deduplication_Set=LazyFixture("deduplication_set"),
 )
-register(EncodingFactory)
 register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))

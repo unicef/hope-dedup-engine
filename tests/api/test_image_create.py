@@ -3,12 +3,12 @@ from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
-from api.api_const import IMAGE_LIST_VIEW, JSON
-from testutils.factories.api import ImageFactory
+from api.api_const import ENCODING_LIST_VIEW, JSON
+from testutils.factories.api import EncodingFactory
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import Image
-from hope_dedup_engine.apps.api.serializers import ImageSerializer
+from hope_dedup_engine.apps.api.models.deduplication import Encoding
+from hope_dedup_engine.apps.api.serializers import EncodingSerializer
 from hope_dedup_engine.apps.security.models import User
 
 
@@ -16,13 +16,13 @@ def test_can_create_image(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,
 ) -> None:
-    previous_amount = Image.objects.filter(deduplication_set=deduplication_set).count()
-    data = ImageSerializer(ImageFactory.build()).data
+    previous_amount = Encoding.objects.filter(deduplication_set=deduplication_set).count()
+    data = EncodingSerializer(EncodingFactory.build()).data
     assert deduplication_set.state == DeduplicationSet.State.READY
 
-    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    response = api_client.post(reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
     assert response.status_code == status.HTTP_201_CREATED
-    assert Image.objects.filter(deduplication_set=deduplication_set).count() == previous_amount + 1
+    assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == previous_amount + 1
 
     deduplication_set.refresh_from_db()
     assert deduplication_set.state == DeduplicationSet.State.MODIFIED
@@ -31,12 +31,14 @@ def test_can_create_image(
 def test_cannot_create_image_between_systems(
     another_system_api_client: APIClient, deduplication_set: DeduplicationSet
 ) -> None:
-    previous_amount = Image.objects.filter(deduplication_set=deduplication_set).count()
-    data = ImageSerializer(ImageFactory.build()).data
+    previous_amount = Encoding.objects.filter(deduplication_set=deduplication_set).count()
+    data = EncodingSerializer(EncodingFactory.build()).data
 
-    response = another_system_api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    response = another_system_api_client.post(
+        reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert Image.objects.filter(deduplication_set=deduplication_set).count() == previous_amount
+    assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == previous_amount
 
 
 @pytest.mark.parametrize(
@@ -49,9 +51,9 @@ def test_cannot_create_image_between_systems(
 def test_invalid_values_handling(
     api_client: APIClient, deduplication_set: DeduplicationSet, filename: str | None
 ) -> None:
-    data = ImageSerializer(ImageFactory.build()).data
+    data = EncodingSerializer(EncodingFactory.build()).data
     data["filename"] = filename
-    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    response = api_client.post(reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     errors = response.json()
     assert len(errors) == 1
@@ -59,10 +61,10 @@ def test_invalid_values_handling(
 
 
 def test_missing_filename_handling(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
-    data = ImageSerializer(ImageFactory.build()).data
+    data = EncodingSerializer(EncodingFactory.build()).data
     del data["filename"]
 
-    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    response = api_client.post(reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     errors = response.json()
     assert "filename" in errors
@@ -75,8 +77,8 @@ def test_deduplication_set_is_updated(
 ) -> None:
     assert deduplication_set.updated_by is None
 
-    data = ImageSerializer(ImageFactory.build()).data
-    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    data = EncodingSerializer(EncodingFactory.build()).data
+    response = api_client.post(reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
 
     assert response.status_code == status.HTTP_201_CREATED
     deduplication_set.refresh_from_db()
@@ -87,14 +89,14 @@ def test_image_with_same_reference_pk_is_updated(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,
 ) -> None:
-    image = ImageFactory.create(deduplication_set=deduplication_set)
+    image = EncodingFactory.create(deduplication_set=deduplication_set)
 
-    data = ImageSerializer(image).data
+    data = EncodingSerializer(image).data
     new_filename = "new_filename.jpg"
     data["filename"] = new_filename
-    response = api_client.post(reverse(IMAGE_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
+    response = api_client.post(reverse(ENCODING_LIST_VIEW, (deduplication_set.pk,)), data=data, format=JSON)
 
     assert response.status_code == status.HTTP_201_CREATED
     image.refresh_from_db()
     assert image.filename == new_filename
-    assert Image.objects.count() == 1
+    assert Encoding.objects.count() == 1

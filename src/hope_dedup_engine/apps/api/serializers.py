@@ -8,7 +8,7 @@ from hope_dedup_engine.apps.api.models import (
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
-    Image,
+    Encoding,
 )
 
 
@@ -18,7 +18,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        exclude = ()
+        fields = "__all__"
         read_only_fields = (
             "group",
             "created_at",
@@ -33,14 +33,14 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        fields = ("reference_pk", "notification_url")
+        fields = ("reference_pk", "notification_url", "notify")
 
 
-class ImageSerializer(serializers.ModelSerializer):
+class EncodingSerializer(serializers.ModelSerializer):
     deduplication_set = DeduplicationSetSerializer(read_only=True)
 
     class Meta:
-        model = Image
+        model = Encoding
         fields = (
             "id",
             "deduplication_set",
@@ -57,7 +57,7 @@ def is_deduplication_set_reference_pk_constraint(constraint) -> bool:
     return fields == ("deduplication_set", "reference_pk")
 
 
-class CreateImageSerializer(serializers.ModelSerializer):
+class CreateEncodingSerializer(serializers.ModelSerializer):
     deduplication_set = serializers.PrimaryKeyRelatedField(
         queryset=DeduplicationSet.objects.all(),
         default=serializers.CreateOnlyDefault(
@@ -67,7 +67,7 @@ class CreateImageSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Image
+        model = Encoding
         fields = ("reference_pk", "filename", "deduplication_set")
 
     def get_unique_together_constraints(self, model):
@@ -136,4 +136,4 @@ class EmptySerializer(serializers.Serializer):
 
 
 class EncodingReferencePks(serializers.Serializer):
-    reference_pks = serializers.ListField(child=serializers.CharField())
+    reference_pks = serializers.ListField(child=serializers.CharField(), required=False)

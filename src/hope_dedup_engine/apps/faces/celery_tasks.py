@@ -10,7 +10,7 @@ from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
@@ -75,7 +75,7 @@ def encode_chunk(
     with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
         ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
     try:
-        failed_encodings: dict[str, Image.StatusCode] = {}
+        failed_encodings: dict[str, Encoding.StatusCode] = {}
         with report_long_execution("encode_faces(files, config, pre_encodings, progress=callback)"):
             results = encode_faces(
                 files,
@@ -141,7 +141,7 @@ def callback_findings(
         finish_with_success(ds)
 
         return {
-            "Files": ds.image_set.count(),
+            "Files": ds.encoding_set.count(),
             "Config": config,
             "Findings": len(findings),
         }

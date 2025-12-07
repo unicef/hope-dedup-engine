@@ -74,8 +74,8 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
 
-        filenames = deduplication_set.filenames_without_encodings()
-        chunks = get_chunks(filenames, purpose=ChunkPurpose.ENCODE)
+        image_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
+        chunks = get_chunks(image_ids, purpose=ChunkPurpose.ENCODE)
         tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
         chord_id = chord(tasks)(callback_encodings.s(config=config))
 

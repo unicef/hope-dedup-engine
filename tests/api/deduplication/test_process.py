@@ -23,14 +23,14 @@ def test_find_duplicates_orchestration(
     mock_callback_encodings,
     mock_send_notification,
     dedup_job_factory,
-    image_factory,
+    encoding_factory,
     finding_factory,
 ):
     """Test that find_duplicates correctly orchestrates Celery tasks."""
     job = dedup_job_factory()
     dedup_set = job.deduplication_set
-    image_factory(deduplication_set=dedup_set, filename="file1.jpg")
-    image_factory(deduplication_set=dedup_set, filename="file2.jpg")
+    encoding_factory(deduplication_set=dedup_set, filename="file1.jpg", embedding=None)
+    encoding_factory(deduplication_set=dedup_set, filename="file2.jpg", embedding=None)
     finding_factory(deduplication_set=dedup_set, score=100, status_code=200)
     assert dedup_set.finding_set.count() == 1
 

@@ -5,11 +5,11 @@ from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 
 
-@register(Image)
-class ImageAdmin(AdminFiltersMixin, ModelAdmin):
+@register(Encoding)
+class EncodingAdmin(AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "filename",

@@ -1,8 +1,7 @@
 from uuid import uuid4
 
-from factory import Factory, SubFactory, Sequence, fuzzy, lazy_attribute, Trait
+from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait
 from factory.django import DjangoModelFactory
-from testutils.factories import SystemFactory, UserFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import (
     DeduplicateOptions,
@@ -12,13 +11,13 @@ from hope_dedup_engine.apps.api.deduplication.config import (
 )
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
-    Encoding,
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
-    Image,
+    Encoding,
     DeduplicationSetGroup,
 )
+from testutils.factories import SystemFactory, UserFactory
 
 
 class HDETokenFactory(DjangoModelFactory):
@@ -46,41 +45,33 @@ class DeduplicationSetFactory(DjangoModelFactory):
         model = DeduplicationSet
 
 
-class ImageFactory(DjangoModelFactory):
+class EncodingFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
     filename = fuzzy.FuzzyText()
     reference_pk = fuzzy.FuzzyText()
-
-    class Meta:
-        model = Image
-
-
-class EncodingFactory(DjangoModelFactory):
-    filename = Sequence(lambda n: f"img_{n}.jpg")
     embedding = fuzzy.FuzzyAttribute(lambda: [fuzzy.FuzzyFloat(0.0, 1.0).fuzz() for _ in range(8)])
-    status_code = None
+    embedding_status_code = None
 
     class Meta:
         model = Encoding
-        django_get_or_create = ("filename",)
 
     class Params:
         face_detect_error = Trait(
             embedding=None,
-            status_code=fuzzy.FuzzyChoice(
+            embedding_status_code=fuzzy.FuzzyChoice(
                 [
-                    Image.StatusCode.NO_FACE_DETECTED.value,
-                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
-                    Image.StatusCode.NO_FACE_ACCEPTED.value,
+                    Encoding.StatusCode.NO_FACE_DETECTED.value,
+                    Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                    Encoding.StatusCode.NO_FACE_ACCEPTED.value,
                 ]
             ),
         )
         system_error = Trait(
             embedding=None,
-            status_code=fuzzy.FuzzyChoice(
+            embedding_status_code=fuzzy.FuzzyChoice(
                 [
-                    Image.StatusCode.NO_FILE_FOUND.value,
-                    Image.StatusCode.GENERIC_ERROR.value,
+                    Encoding.StatusCode.NO_FILE_FOUND.value,
+                    Encoding.StatusCode.GENERIC_ERROR.value,
                 ]
             ),
         )
@@ -107,16 +98,16 @@ class FindingFactory(DjangoModelFactory):
         return (
             fuzzy.FuzzyChoice(
                 [
-                    Image.StatusCode.NO_FILE_FOUND.value,
-                    Image.StatusCode.NO_FACE_DETECTED.value,
-                    Image.StatusCode.MULTIPLE_FACES_DETECTED.value,
-                    Image.StatusCode.GENERIC_ERROR.value,
+                    Encoding.StatusCode.NO_FILE_FOUND.value,
+                    Encoding.StatusCode.NO_FACE_DETECTED.value,
+                    Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value,
+                    Encoding.StatusCode.GENERIC_ERROR.value,
                 ]
             )
             .fuzz()
             .value
             if self.score == 0
-            else Image.StatusCode.DEDUPLICATE_SUCCESS.value
+            else Encoding.StatusCode.DEDUPLICATE_SUCCESS.value
         )
 
 
