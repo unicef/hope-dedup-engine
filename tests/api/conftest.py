@@ -2,40 +2,15 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_factoryboy import LazyFixture, register
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
 
 from api.utils import create_api_client
+from hope_dedup_engine.apps.api.models import HDEToken
 from testutils.factories.api import (
-    DedupJobFactory,
-    DeduplicationSetFactory,
-    FindingFactory,
-    IgnoredFilenamePairFactory,
-    IgnoredReferencePkPairFactory,
-    EncodingFactory,
     HDETokenFactory,
-    DeduplicationSetGroupFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory
-
-from hope_dedup_engine.apps.api.models import HDEToken
-
-register(SystemFactory)
-register(UserFactory)
-register(DeduplicationSetGroupFactory, system=LazyFixture("system"))
-register(DeduplicationSetFactory, group=LazyFixture("deduplication_set_group"))
-register(EncodingFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(
-    EncodingFactory,
-    _name="second_image",
-    deduplication_Set=LazyFixture("deduplication_set"),
-)
-register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
 
 
 @pytest.fixture

@@ -15,11 +15,11 @@ from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGrou
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
-    callback_encodings,
     encode_chunk,
     get_chunks,
     finish_with_error,
     ChunkPurpose,
+    deduplicate_dataset,
 )
 
 HOUR = 60 * 60
@@ -67,17 +67,17 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     try:
         send_notification(deduplication_set.notification_url)
 
-        config = asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
+        asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
 
         # clean results
         Finding.objects.filter(deduplication_set=deduplication_set).delete()
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
 
-        image_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
-        chunks = get_chunks(image_ids, purpose=ChunkPurpose.ENCODE)
-        tasks = [encode_chunk.s(chunk, config) for chunk in chunks]
-        chord_id = chord(tasks)(callback_encodings.s(config=config))
+        encoding_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
+        chunks = get_chunks(encoding_ids, purpose=ChunkPurpose.ENCODE)
+        tasks = [encode_chunk.s(deduplication_set.pk, chunk) for chunk in chunks]
+        chord_id = chord(tasks)(deduplicate_dataset.si(deduplication_set_id=deduplication_set.pk))
 
         return {
             "deduplication_set": str(deduplication_set),

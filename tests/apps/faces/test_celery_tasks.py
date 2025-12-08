@@ -8,7 +8,6 @@ from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.apps.faces.celery_tasks import (
-    callback_encodings,
     callback_findings,
     dedupe_chunk,
     deduplicate_dataset,
@@ -92,32 +91,31 @@ def test_shadow_name_error(mocker):
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.encode_faces")
-def test_encode_chunk_success(mock_encode_faces, mock_get_ds, dedup_set_with_job, mocker):
+def test_encode_chunk_success(mock_encode_faces, mock_get_ds, dedup_set_with_job, encoding_factory):
     """Test encode_chunk successfully encodes faces and updates the dataset."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "get_encodings", return_value={})
-    mocker.patch.object(ds, "update_encodings")
+    encoding = encoding_factory(
+        deduplication_set=ds,
+        filename="file1.jpg",
+    )
 
-    def encode_side_effect(*args, **kwargs):
-        return {"file1.jpg": [1.0]}, 1, 0
+    encode_chunk(ds.pk, [encoding.pk])
 
-    mock_encode_faces.side_effect = encode_side_effect
-
-    encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk, "encoding": {}})
-
-    mock_encode_faces.assert_called_once()
-    ds.update_encodings.assert_called_once_with({"file1.jpg": [1.0]})
+    mock_encode_faces.assert_called_once_with(
+        dedup_set_with_job, [encoding.pk], 0.9, "Facenet512", "retinaface", align=True
+    )
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.encode_faces", side_effect=Exception("mock error"))
 @patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
+def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job, encoding_factory):
     """Test encode_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
+    encoding = encoding_factory(deduplication_set=ds, filename="file1.jpg")
     with pytest.raises(Exception, match="mock error"):
-        encode_chunk(["file1.jpg"], {"deduplication_set_id": ds.pk})
+        encode_chunk(ds.pk, [encoding.pk])
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
@@ -126,49 +124,31 @@ def test_encode_chunk_error(mock_sentry, mock_encode_faces, dedup_set_with_job):
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images")
-def test_dedupe_chunk_success(mock_dedupe_images, mock_get_ds, dedup_set_with_job, mocker):
+def test_dedupe_chunk_success(mock_dedupe_images, mock_get_ds, dedup_set_with_job, encoding_factory):
     """Test dedupe_chunk successfully finds duplicates."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "get_encodings", return_value={})
-    mocker.patch.object(ds, "get_ignored_pairs", return_value=set())
+    encoding = encoding_factory(deduplication_set=ds, filename="file1.jpg")
 
-    def dedupe_side_effect(*args, **kwargs):
-        return "findings"
+    dedupe_chunk(ds.pk, [encoding.pk], [])
 
-    mock_dedupe_images.side_effect = dedupe_side_effect
-
-    result = dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
-
-    assert result == "findings"
+    mock_dedupe_images.assert_called_once_with(
+        dedup_set_with_job, [encoding], [], set(), 50, "Facenet512", "retinaface", "cosine", True, True
+    )
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.dedupe_images", side_effect=Exception("mock error"))
 @patch("hope_dedup_engine.apps.faces.celery_tasks.sentry_sdk")
-def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job):
+def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_set_with_job, encoding_factory):
     """Test dedupe_chunk handles exceptions correctly."""
     ds = dedup_set_with_job
+    encoding = encoding_factory(deduplication_set=ds, filename="file1.jpg")
     with pytest.raises(Exception, match="mock error"):
-        dedupe_chunk(["file1.jpg"], [], {"deduplication_set_id": ds.pk})
+        dedupe_chunk(ds.pk, [encoding.pk], [])
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.FAILED
     mock_sentry.capture_exception.assert_called_once()
-
-
-@pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-def test_callback_findings_error_on_update(mock_get_ds, dedup_set_with_job, mocker):
-    """Test callback_findings handles exceptions during update_findings."""
-    ds = dedup_set_with_job
-    mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "update_findings", side_effect=Exception("DB Error"))
-
-    with pytest.raises(Exception, match="DB Error"):
-        callback_findings([], {"deduplication_set_id": ds.pk})
-
-    ds.refresh_from_db()
-    assert ds.state == DeduplicationSet.State.FAILED
 
 
 @pytest.mark.django_db
@@ -178,43 +158,23 @@ def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_se
     """Test callback_findings aggregates results and updates the dataset."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds.encoding_set, "all", return_value=[1, 2, 3])
-    mocker.patch.object(ds, "update_findings")
-    results = [
-        [("file1.jpg", "file2.jpg", 0.99, 1)],
-        [("file2.jpg", "file1.jpg", 0.99, 1)],  # Duplicate pair
-    ]
 
-    result = callback_findings(results, {"deduplication_set_id": ds.pk})
+    callback_findings(ds.pk)
 
     ds.refresh_from_db()
-    ds.update_findings.assert_called_once_with([("file1.jpg", "file2.jpg", 0.99, 1)])
     assert ds.state == DeduplicationSet.State.READY
     mock_send_notification.assert_called_once()
-    assert result["Findings"] == 1
-
-
-@pytest.mark.django_db
-@patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
-@patch("hope_dedup_engine.apps.faces.celery_tasks.deduplicate_dataset.delay")
-def test_callback_encodings_success(mock_delay, mock_get_ds, dedup_set_with_job):
-    """Test callback_encodings triggers the next step in the deduplication process."""
-    mock_get_ds.return_value = dedup_set_with_job
-    config = {"deduplication_set_id": dedup_set_with_job.pk}
-    result = callback_encodings([], config)
-    assert result == {"Encoded": True}
-    mock_delay.assert_called_once_with(config)
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
-def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job, mocker):
+def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job, mocker, encoding_factory):
     """Test deduplicate_dataset creates a chord of deduplication tasks."""
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    mocker.patch.object(ds, "get_encodings", return_value={"f1": [1], "f2": [2], "f3": [3]})
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk})
+    encoding_factory.create_batch(3, deduplication_set=ds)
+    result = deduplicate_dataset(ds.pk)
     assert result["chunks"] == 1
     mock_chord.assert_called_once()
 
@@ -222,7 +182,9 @@ def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
-def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_with_job, mocker, monkeypatch):
+def test_deduplicate_dataset_multiple_chunks(
+    mock_chord, mock_get_ds, dedup_set_with_job, monkeypatch, encoding_factory
+):
     """Test deduplicate_dataset with enough encodings to create multiple chunks."""
     chunks = 3
     chunk_size = 2
@@ -234,10 +196,10 @@ def test_deduplicate_dataset_multiple_chunks(mock_chord, mock_get_ds, dedup_set_
     monkeypatch.setattr("hope_dedup_engine.apps.faces.celery_tasks.ChunkPurpose", _P)
     ds = dedup_set_with_job
     mock_get_ds.return_value = ds
-    encodings = {f"f{i}": [i] for i in range(filenames_count)}
-    mocker.patch.object(ds, "get_encodings", return_value=encodings)
+    for i in range(filenames_count):
+        encoding_factory(deduplication_set=ds, filename=f"f{i}")
 
-    result = deduplicate_dataset({"deduplication_set_id": ds.pk})
+    result = deduplicate_dataset(ds.pk)
 
     assert result["chunks"] == chunks
     mock_chord.assert_called_once()

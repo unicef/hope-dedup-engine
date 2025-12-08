@@ -1,9 +1,7 @@
 import pytest
 from collections.abc import Callable
 from typing import Literal, cast
-from unittest.mock import call
 
-from pytest_mock import MockerFixture
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from testutils.factories.api import DeduplicationSetFactory, EncodingFactory
@@ -59,28 +57,6 @@ def make_findings(ds):
     return make
 
 
-def test_update_encodings(mocker: MockerFixture) -> None:
-    encoding_model_mock = mocker.patch("hope_dedup_engine.apps.api.models.deduplication.Encoding")
-    model = DeduplicationSet()
-
-    encodings = {"c": [2.0], "b": 1, "a": [0.0]}  # int = status_code, list = embedding
-    model.update_encodings(encodings)
-
-    encoding_model_mock.objects.bulk_create.assert_called_once_with(
-        [encoding_model_mock.return_value] * len(encodings),
-        update_conflicts=True,
-        update_fields=["embedding", "status_code"],
-        unique_fields=["filename"],
-    )
-    encoding_model_mock.assert_has_calls(
-        [
-            call(filename="a", embedding=[0.0], status_code=None),
-            call(filename="b", embedding=None, status_code=1),
-            call(filename="c", embedding=[2.0], status_code=None),
-        ]
-    )
-
-
 @pytest.mark.parametrize(
     ("filenames", "filenames_with_embeddings", "expected"),
     [
@@ -125,9 +101,3 @@ def test_encodings_without_embeddings_includes_missing_and_system_excludes_face(
         "sys_err.jpg",
         "missing_filename.jpg",
     }
-
-
-def test_get_findings(ds: DeduplicationSet, make_findings: Callable) -> None:
-    make_findings([("A", "B", 0.95), ("X", "Y", 0.80)])
-    got = {(a, b, round(float(s), 5)) for a, b, s in ds.get_findings()}
-    assert got == {("A", "B", 0.95), ("X", "Y", 0.8)}

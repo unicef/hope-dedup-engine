@@ -1,115 +1,133 @@
 import logging
-from collections.abc import Callable
-from collections import defaultdict
-from typing import Any
+from uuid import UUID
 
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
-from hope_dedup_engine.apps.api.models import Encoding
+from django.db import transaction
+from numpy import ndarray
+
+from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
-from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
-from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 logger = logging.getLogger(__name__)
 
 
-def encode_faces(  # noqa 901
-    files: list[str],
-    process_encoding_error: Callable[[str, Encoding.StatusCode], None],
-    config: dict[str, Any] | None = None,
-    pre_encodings=None,
-) -> tuple[EncodingType, int, int]:
-    with report_long_execution("ImagesStorageManager()"):
-        storage = ImagesStorageManager()
-
-    encoded = {}
-    if pre_encodings:
-        with report_long_execution("encoded.update(pre_encodings)"):
-            encoded.update(pre_encodings)
-    added_cnt = existing_cnt = 0
-
-    options = config.get("encoding") if config else {}
-
-    for file in files:
-        if file in encoded:
-            existing_cnt += 1
-            continue
-        try:
-            with report_long_execution("DeepFace.represent(storage.load_image(file), **(options or {}))"):
-                result = DeepFace.represent(storage.load_image(file), **(options or {}))
-
-            face_confidence = float(result[0]["face_confidence"])
-            threshold = config.get("face_confidence_threshold", 0.0) if config else 0.0
-            match (len(result), face_confidence):
-                case (l, _) if l > 1:
-                    encoded[file] = Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value
-                    process_encoding_error(file, Encoding.StatusCode.MULTIPLE_FACES_DETECTED)
-
-                case (_, fc) if fc == 0.0:
-                    encoded[file] = Encoding.StatusCode.NO_FACE_DETECTED.value
-                    process_encoding_error(file, Encoding.StatusCode.NO_FACE_DETECTED)
-
-                case (_, fc) if 0.0 < fc <= 1.0 and fc < threshold:
-                    encoded[file] = Encoding.StatusCode.NO_FACE_ACCEPTED.value
-                    process_encoding_error(file, Encoding.StatusCode.NO_FACE_ACCEPTED)
-
-                case _:
-                    encoded[file] = result[0]["embedding"]
-                    added_cnt += 1
-
-        except TypeError as e:
-            logger.exception(e)
-            encoded[file] = Encoding.StatusCode.GENERIC_ERROR.value
-            process_encoding_error(file, Encoding.StatusCode.GENERIC_ERROR)
-        except ResourceNotFoundError:
-            encoded[file] = Encoding.StatusCode.NO_FILE_FOUND.value
-            process_encoding_error(file, Encoding.StatusCode.NO_FILE_FOUND)
-
-    return encoded, added_cnt, existing_cnt
+Embedding = list[float]
 
 
-def dedupe_images(  # noqa 901
-    files0: list[str],
-    files1: list[str],
-    encodings: EncodingType,
-    ignored_pairs: IgnoredPairType,
-    config: dict[str, Any] | None = None,
-) -> FindingType:
-    findings = defaultdict(list)
-    options = config.get("deduplicate") if config else {}
+def encode_face(
+    data: ndarray, face_confidence_threshold: float, model_name: str, detector_backend: str, align: bool
+) -> tuple[Embedding, Encoding.StatusCode | None] | tuple[None, Encoding.StatusCode]:
+    # we use max_faces=2 not to waste time searching for more faces than we need
+    # we use enforce_detection=False not to raise exception when no face found
+    result = DeepFace.represent(
+        data,
+        max_faces=2,
+        enforce_detection=False,
+        model_name=model_name,
+        detector_backend=detector_backend,
+        align=align,
+    )
 
-    for i, file1 in enumerate(files0):
-        enc1 = encodings[file1]
-        if is_facial_error(enc1):
-            findings[file1].append([enc1, None])
-            continue
+    face_confidence = float(result[0]["face_confidence"])
 
-        if files0 == files1:
-            files1_ = files1[i + 1 :]
-        else:
-            files1_ = files1
+    match (len(result), face_confidence):
+        case (l, _) if l > 1:
+            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
 
-        for file2 in files1_:
-            enc2 = encodings[file2]
-            if (
-                file2 in findings
-                or (file1, file2) in ignored_pairs
-                or (file2, file1) in ignored_pairs
-                or is_facial_error(enc2)
-                or any(file2 == dup[0] for dup in findings.get(file1, []))
-            ):
-                continue
-            res = DeepFace.verify(enc1, enc2, **options)
-            if (confidence := res.get("confidence", 0)) >= config.get("duplicate_confidence_threshold", 0):
-                findings[file1].append([file2, confidence / 100])
+        case (_, fc) if fc == 0.0:
+            return None, Encoding.StatusCode.NO_FACE_DETECTED
 
-    results: FindingType = []
+        case (_, fc) if 0.0 < fc <= 1.0 and fc < face_confidence_threshold:
+            return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
 
-    for img, duplicates in findings.items():
-        for dup in duplicates:
-            if is_facial_error(dup[0]):
-                results.append((img, "", 0, Encoding.StatusCode(dup[0]).value))
+        case _:
+            return result[0]["embedding"], None
+
+
+def encode_faces(  # noqa: PLR0913
+    ds: DeduplicationSet,
+    encoding_ids: list[UUID],
+    face_confidence_threshold: float,
+    model_name: str,
+    detector_backend: str,
+    align: bool,
+) -> None:
+    storage = ImagesStorageManager()
+
+    encodings = Encoding.objects.filter(id__in=encoding_ids)
+
+    with transaction.atomic():
+        for encoding in encodings:
+            try:
+                # we can have the previous status code set (i.e., system error)
+                encoding.embedding_status_code = None
+                encoding.embedding, encoding.embedding_status_code = encode_face(
+                    storage.load_image(encoding.filename),
+                    face_confidence_threshold,
+                    model_name,
+                    detector_backend,
+                    align,
+                )
+
+            except TypeError as e:
+                logger.exception(e)
+                encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
+            except ResourceNotFoundError:
+                encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
+
+            encoding.save(update_fields=["embedding", "embedding_status_code"])
+
+            if encoding.embedding_status_code is not None:
+                Finding.objects.create(
+                    deduplication_set=ds,
+                    first_filename=encoding.filename,
+                    first_reference_pk=encoding.reference_pk,
+                    second_filename="",
+                    second_reference_pk="",
+                    score=0,
+                    status_code=encoding.embedding_status_code,
+                )
+
+
+def dedupe_images(  # noqa: PLR0913
+    deduplication_set: DeduplicationSet,
+    encodings0: list[Encoding],
+    encodings1: list[Encoding],
+    ignored_pairs: set[set[str]],
+    duplicate_confidence_threshold: float,
+    model_name: str,
+    detector_backend: str,
+    distance_metric: str,
+    align: bool,
+    silent: bool,
+) -> None:
+    with transaction.atomic():
+        for i, encoding0 in enumerate(encodings0):
+            if encodings0 == encodings1:
+                encodings1_ = encodings1[i + 1 :]
             else:
-                results.append((img, dup[0], dup[1], Encoding.StatusCode.DEDUPLICATE_SUCCESS.value))
+                encodings1_ = encodings1
 
-    return results
+            for encoding1 in encodings1_:
+                if {encoding0.filename, encoding1.filename} in ignored_pairs:
+                    continue
+                res = DeepFace.verify(
+                    encoding0.embedding,
+                    encoding1.embedding,
+                    model_name=model_name,
+                    detector_backend=detector_backend,
+                    distance_metric=distance_metric,
+                    align=align,
+                    silent=silent,
+                )
+                if (confidence := res.get("confidence", 0)) >= duplicate_confidence_threshold:
+                    Finding.objects.create(
+                        deduplication_set=deduplication_set,
+                        first_filename=encoding0.filename,
+                        first_reference_pk=encoding0.reference_pk,
+                        second_filename=encoding1.filename,
+                        second_reference_pk=encoding1.reference_pk,
+                        score=confidence / 100,
+                        status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+                    )

@@ -14,13 +14,13 @@ pytestmark = pytest.mark.django_db
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-@patch("hope_dedup_engine.apps.api.deduplication.process.callback_encodings")
+@patch("hope_dedup_engine.apps.api.deduplication.process.deduplicate_dataset")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_chunk")
 @patch("hope_dedup_engine.apps.api.deduplication.process.chord")
 def test_find_duplicates_orchestration(
     mock_chord,
     mock_encode_chunk,
-    mock_callback_encodings,
+    mock_deduplicate_dataset,
     mock_send_notification,
     dedup_job_factory,
     encoding_factory,
@@ -46,8 +46,8 @@ def test_find_duplicates_orchestration(
 
     assert mock_encode_chunk.s.call_count == 1
     mock_chord.assert_called_once_with([mock_encode_chunk.s.return_value])
-    mock_callback_encodings.s.assert_called_once()
-    mock_chord.return_value.assert_called_once_with(mock_callback_encodings.s.return_value)
+    mock_deduplicate_dataset.si.assert_called_once()
+    mock_chord.return_value.assert_called_once_with(mock_deduplicate_dataset.si.return_value)
 
 
 @patch("sentry_sdk.capture_exception")

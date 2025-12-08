@@ -9,7 +9,6 @@ from django.db import models
 from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -68,57 +67,22 @@ class DeduplicationSet(models.Model):
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    def get_encodings(self) -> EncodingType:
-        return {
-            fn: (emb if emb is not None else sc)
-            for fn, emb, sc in self.encoding_set.values_list("filename", "embedding", "embedding_status_code")
-        }
+    def encodings_with_embeddings(self) -> QuerySet["Encoding"]:
+        return self.encoding_set.filter(embedding__isnull=False)
 
     def encodings_without_embeddings(self) -> QuerySet["Encoding"]:
         return self.encoding_set.filter(embedding__isnull=True).exclude(
             embedding_status_code__in=EncodingErrorGroup.FACE_DETECT
         )
 
-    def get_findings(self) -> FindingType:
-        return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
-
-    def get_ignored_pairs(self) -> IgnoredPairType:
-        return list(self.ignoredreferencepkpair_set.values_list("first", "second")) + list(
-            self.ignoredfilenamepair_set.values_list("first", "second")
-        )
-
-    def update_encodings(self, encodings: EncodingType) -> None:
-        Encoding.objects.bulk_create(
-            [
-                Encoding(
-                    filename=fn,
-                    embedding=v if isinstance(v, list) else None,
-                    status_code=v if isinstance(v, int) else None,
-                )
-                for fn, v in sorted(encodings.items())  # sort encodings to prevent deadlock
-                if v is not None
-            ],
-            update_conflicts=True,
-            update_fields=["embedding", "status_code"],
-            unique_fields=["filename"],
-        )
-
-    def update_findings(self, findings: FindingType) -> None:
-        images = Encoding.objects.filter(deduplication_set=self).values("filename", "reference_pk")
-        filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
-        findings_to_create = [
-            Finding(
-                deduplication_set=self,
-                first_filename=f[0],
-                first_reference_pk=filename_to_reference_pk.get(f[0]),
-                second_filename=f[1],
-                second_reference_pk=filename_to_reference_pk.get(f[1]),
-                score=f[2],
-                status_code=f[3],
+    def get_ignored_pairs(self) -> set[frozenset[str]]:
+        return set(
+            map(
+                frozenset,
+                tuple(self.ignoredreferencepkpair_set.values_list("first", "second"))
+                + tuple(self.ignoredfilenamepair_set.values_list("first", "second")),
             )
-            for f in findings
-        ]
-        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
+        )
 
     def set_state(self, state: State, error: Exception | None = None) -> None:
         self.state = state.value
@@ -151,9 +115,9 @@ class Encoding(models.Model):
 
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
-        NO_FILE_FOUND = 404, "no file found"
+        FILE_NOT_FOUND = 404, "no file found"
         NO_FACE_DETECTED = 412, "no face detected"
-        NO_FACE_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
+        FACE_NOT_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
@@ -199,11 +163,11 @@ class Encoding(models.Model):
 
 class EncodingErrorGroup:
     FACE_DETECT = (
-        Encoding.StatusCode.NO_FACE_ACCEPTED,
+        Encoding.StatusCode.FACE_NOT_ACCEPTED,
         Encoding.StatusCode.NO_FACE_DETECTED,
         Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
-    SYSTEM = (Encoding.StatusCode.NO_FILE_FOUND, Encoding.StatusCode.GENERIC_ERROR)
+    SYSTEM = (Encoding.StatusCode.FILE_NOT_FOUND, Encoding.StatusCode.GENERIC_ERROR)
 
 
 class Finding(models.Model):

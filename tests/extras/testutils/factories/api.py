@@ -62,7 +62,7 @@ class EncodingFactory(DjangoModelFactory):
                 [
                     Encoding.StatusCode.NO_FACE_DETECTED.value,
                     Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value,
-                    Encoding.StatusCode.NO_FACE_ACCEPTED.value,
+                    Encoding.StatusCode.FACE_NOT_ACCEPTED.value,
                 ]
             ),
         )
@@ -70,7 +70,7 @@ class EncodingFactory(DjangoModelFactory):
             embedding=None,
             embedding_status_code=fuzzy.FuzzyChoice(
                 [
-                    Encoding.StatusCode.NO_FILE_FOUND.value,
+                    Encoding.StatusCode.FILE_NOT_FOUND.value,
                     Encoding.StatusCode.GENERIC_ERROR.value,
                 ]
             ),
@@ -98,7 +98,7 @@ class FindingFactory(DjangoModelFactory):
         return (
             fuzzy.FuzzyChoice(
                 [
-                    Encoding.StatusCode.NO_FILE_FOUND.value,
+                    Encoding.StatusCode.FILE_NOT_FOUND.value,
                     Encoding.StatusCode.NO_FACE_DETECTED.value,
                     Encoding.StatusCode.MULTIPLE_FACES_DETECTED.value,
                     Encoding.StatusCode.GENERIC_ERROR.value,
