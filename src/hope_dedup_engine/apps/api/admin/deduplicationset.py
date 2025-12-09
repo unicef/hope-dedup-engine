@@ -1,38 +1,17 @@
 from typing import cast
 
-from django.contrib import messages
-from django.contrib.admin import ModelAdmin, register
-
 from admin_extra_buttons.decorators import button, link
 from admin_extra_buttons.mixins import ExtraButtonsMixin
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
+from django.contrib.admin import ModelAdmin, register
+from django.contrib import messages
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
-
-
-@register(DeduplicationSetGroup)
-class DeduplicationSetGroupAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
-    readonly_fields = ("reference_pk",)
-    search_fields = ("reference_pk",)
-
-    def has_add_permission(self, request) -> bool:
-        return False
-
-    @button(change_form=True)
-    def reset(self, request: HttpRequest, pk: str) -> None:
-        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
-        for deduplication_set in group.deduplicationset_set.all():
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
-            deduplication_set.finding_set.all().delete()
-        group.settings = {}
-        group.save(update_fields=["settings"])
-        self.message_user(request, "Findings/encodings removed. Config reset.", level=messages.SUCCESS)
 
 
 @register(DeduplicationSet)
@@ -77,3 +56,15 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return DeduplicationSet.objects.only(*self.get_list_display(request))
+
+    @button(change_form=True)
+    def reset_encodings(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+        self.message_user(request, "Encodings reset.", level=messages.SUCCESS)
+
+    @button(change_form=True)
+    def remove_findings(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set.finding_set.all().delete()
+        self.message_user(request, "Findings removed.", level=messages.SUCCESS)
