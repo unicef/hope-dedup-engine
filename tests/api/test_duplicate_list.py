@@ -21,7 +21,7 @@ UPDATED_BEFORE = "updated_before"
 
 
 def test_can_list_duplicates(api_client: APIClient, deduplication_set: DeduplicationSet, finding: Finding) -> None:
-    response = api_client.get(reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,)))
+    response = api_client.get(reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data.get("results")) == 1
@@ -33,7 +33,7 @@ def test_cannot_list_duplicates_between_systems(
     finding: Finding,
 ) -> None:
     assert DeduplicationSet.objects.count()
-    response = another_system_api_client.get(reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,)))
+    response = another_system_api_client.get(reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -55,7 +55,7 @@ def test_can_filter_by_reference_pk(
     filter_value_getter: Callable[[Finding], str],
     expected_amount: int,
 ) -> None:
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(
         {REFERENCE_PK: filter_value_getter(finding)}
     )
     response = api_client.get(url)
@@ -71,7 +71,7 @@ def test_filtering_by_multiple_reference_keys(
     findings = FindingFactory.create_batch(25, deduplication_set=deduplication_set)
     reference_pks = [f.first_reference_pk for f in findings[:10]] + [f.second_reference_pk for f in findings[11:15]]
 
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(
         {REFERENCE_PK: ",".join(reference_pks)}
     )
     response = api_client.get(url)
@@ -86,7 +86,7 @@ def test_filtering_by_empty_reference_keys(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,
 ):
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode({REFERENCE_PK: " "})
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode({REFERENCE_PK: " "})
     response = api_client.get(url)
     data = response.json()
 
@@ -113,7 +113,7 @@ def test_filter_by_datetime(
     expected: int,
 ) -> None:
     dt = (finding.updated_at + timedelta(hours=delta_hours)).isoformat()
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode({filter_param: dt})}"
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?{urlencode({filter_param: dt})}"
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert len(response.json().get("results")) == expected
@@ -128,14 +128,16 @@ def test_filter_by_date_range(
         UPDATED_AFTER: (finding.updated_at - timedelta(hours=1)).isoformat(),
         UPDATED_BEFORE: (finding.updated_at + timedelta(hours=1)).isoformat(),
     }
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode(params)}"
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?{urlencode(params)}"
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert len(response.json().get("results")) == 1
 
 
 def test_invalid_datetime_returns_400(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?{urlencode({UPDATED_AFTER: 'invalid'})}"
+    base_url = reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))
+    query = urlencode({UPDATED_AFTER: "invalid"})
+    url = f"{base_url}?{query}"
     response = api_client.get(url)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert UPDATED_AFTER in response.json()
@@ -157,7 +159,7 @@ def test_filtering_with_too_many_references(
     expected_status_code: int,
 ):
     reference_pks = ["1235465487981"] * pks_count_in_request
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.pk,))}?" + urlencode(
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(
         {REFERENCE_PK: ",".join(reference_pks)}
     )
 

@@ -23,6 +23,6 @@ def test_can_trigger_deduplication_set_processing(
     api_client: APIClient,
     deduplication_set: DeduplicationSet,
 ) -> None:
-    response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.pk,)))
+    response = api_client.post(reverse(DEDUPLICATION_SET_PROCESS_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_200_OK
     mock_dedup_job_queue.assert_called_once()  # queue()

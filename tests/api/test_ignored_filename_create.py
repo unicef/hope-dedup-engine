@@ -17,7 +17,7 @@ def test_can_create_ignored_filename_pair(api_client: APIClient, deduplication_s
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
 
     response = api_client.post(
-        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -32,7 +32,7 @@ def test_cannot_create_ignored_filename_pair_between_systems(
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
 
     response = another_system_api_client.post(
-        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -55,7 +55,7 @@ def test_invalid_values_handling(
     data["first"] = first_filename
     data["second"] = second_filename
     response = api_client.post(
-        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -71,7 +71,7 @@ def test_missing_filename_handling(api_client: APIClient, deduplication_set: Ded
     del data["first"], data["second"]
 
     response = api_client.post(
-        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -86,7 +86,7 @@ def test_deduplication_set_is_updated(api_client: APIClient, user: User, dedupli
 
     data = IgnoredFilenamePairSerializer(IgnoredFilenamePairFactory.build()).data
     response = api_client.post(
-        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )

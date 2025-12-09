@@ -14,7 +14,7 @@ def test_can_delete_encoding(
 ) -> None:
     encoding_count = Encoding.objects.filter(deduplication_set=deduplication_set).count()
     assert deduplication_set.state == DeduplicationSet.State.READY
-    response = api_client.delete(reverse(ENCODING_DETAIL_VIEW, (deduplication_set.pk, encoding.pk)))
+    response = api_client.delete(reverse(ENCODING_DETAIL_VIEW, (deduplication_set.group.reference_pk, encoding.pk)))
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == encoding_count - 1
 
@@ -28,7 +28,9 @@ def test_cannot_delete_encoding_between_systems(
     encoding: Encoding,
 ) -> None:
     encoding_count = Encoding.objects.filter(deduplication_set=deduplication_set).count()
-    response = another_system_api_client.delete(reverse(ENCODING_DETAIL_VIEW, (deduplication_set.pk, encoding.pk)))
+    response = another_system_api_client.delete(
+        reverse(ENCODING_DETAIL_VIEW, (deduplication_set.group.reference_pk, encoding.pk))
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == encoding_count
 
@@ -40,7 +42,7 @@ def test_deduplication_set_is_updated(
     encoding: Encoding,
 ) -> None:
     assert deduplication_set.updated_by is None
-    response = api_client.delete(reverse(ENCODING_DETAIL_VIEW, (deduplication_set.pk, encoding.pk)))
+    response = api_client.delete(reverse(ENCODING_DETAIL_VIEW, (deduplication_set.group.reference_pk, encoding.pk)))
     assert response.status_code == status.HTTP_204_NO_CONTENT
     deduplication_set.refresh_from_db()
     assert deduplication_set.updated_by == user

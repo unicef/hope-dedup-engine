@@ -12,7 +12,7 @@ def test_can_list_ignored_filename_pairs(
     deduplication_set: DeduplicationSet,
     ignored_filename_pair: IgnoredFilenamePair,
 ) -> None:
-    response = api_client.get(reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)))
+    response = api_client.get(reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_200_OK
     ignored_filename_pairs = response.json()
     assert len(ignored_filename_pairs)
@@ -24,5 +24,7 @@ def test_can_list_ignored_filename_pairs(
 def test_cannot_list_ignored_filename_pairs_between_systems(
     another_system_api_client: APIClient, deduplication_set: DeduplicationSet
 ) -> None:
-    response = another_system_api_client.get(reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.pk,)))
+    response = another_system_api_client.get(
+        reverse(IGNORED_FILENAME_LIST_VIEW, (deduplication_set.group.reference_pk,))
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN

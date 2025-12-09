@@ -20,7 +20,7 @@ def test_can_delete_deduplication_set(
     assert deduplication_set.updated_by is None
     previous_amount = DeduplicationSet.objects.count()
 
-    response = api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
+    response = api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
     # object is only marked as deleted
@@ -38,7 +38,9 @@ def test_cannot_delete_deduplication_set_between_systems(
     delete_model_data: MagicMock,
 ) -> None:
     set_count = DeduplicationSetGroup.objects.filter(deleted=False).count()
-    response = another_system_api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
+    response = another_system_api_client.delete(
+        reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.group.reference_pk,))
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert DeduplicationSetGroup.objects.filter(deleted=False).count() == set_count
 
@@ -48,6 +50,8 @@ def test_unauthorized_deletion_does_not_trigger_model_data_deletion(
     deduplication_set: DeduplicationSet,
     delete_model_data: MagicMock,
 ) -> None:
-    response = another_system_api_client.delete(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
+    response = another_system_api_client.delete(
+        reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.group.reference_pk,))
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     delete_model_data.assert_not_called()
