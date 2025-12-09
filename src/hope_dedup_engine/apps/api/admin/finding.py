@@ -1,35 +1,43 @@
 from django.contrib.admin import ModelAdmin, register
+from django.urls import reverse
 
 from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
+from admin_extra_buttons.api import ExtraButtonsMixin, link
 
 from hope_dedup_engine.apps.api.models import Finding, Encoding
 
 
 @register(Finding)
-class FindingAdmin(AdminFiltersMixin, ModelAdmin):
+class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "deduplication_set",
         "score",
         "first_reference_pk",
         "second_reference_pk",
-        "formatted_status_code",
+        "status_display",
         "created_at",
         "updated_at",
     )
-
-    def formatted_status_code(self, obj):
-        return f"{obj.status_code} {Encoding.StatusCode(obj.status_code).name}"
-
-    formatted_status_code.short_description = "Status Code"
-
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
         DjangoLookupFilter,
     )
+    list_select_related = ("deduplication_set",)
+
+    @link(
+        change_form=True,
+        change_list=False,
+        html_attrs={"target": "_blank", "rel": "noopener noreferrer"},
+    )
+    def details(self, button) -> None:
+        """Add a button that opens a separate window with both images."""
+        original: Finding = button.context["original"]
+        button.label = "Details"
+        button.href = reverse("faces:finding-preview", kwargs={"pk": original.pk})
 
     def has_add_permission(self, request):
         return False

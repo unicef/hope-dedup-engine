@@ -1,0 +1,30 @@
+.finding-preview__meta {
+  margin-bottom: 1.5rem;
+}
+
+.finding-preview__value {
+  font-weight: bold;
+}
+
+.finding-preview__images {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.finding-preview__figure {
+  margin: 0;
+  max-width: 48%;
+}
+
+.finding-preview__figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.finding-preview__caption {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}

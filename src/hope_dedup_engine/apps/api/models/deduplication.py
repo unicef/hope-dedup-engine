@@ -229,6 +229,10 @@ class Finding(models.Model):
     def __str__(self) -> str:
         return f"Finding({self.first_filename}, {self.second_filename})"
 
+    @property
+    def status_display(self) -> str:
+        return f"{self.status_code} {Image.StatusCode(self.status_code).name}"
+
 
 class IgnoredPair(models.Model):
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
