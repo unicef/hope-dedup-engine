@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any, cast
-from uuid import UUID
 
 from django.db.models import QuerySet, Model
 from drf_spectacular.utils import extend_schema
@@ -53,7 +52,7 @@ def get_active_deduplication_sets(request: Request) -> QuerySet[DeduplicationSet
     return cast(
         "QuerySet[DeduplicationSet]",
         DeduplicationSet.objects.filter(group__system=request.auth.system, group__deleted=False).exclude(
-            state__in=[DeduplicationSet.State.APPROVED, DeduplicationSet.State.REJECTED]
+            state=DeduplicationSet.State.INACTIVE
         ),
     )
 
@@ -121,13 +120,21 @@ class DeduplicationSetViewSet(
         description="Approve deduplication set or individual records",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
-    def approve_or_reject(self, request: Request, pk: UUID | None = None) -> Response:
-        self._update_set_or_encodings(
-            request,
-            deduplication_set_state=DeduplicationSet.State.APPROVED,
-            exclude_encoding_state=Encoding.State.REJECTED,
-            encoding_state=Encoding.State.APPROVED,
-        )
+    def approve_or_reject(self, request: Request, group__reference_pk: str | None = None) -> Response:
+        deduplication_set = self.get_object()
+        action_ = request.data.get("action")
+        reference_pks = request.data.get("reference_pks")
+
+        if action_ and reference_pks:
+            encodings = deduplication_set.encoding_set.filter(reference_pk__in=reference_pks)
+            if action_ == "approve":
+                encodings.update(state=Encoding.State.APPROVED)
+            if action_ == "reject":
+                encodings.update(state=Encoding.State.REJECTED)
+
+        deduplication_set.updated_by = self.request.user
+        deduplication_set.save()
+
         return Response({"message": "ok"})
 
     @extend_schema(description="List all deduplication sets available to the user")

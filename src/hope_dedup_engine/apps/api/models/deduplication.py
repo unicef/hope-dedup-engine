@@ -36,8 +36,7 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
-        APPROVED = 4, "Approved"
-        REJECTED = 5, "Rejected"
+        INACTIVE = 4, "Inactive"
 
     id = models.UUIDField(primary_key=True, default=uuid4)
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE)
@@ -63,6 +62,7 @@ class DeduplicationSet(models.Model):
     notification_url = models.CharField(max_length=255, null=True, blank=True)
     notify = models.BooleanField(default=True)
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
+    settings = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
