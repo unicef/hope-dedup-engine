@@ -37,11 +37,6 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
         fields = ("reference_pk", "notification_url", "notify", "state", "settings")
         write_only_fields = ("settings",)
 
-    def validate_settings(self, value: dict[str, Any] | None = None) -> dict[str, Any]:
-        if not value or "threshold" not in value:
-            raise serializers.ValidationError("At least threshold is required.")
-        return value
-
 
 class EncodingSerializer(serializers.ModelSerializer):
     deduplication_set = DeduplicationSetSerializer(read_only=True)
