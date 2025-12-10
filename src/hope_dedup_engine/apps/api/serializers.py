@@ -31,6 +31,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="group.reference_pk")
     state = serializers.CharField(source="get_state_display", read_only=True)
+    settings = serializers.JSONField(required=True)
 
     class Meta:
         model = DeduplicationSet
