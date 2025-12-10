@@ -12,8 +12,9 @@
   <h1>Finding {{ finding.pk }}</h1>
 
   <p class="finding-preview__meta">
+    Deduplication group: <span class="finding-preview__value">{{ finding.deduplication_set.group }}</span><br>
+    with settings: <span class="finding-preview__value">{{ finding.deduplication_set.group.settings }}</span><br>
     Deduplication set: <span class="finding-preview__value">{{ finding.deduplication_set }}</span><br>
-    with settings: <span class="finding-preview__value">{{ finding.deduplication_set.config }}</span><br>
     Score: <span class="finding-preview__value">{{ finding.score }}</span>&nbsp;·&nbsp;
     Status code: <span class="finding-preview__value">{{ status_label }}</span>
   </p>

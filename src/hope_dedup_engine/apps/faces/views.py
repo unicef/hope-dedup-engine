@@ -9,7 +9,7 @@ from django.views import View
 from django.views.generic import TemplateView
 from django.urls import reverse
 
-from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.models import Finding, Encoding
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 
@@ -48,7 +48,7 @@ class FindingPreviewView(TemplateView):
 
         context.update(
             finding=finding,
-            status_label=finding.status_display,
+            status_label=Encoding.StatusCode(finding.status_code).label,
             first_image_url=self._image_url(finding.first_filename),
             second_image_url=self._image_url(finding.second_filename),
         )

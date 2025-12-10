@@ -6,7 +6,7 @@ from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 from admin_extra_buttons.api import ExtraButtonsMixin, link
 
-from hope_dedup_engine.apps.api.models import Finding, Encoding
+from hope_dedup_engine.apps.api.models import Finding
 
 
 @register(Finding)
@@ -17,7 +17,7 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "score",
         "first_reference_pk",
         "second_reference_pk",
-        "status_display",
+        "status_code",
         "created_at",
         "updated_at",
     )
@@ -36,7 +36,6 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     def details(self, button) -> None:
         """Add a button that opens a separate window with both images."""
         original: Finding = button.context["original"]
-        button.label = "Details"
         button.href = reverse("faces:finding-preview", kwargs={"pk": original.pk})
 
     def has_add_permission(self, request):
