@@ -7,6 +7,7 @@ from adminfilters.mixin import AdminFiltersMixin
 from admin_extra_buttons.api import ExtraButtonsMixin, link
 
 from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.permissions import can_view_finding_details
 
 
 @register(Finding)
@@ -28,16 +29,6 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     )
     list_select_related = ("deduplication_set",)
 
-    @link(
-        change_form=True,
-        change_list=False,
-        html_attrs={"target": "_blank", "rel": "noopener noreferrer"},
-    )
-    def details(self, button) -> None:
-        """Add a button that opens a separate window with both images."""
-        original: Finding = button.context["original"]
-        button.href = reverse("faces:finding-preview", kwargs={"pk": original.pk})
-
     def has_add_permission(self, request):
         return False
 
@@ -46,3 +37,14 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return obj is not None
+
+    @link(
+        change_form=True,
+        change_list=False,
+        permission=can_view_finding_details,
+        html_attrs={"target": "_blank", "rel": "noopener noreferrer"},
+    )
+    def details(self, button) -> None:
+        """Add a button that opens a separate window with both images."""
+        original: Finding = button.context["original"]
+        button.href = reverse("finding-preview", kwargs={"pk": original.pk})
