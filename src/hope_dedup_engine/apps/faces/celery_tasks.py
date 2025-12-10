@@ -149,10 +149,15 @@ def deduplicate_dataset(
             .values_list("id", flat=True),
             purpose=ChunkPurpose.DEDUPE,
         )
+        # here we split all encodings in chunks. later each chunk is compared to
+        # all chunks. it makes all possible pairs of encodings be compared.
         tasks = [
             dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)
             for chunk0, chunk1 in combinations_with_replacement(chunks, 2)
         ]
+        # here we extend chunk pairs with each chunk from the deduplication set
+        # encodings compared to each chunk from all approved encodings under the
+        # same deduplication set group
         tasks.extend(
             [
                 dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)

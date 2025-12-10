@@ -16,7 +16,9 @@ MAX_ERROR_LENGTH: Final[int] = 255
 
 
 class DeduplicationSetGroup(models.Model):
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, unique=True)  # source_id
+    reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
+    )
     system = models.ForeignKey(System, on_delete=models.CASCADE)
     settings = models.JSONField(default=dict, null=True, blank=True)
     deleted = models.BooleanField(null=False, blank=False, default=False)

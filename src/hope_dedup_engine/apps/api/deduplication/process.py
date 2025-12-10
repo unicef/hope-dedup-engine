@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from datetime import timedelta
 from typing import Any
 
@@ -8,9 +7,8 @@ from django.utils import timezone
 import sentry_sdk
 from celery import chord, shared_task
 
-from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, Finding
+from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
@@ -67,10 +65,6 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     try:
         send_notification(deduplication_set.notification_url)
 
-        asdict(DeduplicationSetConfig.from_deduplication_set(deduplication_set))
-
-        # clean results
-        Finding.objects.filter(deduplication_set=deduplication_set).delete()
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])
 
