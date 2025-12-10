@@ -122,18 +122,23 @@ class DeduplicationSetViewSet(
     @action(detail=True, methods=(HTTPMethod.POST,))
     def approve_or_reject(self, request: Request, group__reference_pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
-        action_ = request.data.get("action")
-        reference_pks = request.data.get("reference_pks")
+        serializer = EncodingReferencePks(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            action_ = serializer.validated_data["action"]
+            reference_pks = serializer.validated_data["reference_pks"]
 
-        if action_ and reference_pks:
             encodings = deduplication_set.encoding_set.filter(reference_pk__in=reference_pks)
+            other_encodings = deduplication_set.encoding_set.exclude(reference_pk__in=reference_pks)
             if action_ == "approve":
                 encodings.update(state=Encoding.State.APPROVED)
-            if action_ == "reject":
+                other_encodings.update(state=Encoding.State.REJECTED)
+            else:
                 encodings.update(state=Encoding.State.REJECTED)
+                other_encodings.update(state=Encoding.State.APPROVED)
 
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
+            deduplication_set.state = DeduplicationSet.State.INACTIVE
+            deduplication_set.updated_by = self.request.user
+            deduplication_set.save()
 
         return Response({"message": "ok"})
 

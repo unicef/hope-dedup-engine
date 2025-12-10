@@ -10,3 +10,5 @@ if [[ $# -ne 1 ]] ; then
 fi
 
 call_api POST deduplication_sets reference_pk="$1"
+
+set_variable DEDUPLICATION_SET_REFERENCE_PK "$1"

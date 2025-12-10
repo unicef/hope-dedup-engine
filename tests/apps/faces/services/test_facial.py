@@ -183,7 +183,7 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
     ]
 
     dedupe_images(**complex_deduplication_data)
-
+    assert complex_deduplication_data["deduplication_set"].finding_set.count() == 1
     finding = complex_deduplication_data["deduplication_set"].finding_set.first()
     assert finding.first_filename == "f1.jpg"
     assert finding.second_filename == "f2.jpg"

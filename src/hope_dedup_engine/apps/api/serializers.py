@@ -143,4 +143,5 @@ class EmptySerializer(serializers.Serializer):
 
 
 class EncodingReferencePks(serializers.Serializer):
-    reference_pks = serializers.ListField(child=serializers.CharField())
+    action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
+    reference_pks = serializers.ListField(child=serializers.CharField(), required=True)

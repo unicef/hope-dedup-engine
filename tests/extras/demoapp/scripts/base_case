@@ -9,7 +9,7 @@ if [[ $# -ne 1 ]] ; then
   exit 1
 fi
 
-./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
+./create_deduplication_set "$1"
 
 for path in ../demo_images/*.{jpg,png}; do
   file=$(basename $path)

@@ -11,4 +11,4 @@ if [[ $# -ne 1 ]] ; then
   exit 1
 fi
 
-call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" reference_pk="$1" filename="$1"
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_REFERENCE_PK/images" reference_pk="$1" filename="$1"

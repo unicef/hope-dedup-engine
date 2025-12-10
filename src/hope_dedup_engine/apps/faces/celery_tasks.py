@@ -1,6 +1,6 @@
 import traceback
 from enum import IntEnum
-from itertools import batched
+from itertools import batched, product
 from itertools import combinations_with_replacement
 from typing import TYPE_CHECKING, Any, Iterable
 from uuid import UUID
@@ -11,7 +11,7 @@ from celery.utils.imports import qualname
 from django.conf import settings
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
@@ -103,7 +103,7 @@ def dedupe_chunk(
         # we need to sort records and convert queryset to list to be able to
         # check two collections for equality
         encodings0 = list(ds.encoding_set.filter(id__in=encoding_ids0).order_by("id"))
-        encodings1 = list(ds.encoding_set.filter(id__in=encoding_ids1).order_by("id"))
+        encodings1 = list(Encoding.objects.filter(id__in=encoding_ids1).order_by("id"))
         return dedupe_images(
             ds,
             encodings0,
@@ -140,15 +140,30 @@ def deduplicate_dataset(
     ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
     try:
         chunks = get_chunks(ds.encodings_with_embeddings().values_list("id", flat=True), purpose=ChunkPurpose.DEDUPE)
+        approved_data_chunks = get_chunks(
+            DeduplicationSet.objects.filter(
+                group__reference_pk=ds.group.reference_pk, state=DeduplicationSet.State.INACTIVE
+            )
+            .prefetch_related("encoding_set")
+            .filter(state=Encoding.State.APPROVED)
+            .values_list("id", flat=True),
+            purpose=ChunkPurpose.DEDUPE,
+        )
         tasks = [
             dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)
             for chunk0, chunk1 in combinations_with_replacement(chunks, 2)
         ]
+        tasks.extend(
+            [
+                dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)
+                for chunk0, chunk1 in product(chunks, approved_data_chunks)
+            ]
+        )
         chord_id = chord(tasks)(callback_findings.si(deduplication_set_id=deduplication_set_id))
         return {
             "deduplication_set": str(ds),
             "chord_id": str(chord_id),
-            "chunks": len(chunks),
+            "chunks": len(chunks) + len(approved_data_chunks),
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)
