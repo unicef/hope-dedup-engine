@@ -40,33 +40,45 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
-        INACTIVE = 4, "Inactive"
+        INACTIVE = 4, "Inactive"  # set cannot be modified but takes part in the deduplication process
 
-    id = models.UUIDField(primary_key=True, default=uuid4)
-    group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE)
-    name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
-    description = models.TextField(null=True, blank=True)
-    state = models.IntegerField(choices=State, default=State.READY, db_column="state")
+    id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
+    group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
+    name = models.CharField(
+        max_length=128, unique=True, null=True, blank=True, db_index=True, help_text="Deduplication set name."
+    )
+    description = models.TextField(null=True, blank=True, help_text="Deduplication set description.")
+    state = models.IntegerField(
+        choices=State, default=State.READY, db_column="state", help_text="Deduplication set state."
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who created this deduplication set.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, help_text="Date and time when this deduplication set was created."
+    )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who last updated this deduplication set.",
     )
-    updated_at = models.DateTimeField(auto_now=True)
-    notification_url = models.CharField(max_length=255, null=True, blank=True)
-    notify = models.BooleanField(default=True)
-    error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
-    settings = models.JSONField(default=dict, null=True, blank=True)
+    updated_at = models.DateTimeField(
+        auto_now=True, help_text="Date and time when this deduplication set was last updated."
+    )
+    notification_url = models.CharField(max_length=255, null=True, blank=True, help_text="Notification url.")
+    notify = models.BooleanField(
+        default=True, help_text="Whether to send notifications about deduplication set state changes."
+    )
+    error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True, help_text="Error message.")
+    settings = models.JSONField(default=dict, null=True, blank=True, help_text="Deduplication set settings.")
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
@@ -125,21 +137,24 @@ class Encoding(models.Model):
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
-    id = models.UUIDField(primary_key=True, default=uuid4)
-    state = models.IntegerField(choices=State, default=State.ACTIVE)
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    filename = models.CharField(max_length=FILENAME_LENGTH)
-    embedding = ArrayField(models.FloatField(), null=True, blank=True)
-    embedding_status_code = models.IntegerField(choices=StatusCode, null=True, blank=True)
+    id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
+    state = models.IntegerField(choices=State, default=State.ACTIVE, help_text="Encoding state.")
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
+    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
+    filename = models.CharField(max_length=FILENAME_LENGTH, help_text="Filename used in encoding.")
+    embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
+    embedding_status_code = models.IntegerField(
+        choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who created this encoding.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this encoding was created.")
     objects = EncodingManager()
 
     class Meta:
@@ -177,19 +192,26 @@ class EncodingErrorGroup:
 class Finding(models.Model):
     """Couple of finding entities."""
 
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
-    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
-    second_reference_pk = models.CharField(default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference")
-    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
+    first_reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, verbose_name="First reference", help_text="First reference pk."
+    )
+    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="First filename.")
+    second_reference_pk = models.CharField(
+        default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference", help_text="Second reference pk."
+    )
+    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="Second filename.")
     score = models.FloatField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         verbose_name="Similarity Score",
+        help_text="Similarity score between the two encodings.",
     )
-    status_code = models.IntegerField(choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    status_code = models.IntegerField(
+        choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS, help_text="Finding status code."
+    )
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this finding was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Date and time when this finding was updated.")
 
     class Meta:
         indexes = [
@@ -209,7 +231,7 @@ class Finding(models.Model):
 
 
 class IgnoredPair(models.Model):
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
 
     class Meta:
         abstract = True
@@ -228,8 +250,8 @@ UNIQUE_FOR_IGNORED_PAIR = (
 
 
 class IgnoredReferencePkPair(IgnoredPair):
-    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="First reference pk.")
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="Second reference pk.")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_ref_pair")]
@@ -239,8 +261,8 @@ class IgnoredReferencePkPair(IgnoredPair):
 
 
 class IgnoredFilenamePair(IgnoredPair):
-    first = models.CharField(max_length=FILENAME_LENGTH)
-    second = models.CharField(max_length=FILENAME_LENGTH)
+    first = models.CharField(max_length=FILENAME_LENGTH, help_text="First filename.")
+    second = models.CharField(max_length=FILENAME_LENGTH, help_text="Second filename.")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_filename_pair")]
