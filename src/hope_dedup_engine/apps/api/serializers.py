@@ -91,10 +91,12 @@ class EntrySerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
 
     def get_reference_pk(self, duplicate: Finding) -> int:
-        return getattr(duplicate, f"{self._prefix}_reference_pk")
+        encoding = getattr(duplicate, f"{self._prefix}_encoding", None)
+        return encoding.reference_pk if encoding else ""
 
     def get_filename(self, duplicate: Finding) -> str:
-        return getattr(duplicate, f"{self._prefix}_filename")
+        encoding = getattr(duplicate, f"{self._prefix}_encoding", None)
+        return encoding.filename if encoding else ""
 
 
 class DuplicateSerializer(serializers.ModelSerializer):

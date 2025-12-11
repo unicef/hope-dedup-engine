@@ -193,14 +193,20 @@ class Finding(models.Model):
     """Couple of finding entities."""
 
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
-    first_reference_pk = models.CharField(
-        max_length=REFERENCE_PK_LENGTH, verbose_name="First reference", help_text="First reference pk."
+    first_encoding = models.ForeignKey(
+        Encoding,
+        on_delete=models.CASCADE,
+        related_name="first_findings",
+        help_text="First encoding in this potential duplicate pair.",
     )
-    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="First filename.")
-    second_reference_pk = models.CharField(
-        default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference", help_text="Second reference pk."
+    second_encoding = models.ForeignKey(
+        Encoding,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="second_findings",
+        help_text="Second encoding in this potential duplicate pair.",
     )
-    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="Second filename.")
     score = models.FloatField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
@@ -216,12 +222,12 @@ class Finding(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["deduplication_set", "-updated_at", "-id"], name="finding_order_idx"),
-            models.Index(fields=["deduplication_set", "first_reference_pk"], name="finding_first_ref_idx"),
-            models.Index(fields=["deduplication_set", "second_reference_pk"], name="finding_second_ref_idx"),
+            models.Index(fields=["deduplication_set", "first_encoding"], name="finding_first_encoding_idx"),
+            models.Index(fields=["deduplication_set", "second_encoding"], name="finding_second_encoding_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=["deduplication_set", "first_reference_pk", "second_reference_pk"],
+                fields=["deduplication_set", "first_encoding", "second_encoding"],
                 name="unique_finding",
             ),
         ]
@@ -230,7 +236,9 @@ class Finding(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"Finding({self.first_filename}, {self.second_filename})"
+        return (
+            f"Finding({self.first_encoding.filename}, {self.second_encoding.filename if self.second_encoding else '-'})"
+        )
 
 
 class IgnoredPair(models.Model):

@@ -16,8 +16,8 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "id",
         "deduplication_set",
         "score",
-        "first_reference_pk",
-        "second_reference_pk",
+        "first_encoding",
+        "second_encoding",
         "status_code",
         "created_at",
         "updated_at",
@@ -27,7 +27,7 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         ("score", NumberFilter),
         DjangoLookupFilter,
     )
-    list_select_related = ("deduplication_set",)
+    list_select_related = ("deduplication_set", "first_encoding", "second_encoding")
 
     def has_add_permission(self, request):
         return False

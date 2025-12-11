@@ -81,10 +81,8 @@ def encode_faces(  # noqa: PLR0913
             if encoding.embedding_status_code is not None:
                 Finding.objects.create(
                     deduplication_set=ds,
-                    first_filename=encoding.filename,
-                    first_reference_pk=encoding.reference_pk,
-                    second_filename="",
-                    second_reference_pk="",
+                    first_encoding=encoding,
+                    second_encoding=None,
                     score=0,
                     status_code=encoding.embedding_status_code,
                 )
@@ -124,10 +122,8 @@ def dedupe_images(  # noqa: PLR0913
                 if (confidence := res.get("confidence", 0)) >= duplicate_confidence_threshold:
                     Finding.objects.create(
                         deduplication_set=deduplication_set,
-                        first_filename=encoding0.filename,
-                        first_reference_pk=encoding0.reference_pk,
-                        second_filename=encoding1.filename,
-                        second_reference_pk=encoding1.reference_pk,
+                        first_encoding=encoding0,
+                        second_encoding=encoding1,
                         score=confidence / 100,
                         status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
                     )

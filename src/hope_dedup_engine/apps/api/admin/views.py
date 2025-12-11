@@ -1,5 +1,6 @@
 import mimetypes
 from functools import wraps
+from typing import Any
 from azure.core.exceptions import ResourceNotFoundError
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
@@ -18,7 +19,7 @@ def finding_details_required(view_func):
     """Allow access only to users with finding details permission."""
 
     @wraps(view_func)
-    def _wrapped(request: HttpRequest, *args, **kwargs):
+    def _wrapped(request: HttpRequest, *args: Any, **kwargs: Any):
         if not can_view_finding_details(request):
             raise Http404("Not found")
         return view_func(request, *args, **kwargs)
@@ -26,7 +27,7 @@ def finding_details_required(view_func):
     return _wrapped
 
 
-access_decorators = [staff_member_required, finding_details_required]
+access_decorators = (staff_member_required, finding_details_required)
 
 
 @method_decorator(access_decorators, name="dispatch")
@@ -58,15 +59,18 @@ class FindingPreviewView(TemplateView):
 
     template_name = "admin/api/finding_preview.html"
 
-    def get_context_data(self, **kwargs: object) -> dict[str, object]:
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        finding = get_object_or_404(Finding, pk=self.kwargs["pk"])
-
+        finding = get_object_or_404(
+            Finding.objects.select_related("first_encoding", "second_encoding"),
+            pk=self.kwargs["pk"],
+        )
+        first, second = finding.first_encoding, finding.second_encoding
         context.update(
             finding=finding,
             status_label=Encoding.StatusCode(finding.status_code).label,
-            first_image_url=self._image_url(finding.first_filename),
-            second_image_url=self._image_url(finding.second_filename),
+            first_image_url=self._image_url(first.filename),
+            second_image_url=self._image_url(second.filename if second else None),
         )
         return context
 

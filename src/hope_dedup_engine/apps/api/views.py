@@ -311,7 +311,7 @@ class DuplicateViewSet(
         HasAccessToDeduplicationSet,
     )
     serializer_class = DuplicateSerializer
-    queryset = Finding.objects.all().order_by("-updated_at", "-id")
+    queryset = Finding.objects.select_related("first_encoding", "second_encoding").order_by("-updated_at", "-id")
     filterset_class = FindingFilter
     parent_lookup_kwargs = {
         DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,

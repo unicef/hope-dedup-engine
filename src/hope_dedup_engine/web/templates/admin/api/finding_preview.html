@@ -28,9 +28,9 @@
         />
         <figcaption class="finding-preview__caption">
           filename:
-          <span class="finding-preview__value">{{ finding.first_filename }}</span><br>
+          <span class="finding-preview__value">{{ finding.first_encoding.filename }}</span><br>
           reference:
-          <span class="finding-preview__value">{{ finding.first_reference_pk }}</span>
+          <span class="finding-preview__value">{{ finding.first_encoding.reference_pk }}</span>
         </figcaption>
       </figure>
     {% endif %}
@@ -43,9 +43,9 @@
         />
         <figcaption class="finding-preview__caption">
           filename:
-          <span class="finding-preview__value">{{ finding.second_filename }}</span><br>
+          <span class="finding-preview__value">{{ finding.second_encoding.filename }}</span><br>
           reference:
-          <span class="finding-preview__value">{{ finding.second_reference_pk }}</span>
+          <span class="finding-preview__value">{{ finding.second_encoding.reference_pk }}</span>
         </figcaption>
       </figure>
     {% endif %}

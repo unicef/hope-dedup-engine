@@ -34,4 +34,4 @@ class FindingFilter(filters.FilterSet):
         if len(values) > config.MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS:
             raise TooManyReferencePksException()
 
-        return qs.filter(Q(first_reference_pk__in=values) | Q(second_reference_pk__in=values))
+        return qs.filter(Q(first_encoding__reference_pk__in=values) | Q(second_encoding__reference_pk__in=values))
