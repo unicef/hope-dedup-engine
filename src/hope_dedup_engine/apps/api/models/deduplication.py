@@ -222,8 +222,6 @@ class Finding(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["deduplication_set", "-updated_at", "-id"], name="finding_order_idx"),
-            models.Index(fields=["deduplication_set", "first_encoding"], name="finding_first_encoding_idx"),
-            models.Index(fields=["deduplication_set", "second_encoding"], name="finding_second_encoding_idx"),
         ]
         constraints = [
             models.UniqueConstraint(

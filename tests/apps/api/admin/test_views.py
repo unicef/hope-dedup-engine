@@ -29,7 +29,7 @@ def finding_image_storage(mocker: MockerFixture) -> AzureStorage:
 
 
 def test_finding_image_requires_staff(client: MagicMock) -> None:
-    url = reverse("finding-image", kwargs={"filename": "image.jpg"})
+    url = reverse("admin:api_finding_image", kwargs={"filename": "image.jpg"})
 
     response = client.get(url)
 
@@ -42,7 +42,7 @@ def test_finding_image_serves_file(
     finding_image_storage: AzureStorage,
 ) -> None:
     filename = "image.jpg"
-    url = reverse("finding-image", kwargs={"filename": filename})
+    url = reverse("admin:api_finding_image", kwargs={"filename": filename})
     finding_image_storage.open.return_value = BytesIO(b"image-bytes")
 
     response = admin_client.get(url)
@@ -62,7 +62,7 @@ def test_finding_image_missing_returns_404(
     admin_client: MagicMock,
     finding_image_storage: AzureStorage,
 ) -> None:
-    url = reverse("finding-image", kwargs={"filename": "missing.jpg"})
+    url = reverse("admin:api_finding_image", kwargs={"filename": "missing.jpg"})
     finding_image_storage.open.side_effect = ResourceNotFoundError("missing")
 
     response = admin_client.get(url)
@@ -74,7 +74,7 @@ def test_finding_image_missing_returns_404(
 
 
 def test_finding_preview_requires_staff(client: MagicMock, finding: MagicMock) -> None:
-    url = reverse("finding-preview", kwargs={"pk": finding.pk})
+    url = reverse("admin:api_finding_details", kwargs={"pk": finding.pk})
 
     res = client.get(url)
 
@@ -107,15 +107,15 @@ def test_finding_preview_context(
         second_encoding=second_encoding,
     )
 
-    url = reverse("finding-preview", kwargs={"pk": finding.pk})
+    url = reverse("admin:api_finding_details", kwargs={"pk": finding.pk})
     res = admin_client.get(url)
     assert res.status_code == 200
 
     ctx = res.context
     assert ctx["finding"].pk == finding.pk
     assert ctx["status_label"] == Encoding.StatusCode(finding.status_code).label
-    assert ctx["first_image_url"] == reverse("finding-image", kwargs={"filename": first_filename})
+    assert ctx["first_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": first_filename})
     if second_filename:
-        assert ctx["second_image_url"] == reverse("finding-image", kwargs={"filename": second_filename})
+        assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
     else:
         assert ctx["second_image_url"] is None

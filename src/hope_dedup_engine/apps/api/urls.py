@@ -25,7 +25,6 @@ from hope_dedup_engine.apps.api.views import (
     IgnoredReferencePkPairViewSet,
     EncodingViewSet,
 )
-from hope_dedup_engine.apps.api.admin.views import FindingImageView, FindingPreviewView
 
 router = routers.SimpleRouter()
 router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST)
@@ -45,16 +44,6 @@ urlpatterns = [
     path("", include(router.urls)),
     path("", include(deduplication_sets_router.urls)),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
-    path(
-        "finding-image/<path:filename>/",
-        FindingImageView.as_view(),
-        name="finding-image",
-    ),
-    path(
-        "finding-preview/<int:pk>/",
-        FindingPreviewView.as_view(),
-        name="finding-preview",
-    ),
     path(
         "api/rest/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),

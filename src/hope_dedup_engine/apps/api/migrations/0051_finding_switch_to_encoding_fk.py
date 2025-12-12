@@ -34,20 +34,6 @@ class Migration(migrations.Migration):
                 help_text="First encoding in this potential duplicate pair.",
             ),
         ),
-        migrations.AddIndex(
-            model_name="finding",
-            index=models.Index(
-                fields=["deduplication_set", "first_encoding"],
-                name="finding_first_encoding_idx",
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="finding",
-            index=models.Index(
-                fields=["deduplication_set", "second_encoding"],
-                name="finding_second_encoding_idx",
-            ),
-        ),
         migrations.AddConstraint(
             model_name="finding",
             constraint=models.UniqueConstraint(

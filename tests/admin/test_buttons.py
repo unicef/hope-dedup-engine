@@ -36,7 +36,7 @@ def test_finding_details_button_visibility(
     visible: bool,
 ) -> None:
     change_url = reverse("admin:api_finding_change", args=[finding.pk])
-    preview_url = reverse("finding-preview", kwargs={"pk": finding.pk})
+    preview_url = reverse("admin:api_finding_details", kwargs={"pk": finding.pk})
 
     with user_grant_permissions(staff_user, perms):
         client.force_login(staff_user)
@@ -45,4 +45,4 @@ def test_finding_details_button_visibility(
         assert res.status_code == 200
 
         res = client.get(preview_url)
-        assert res.status_code == (200 if visible else 404)
+        assert res.status_code == (200 if visible else 403)
