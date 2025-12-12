@@ -141,12 +141,11 @@ def deduplicate_dataset(
     try:
         chunks = get_chunks(ds.encodings_with_embeddings().values_list("id", flat=True), purpose=ChunkPurpose.DEDUPE)
         approved_data_chunks = get_chunks(
-            DeduplicationSet.objects.filter(
-                group__reference_pk=ds.group.reference_pk, state=DeduplicationSet.State.INACTIVE
-            )
-            .prefetch_related("encoding_set")
-            .filter(state=Encoding.State.APPROVED)
-            .values_list("id", flat=True),
+            Encoding.objects.filter(
+                state=Encoding.State.APPROVED,
+                deduplication_set__state=DeduplicationSet.State.INACTIVE,
+                deduplication_set__group=ds.group,
+            ).values_list("id", flat=True),
             purpose=ChunkPurpose.DEDUPE,
         )
         # here we split all encodings in chunks. later each chunk is compared to
