@@ -6,6 +6,7 @@ from pytest_mock import MockerFixture
 from azure.core.exceptions import ResourceNotFoundError
 from storages.backends.azure_storage import AzureStorage
 from django.urls import reverse
+
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.api.models import Encoding
 
@@ -63,7 +64,9 @@ def test_finding_image_missing_returns_404(
 ) -> None:
     url = reverse("finding-image", kwargs={"filename": "missing.jpg"})
     finding_image_storage.open.side_effect = ResourceNotFoundError("missing")
+
     response = admin_client.get(url)
+
     assert response.status_code == 404
 
 
@@ -88,15 +91,23 @@ def test_finding_preview_requires_staff(client: MagicMock, finding: MagicMock) -
 )
 def test_finding_preview_context(
     admin_client,
-    finding,
-    first_filename,
-    second_filename,
+    finding_factory,
+    encoding_factory,
+    deduplication_set,
+    first_filename: str,
+    second_filename: str,
 ) -> None:
-    finding.first_filename = first_filename
-    finding.second_filename = second_filename
-    finding.save(update_fields=["first_filename", "second_filename"])
-    url = reverse("finding-preview", kwargs={"pk": finding.pk})
+    first_encoding = encoding_factory(deduplication_set=deduplication_set, filename=first_filename)
+    second_encoding = (
+        encoding_factory(deduplication_set=deduplication_set, filename=second_filename) if second_filename else None
+    )
+    finding = finding_factory(
+        deduplication_set=deduplication_set,
+        first_encoding=first_encoding,
+        second_encoding=second_encoding,
+    )
 
+    url = reverse("finding-preview", kwargs={"pk": finding.pk})
     res = admin_client.get(url)
     assert res.status_code == 200
 

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait
+from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait, SelfAttribute
 from factory.django import DjangoModelFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import (
@@ -85,15 +85,13 @@ class FindingFactory(DjangoModelFactory):
         model = Finding
         django_get_or_create = (
             "deduplication_set",
-            "first_reference_pk",
-            "second_reference_pk",
+            "first_encoding",
+            "second_encoding",
         )
 
     deduplication_set = SubFactory(DeduplicationSetFactory)
-    first_reference_pk = fuzzy.FuzzyText()
-    first_filename = fuzzy.FuzzyText()
-    second_reference_pk = fuzzy.FuzzyText()
-    second_filename = fuzzy.FuzzyText()
+    first_encoding = SubFactory(EncodingFactory, deduplication_set=SelfAttribute("..deduplication_set"))
+    second_encoding = SubFactory(EncodingFactory, deduplication_set=SelfAttribute("..deduplication_set"))
     score = fuzzy.FuzzyFloat(low=0, high=1)
 
     @lazy_attribute
