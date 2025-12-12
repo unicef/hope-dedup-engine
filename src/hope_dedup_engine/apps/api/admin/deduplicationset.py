@@ -32,7 +32,11 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "updated_at",
         "updated_by",
     )
-    search_fields = ("name", "id")
+    search_fields = (
+        "name",
+        "id",
+        "reference_pk",
+    )
     list_filter = (
         ("state", ChoicesFieldComboFilter),
         ("created_at", DateInDateRangeFilter),
