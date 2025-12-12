@@ -60,6 +60,6 @@ class DeduplicationSetConfig:
     @classmethod
     def from_deduplication_set(cls, deduplication_set: DeduplicationSet) -> Self:
         instance = cls(deduplication_set_id=deduplication_set.pk)
-        if deduplication_set.config:
-            instance.update(deduplication_set.config.settings)
+        if settings := deduplication_set.group.settings:
+            instance.update(settings)
         return instance

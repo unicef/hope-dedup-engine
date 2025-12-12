@@ -6,14 +6,27 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.type_aliases import EncodingType, FindingType, IgnoredPairType
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
 MAX_ERROR_LENGTH: Final[int] = 255
+
+
+class DeduplicationSetGroup(models.Model):
+    reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
+    )
+    system = models.ForeignKey(System, on_delete=models.CASCADE, help_text="System API user belongs to.")
+    settings = models.JSONField(
+        default=dict, null=True, blank=True, help_text="Settings common for all deduplication sets in this group."
+    )
+    deleted = models.BooleanField(null=False, blank=False, default=False, help_text="Whether this group was deleted.")
+
+    def __str__(self) -> str:
+        return f"{self.reference_pk}({self.system.name})"
 
 
 class DeduplicationSet(models.Model):
@@ -27,91 +40,65 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
+        INACTIVE = 4, "Inactive"  # set cannot be modified but takes part in the deduplication process
 
-    id = models.UUIDField(primary_key=True, default=uuid4)
-    name = models.CharField(max_length=128, unique=True, null=True, blank=True, db_index=True)
-    description = models.TextField(null=True, blank=True)
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)  # source_id
-    state = models.IntegerField(choices=State, default=State.READY, db_column="state")
-    deleted = models.BooleanField(null=False, blank=False, default=False)
-    system = models.ForeignKey(System, on_delete=models.CASCADE)
+    id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
+    group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
+    name = models.CharField(
+        max_length=128, unique=True, null=True, blank=True, db_index=True, help_text="Deduplication set name."
+    )
+    description = models.TextField(null=True, blank=True, help_text="Deduplication set description.")
+    state = models.IntegerField(
+        choices=State, default=State.READY, db_column="state", help_text="Deduplication set state."
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who created this deduplication set.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, help_text="Date and time when this deduplication set was created."
+    )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who last updated this deduplication set.",
     )
-    updated_at = models.DateTimeField(auto_now=True)
-    notification_url = models.CharField(max_length=255, null=True, blank=True)
-    config = models.ForeignKey("Config", null=True, on_delete=models.SET_NULL)
-    error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True)
+    updated_at = models.DateTimeField(
+        auto_now=True, help_text="Date and time when this deduplication set was last updated."
+    )
+    notification_url = models.CharField(max_length=255, null=True, blank=True, help_text="Notification url.")
+    notify = models.BooleanField(
+        default=True, help_text="Whether to send notifications about deduplication set state changes."
+    )
+    error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True, help_text="Error message.")
+    settings = models.JSONField(default=dict, null=True, blank=True, help_text="Deduplication set settings.")
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
-    def get_encodings(self) -> EncodingType:
-        return {
-            fn: (emb if emb is not None else sc)
-            for fn, emb, sc in Encoding.objects.filter(
-                filename__in=self.image_set.values_list("filename", flat=True)
-            ).values_list("filename", "embedding", "status_code")
-        }
+    def encodings_with_embeddings(self) -> QuerySet["Encoding"]:
+        return self.encoding_set.filter(embedding__isnull=False)
 
-    def filenames_without_encodings(self) -> list[str]:
-        enc_facial_errors = Encoding.objects.filter(filename=OuterRef("filename")).filter(
-            Q(embedding__isnull=False) | Q(status_code__in=ImageErrorGroup.FACE_DETECT)
-        )
-        return list(self.image_set.filter(~Exists(enc_facial_errors)).values_list("filename", flat=True))
-
-    def get_findings(self) -> FindingType:
-        return list(self.finding_set.values_list("first_reference_pk", "second_reference_pk", "score"))
-
-    def get_ignored_pairs(self) -> IgnoredPairType:
-        return list(self.ignoredreferencepkpair_set.values_list("first", "second")) + list(
-            self.ignoredfilenamepair_set.values_list("first", "second")
+    def encodings_without_embeddings(self) -> QuerySet["Encoding"]:
+        return self.encoding_set.filter(embedding__isnull=True).exclude(
+            embedding_status_code__in=EncodingErrorGroup.FACE_DETECT
         )
 
-    def update_encodings(self, encodings: EncodingType) -> None:
-        Encoding.objects.bulk_create(
-            [
-                Encoding(
-                    filename=fn,
-                    embedding=v if isinstance(v, list) else None,
-                    status_code=v if isinstance(v, int) else None,
-                )
-                for fn, v in sorted(encodings.items())  # sort encodings to prevent deadlock
-                if v is not None
-            ],
-            update_conflicts=True,
-            update_fields=["embedding", "status_code"],
-            unique_fields=["filename"],
-        )
-
-    def update_findings(self, findings: FindingType) -> None:
-        images = Image.objects.filter(deduplication_set=self).values("filename", "reference_pk")
-        filename_to_reference_pk = {img["filename"]: img["reference_pk"] for img in images} | {"": ""}
-        findings_to_create = [
-            Finding(
-                deduplication_set=self,
-                first_filename=f[0],
-                first_reference_pk=filename_to_reference_pk.get(f[0]),
-                second_filename=f[1],
-                second_reference_pk=filename_to_reference_pk.get(f[1]),
-                score=f[2],
-                status_code=f[3],
+    def get_ignored_pairs(self) -> set[frozenset[str]]:
+        return set(
+            map(
+                frozenset,
+                tuple(self.ignoredreferencepkpair_set.values_list("first", "second"))
+                + tuple(self.ignoredfilenamepair_set.values_list("first", "second")),
             )
-            for f in findings
-        ]
-        Finding.objects.bulk_create(findings_to_create, ignore_conflicts=True)
+        )
 
     def set_state(self, state: State, error: Exception | None = None) -> None:
         self.state = state.value
@@ -123,8 +110,8 @@ class DeduplicationSet(models.Model):
         self.save(update_fields=["state", "error"])
 
 
-class ImageManager(models.Manager["Image"]):
-    def create(self, **kwargs: Any) -> "Image":
+class EncodingManager(models.Manager["Encoding"]):
+    def create(self, **kwargs: Any) -> "Encoding":
         """We override this method to make image creation idempotent."""
         deduplication_set = kwargs.pop("deduplication_set")
         reference_pk = kwargs.pop("reference_pk")
@@ -134,30 +121,41 @@ class ImageManager(models.Manager["Image"]):
         return image
 
 
-class Image(models.Model):
-    """# TODO: Rename to Entity/Entry. Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
+class Encoding(models.Model):
+    """# TODO: Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
+
+    class State(models.IntegerChoices):
+        ACTIVE = 0, "Active"
+        APPROVED = 1, "Approved"
+        REJECTED = 2, "Rejected"
 
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
-        NO_FILE_FOUND = 404, "no file found"
+        FILE_NOT_FOUND = 404, "no file found"
         NO_FACE_DETECTED = 412, "no face detected"
-        NO_FACE_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
+        FACE_NOT_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
-    id = models.UUIDField(primary_key=True, default=uuid4)
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    filename = models.CharField(max_length=FILENAME_LENGTH)
+    id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
+    state = models.IntegerField(choices=State, default=State.ACTIVE, help_text="Encoding state.")
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
+    reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
+    filename = models.CharField(max_length=FILENAME_LENGTH, help_text="Filename used in encoding.")
+    embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
+    embedding_status_code = models.IntegerField(
+        choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="+",
+        help_text="User who created this encoding.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    objects = ImageManager()
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this encoding was created.")
+    objects = EncodingManager()
 
     class Meta:
         indexes = [
@@ -167,36 +165,53 @@ class Image(models.Model):
             # Here we assume reference_pk is unique per deduplication set
             ("deduplication_set", "reference_pk"),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(embedding__isnull=True, embedding_status_code__isnull=True)
+                    | Q(embedding__isnull=False, embedding_status_code__isnull=True)
+                    | Q(embedding__isnull=True, embedding_status_code__isnull=False)
+                ),
+                name="encoding_embedding_or_status",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Image {self.filename}"
 
 
-class ImageErrorGroup:
+class EncodingErrorGroup:
     FACE_DETECT = (
-        Image.StatusCode.NO_FACE_ACCEPTED,
-        Image.StatusCode.NO_FACE_DETECTED,
-        Image.StatusCode.MULTIPLE_FACES_DETECTED,
+        Encoding.StatusCode.FACE_NOT_ACCEPTED,
+        Encoding.StatusCode.NO_FACE_DETECTED,
+        Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
-    SYSTEM = (Image.StatusCode.NO_FILE_FOUND, Image.StatusCode.GENERIC_ERROR)
+    SYSTEM = (Encoding.StatusCode.FILE_NOT_FOUND, Encoding.StatusCode.GENERIC_ERROR)
 
 
 class Finding(models.Model):
     """Couple of finding entities."""
 
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
-    first_reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, verbose_name="First reference")
-    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
-    second_reference_pk = models.CharField(default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference")
-    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH)
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
+    first_reference_pk = models.CharField(
+        max_length=REFERENCE_PK_LENGTH, verbose_name="First reference", help_text="First reference pk."
+    )
+    first_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="First filename.")
+    second_reference_pk = models.CharField(
+        default="", max_length=REFERENCE_PK_LENGTH, verbose_name="Second reference", help_text="Second reference pk."
+    )
+    second_filename = models.CharField(default="", max_length=FILENAME_LENGTH, help_text="Second filename.")
     score = models.FloatField(
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         verbose_name="Similarity Score",
+        help_text="Similarity score between the two encodings.",
     )
-    status_code = models.IntegerField(choices=Image.StatusCode, default=Image.StatusCode.DEDUPLICATE_SUCCESS)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    status_code = models.IntegerField(
+        choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS, help_text="Finding status code."
+    )
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this finding was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Date and time when this finding was updated.")
 
     class Meta:
         indexes = [
@@ -216,7 +231,7 @@ class Finding(models.Model):
 
 
 class IgnoredPair(models.Model):
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE)
+    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
 
     class Meta:
         abstract = True
@@ -235,8 +250,8 @@ UNIQUE_FOR_IGNORED_PAIR = (
 
 
 class IgnoredReferencePkPair(IgnoredPair):
-    first = models.CharField(max_length=REFERENCE_PK_LENGTH)
-    second = models.CharField(max_length=REFERENCE_PK_LENGTH)
+    first = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="First reference pk.")
+    second = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="Second reference pk.")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_ref_pair")]
@@ -246,31 +261,11 @@ class IgnoredReferencePkPair(IgnoredPair):
 
 
 class IgnoredFilenamePair(IgnoredPair):
-    first = models.CharField(max_length=FILENAME_LENGTH)
-    second = models.CharField(max_length=FILENAME_LENGTH)
+    first = models.CharField(max_length=FILENAME_LENGTH, help_text="First filename.")
+    second = models.CharField(max_length=FILENAME_LENGTH, help_text="Second filename.")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_filename_pair")]
 
     def __str__(self) -> str:
         return f"IgnoredFilenamePair({self.first}, {self.second})"
-
-
-class Encoding(models.Model):
-    filename = models.CharField(max_length=FILENAME_LENGTH, unique=True)
-    embedding = ArrayField(models.FloatField(), null=True, blank=True)
-    status_code = models.IntegerField(choices=Image.StatusCode, null=True, blank=True)
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                condition=(
-                    Q(embedding__isnull=False, status_code__isnull=True)
-                    | Q(embedding__isnull=True, status_code__isnull=False)
-                ),
-                name="encoding_embedding_or_status",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"Encoding({self.filename})"

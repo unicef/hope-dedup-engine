@@ -1,18 +1,31 @@
 import os
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import django
-from django.conf import settings
-from django.core.management import CommandError, call_command
-
 import pytest
 import responses
 from constance import config
+from django.conf import settings
+from django.core.management import CommandError, call_command
+from pytest_factoryboy import LazyFixture, register
 
 here = Path(__file__).parent
 sys.path.insert(0, str(here / "../src"))
 sys.path.insert(0, str(here / "extras"))
+
+from testutils.factories.api import (  # noqa: E402
+    DedupJobFactory,
+    DeduplicationSetFactory,
+    FindingFactory,
+    IgnoredFilenamePairFactory,
+    IgnoredReferencePkPairFactory,
+    EncodingFactory,
+    HDETokenFactory,
+    DeduplicationSetGroupFactory,
+)
+from testutils.factories.user import SystemFactory, UserFactory  # noqa: E402
 
 
 def pytest_configure(config):
@@ -72,23 +85,43 @@ def mocked_responses():
 
 
 @pytest.fixture
-def complex_deduplication_data():
+def complex_deduplication_data(deduplication_set_factory, encoding_factory):
     """Provide sample data for a complex deduplication scenario."""
-    from hope_dedup_engine.apps.api.models import Image  # noqa: PLC0415
+    ids = [uuid4() for _ in range(4)]
+    deduplication_set = deduplication_set_factory()
+    encodings = [
+        encoding_factory(id=ids[0], deduplication_set=deduplication_set, filename="f1.jpg", embedding=[1.0]),
+        encoding_factory(id=ids[1], deduplication_set=deduplication_set, filename="f2.jpg", embedding=[1.01]),
+        encoding_factory(id=ids[2], deduplication_set=deduplication_set, filename="f3.jpg", embedding=[2.0]),
+        encoding_factory(id=ids[3], deduplication_set=deduplication_set, filename="f4.jpg", embedding=[1.02]),
+    ]
 
     return {
-        "files0": (files := ["f1.jpg", "f2.jpg", "f3.jpg", "f4.jpg", "f5.jpg"]),
-        "files1": files,
-        "encodings": {
-            "f1.jpg": [1.0],  # duplicate with f2
-            "f2.jpg": [1.01],
-            "f3.jpg": [2.0],  # not a duplicate with anyone
-            "f4.jpg": Image.StatusCode.NO_FACE_DETECTED.value,  # error
-            "f5.jpg": [1.02],  # ignored with f1
-        },
-        "ignored_pairs": {("f1.jpg", "f5.jpg")},
-        "config": {
-            "deduplicate": {},
-            "duplicate_confidence_threshold": 60.0,
-        },
+        "deduplication_set": deduplication_set,
+        "encodings0": encodings,
+        "encodings1": encodings,
+        "ignored_pairs": {frozenset(("f1.jpg", "f4.jpg"))},
+        "duplicate_confidence_threshold": 60.0,
+        "model_name": "model",
+        "detector_backend": "backend",
+        "distance_metric": "metric",
+        "align": True,
+        "silent": True,
     }
+
+
+register(SystemFactory)
+register(UserFactory)
+register(DeduplicationSetGroupFactory, system=LazyFixture("system"))
+register(DeduplicationSetFactory, group=LazyFixture("deduplication_set_group"))
+register(EncodingFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(
+    EncodingFactory,
+    _name="second_image",
+    deduplication_Set=LazyFixture("deduplication_set"),
+)
+register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))

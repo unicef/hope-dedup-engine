@@ -8,7 +8,7 @@ from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer
 
 
 def test_can_retrieve_deduplication_set(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
-    response = api_client.get(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
+    response = api_client.get(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.group.reference_pk,)))
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data == DeduplicationSetSerializer(deduplication_set).data

@@ -1,10 +1,12 @@
-from django.contrib.admin import ModelAdmin, register
+from typing import cast
 
 from admin_extra_buttons.decorators import button, link
 from admin_extra_buttons.mixins import ExtraButtonsMixin
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
+from django.contrib.admin import ModelAdmin, register
+from django.contrib import messages
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
@@ -17,22 +19,18 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "name",
-        "reference_pk",
         "state",
-        "config",
         "created_at",
         "updated_at",
-        "deleted",
     )
     readonly_fields = (
         "id",
         "state",
-        "system",
+        "group",
         "created_at",
         "created_by",
         "updated_at",
         "updated_by",
-        "deleted",
     )
     search_fields = ("name", "id")
     list_filter = (
@@ -58,3 +56,15 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return DeduplicationSet.objects.only(*self.get_list_display(request))
+
+    @button(change_form=True)
+    def reset_encodings(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+        self.message_user(request, "Encodings reset.", level=messages.SUCCESS)
+
+    @button(change_form=True)
+    def remove_findings(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set.finding_set.all().delete()
+        self.message_user(request, "Findings removed.", level=messages.SUCCESS)

@@ -9,4 +9,6 @@ if [[ $# -ne 1 ]] ; then
   exit 1
 fi
 
-call_api POST deduplication_sets reference_pk="$1"
+call_api POST deduplication_sets reference_pk="$1" settings="{}"
+
+set_variable DEDUPLICATION_SET_REFERENCE_PK "$1"

@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]] ; then
   exit 1
 fi
 
-./create_deduplication_set "$1" | jq -r ".id" | xargs ./use_deduplication_set
+./create_deduplication_set "$1"
 
 ./create_image Aaron_Eckhart_0001.jpg
 ./create_image Aaron_Guiel_0001.jpg

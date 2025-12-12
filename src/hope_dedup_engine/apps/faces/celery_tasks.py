@@ -1,23 +1,21 @@
 import traceback
+from enum import IntEnum
+from itertools import batched, product
 from itertools import combinations_with_replacement
+from typing import TYPE_CHECKING, Any, Iterable
+from uuid import UUID
 
 import sentry_sdk
-from typing import TYPE_CHECKING, Any, Iterable
-from enum import IntEnum
-from itertools import batched
-
 from celery import Task, chord, shared_task, states
 from celery.utils.imports import qualname
 from django.conf import settings
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, Image
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.managers import FileSyncManager
 from hope_dedup_engine.apps.faces.services.facial import dedupe_images, encode_faces
-from hope_dedup_engine.apps.faces.utils import report_long_execution
 from hope_dedup_engine.config.celery import DedupeTask, app
-from hope_dedup_engine.type_aliases import FindingType
-
 
 if TYPE_CHECKING:
     from celery.canvas import Signature
@@ -68,51 +66,55 @@ def finish_with_success(ds: DeduplicationSet) -> None:
 @app.task(bind=True, base=DedupeTask, shadow_name=shadow_name)
 def encode_chunk(
     self: DedupeTask,
-    files: list[str],
-    config: dict[str, Any],
+    deduplication_set_id: UUID,
+    encoding_ids: list[UUID],
 ) -> None:
     """Encode faces in a chunk of files."""
-    with report_long_execution('DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))'):
-        ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    deduplication_set = DeduplicationSet.objects.get(pk=deduplication_set_id)
+    config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
     try:
-        failed_encodings: dict[str, Image.StatusCode] = {}
-        with report_long_execution("encode_faces(files, config, pre_encodings, progress=callback)"):
-            results = encode_faces(
-                files,
-                process_encoding_error=failed_encodings.__setitem__,
-                config=config,
-            )
+        encode_faces(
+            deduplication_set,
+            encoding_ids,
+            config.face_confidence_threshold,
+            config.deduplicate.model_name,
+            config.deduplicate.detector_backend,
+            align=config.deduplicate.align,
+        )
 
-        with report_long_execution("ds.update_encodings(results[0])"):
-            ds.update_encodings(results[0])
-        if failed_encodings:
-            ds.update_findings(
-                (filename, "", 0, status_code.value) for filename, status_code in failed_encodings.items()
-            )
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        finish_with_error(ds, e)
+        finish_with_error(deduplication_set, e)
         raise
 
 
 @app.task(bind=True, base=DedupeTask)
 def dedupe_chunk(
     self: Task,
-    files0: list[str],
-    files1: list[str],
-    config: dict[str, Any],
-) -> FindingType:
+    deduplication_set_id: UUID,
+    encoding_ids0: list[UUID],
+    encoding_ids1: list[UUID],
+) -> None:
     """Deduplicate faces in a chunk of files."""
-    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
+    config = DeduplicationSetConfig.from_deduplication_set(ds)
     try:
-        encoded = ds.get_encodings()
         ignored_pairs = set(ds.get_ignored_pairs())
+        # we need to sort records and convert queryset to list to be able to
+        # check two collections for equality
+        encodings0 = list(ds.encoding_set.filter(id__in=encoding_ids0).order_by("id"))
+        encodings1 = list(Encoding.objects.filter(id__in=encoding_ids1).order_by("id"))
         return dedupe_images(
-            files0,
-            files1,
-            encoded,
+            ds,
+            encodings0,
+            encodings1,
             ignored_pairs,
-            config=config,
+            config.duplicate_confidence_threshold,
+            config.deduplicate.model_name,
+            config.deduplicate.detector_backend,
+            config.deduplicate.distance_metric,
+            config.deduplicate.align,
+            config.deduplicate.silent,
         )
     except Exception as e:
         sentry_sdk.capture_exception(e)
@@ -123,68 +125,49 @@ def dedupe_chunk(
 @app.task(bind=True, base=DedupeTask)
 def callback_findings(
     self: Task,
-    results: FindingType,
-    config: dict[str, Any],
-) -> dict[str, Any]:
-    """Aggregate and save findings."""
-    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
-    try:
-        seen_pairs = set()
-        findings = [
-            record
-            for d in results
-            for record in d
-            if (pair := tuple(sorted(record[:2]))) not in seen_pairs and not seen_pairs.add(pair)
-        ]
-        ds.update_findings(findings)
-
-        finish_with_success(ds)
-
-        return {
-            "Files": ds.image_set.count(),
-            "Config": config,
-            "Findings": len(findings),
-        }
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        finish_with_error(ds, e)
-        raise
-
-
-@app.task(bind=True, base=DedupeTask)
-def callback_encodings(
-    self: Task,
-    results: list[None],
-    config: dict[str, Any],
-) -> dict[str, Any]:
-    """Aggregate and save encodings."""
-    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
-    try:
-        deduplicate_dataset.delay(config)
-        return {
-            "Encoded": True,
-        }
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        finish_with_error(ds, e)
-        raise
+    deduplication_set_id: UUID,
+) -> None:
+    ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
+    finish_with_success(ds)
 
 
 @app.task(bind=True, base=DedupeTask)
 def deduplicate_dataset(
     self: Task,
-    config: dict[str, Any],
+    deduplication_set_id: UUID,
 ) -> dict[str, Any]:
     """Deduplicate the dataset."""
-    ds = DeduplicationSet.objects.get(pk=config.get("deduplication_set_id"))
+    ds = DeduplicationSet.objects.get(pk=deduplication_set_id)
     try:
-        chunks = get_chunks(ds.get_encodings().keys(), purpose=ChunkPurpose.DEDUPE)
-        tasks = [dedupe_chunk.s(chunk0, chunk1, config) for chunk0, chunk1 in combinations_with_replacement(chunks, 2)]
-        chord_id = chord(tasks)(callback_findings.s(config=config))
+        chunks = get_chunks(ds.encodings_with_embeddings().values_list("id", flat=True), purpose=ChunkPurpose.DEDUPE)
+        approved_data_chunks = get_chunks(
+            Encoding.objects.filter(
+                state=Encoding.State.APPROVED,
+                deduplication_set__state=DeduplicationSet.State.INACTIVE,
+                deduplication_set__group=ds.group,
+            ).values_list("id", flat=True),
+            purpose=ChunkPurpose.DEDUPE,
+        )
+        # here we split all encodings in chunks. later each chunk is compared to
+        # all chunks. it makes all possible pairs of encodings be compared.
+        tasks = [
+            dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)
+            for chunk0, chunk1 in combinations_with_replacement(chunks, 2)
+        ]
+        # here we extend chunk pairs with each chunk from the deduplication set
+        # encodings compared to each chunk from all approved encodings under the
+        # same deduplication set group
+        tasks.extend(
+            [
+                dedupe_chunk.s(deduplication_set_id, chunk0, chunk1)
+                for chunk0, chunk1 in product(chunks, approved_data_chunks)
+            ]
+        )
+        chord_id = chord(tasks)(callback_findings.si(deduplication_set_id=deduplication_set_id))
         return {
             "deduplication_set": str(ds),
             "chord_id": str(chord_id),
-            "chunks": len(chunks),
+            "chunks": len(chunks) + len(approved_data_chunks),
         }
     except Exception as e:
         sentry_sdk.capture_exception(e)

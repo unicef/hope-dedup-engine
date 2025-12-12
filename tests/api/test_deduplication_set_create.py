@@ -34,7 +34,7 @@ def test_missing_fields_handling(api_client: APIClient) -> None:
     assert "reference_pk" in errors
 
 
-@pytest.mark.parametrize("field", ["reference_pk", "config"])
+@pytest.mark.parametrize("field", ["reference_pk", "settings"])
 def test_invalid_values_handling(field: str, api_client: APIClient) -> None:
     data = CreateDeduplicationSetSerializer(DeduplicationSetFactory.build()).data
     data[field] = None

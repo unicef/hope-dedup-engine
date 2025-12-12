@@ -3,6 +3,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.views import View
 
+from hope_dedup_engine.apps.api.const import DEDUPLICATION_SET_GROUP_PARAM, GROUP_REFERENCE_PK
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.auth import HDEToken
 
@@ -17,8 +18,10 @@ class CanUseApi(BasePermission):
 
 class HasAccessToDeduplicationSet(BasePermission):
     def has_permission(self, request: Request, view: View) -> bool:
-        if deduplication_set_pk := view.kwargs.get("deduplication_set_pk") or view.kwargs.get("pk"):
-            return DeduplicationSet.objects.filter(system=request.auth.system, pk=deduplication_set_pk).exists()
+        if group_reference_pk := view.kwargs.get(DEDUPLICATION_SET_GROUP_PARAM) or view.kwargs.get(GROUP_REFERENCE_PK):
+            return DeduplicationSet.objects.filter(
+                group__system=request.auth.system, group__reference_pk=group_reference_pk
+            ).exists()
         return True
 
 

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.faces.utils import is_facial_error, report_long_execution
 
 
@@ -33,19 +33,19 @@ def test_report_long_execution(mock_sentry, time_side_effect, should_be_called, 
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        (Image.StatusCode.DEDUPLICATE_SUCCESS, False),
-        (Image.StatusCode.DEDUPLICATE_SUCCESS.name, False),
-        (Image.StatusCode.DEDUPLICATE_SUCCESS.label, False),
+        (Encoding.StatusCode.DEDUPLICATE_SUCCESS, False),
+        (Encoding.StatusCode.DEDUPLICATE_SUCCESS.name, False),
+        (Encoding.StatusCode.DEDUPLICATE_SUCCESS.label, False),
         (200, False),
-        (Image.StatusCode.NO_FILE_FOUND, True),
-        (Image.StatusCode.NO_FILE_FOUND.name, True),
-        (Image.StatusCode.NO_FILE_FOUND.label, True),
+        (Encoding.StatusCode.FILE_NOT_FOUND, True),
+        (Encoding.StatusCode.FILE_NOT_FOUND.name, True),
+        (Encoding.StatusCode.FILE_NOT_FOUND.label, True),
         (404, True),
-        (Image.StatusCode.NO_FACE_DETECTED, True),
+        (Encoding.StatusCode.NO_FACE_DETECTED, True),
         (412, True),
-        (Image.StatusCode.MULTIPLE_FACES_DETECTED, True),
+        (Encoding.StatusCode.MULTIPLE_FACES_DETECTED, True),
         (429, True),
-        (Image.StatusCode.GENERIC_ERROR, True),
+        (Encoding.StatusCode.GENERIC_ERROR, True),
         (500, True),
         ("some_random_string", False),
         (999, False),

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+source "$(dirname "0")/.common"
+
+echo Approve encodings >&2
+
+if [[ $# -eq 0 ]] ; then
+  show_required_args "encoding reference pk"
+  exit 1
+fi
+
+reference_pks="\"$1\""
+shift
+while (( "$#" )); do
+    reference_pks="$reference_pks, \"$1\""
+    shift
+done
+reference_pks="[$reference_pks]"
+
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_REFERENCE_PK/approve_or_reject" action=approve reference_pks:="$reference_pks"

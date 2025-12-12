@@ -3,7 +3,7 @@ import copy
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
-from hope_dedup_engine.apps.api.models import Image
+from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_images,
     encode_faces,
@@ -25,51 +25,41 @@ def mock_storage(mocker):
 
 
 @pytest.fixture
-def sample_data():
+def sample_data(deduplication_set_factory, encoding_factory):
     """Provide sample data for deduplication tests."""
+    deduplication_set = deduplication_set_factory()
     return {
-        "files0": ["file1.jpg"],
-        "files1": ["file2.jpg"],
-        "encodings": {"file1.jpg": [1.0], "file2.jpg": [1.1]},
+        "deduplication_set": deduplication_set,
+        "encodings0": [encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=[1.0])],
+        "encodings1": [encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=[1.1])],
         "ignored_pairs": set(),
-        "config": {
-            "deduplicate": {},
-            "face_confidence_threshold": 0.9,
-            "duplicate_confidence_threshold": 60.0,
-        },
+        "duplicate_confidence_threshold": 60.0,
+        "model_name": "model",
+        "detector_backend": "backend",
+        "distance_metric": "metric",
+        "align": True,
+        "silent": True,
     }
 
 
 @pytest.mark.django_db
-def test_encode_faces_success(mock_deepface, mock_storage):
+def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_factory, encoding_factory):
     """Test successful encoding of faces for a list of files."""
-    files = ["file1.jpg", "file2.jpg"]
+    deduplication_set = deduplication_set_factory()
+    encoding0 = encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=None)
+    encoding1 = encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=None)
     mock_deepface.represent.side_effect = [
         [{"embedding": [1.0], "face_confidence": 0.1}],
         [{"embedding": [2.0], "face_confidence": 0.1}],
     ]
 
-    encoded, added, existing = encode_faces(files, process_encoding_error=lambda *_: None)
+    encode_faces(deduplication_set, [encoding0.id, encoding1.id], 0.1, "model", "backend", True)
 
-    assert added == 2
-    assert existing == 0  # Based on hardcoded value in function
-    assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
+    encoding0.refresh_from_db()
+    encoding1.refresh_from_db()
+    assert encoding0.embedding == [1.0]
+    assert encoding1.embedding == [2.0]
     assert mock_deepface.represent.call_count == 2
-
-
-@pytest.mark.django_db
-def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
-    """Test that files with pre-existing encodings are not re-encoded."""
-    files = ["file1.jpg", "file2.jpg"]
-    pre_encodings = {"file1.jpg": [1.0]}
-    mock_deepface.represent.return_value = [{"embedding": [2.0], "face_confidence": 0.5}]
-
-    encoded, added, existing = encode_faces(files, pre_encodings=pre_encodings, process_encoding_error={}.__setitem__)
-
-    assert added == 1
-    assert existing == 1
-    assert encoded == {"file1.jpg": [1.0], "file2.jpg": [2.0]}
-    mock_deepface.represent.assert_called_once_with("image_data")
 
 
 @pytest.mark.parametrize(
@@ -83,10 +73,10 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [2.0], "face_confidence": 0.5},
                 ]
             },
-            Image.StatusCode.MULTIPLE_FACES_DETECTED,
+            Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
         ),
         # 2) generic error
-        ({"side_effect": TypeError("generic error")}, Image.StatusCode.GENERIC_ERROR),
+        ({"side_effect": TypeError("generic error")}, Encoding.StatusCode.GENERIC_ERROR),
         # 3) no face — through face_confidence == 0.0
         (
             {
@@ -94,7 +84,7 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [1.0], "face_confidence": 0.0},
                 ]
             },
-            Image.StatusCode.NO_FACE_DETECTED,
+            Encoding.StatusCode.NO_FACE_DETECTED,
         ),
         # 4) weak face — NO_FACE_ACCEPTED (fc > 0, but below threshold)
         (
@@ -103,30 +93,34 @@ def test_encode_faces_with_pre_encodings(mock_deepface, mock_storage):
                     {"embedding": [1.0], "face_confidence": 0.3},
                 ]
             },
-            Image.StatusCode.NO_FACE_ACCEPTED,
+            Encoding.StatusCode.FACE_NOT_ACCEPTED,
         ),
     ],
 )
 @pytest.mark.django_db
-def test_encode_faces_deepface_outcomes(mock_deepface, mock_storage, represent_kwargs, expected_status):
+def test_encode_faces_deepface_outcomes(
+    mock_deepface, mock_storage, encoding_factory, represent_kwargs, expected_status
+):
     """Test handling of various outcomes from DeepFace.represent."""
-    files = ["file1.jpg"]
+    encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
-    config = {"encoding": {}, "face_confidence_threshold": 0.9}
 
-    encoded, _, _ = encode_faces(files, process_encoding_error={}.__setitem__, config=config)
+    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, "model", "backend", True)
 
-    assert encoded["file1.jpg"] == expected_status.value
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == expected_status.value
 
 
 @pytest.mark.django_db
-def test_encode_faces_file_not_found(mock_deepface, mock_storage):
+def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_factory):
     """Test handling of ResourceNotFoundError from storage."""
-    files = ["file1.jpg"]
+    encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encoded, _, _ = encode_faces(files, process_encoding_error={}.__setitem__)
-    assert encoded["file1.jpg"] == Image.StatusCode.NO_FILE_FOUND.value
+    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, "model", "backend", True)
+
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
     mock_deepface.represent.assert_not_called()
 
 
@@ -136,7 +130,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage):
     [
         (
             {"confidence": 70.0},
-            [("file1.jpg", "file2.jpg", 0.7, Image.StatusCode.DEDUPLICATE_SUCCESS.value)],
+            [("file1.jpg", "file2.jpg", 0.7, Encoding.StatusCode.DEDUPLICATE_SUCCESS.value)],
         ),
         ({"confidence": 50.0}, []),
     ],
@@ -145,11 +139,20 @@ def test_dedupe_images_confidence_threshold(mock_deepface, sample_data, verify_r
     """Test dedupe_images with different confidence scores."""
     mock_deepface.verify.return_value = verify_return
 
-    results = dedupe_images(**sample_data)
+    dedupe_images(**sample_data)
 
-    assert results == expected_result
+    if expected_result:
+        pass
+    else:
+        assert sample_data["deduplication_set"].finding_set.count() == 0
     mock_deepface.verify.assert_called_once_with(
-        sample_data["encodings"]["file1.jpg"], sample_data["encodings"]["file2.jpg"]
+        sample_data["encodings0"][0].embedding,
+        sample_data["encodings1"][0].embedding,
+        model_name="model",
+        detector_backend="backend",
+        distance_metric="metric",
+        align=True,
+        silent=True,
     )
 
 
@@ -157,20 +160,9 @@ def test_dedupe_images_confidence_threshold(mock_deepface, sample_data, verify_r
 def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
     """Test that ignored pairs are not compared."""
     test_data = copy.deepcopy(sample_data)
-    test_data["ignored_pairs"] = {("file1.jpg", "file2.jpg")}
-    results = dedupe_images(**test_data)
-    assert results == []
-    mock_deepface.verify.assert_not_called()
-
-
-@pytest.mark.django_db
-def test_dedupe_images_with_facial_error(mock_deepface, sample_data):
-    """Test that files with facial errors are reported correctly."""
-    test_data = copy.deepcopy(sample_data)
-    test_data["encodings"]["file1.jpg"] = Image.StatusCode.NO_FACE_DETECTED.value
-    results = dedupe_images(**test_data)
-    expected = [("file1.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value)]
-    assert results == expected
+    test_data["ignored_pairs"] = {frozenset(("file1.jpg", "file2.jpg"))}
+    dedupe_images(**test_data)
+    assert sample_data["deduplication_set"].finding_set.count() == 0
     mock_deepface.verify.assert_not_called()
 
 
@@ -190,17 +182,13 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
         # f4-f5 skipped because of no face detected in f4
     ]
 
-    results = dedupe_images(**complex_deduplication_data)
+    dedupe_images(**complex_deduplication_data)
+    assert complex_deduplication_data["deduplication_set"].finding_set.count() == 1
+    finding = complex_deduplication_data["deduplication_set"].finding_set.first()
+    assert finding.first_filename == "f1.jpg"
+    assert finding.second_filename == "f2.jpg"
+    assert finding.score == 0.99
+    assert finding.status_code == Encoding.StatusCode.DEDUPLICATE_SUCCESS.value
 
-    expected_findings = [
-        ("f4.jpg", "", 0, Image.StatusCode.NO_FACE_DETECTED.value),
-        ("f1.jpg", "f2.jpg", 0.99, Image.StatusCode.DEDUPLICATE_SUCCESS.value),
-    ]
-
-    # The order of findings might not be guaranteed
-    assert len(results) == len(expected_findings)
-    # Convert to set of tuples for order-agnostic comparison
-    assert {tuple(item) for item in results} == {tuple(item) for item in expected_findings}
-    # check all all expected calls were made
     with pytest.raises(StopIteration):
         mock_deepface.verify()

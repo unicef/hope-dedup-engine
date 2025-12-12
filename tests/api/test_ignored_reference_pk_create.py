@@ -20,7 +20,7 @@ def test_can_create_ignored_reference_pk_pair(
     data = IgnoredReferencePkPairSerializer(IgnoredReferencePkPairFactory.build()).data
 
     response = api_client.post(
-        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -35,7 +35,7 @@ def test_cannot_create_ignored_reference_pk_pair_between_systems(
     data = IgnoredReferencePkPairSerializer(IgnoredReferencePkPairFactory.build()).data
 
     response = another_system_api_client.post(
-        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -58,7 +58,7 @@ def test_invalid_values_handling(
     data["first"] = first_pk
     data["second"] = second_pk
     response = api_client.post(
-        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -74,7 +74,7 @@ def test_missing_pk_handling(api_client: APIClient, deduplication_set: Deduplica
     del data["first"], data["second"]
 
     response = api_client.post(
-        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )
@@ -93,7 +93,7 @@ def test_deduplication_set_is_updated(
 
     data = IgnoredReferencePkPairSerializer(IgnoredReferencePkPairFactory.build()).data
     response = api_client.post(
-        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.pk,)),
+        reverse(IGNORED_REFERENCE_PK_LIST_VIEW, (deduplication_set.group.reference_pk,)),
         data=data,
         format=JSON,
     )

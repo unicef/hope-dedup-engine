@@ -14,23 +14,23 @@ pytestmark = pytest.mark.django_db
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-@patch("hope_dedup_engine.apps.api.deduplication.process.callback_encodings")
+@patch("hope_dedup_engine.apps.api.deduplication.process.deduplicate_dataset")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_chunk")
 @patch("hope_dedup_engine.apps.api.deduplication.process.chord")
 def test_find_duplicates_orchestration(
     mock_chord,
     mock_encode_chunk,
-    mock_callback_encodings,
+    mock_deduplicate_dataset,
     mock_send_notification,
     dedup_job_factory,
-    image_factory,
+    encoding_factory,
     finding_factory,
 ):
     """Test that find_duplicates correctly orchestrates Celery tasks."""
     job = dedup_job_factory()
     dedup_set = job.deduplication_set
-    image_factory(deduplication_set=dedup_set, filename="file1.jpg")
-    image_factory(deduplication_set=dedup_set, filename="file2.jpg")
+    encoding_factory(deduplication_set=dedup_set, filename="file1.jpg", embedding=None)
+    encoding_factory(deduplication_set=dedup_set, filename="file2.jpg", embedding=None)
     finding_factory(deduplication_set=dedup_set, score=100, status_code=200)
     assert dedup_set.finding_set.count() == 1
 
@@ -42,12 +42,11 @@ def test_find_duplicates_orchestration(
 
     job.refresh_from_db()
     assert job.progress == 0
-    assert dedup_set.finding_set.count() == 0
 
     assert mock_encode_chunk.s.call_count == 1
     mock_chord.assert_called_once_with([mock_encode_chunk.s.return_value])
-    mock_callback_encodings.s.assert_called_once()
-    mock_chord.return_value.assert_called_once_with(mock_callback_encodings.s.return_value)
+    mock_deduplicate_dataset.si.assert_called_once()
+    mock_chord.return_value.assert_called_once_with(mock_deduplicate_dataset.si.return_value)
 
 
 @patch("sentry_sdk.capture_exception")
