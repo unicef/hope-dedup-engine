@@ -52,7 +52,7 @@ def finish_processing(ds: DeduplicationSet, error: Exception | None = None) -> N
         ds.set_state(DeduplicationSet.State.FAILED, error)
     else:
         ds.set_state(DeduplicationSet.State.READY)
-    send_notification(ds.notification_url)
+    send_notification(ds)
 
 
 def finish_with_error(ds: DeduplicationSet, error: Exception) -> None:
