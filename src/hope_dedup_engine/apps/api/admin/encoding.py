@@ -43,9 +43,12 @@ class DeduplicateForm(FindFaceForm):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
 
 
+NUMBER_OF_THRESHOLD_VALUES = 10
+
+
 def calculate_thresholds(min_threshold: int, max_threshold: int) -> list[int]:
-    step = (max_threshold - min_threshold) / 9
-    thresholds = [min_threshold + step * i for i in range(10)]
+    step = (max_threshold - min_threshold) / (NUMBER_OF_THRESHOLD_VALUES - 1)
+    thresholds = [min_threshold + step * i for i in range(NUMBER_OF_THRESHOLD_VALUES)]
     thresholds[-1] = max_threshold
     return sorted(set(map(round, thresholds)))
 
