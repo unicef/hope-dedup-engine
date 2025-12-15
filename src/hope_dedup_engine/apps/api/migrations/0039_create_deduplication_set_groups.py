@@ -9,7 +9,7 @@ def forward(apps: StateApps, _: BaseDatabaseSchemaEditor):
     DeduplicationSet = apps.get_model("api", "DeduplicationSet")
     DeduplicationSetGroup = apps.get_model("api", "DeduplicationSetGroup")
     for deduplication_set in DeduplicationSet.objects.filter(deleted=False):
-        deduplication_set_group = DeduplicationSetGroup.objects.create(
+        deduplication_set_group, _ = DeduplicationSetGroup.objects.get_or_create(
             reference_pk=deduplication_set.reference_pk, system=deduplication_set.system
         )
         deduplication_set.group = deduplication_set_group
