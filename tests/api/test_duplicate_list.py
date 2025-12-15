@@ -2,15 +2,16 @@ from collections.abc import Callable
 from operator import attrgetter
 from urllib.parse import urlencode
 from datetime import timedelta
+
 from factory.fuzzy import FuzzyText
 import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from constance.test import override_config
+
 from api.api_const import DUPLICATE_LIST_VIEW
 from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
-
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding
 from testutils.factories.api import FindingFactory
@@ -40,10 +41,10 @@ def test_cannot_list_duplicates_between_systems(
 @pytest.mark.parametrize(
     ("filter_value_getter", "expected_amount"),
     [
-        # filter by first_reference_pk
-        (attrgetter("first_reference_pk"), 1),
-        # filter by second_reference_pk
-        (attrgetter("second_reference_pk"), 1),
+        # filter by first_encoding reference_pk
+        (attrgetter("first_encoding.reference_pk"), 1),
+        # filter by second_encoding reference_pk
+        (attrgetter("second_encoding.reference_pk"), 1),
         # filter by random string
         (lambda _: FuzzyText().fuzz(), 0),
     ],
@@ -64,12 +65,11 @@ def test_can_filter_by_reference_pk(
     assert len(data.get("results")) == expected_amount
 
 
-def test_filtering_by_multiple_reference_keys(
-    api_client: APIClient,
-    deduplication_set: DeduplicationSet,
-):
+def test_filtering_by_multiple_reference_keys(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
     findings = FindingFactory.create_batch(25, deduplication_set=deduplication_set)
-    reference_pks = [f.first_reference_pk for f in findings[:10]] + [f.second_reference_pk for f in findings[11:15]]
+    reference_pks = [f.first_encoding.reference_pk for f in findings[:10]] + [
+        f.second_encoding.reference_pk for f in findings[11:15]
+    ]
 
     url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(
         {REFERENCE_PK: ",".join(reference_pks)}
@@ -82,10 +82,7 @@ def test_filtering_by_multiple_reference_keys(
     assert len(data.get("results")) == 14
 
 
-def test_filtering_by_empty_reference_keys(
-    api_client: APIClient,
-    deduplication_set: DeduplicationSet,
-):
+def test_filtering_by_empty_reference_keys(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
     url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode({REFERENCE_PK: " "})
     response = api_client.get(url)
     data = response.json()
@@ -113,7 +110,7 @@ def test_filter_by_datetime(
     expected: int,
 ) -> None:
     dt = (finding.updated_at + timedelta(hours=delta_hours)).isoformat()
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?{urlencode({filter_param: dt})}"
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode({filter_param: dt})
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert len(response.json().get("results")) == expected
@@ -128,7 +125,7 @@ def test_filter_by_date_range(
         UPDATED_AFTER: (finding.updated_at - timedelta(hours=1)).isoformat(),
         UPDATED_BEFORE: (finding.updated_at + timedelta(hours=1)).isoformat(),
     }
-    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?{urlencode(params)}"
+    url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(params)
     response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert len(response.json().get("results")) == 1
@@ -157,7 +154,7 @@ def test_filtering_with_too_many_references(
     allowed_pks_count: int,
     pks_count_in_request: int,
     expected_status_code: int,
-):
+) -> None:
     reference_pks = ["1235465487981"] * pks_count_in_request
     url = f"{reverse(DUPLICATE_LIST_VIEW, (deduplication_set.group.reference_pk,))}?" + urlencode(
         {REFERENCE_PK: ",".join(reference_pks)}

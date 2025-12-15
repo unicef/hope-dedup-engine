@@ -45,13 +45,13 @@ urlpatterns = [
     path("", include(deduplication_sets_router.urls)),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
     path(
-        "api/rest/swagger/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui",
-    ),
-    path(
         "api/rest/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
+    ),
+    path(
+        "api/rest/swagger/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
     ),
 ]
