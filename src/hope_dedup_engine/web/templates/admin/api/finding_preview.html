@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Finding {{ finding.pk }} images{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'api/finding_preview.css' %}">
+{% endblock extrastyle %}
+
+{% block content %}
+  <h1>Finding {{ finding.pk }}</h1>
+
+  <p class="finding-preview__meta">
+    Deduplication set: <span class="finding-preview__value">{{ finding.deduplication_set }}</span><br>
+    Score: <span class="finding-preview__value">{{ finding.score }}</span>&nbsp;·&nbsp;
+    Status code: <span class="finding-preview__value">{{ status_label }}</span>
+  </p>
+
+  <div class="finding-preview__images">
+    {% if first_image_url %}
+      <figure class="finding-preview__figure">
+        <img
+          src="{{ first_image_url }}"
+          alt="First image for finding {{ finding.pk }}"
+        />
+        <figcaption class="finding-preview__caption">
+          filename:
+          <span class="finding-preview__value">{{ finding.first_filename }}</span><br>
+          reference:
+          <span class="finding-preview__value">{{ finding.first_reference_pk }}</span>
+        </figcaption>
+      </figure>
+    {% endif %}
+
+    {% if second_image_url %}
+      <figure class="finding-preview__figure">
+        <img
+          src="{{ second_image_url }}"
+          alt="Second image for finding {{ finding.pk }}"
+        />
+        <figcaption class="finding-preview__caption">
+          filename:
+          <span class="finding-preview__value">{{ finding.second_filename }}</span><br>
+          reference:
+          <span class="finding-preview__value">{{ finding.second_reference_pk }}</span>
+        </figcaption>
+      </figure>
+    {% endif %}
+  </div>
+
+  {% if not first_image_url and not second_image_url %}
+    <p>No images attached for this finding.</p>
+  {% endif %}
+{% endblock content %}

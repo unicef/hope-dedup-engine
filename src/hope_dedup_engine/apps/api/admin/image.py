@@ -22,6 +22,7 @@ class ImageAdmin(AdminFiltersMixin, ModelAdmin):
         ("created_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
+    search_fields = ("reference_pk",)
 
     def has_add_permission(self, request):
         return False
