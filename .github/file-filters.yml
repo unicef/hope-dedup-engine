@@ -3,9 +3,20 @@ docker: &docker
   - added|modified: './docker/**/*'
   - added|modified: './docker/*'
 
+code_conventions: &dependencies
+  - '.mypy.ini'
+  - '.pre-commit-config.yaml'
+  - 'pytest.ini'
+  - 'ruff.toml'
+  - 'tox.ini'
+  - 'pyproject.toml'
+
 dependencies: &dependencies
   - 'uv.lock'
   - 'pyproject.toml'
+
+actions: &actions
+  - added|modified: './.github/**/*'
 
 python: &python
   - added|modified: 'src/**'
@@ -20,11 +31,8 @@ mypy:
   - *python
   - 'mypy.ini'
 
-docker_base:
-  - *docker
-  - *dependencies
-
 run_tests:
+  - *actions
   - *python
   - *docker
   - *dependencies
@@ -34,7 +42,7 @@ migrations:
   - added|modified: 'src/**/migrations/*'
 
 lint:
-  -  *python
+  - *python
   - '.flake8'
   - 'pyproject.toml'
 

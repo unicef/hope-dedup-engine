@@ -1,0 +1,6 @@
+*
+docker/*.*                              @unicef/hope-arch
+
+src/hope_dedup_engine/migrations/*.py   @saxix @unicef/hope-arch
+pyproject.toml                          @saxix @unicef/hope-arch
+uv.lock                                 @saxix @unicef/hope-arch

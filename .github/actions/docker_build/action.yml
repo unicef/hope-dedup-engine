@@ -17,7 +17,7 @@ inputs:
     description: 'DockerHub password '
     required: false
   code_checksum:
-    description: 'Current codde checksum'
+    description: 'Current code checksum'
     required: false
   rebuild:
     description: 'Always rebuild image, Ignore checksum'
@@ -90,6 +90,7 @@ runs:
         else
           echo "TAG_PREFIX=test-" >> $GITHUB_ENV
         fi
+        echo "IMAGE=${{ inputs.image }}" >> $GITHUB_ENV
     - id: last_commit
       uses: ./.github/actions/last_commit
     - name: Docker meta
@@ -102,7 +103,6 @@ runs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr,prefix=${{env.TAG_PREFIX}}pr
-          type=semver,pattern={{version}}
       env:
         DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
     - name: "Image Name"
@@ -148,7 +148,7 @@ runs:
         driver-opts: |
           image=moby/buildkit:v0.13.2
           network=host
-    - name: Build and push info
+    - name: Build and push
       if: (steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true') && inputs.dryrun == 'true'
       shell: bash
       run: |
