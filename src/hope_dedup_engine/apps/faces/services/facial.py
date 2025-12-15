@@ -1,6 +1,6 @@
 import logging
 from uuid import UUID
-
+from typing import Any, Mapping
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from django.db import transaction
@@ -15,8 +15,20 @@ logger = logging.getLogger(__name__)
 Embedding = list[float]
 
 
-def encode_face(
-    data: ndarray, face_confidence_threshold: float, model_name: str, detector_backend: str, align: bool
+def is_face_coverage(coverage_threshold: float, fa: Mapping[str, Any]) -> bool:
+    """Return True if face bbox area is at least `coverage_threshold` of the source image."""
+    fa_box = fa["w"] * fa["h"]
+    img_box = fa["img_w"] * fa["img_h"]
+    return 0.0 <= coverage_threshold <= 1.0 and (fa_box / img_box) >= coverage_threshold
+
+
+def encode_face(  # noqa: PLR0911, PLR0913
+    data: ndarray,
+    face_confidence_threshold: float,
+    face_coverage_threshold: float,
+    model_name: str,
+    detector_backend: str,
+    align: bool,
 ) -> tuple[Embedding, Encoding.StatusCode | None] | tuple[None, Encoding.StatusCode]:
     # we use max_faces=2 not to waste time searching for more faces than we need
     # we use enforce_detection=False not to raise exception when no face found
@@ -29,26 +41,36 @@ def encode_face(
         align=align,
     )
 
-    face_confidence = float(result[0]["face_confidence"])
-
-    match (len(result), face_confidence):
-        case (l, _) if l > 1:
-            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
-
-        case (_, fc) if fc == 0.0:
+    match result:
+        case []:
             return None, Encoding.StatusCode.NO_FACE_DETECTED
 
-        case (_, fc) if 0.0 < fc <= 1.0 and fc < face_confidence_threshold:
-            return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
+        case [_, _, *_]:
+            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
 
-        case _:
-            return result[0]["embedding"], None
+        case [face]:
+            fc = float(face.get("face_confidence") or 0.0)
+            match fc:
+                case 0.0:
+                    return None, Encoding.StatusCode.NO_FACE_DETECTED
+                case _ if fc < face_confidence_threshold:
+                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
+                case _:
+                    if not (fa0 := face.get("facial_area")):
+                        return None, Encoding.StatusCode.GENERIC_ERROR
+                    fa = {**fa0, "img_w": data.shape[1], "img_h": data.shape[0]}
+                    if not is_face_coverage(coverage_threshold=face_coverage_threshold, fa=fa):
+                        return None, Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE
+                    return face["embedding"], None
+
+    return None, Encoding.StatusCode.GENERIC_ERROR
 
 
 def encode_faces(  # noqa: PLR0913
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
     face_confidence_threshold: float,
+    face_coverage_threshold: float,
     model_name: str,
     detector_backend: str,
     align: bool,
@@ -65,6 +87,7 @@ def encode_faces(  # noqa: PLR0913
                 encoding.embedding, encoding.embedding_status_code = encode_face(
                     storage.load_image(encoding.filename),
                     face_confidence_threshold,
+                    face_coverage_threshold,
                     model_name,
                     detector_backend,
                     align,

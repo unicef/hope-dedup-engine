@@ -1,5 +1,5 @@
 import copy
-
+import numpy as np
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
@@ -17,10 +17,16 @@ def mock_deepface(mocker):
 
 
 @pytest.fixture
-def mock_storage(mocker):
+def sample_image() -> np.ndarray:
+    """Sample image data for face encoding tests."""
+    return np.zeros((300, 300, 3), dtype=np.uint8)
+
+
+@pytest.fixture
+def mock_storage(mocker, sample_image):
     """Fixture to mock the ImagesStorageManager."""
     storage_mock = mocker.patch("hope_dedup_engine.apps.faces.services.facial.ImagesStorageManager").return_value
-    storage_mock.load_image.return_value = "image_data"
+    storage_mock.load_image.return_value = sample_image
     return storage_mock
 
 
@@ -49,11 +55,11 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
     encoding0 = encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=None)
     encoding1 = encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=None)
     mock_deepface.represent.side_effect = [
-        [{"embedding": [1.0], "face_confidence": 0.1}],
-        [{"embedding": [2.0], "face_confidence": 0.1}],
+        [{"embedding": [1.0], "face_confidence": 0.1, "facial_area": {"x": 0, "y": 0, "w": 120, "h": 170}}],
+        [{"embedding": [2.0], "face_confidence": 0.1, "facial_area": {"x": 0, "y": 0, "w": 120, "h": 170}}],
     ]
 
-    encode_faces(deduplication_set, [encoding0.id, encoding1.id], 0.1, "model", "backend", True)
+    encode_faces(deduplication_set, [encoding0.id, encoding1.id], 0.1, 0.0, "model", "backend", True)
 
     encoding0.refresh_from_db()
     encoding1.refresh_from_db()
@@ -95,6 +101,15 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
             },
             Encoding.StatusCode.FACE_NOT_ACCEPTED,
         ),
+        # 5) missing facial_area -> GENERIC_ERROR
+        (
+            {
+                "return_value": [
+                    {"embedding": [1.0], "face_confidence": 0.99},
+                ]
+            },
+            Encoding.StatusCode.GENERIC_ERROR,
+        ),
     ],
 )
 @pytest.mark.django_db
@@ -105,7 +120,7 @@ def test_encode_faces_deepface_outcomes(
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, "model", "backend", True)
+    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, 0.0, "model", "backend", True)
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == expected_status.value
@@ -117,7 +132,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, "model", "backend", True)
+    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, 0.0, "model", "backend", True)
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
@@ -193,3 +208,31 @@ def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_dat
 
     with pytest.raises(StopIteration):
         mock_deepface.verify()
+
+
+@pytest.mark.django_db
+def test_encode_faces_insufficient_face_coverage(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file1.jpg", embedding=None)
+    mock_storage.load_image.return_value = np.zeros((300, 300, 3), dtype=np.uint8)
+    mock_deepface.represent.return_value = [
+        {
+            "embedding": [1.0],
+            "face_confidence": 0.99,
+            "facial_area": {"x": 0, "y": 0, "w": 10, "h": 10},
+        }
+    ]
+
+    encode_faces(
+        encoding.deduplication_set,
+        [encoding.id],
+        0.1,
+        0.05,
+        "model",
+        "backend",
+        align=True,
+    )
+
+    encoding.refresh_from_db()
+    assert encoding.embedding is None
+    assert encoding.embedding_status_code == Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE.value
+    mock_deepface.represent.assert_called_once()

@@ -134,6 +134,7 @@ class Encoding(models.Model):
         FILE_NOT_FOUND = 404, "no file found"
         NO_FACE_DETECTED = 412, "no face detected"
         FACE_NOT_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
+        INSUFFICIENT_FACE_COVERAGE = 417, "face does not cover sufficient part of the image"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
@@ -184,6 +185,7 @@ class EncodingErrorGroup:
     FACE_DETECT = (
         Encoding.StatusCode.FACE_NOT_ACCEPTED,
         Encoding.StatusCode.NO_FACE_DETECTED,
+        Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
         Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
     SYSTEM = (Encoding.StatusCode.FILE_NOT_FOUND, Encoding.StatusCode.GENERIC_ERROR)
