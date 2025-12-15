@@ -63,7 +63,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         }
 
     try:
-        send_notification(deduplication_set.notification_url)
+        send_notification(deduplication_set)
 
         dedup_job.progress = 0
         dedup_job.save(update_fields=["progress"])

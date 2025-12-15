@@ -38,7 +38,7 @@ def test_find_duplicates_orchestration(
 
     dedup_set.refresh_from_db()
     assert dedup_set.state == DeduplicationSet.State.PROCESSING
-    mock_send_notification.assert_called_once_with(dedup_set.notification_url)
+    mock_send_notification.assert_called_once_with(dedup_set)
 
     job.refresh_from_db()
     assert job.progress == 0
