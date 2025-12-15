@@ -8,7 +8,6 @@ from admin_extra_buttons.api import ExtraButtonsMixin, link
 
 from hope_dedup_engine.apps.api.models import Finding
 from hope_dedup_engine.apps.api.admin.views import FindingImageView, FindingPreviewView
-from hope_dedup_engine.apps.api.permissions import can_view_finding_details
 
 
 @register(Finding)
@@ -58,7 +57,6 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     @link(
         change_form=True,
         change_list=False,
-        permission=can_view_finding_details,
         html_attrs={"target": "_blank", "rel": "noopener noreferrer"},
     )
     def details(self, button) -> None:

@@ -205,9 +205,6 @@ class Finding(models.Model):
                 name="unique_finding",
             ),
         ]
-        permissions = [
-            ("view_finding_details", "Can view finding details"),
-        ]
 
     def __str__(self) -> str:
         return f"Finding({self.first_filename}, {self.second_filename})"

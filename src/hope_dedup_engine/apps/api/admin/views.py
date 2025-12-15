@@ -2,7 +2,6 @@ import mimetypes
 from typing import Any
 from azure.core.exceptions import ResourceNotFoundError
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -15,11 +14,7 @@ from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 
 @method_decorator(staff_member_required, name="dispatch")
-class FindingDetailsPermissionMixin(PermissionRequiredMixin):
-    permission_required = "api.view_finding_details"
-
-
-class FindingImageView(FindingDetailsPermissionMixin, View):
+class FindingImageView(View):
     """Serve image files from hope storage to the browser."""
 
     def setup(self, request: HttpRequest, *args, **kwargs) -> None:
@@ -41,7 +36,8 @@ class FindingImageView(FindingDetailsPermissionMixin, View):
         )
 
 
-class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
+@method_decorator(staff_member_required, name="dispatch")
+class FindingPreviewView(TemplateView):
     """Render a simple page with both images for a single Finding."""
 
     template_name = "admin/api/finding_preview.html"
