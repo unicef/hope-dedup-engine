@@ -5,8 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 import sentry_sdk
-from celery import chord, shared_task
-
+from celery import chord, shared_task, group
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
@@ -71,7 +70,10 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         encoding_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
         chunks = get_chunks(encoding_ids, purpose=ChunkPurpose.ENCODE)
         tasks = [encode_chunk.s(deduplication_set.pk, chunk) for chunk in chunks]
-        chord_id = chord(tasks)(deduplicate_dataset.si(deduplication_set_id=deduplication_set.pk))
+        if dedup_job.encode_only:
+            chord_id = group(tasks)()
+        else:
+            chord_id = chord(tasks)(deduplicate_dataset.si(deduplication_set_id=deduplication_set.pk))
 
         return {
             "deduplication_set": str(deduplication_set),

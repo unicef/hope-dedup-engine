@@ -10,5 +10,6 @@ class DedupJob(CeleryTaskModel):
         related_name="dedup_jobs",
     )
     progress = models.IntegerField(default=0)
+    encode_only = models.BooleanField(default=False)
 
     celery_task_name = "hope_dedup_engine.apps.api.deduplication.process.find_duplicates"

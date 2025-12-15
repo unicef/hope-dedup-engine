@@ -11,7 +11,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from rest_framework.reverse import reverse
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.api.models import DeduplicationSet, DedupJob
 
 
 @register(DeduplicationSet)
@@ -62,13 +62,30 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         return DeduplicationSet.objects.only(*self.get_list_display(request))
 
     @button(change_form=True)
-    def reset_encodings(self, request: HttpRequest, pk: str) -> None:
+    def clear_encodings(self, request: HttpRequest, pk: str) -> None:
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
         deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+        deduplication_set.finding_set.all().delete()
         self.message_user(request, "Encodings reset.", level=messages.SUCCESS)
 
     @button(change_form=True)
-    def remove_findings(self, request: HttpRequest, pk: str) -> None:
+    def clear_findings(self, request: HttpRequest, pk: str) -> None:
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
         deduplication_set.finding_set.all().delete()
         self.message_user(request, "Findings removed.", level=messages.SUCCESS)
+
+    @button(change_form=True)
+    def encode(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+        deduplication_set.finding_set.all().delete()
+        job = DedupJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
+        job.queue()
+        self.message_user(request, "Encoding started.", level=messages.SUCCESS)
+
+    @button(change_form=True)
+    def deduplicate(self, request: HttpRequest, pk: str) -> None:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        job = DedupJob.objects.create(deduplication_set=deduplication_set)
+        job.queue()
+        self.message_user(request, "Deduplication started.", level=messages.SUCCESS)
