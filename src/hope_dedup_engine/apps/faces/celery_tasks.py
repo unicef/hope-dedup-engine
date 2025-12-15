@@ -77,6 +77,7 @@ def encode_chunk(
             deduplication_set,
             encoding_ids,
             config.face_confidence_threshold,
+            config.face_coverage_threshold,
             config.deduplicate.model_name,
             config.deduplicate.detector_backend,
             align=config.deduplicate.align,

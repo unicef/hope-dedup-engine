@@ -42,6 +42,7 @@ class DeduplicationSetConfig:
     duplicate_confidence_threshold: float = field(
         default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD * 100
     )  # Normalized to 0..100 range
+    face_coverage_threshold: float = field(default_factory=lambda: constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD)
 
     def update(self, overrides: dict[str, Any]) -> None:
         if not isinstance(overrides, dict):

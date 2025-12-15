@@ -26,6 +26,12 @@ CONSTANCE_CONFIG = {
         "or partially visible faces to pass.",
         "bounded_confidence_0_1",
     ),
+    "DEFAULT_FACE_COVERAGE_THRESHOLD": (
+        0.25,
+        "Minimum ratio of the image area (0..1) that must be covered by the detected face bounding box. "
+        "Faces smaller than this ratio are rejected.",
+        "bounded_confidence_0_1",
+    ),
     "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD": (
         0.5,
         "Threshold on the face match confidence score (0..1). "
@@ -55,6 +61,7 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "DEFAULT_DETECTOR_BACKEND",
             "DEFAULT_DISTANCE_METRIC",
             "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD",
+            "DEFAULT_FACE_COVERAGE_THRESHOLD",
             "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD",
         ),
         "collapse": False,

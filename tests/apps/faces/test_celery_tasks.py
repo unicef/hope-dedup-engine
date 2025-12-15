@@ -103,7 +103,7 @@ def test_encode_chunk_success(mock_encode_faces, mock_get_ds, dedup_set_with_job
     encode_chunk(ds.pk, [encoding.pk])
 
     mock_encode_faces.assert_called_once_with(
-        dedup_set_with_job, [encoding.pk], 0.9, "Facenet512", "retinaface", align=True
+        dedup_set_with_job, [encoding.pk], 0.9, 0.25, "Facenet512", "retinaface", align=True
     )
 
 
