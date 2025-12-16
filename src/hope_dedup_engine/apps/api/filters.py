@@ -12,6 +12,7 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 
 class FindingFilter(filters.FilterSet):
     reference_pk = CharInFilter(method="filter_by_references", help_text="Filter by one or more reference pks")
+    status_code = filters.NumberFilter(field_name="status_code", help_text="Filter by status code")
     updated_after = filters.DateTimeFilter(
         field_name="updated_at",
         lookup_expr="gte",
