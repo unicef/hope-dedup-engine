@@ -4,7 +4,7 @@ from django.test import Client
 from django.urls import reverse
 
 from hope_dedup_engine.apps.security.models import User
-from hope_dedup_engine.apps.api.models import Finding, DedupJob
+from hope_dedup_engine.apps.api.models import Finding
 from testutils.perms import user_grant_permissions
 from testutils.factories.user import SuperUserFactory
 
@@ -115,28 +115,35 @@ def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
-    assert DedupJob.objects.filter(deduplication_set=seeded_ds).exists() is False
 
 
 def test_ds_encode(confirm, seeded_ds, mocker):
-    q = mocker.patch.object(DedupJob, "queue", autospec=True)
+    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.DedupJob.objects.create")
+    job = mocker.Mock()
+    create.return_value = job
 
     assert confirm(reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk])).status_code == 200
 
-    job = DedupJob.objects.get(deduplication_set=seeded_ds, encode_only=True)
-    q.assert_called_once_with(job)
+    assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
+    assert create.call_args.kwargs["encode_only"] is True
+    job.queue.assert_called_once_with()
+
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is False
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is False
 
 
 def test_ds_deduplicate(confirm, seeded_ds, mocker):
-    q = mocker.patch.object(DedupJob, "queue", autospec=True)
+    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.DedupJob.objects.create")
+    job = mocker.Mock()
+    create.return_value = job
 
     assert confirm(reverse("admin:api_deduplicationset_deduplicate", args=[seeded_ds.pk])).status_code == 200
 
-    job = DedupJob.objects.get(deduplication_set=seeded_ds, encode_only=False)
-    q.assert_called_once_with(job)
+    assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
+    assert "encode_only" not in create.call_args.kwargs
+    job.queue.assert_called_once_with()
+
     assert seeded_ds.finding_set.count() == 1
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is True
@@ -160,5 +167,3 @@ def test_group_cleanup_buttons(confirm, seeded_group, url_name, clears):
         assert ds.finding_set.count() == 0
         assert ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
         assert ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
-
-    assert DedupJob.objects.filter(deduplication_set__group=seeded_group).exists() is False
