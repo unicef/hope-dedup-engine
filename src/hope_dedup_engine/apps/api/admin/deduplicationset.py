@@ -1,14 +1,13 @@
 from typing import cast
 
 from admin_extra_buttons.decorators import button, link
-from admin_extra_buttons.mixins import ExtraButtonsMixin
+from admin_extra_buttons.mixins import ExtraButtonsMixin, confirm_action
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
 from django.contrib.admin import ModelAdmin, register
-from django.contrib import messages
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from rest_framework.reverse import reverse
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, DedupJob
@@ -62,30 +61,58 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         return DeduplicationSet.objects.only(*self.get_list_display(request))
 
     @button(change_form=True)
-    def clear_encodings(self, request: HttpRequest, pk: str) -> None:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-        deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
-        deduplication_set.finding_set.all().delete()
-        self.message_user(request, "Encodings reset.", level=messages.SUCCESS)
+    def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse | HttpResponseRedirect:
+        if request.method == "POST":
+            deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+            deduplication_set.finding_set.all().delete()
+            return HttpResponseRedirect(reverse("admin:api_deduplicationset_change", args=[pk]))
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=self.clear_embeddings,
+            message="Do you confirm to clear all embeddings for this Deduplication Set?",
+        )
 
     @button(change_form=True)
-    def clear_findings(self, request: HttpRequest, pk: str) -> None:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-        deduplication_set.finding_set.all().delete()
-        self.message_user(request, "Findings removed.", level=messages.SUCCESS)
+    def remove_findings(self, request: HttpRequest, pk: str) -> HttpResponse | HttpResponseRedirect:
+        if request.method == "POST":
+            deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+            deduplication_set.finding_set.all().delete()
+            return HttpResponseRedirect(reverse("admin:api_deduplicationset_change", args=[pk]))
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=self.remove_findings,
+            message="Do you confirm to clear all findings for this Deduplication Set?",
+        )
 
     @button(change_form=True)
-    def encode(self, request: HttpRequest, pk: str) -> None:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-        deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
-        deduplication_set.finding_set.all().delete()
-        job = DedupJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
-        job.queue()
-        self.message_user(request, "Encoding started.", level=messages.SUCCESS)
+    def encode(self, request: HttpRequest, pk: str) -> HttpResponse | HttpResponseRedirect:
+        if request.method == "POST":
+            deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+            deduplication_set.finding_set.all().delete()
+            job = DedupJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
+            job.queue()
+            return HttpResponseRedirect(reverse("admin:api_deduplicationset_change", args=[pk]))
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=self.encode,
+            message="Do you confirm to start encoding job for this Deduplication Set?",
+        )
 
     @button(change_form=True)
-    def deduplicate(self, request: HttpRequest, pk: str) -> None:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-        job = DedupJob.objects.create(deduplication_set=deduplication_set)
-        job.queue()
-        self.message_user(request, "Deduplication started.", level=messages.SUCCESS)
+    def deduplicate(self, request: HttpRequest, pk: str) -> HttpResponse | HttpResponseRedirect:
+        if request.method == "POST":
+            deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+            job = DedupJob.objects.create(deduplication_set=deduplication_set)
+            job.queue()
+            return HttpResponseRedirect(reverse("admin:api_deduplicationset_change", args=[pk]))
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=self.deduplicate,
+            message="Do you confirm to start deduplication job for this Deduplication Set?",
+        )
