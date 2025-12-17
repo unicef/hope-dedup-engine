@@ -14,6 +14,7 @@ from hope_dedup_engine.apps.api.models import (
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="group.reference_pk")
+    group_name = serializers.CharField(source="group.name", read_only=True, allow_null=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
 
     class Meta:
@@ -30,12 +31,13 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="group.reference_pk")
+    group_name = serializers.CharField(source="group.name", required=False, allow_null=True, allow_blank=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
     settings = serializers.JSONField(required=True)
 
     class Meta:
         model = DeduplicationSet
-        fields = ("reference_pk", "notification_url", "notify", "state", "settings")
+        fields = ("reference_pk", "group_name", "notification_url", "notify", "state", "settings")
         write_only_fields = ("settings",)
 
 
