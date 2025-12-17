@@ -3,7 +3,7 @@ from django.db.models import Q, QuerySet
 from constance import config
 
 from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
-from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.models import Encoding, Finding
 
 
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
@@ -12,6 +12,11 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 
 class FindingFilter(filters.FilterSet):
     reference_pk = CharInFilter(method="filter_by_references", help_text="Filter by one or more reference pks")
+    status_code = filters.ChoiceFilter(
+        field_name="status_code",
+        choices=Encoding.StatusCode.choices,
+        help_text="Filter by status code",
+    )
     updated_after = filters.DateTimeFilter(
         field_name="updated_at",
         lookup_expr="gte",

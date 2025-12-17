@@ -25,9 +25,14 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
+        "status_code",
         DjangoLookupFilter,
     )
     list_select_related = ("deduplication_set", "first_encoding", "second_encoding")
+    search_fields = (
+        "first_encoding__reference_pk",
+        "second_encoding__reference_pk",
+    )
 
     def has_add_permission(self, request):
         return False

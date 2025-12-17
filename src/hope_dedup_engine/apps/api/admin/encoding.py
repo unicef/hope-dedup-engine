@@ -68,6 +68,8 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         DjangoLookupFilter,
     )
 
+    search_fields = ("reference_pk",)
+
     actions = ["deduplicate_selected_encodings"]
 
     def has_add_permission(self, request):
