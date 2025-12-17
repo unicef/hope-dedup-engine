@@ -15,6 +15,7 @@ from hope_dedup_engine.apps.faces.celery_tasks import (
     encode_chunk,
     get_chunks,
     finish_with_error,
+    finish_with_success,
     ChunkPurpose,
     deduplicate_dataset,
 )
@@ -72,6 +73,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         tasks = [encode_chunk.s(deduplication_set.pk, chunk) for chunk in chunks]
         if dedup_job.encode_only:
             chord_id = group(tasks)()
+            finish_with_success(deduplication_set)
         else:
             chord_id = chord(tasks)(deduplicate_dataset.si(deduplication_set_id=deduplication_set.pk))
 
