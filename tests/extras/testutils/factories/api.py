@@ -30,6 +30,7 @@ class HDETokenFactory(DjangoModelFactory):
 
 class DeduplicationSetGroupFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
+    name = None
     system = SubFactory(SystemFactory)
 
     class Meta:

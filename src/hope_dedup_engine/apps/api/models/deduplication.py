@@ -15,19 +15,6 @@ FILENAME_LENGTH: Final[int] = 255
 MAX_ERROR_LENGTH: Final[int] = 255
 
 
-class DeduplicationSetGroupQuerySet(QuerySet):
-    def get_or_sync(self, *, system, reference_pk: str, name: str | None) -> "DeduplicationSetGroup":
-        group, created = self.get_or_create(
-            system=system,
-            reference_pk=reference_pk,
-            defaults={"name": name} if name else {},
-        )
-        if name is not None and not created and group.name != name:
-            self.filter(pk=group.pk).update(name=name)
-            group.name = name
-        return group
-
-
 class DeduplicationSetGroup(models.Model):
     reference_pk = models.CharField(
         max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
@@ -40,8 +27,6 @@ class DeduplicationSetGroup(models.Model):
         default=dict, null=True, blank=True, help_text="Settings common for all deduplication sets in this group."
     )
     deleted = models.BooleanField(null=False, blank=False, default=False, help_text="Whether this group was deleted.")
-
-    objects = DeduplicationSetGroupQuerySet.as_manager()
 
     def __str__(self) -> str:
         return f"{self.reference_pk}({self.system.name})"

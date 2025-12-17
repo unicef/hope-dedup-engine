@@ -87,10 +87,10 @@ class DeduplicationSetViewSet(
 
     def perform_create(self, serializer: Serializer) -> None:
         group_data = serializer.validated_data["group"]
-        group = DeduplicationSetGroup.objects.get_or_sync(
+        group, _ = DeduplicationSetGroup.objects.update_or_create(
             system=self.request.auth.system,
             reference_pk=group_data["reference_pk"],
-            name=group_data.get("name"),
+            defaults={"name": group_data.get("name")},
         )
         serializer.save(group=group, created_by=self.request.user)
 

@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0053_dedupjob_encode_only"),
+        ("api", "0054_alter_encoding_embedding_status_code_and_more"),
     ]
 
     operations = [
