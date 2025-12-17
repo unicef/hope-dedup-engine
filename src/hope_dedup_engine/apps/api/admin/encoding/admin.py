@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 
 from hope_dedup_engine.apps.api.admin.encoding.forms import FindFaceForm, DeduplicateForm
 from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face, deduplicate, Finding
@@ -22,7 +22,7 @@ from hope_dedup_engine.apps.api.models import Encoding
 
 FILE_LINK = '<a target="_blank" href="{link}">{filename}</a>'
 IMAGE = '<img src="{image_url}" />'
-FINDING_DETAILS = "{filename0} and {filename1} ({confidence}%)"
+FINDING_DETAILS = "{filename0} and {filename1} ({confidence}%)<br>"
 
 
 class Result(NamedTuple):
@@ -41,7 +41,9 @@ def prepare_detection_results(thresholds: list[float], confidence: float) -> lis
 
 
 def file_link(filename: str) -> str:
-    return FILE_LINK.format(filename=filename, link=reverse("admin:api_finding_image", kwargs={"filename": filename}))
+    return format_html(
+        FILE_LINK, filename=filename, link=reverse("admin:api_finding_image", kwargs={"filename": filename})
+    )
 
 
 def prepare_deduplication_results(thresholds: list[float], grouped_findings: list[list[Finding]]) -> list[Result]:
@@ -49,15 +51,19 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
     # we ignore the first group as it contains findings with confidence below the first threshold
     for threshold, findings in zip(thresholds, grouped_findings[1:], strict=False):
-        details = "<br>".join(
-            FINDING_DETAILS.format(
-                confidence=finding.confidence,
-                filename0=file_link(finding.encoding0.filename),
-                filename1=file_link(finding.encoding1.filename),
-            )
-            for finding in findings
+        details = format_html_join(
+            "",
+            FINDING_DETAILS,
+            (
+                {
+                    "confidence": finding.confidence,
+                    "filename0": file_link(finding.encoding0.filename),
+                    "filename1": file_link(finding.encoding1.filename),
+                }
+                for finding in findings
+            ),
         )
-        results.append(Result(threshold=threshold, value=len(findings), details=mark_safe(details)))  # noqa: S308
+        results.append(Result(threshold=threshold, value=len(findings), details=details))  # noqa: S308
 
     return results
 
@@ -95,8 +101,8 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
             "value_title": "Face detected",
             "button_title": "Detect face",
             "details_title": "Confidence delta",
-            "extra": mark_safe(  # noqa: S308
-                IMAGE.format(image_url=reverse("admin:api_finding_image", kwargs={"filename": encoding.filename}))
+            "extra": format_html(  # noqa: S308
+                IMAGE, image_url=reverse("admin:api_finding_image", kwargs={"filename": encoding.filename})
             ),
         }
 
