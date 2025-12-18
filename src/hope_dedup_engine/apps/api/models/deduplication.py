@@ -19,6 +19,9 @@ class DeduplicationSetGroup(models.Model):
     reference_pk = models.CharField(
         max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
     )
+    name = models.CharField(
+        max_length=128, null=True, blank=True, db_index=True, help_text="Deduplication set group name."
+    )
     system = models.ForeignKey(System, on_delete=models.CASCADE, help_text="System API user belongs to.")
     settings = models.JSONField(
         default=dict, null=True, blank=True, help_text="Settings common for all deduplication sets in this group."

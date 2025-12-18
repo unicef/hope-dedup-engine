@@ -78,7 +78,7 @@ class DeduplicationSetViewSet(
     lookup_field = "group__reference_pk"
 
     def get_queryset(self) -> QuerySet["DeduplicationSet"]:
-        return get_active_deduplication_sets(self.request)
+        return get_active_deduplication_sets(self.request).select_related("group")
 
     def get_serializer_class(self) -> type[Serializer]:
         if self.action == "create":
@@ -86,14 +86,13 @@ class DeduplicationSetViewSet(
         return super().get_serializer_class()
 
     def perform_create(self, serializer: Serializer) -> None:
-        reference_pk = serializer.validated_data.pop("group", {}).get("reference_pk")
-        group, _ = DeduplicationSetGroup.objects.get_or_create(
-            reference_pk=reference_pk, system=self.request.auth.system
+        group_data = serializer.validated_data["group"]
+        group, _ = DeduplicationSetGroup.objects.update_or_create(
+            system=self.request.auth.system,
+            reference_pk=group_data["reference_pk"],
+            defaults={"name": group_data.get("name")},
         )
-        serializer.save(
-            group=group,
-            created_by=self.request.user,
-        )
+        serializer.save(group=group, created_by=self.request.user)
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
         instance.updated_by = self.request.user
