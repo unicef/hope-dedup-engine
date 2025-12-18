@@ -74,6 +74,7 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "id",
         "filename",
         "deduplication_set",
+        "face_coverage",
         "created_at",
     )
 

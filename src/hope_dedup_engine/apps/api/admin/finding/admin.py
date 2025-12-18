@@ -6,7 +6,7 @@ from adminfilters.mixin import AdminFiltersMixin
 from admin_extra_buttons.api import ExtraButtonsMixin, link
 
 from hope_dedup_engine.apps.api.models import Finding
-from hope_dedup_engine.apps.api.admin.views import FindingImageView, FindingPreviewView
+from hope_dedup_engine.apps.api.admin.finding.views import FindingImageView, FindingPreviewView
 from hope_dedup_engine.apps.api.permissions import can_view_finding_details
 
 
