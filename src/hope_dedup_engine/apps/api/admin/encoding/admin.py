@@ -54,14 +54,14 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
         details = format_html_join(
             "",
             FINDING_DETAILS,
-            (
+            [
                 {
                     "confidence": finding.confidence,
                     "filename0": file_link(finding.encoding0.filename),
                     "filename1": file_link(finding.encoding1.filename),
                 }
                 for finding in findings
-            ),
+            ],
         )
         results.append(Result(threshold=threshold, value=len(findings), details=details))  # noqa: S308
 
