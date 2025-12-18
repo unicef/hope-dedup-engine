@@ -19,7 +19,7 @@ class FindFaceForm(forms.Form):
         min_threshold = cleaned_data.get("min_threshold")
         max_threshold = cleaned_data.get("max_threshold")
 
-        if max_threshold <= min_threshold:
+        if max_threshold is not None and min_threshold is not None and max_threshold <= min_threshold:
             raise ValidationError("Max threshold must be bigger than min threshold.")
 
         return cleaned_data
