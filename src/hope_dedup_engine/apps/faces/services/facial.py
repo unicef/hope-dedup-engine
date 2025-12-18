@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 Embedding = list[float]
 
 
-def is_face_coverage(coverage_threshold: float, fa: Mapping[str, Any]) -> bool:
-    """Return True if face bbox area is at least `coverage_threshold` of the source image."""
-    fa_box = fa["w"] * fa["h"]
-    img_box = fa["img_w"] * fa["img_h"]
-    return 0.0 <= coverage_threshold <= 1.0 and (fa_box / img_box) >= coverage_threshold
+def face_coverage_ratio(*, fa: Mapping[str, Any], img_w: int, img_h: int) -> float:
+    if (img_box := float(img_w) * float(img_h)) <= 0.0:
+        return 0.0
+    if (w := float(fa.get("w") or 0.0)) <= 0.0 or (h := float(fa.get("h") or 0.0)) <= 0.0:
+        return 0.0
+    return (w * h) / img_box
 
 
 def encode_face(  # noqa: PLR0911, PLR0913
@@ -29,7 +30,7 @@ def encode_face(  # noqa: PLR0911, PLR0913
     model_name: str,
     detector_backend: str,
     align: bool,
-) -> tuple[Embedding, Encoding.StatusCode | None] | tuple[None, Encoding.StatusCode]:
+) -> tuple[Embedding | None, Encoding.StatusCode | None, float | None]:
     # we use max_faces=2 not to waste time searching for more faces than we need
     # we use enforce_detection=False not to raise exception when no face found
     result = DeepFace.represent(
@@ -43,27 +44,25 @@ def encode_face(  # noqa: PLR0911, PLR0913
 
     match result:
         case []:
-            return None, Encoding.StatusCode.NO_FACE_DETECTED
-
+            return None, Encoding.StatusCode.NO_FACE_DETECTED, None
         case [_, _, *_]:
-            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
-
+            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED, None
         case [face]:
-            fc = float(face.get("face_confidence") or 0.0)
-            match fc:
+            match fc := float(face.get("face_confidence") or 0.0):
                 case 0.0:
-                    return None, Encoding.StatusCode.NO_FACE_DETECTED
+                    return None, Encoding.StatusCode.NO_FACE_DETECTED, None
                 case _ if fc < face_confidence_threshold:
-                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
+                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED, None
                 case _:
-                    if not (fa0 := face.get("facial_area")):
-                        return None, Encoding.StatusCode.GENERIC_ERROR
-                    fa = {**fa0, "img_w": data.shape[1], "img_h": data.shape[0]}
-                    if not is_face_coverage(coverage_threshold=face_coverage_threshold, fa=fa):
-                        return None, Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE
-                    return face["embedding"], None
+                    if not (fa := face.get("facial_area")):
+                        return None, Encoding.StatusCode.GENERIC_ERROR, None
+                    coverage_raw = face_coverage_ratio(fa=fa, img_w=data.shape[1], img_h=data.shape[0])
+                    coverage = round(coverage_raw, 4)
+                    if coverage_raw < face_coverage_threshold:
+                        return None, Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE, coverage
+                    return face["embedding"], None, coverage
 
-    return None, Encoding.StatusCode.GENERIC_ERROR
+    return None, Encoding.StatusCode.GENERIC_ERROR, None
 
 
 def encode_faces(  # noqa: PLR0913
@@ -84,7 +83,7 @@ def encode_faces(  # noqa: PLR0913
             try:
                 # we can have the previous status code set (i.e., system error)
                 encoding.embedding_status_code = None
-                encoding.embedding, encoding.embedding_status_code = encode_face(
+                encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
                     storage.load_image(encoding.filename),
                     face_confidence_threshold,
                     face_coverage_threshold,
@@ -99,7 +98,7 @@ def encode_faces(  # noqa: PLR0913
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code"])
+            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage"])
 
             if encoding.embedding_status_code is not None:
                 Finding.objects.create(
