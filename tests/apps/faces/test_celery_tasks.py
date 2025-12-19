@@ -11,6 +11,7 @@ from hope_dedup_engine.apps.api.models.jobs import (
     DeduplicateDatasetJob,
     EncodeChunkJob,
     DedupeChunkJob,
+    CallbackFindingsJob,
 )
 from hope_dedup_engine.apps.security.models import System
 from hope_dedup_engine.apps.faces.celery_tasks import (
@@ -152,7 +153,7 @@ def test_dedupe_chunk_success(mock_dedupe_images, mock_get_ds, dedup_job, encodi
     mock_get_ds.return_value = dedup_job.deduplication_set
     encoding = encoding_factory(deduplication_set=dedup_job.deduplication_set, filename="file1.jpg")
     dedup_chunk_job = DedupeChunkJob.objects.create(
-        deduplication_set=dedup_job.deduplication_set, encoding_ids=[encoding.pk]
+        deduplication_set=dedup_job.deduplication_set, encoding_ids0=[encoding.pk], encoding_ids1=[]
     )
 
     dedupe_chunk(dedup_chunk_job.pk, dedup_chunk_job.version)
@@ -181,27 +182,27 @@ def test_dedupe_chunk_error(mock_sentry, mock_dedupe_images, dedup_job, encoding
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.send_notification")
-def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_set_with_job, mocker):
+def test_callback_findings_success(mock_send_notification, mock_get_ds, dedup_job, mocker):
     """Test callback_findings aggregates results and updates the dataset."""
-    ds = dedup_set_with_job
-    mock_get_ds.return_value = ds
+    mock_get_ds.return_value = dedup_job.deduplication_set
+    callback_findings_job = CallbackFindingsJob.objects.create(deduplication_set=dedup_job.deduplication_set)
 
-    callback_findings(ds.pk)
+    callback_findings(callback_findings_job.pk, callback_findings_job.version, None)
 
-    ds.refresh_from_db()
-    assert ds.state == DeduplicationSet.State.READY
+    dedup_job.deduplication_set.refresh_from_db()
+    assert dedup_job.deduplication_set.state == DeduplicationSet.State.READY
     mock_send_notification.assert_called_once()
 
 
 @pytest.mark.django_db
 @patch("hope_dedup_engine.apps.faces.celery_tasks.DeduplicationSet.objects.get")
 @patch("hope_dedup_engine.apps.faces.celery_tasks.chord")
-def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_set_with_job, mocker, encoding_factory):
+def test_deduplicate_dataset_success(mock_chord, mock_get_ds, dedup_job, mocker, encoding_factory):
     """Test deduplicate_dataset creates a chord of deduplication tasks."""
-    ds = dedup_set_with_job
-    mock_get_ds.return_value = ds
-    encoding_factory.create_batch(3, deduplication_set=ds)
-    result = deduplicate_dataset(ds.pk)
+    mock_get_ds.return_value = dedup_job.deduplication_set
+    encoding_factory.create_batch(3, deduplication_set=dedup_job.deduplication_set)
+    deduplicate_dataset_job = DeduplicateDatasetJob.objects.create(deduplication_set=dedup_job.deduplication_set)
+    result = deduplicate_dataset(deduplicate_dataset_job.pk, deduplicate_dataset_job.version, None)
     assert result["chunks"] == 1
     mock_chord.assert_called_once()
 

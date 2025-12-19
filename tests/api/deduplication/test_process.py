@@ -92,13 +92,13 @@ def test_find_duplicates_reschedules_when_processing(
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.chord")
-@patch("hope_dedup_engine.apps.api.deduplication.process.encode_chunk")
+@patch("hope_dedup_engine.apps.api.deduplication.process.EncodeChunkJob")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
 @patch("hope_dedup_engine.apps.api.deduplication.process.sentry_sdk")
 def test_find_duplicates_proceeds_when_stale(
     mock_sentry,
     mock_send_notification,
-    mock_encode_chunk,
+    mock_encode_chunk_job_class,
     mock_chord,
     dedup_job_factory,
 ):
