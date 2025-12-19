@@ -2,6 +2,7 @@ from typing import cast
 
 from admin_extra_buttons.decorators import button, link
 from admin_extra_buttons.mixins import ExtraButtonsMixin, confirm_action
+from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from adminfilters.mixin import AdminFiltersMixin
@@ -18,6 +19,7 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     list_display = (
         "id",
         "name",
+        "group",
         "state",
         "created_at",
         "updated_at",
@@ -34,10 +36,10 @@ class DeduplicationSetAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     search_fields = (
         "name",
         "id",
-        "reference_pk",
     )
     list_filter = (
         ("state", ChoicesFieldComboFilter),
+        ("group", AutoCompleteFilter),
         ("created_at", DateInDateRangeFilter),
         ("updated_at", DateInDateRangeFilter),
         DjangoLookupFilter,
