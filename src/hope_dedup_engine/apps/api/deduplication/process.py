@@ -9,15 +9,14 @@ from celery import chord, shared_task, group
 
 from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+from hope_dedup_engine.apps.api.models.jobs import EncodeChunkJob, DeduplicateDatasetJob
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 
 from hope_dedup_engine.apps.faces.celery_tasks import (
-    encode_chunk,
     get_chunks,
     finish_with_error,
     finish_with_success,
     ChunkPurpose,
-    deduplicate_dataset,
 )
 
 HOUR = 60 * 60
@@ -70,12 +69,15 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
 
         encoding_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
         chunks = get_chunks(encoding_ids, purpose=ChunkPurpose.ENCODE)
-        tasks = [encode_chunk.s(deduplication_set.pk, chunk) for chunk in chunks]
+        tasks = [
+            EncodeChunkJob.objects.create(deduplication_set=deduplication_set, encoding_ids=chunk).s()
+            for chunk in chunks
+        ]
         if dedup_job.encode_only:
             chord_id = group(tasks)()
             finish_with_success(deduplication_set)
         else:
-            chord_id = chord(tasks)(deduplicate_dataset.si(deduplication_set_id=deduplication_set.pk))
+            chord_id = chord(tasks)(DeduplicateDatasetJob.objects.create(deduplication_set_id=deduplication_set.pk).s())
 
         return {
             "deduplication_set": str(deduplication_set),
