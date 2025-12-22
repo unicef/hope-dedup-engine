@@ -1,15 +1,24 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load admin_urls i18n static %}
 
-{% block title %}Finding {{ finding.pk }} images{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block extrastyle %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'api/finding/details.css' %}">
 {% endblock extrastyle %}
 
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate "Home" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}?id__exact={{ finding.pk }}">{{ finding }}</a>
+    &rsaquo; {% translate "Details" %}
+  </div>
+{% endblock breadcrumbs %}
+
 {% block content %}
-  <h1>Finding {{ finding.pk }}</h1>
 
   <p class="finding-details__meta">
     Deduplication group: <span class="finding-details__value">{{ finding.deduplication_set.group }}</span><br>

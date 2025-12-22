@@ -54,6 +54,9 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
         )
         first, second = finding.first_encoding, finding.second_encoding
         context.update(
+            page_title=f"Finding {finding.pk} details",
+            title=f"Finding {finding.pk} details",
+            opts=Finding._meta,
             finding=finding,
             status_label=Encoding.StatusCode(finding.status_code).label,
             first_image_url=self._image_url(first.filename),
