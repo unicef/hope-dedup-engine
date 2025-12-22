@@ -12,6 +12,7 @@ from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGrou
 
 @register(DeduplicationSetGroup)
 class DeduplicationSetGroupAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
+    readonly_fields = ("reference_pk", "name")
     search_fields = ("reference_pk", "name")
 
     def has_add_permission(self, request) -> bool:
