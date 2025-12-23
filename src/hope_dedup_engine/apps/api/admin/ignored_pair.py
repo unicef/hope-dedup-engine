@@ -11,8 +11,11 @@ from hope_dedup_engine.apps.api.models import (
 
 class IgnoredPairBaseAdmin(AdminFiltersMixin, admin.ModelAdmin):
     list_display = ("id", "first", "second", "deduplication_set")
-    list_filter = (("deduplication_set", AutoCompleteFilter),)
-    search_fields = ("first", "second")
+    list_filter = (
+        ("deduplication_set__group", AutoCompleteFilter),
+        ("deduplication_set", AutoCompleteFilter),
+    )
+    search_fields = ("first", "second", "deduplication_set__name", "deduplication_set__group__name")
 
 
 @admin.register(IgnoredReferencePkPair)
