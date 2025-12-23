@@ -37,10 +37,10 @@ jobs:
       docker: ${{ steps.changes.outputs.docker_base }}
     steps:
       - run: git config --global --add safe.directory $(realpath .)
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@v6
       - id: changes
         name: Check for backend file changes
-        uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        uses: dorny/paths-filter@v3
         with:
           base: ${{ github.ref }}
           token: ${{ github.token }}
