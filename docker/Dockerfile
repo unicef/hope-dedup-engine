@@ -2,7 +2,7 @@ ARG CHECKSUM
 ARG VERSION=0.1.0
 ARG BUILD_DATE=not_provided
 
-FROM python:3.12-slim-bookworm AS base_os
+FROM python:3.14-slim-bookworm AS base_os
 
 ARG CHECKSUM
 ENV CHECKSUM=$CHECKSUM
