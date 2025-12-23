@@ -19,7 +19,7 @@ def finding_image_storage(mocker: MockerFixture) -> AzureStorage:
     manager = ImagesStorageManager()
     manager.storage = storage
     mocker.patch(
-        "hope_dedup_engine.apps.api.admin.views.ImagesStorageManager",
+        "hope_dedup_engine.apps.api.admin.finding.views.ImagesStorageManager",
         return_value=manager,
     )
     return storage

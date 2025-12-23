@@ -1,0 +1,70 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls i18n static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'api/finding/details.css' %}">
+{% endblock extrastyle %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate "Home" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}?id__exact={{ finding.pk }}">{{ finding }}</a>
+    &rsaquo; {% translate "Details" %}
+  </div>
+{% endblock breadcrumbs %}
+
+{% block content %}
+
+  <p class="finding-details__meta">
+    Deduplication group: <span class="finding-details__value">{{ finding.deduplication_set.group }}</span><br>
+    with settings: <span class="finding-details__value">{{ finding.deduplication_set.group.settings }}</span><br>
+    Deduplication set: <span class="finding-details__value">{{ finding.deduplication_set }}</span><br>
+    Score: <span class="finding-details__value">{{ finding.score }}</span>&nbsp;·&nbsp;
+    Status code: <span class="finding-details__value">{{ status_label }}</span>
+  </p>
+
+  <div class="finding-details__images">
+    {% if first_image_url %}
+      <figure class="finding-details__figure">
+        <img
+          src="{{ first_image_url }}"
+          alt="First image for finding {{ finding.pk }}"
+        />
+        <figcaption class="finding-details__caption">
+          filename:
+          <span class="finding-details__value">{{ finding.first_encoding.filename }}</span><br>
+          reference:
+          <span class="finding-details__value">{{ finding.first_encoding.reference_pk }}</span><br>
+          face coverage:
+          <span class="finding-details__value">{{ finding.first_encoding.face_coverage|default:"-" }}</span>
+        </figcaption>
+      </figure>
+    {% endif %}
+
+    {% if second_image_url %}
+      <figure class="finding-details__figure">
+        <img
+          src="{{ second_image_url }}"
+          alt="Second image for finding {{ finding.pk }}"
+        />
+        <figcaption class="finding-details__caption">
+          filename:
+          <span class="finding-details__value">{{ finding.second_encoding.filename }}</span><br>
+          reference:
+          <span class="finding-details__value">{{ finding.second_encoding.reference_pk }}</span><br>
+          face coverage:
+          <span class="finding-details__value">{{ finding.second_encoding.face_coverage|default:"-" }}</span>
+        </figcaption>
+      </figure>
+    {% endif %}
+  </div>
+
+  {% if not first_image_url and not second_image_url %}
+    <p>No images attached for this finding.</p>
+  {% endif %}
+{% endblock content %}

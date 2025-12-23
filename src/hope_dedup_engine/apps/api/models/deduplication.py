@@ -150,6 +150,12 @@ class Encoding(models.Model):
     embedding_status_code = models.IntegerField(
         choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
     )
+    face_coverage = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        help_text="Face bbox area divided by image area (0..1).",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

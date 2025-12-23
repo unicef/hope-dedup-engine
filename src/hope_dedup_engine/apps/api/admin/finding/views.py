@@ -44,7 +44,7 @@ class FindingImageView(FindingDetailsPermissionMixin, View):
 class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
     """Render a simple page with both images for a single Finding."""
 
-    template_name = "admin/api/finding_preview.html"
+    template_name = "admin/api/finding/details.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -54,6 +54,9 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
         )
         first, second = finding.first_encoding, finding.second_encoding
         context.update(
+            page_title=f"Finding {finding.pk} details",
+            title=f"Finding {finding.pk} details",
+            opts=Finding._meta,
             finding=finding,
             status_label=Encoding.StatusCode(finding.status_code).label,
             first_image_url=self._image_url(first.filename),

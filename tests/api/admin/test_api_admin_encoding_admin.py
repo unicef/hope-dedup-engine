@@ -72,6 +72,9 @@ def test_encoding_admin_detect_face_initial(mocker: MockerFixture, rf: RequestFa
     encoding_admin = EncodingAdmin(Encoding, admin_site)
     expected_context = {
         "page_title": f"Detect face on {encoding.filename}",
+        "title": f"Detect face on {encoding.filename}",
+        "opts": Encoding._meta,
+        "encoding": encoding,
         "value_title": "Face detected",
         "button_title": "Detect face",
         "details_title": "Confidence delta",
@@ -102,6 +105,9 @@ def test_encoding_admin_detect_face_submit(mocker: MockerFixture, rf: RequestFac
     encoding_admin = EncodingAdmin(Encoding, admin_site)
     expected_context = {
         "page_title": f"Detect face on {encoding.filename}",
+        "title": f"Detect face on {encoding.filename}",
+        "opts": Encoding._meta,
+        "encoding": encoding,
         "value_title": "Face detected",
         "button_title": "Detect face",
         "details_title": "Confidence delta",

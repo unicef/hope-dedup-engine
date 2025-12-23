@@ -74,6 +74,7 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "id",
         "filename",
         "deduplication_set",
+        "face_coverage",
         "created_at",
     )
 
@@ -98,6 +99,9 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         encoding = cast("Encoding", self.get_object(request, pk))
         context = {
             "page_title": f"Detect face on {encoding.filename}",
+            "title": f"Detect face on {encoding.filename}",
+            "opts": Encoding._meta,
+            "encoding": encoding,
             "value_title": "Face detected",
             "button_title": "Detect face",
             "details_title": "Confidence delta",
