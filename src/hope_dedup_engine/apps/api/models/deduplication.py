@@ -29,7 +29,7 @@ class DeduplicationSetGroup(models.Model):
     deleted = models.BooleanField(null=False, blank=False, default=False, help_text="Whether this group was deleted.")
 
     def __str__(self) -> str:
-        return f"{self.reference_pk}({self.system.name})"
+        return f"{self.name} ({self.reference_pk})"
 
 
 class DeduplicationSet(models.Model):

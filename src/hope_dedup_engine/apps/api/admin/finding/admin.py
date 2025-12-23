@@ -23,6 +23,7 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
         "updated_at",
     )
     list_filter = (
+        ("deduplication_set__group", AutoCompleteFilter),
         ("deduplication_set", AutoCompleteFilter),
         ("score", NumberFilter),
         "status_code",
@@ -32,6 +33,9 @@ class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     search_fields = (
         "first_encoding__reference_pk",
         "second_encoding__reference_pk",
+        "deduplication_set__name",
+        "deduplication_set__group__pk",
+        "deduplication_set__group__name",
     )
 
     def has_add_permission(self, request):
