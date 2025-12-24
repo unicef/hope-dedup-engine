@@ -64,6 +64,37 @@ def test_status_when_job_started(
     assert serializer.get_status(deduplication_set) == CeleryTaskModel.STARTED
 
 
+@pytest.mark.parametrize(
+    "finished_tasks",
+    [
+        pytest.param(1, id="encode chunk job not started"),
+        pytest.param(2, id="deduplicate dataset job not started"),
+        pytest.param(3, id="dedupe chunk job not started"),
+        pytest.param(4, id="callback findings job not started"),
+    ],
+)
+def test_status_when_job_started_but_task_is_not(
+    mocker: MockerFixture,
+    deduplication_set: DeduplicationSet,
+    dedup_job: DedupJob,
+    encode_chunk_job: EncodeChunkJob,
+    deduplicate_dataset_job: DeduplicateDatasetJob,
+    dedupe_chunk_job: DedupeChunkJob,
+    callback_findings_job: CallbackFindingsJob,
+    finished_tasks: int,
+) -> None:
+    successful_status_mock = mocker.Mock()
+    successful_status_mock.status = CeleryTaskModel.SUCCESS
+    async_result_values = [successful_status_mock] * finished_tasks + [None]
+    mocker.patch(
+        "hope_dedup_engine.apps.api.models.jobs.CeleryTaskModel.async_result",
+        new_callable=mocker.PropertyMock,
+        side_effect=async_result_values,
+    )
+    serializer = DeduplicationSetSerializer(deduplication_set)
+    assert serializer.get_status(deduplication_set) == CeleryTaskModel.STARTED
+
+
 def test_status_when_job_finished(
     mocker: MockerFixture,
     deduplication_set: DeduplicationSet,
