@@ -24,6 +24,11 @@ from testutils.factories.api import (  # noqa: E402
     EncodingFactory,
     HDETokenFactory,
     DeduplicationSetGroupFactory,
+    EncodeChunkJobFactory,
+    DedupeChunkJobFactory,
+    CallbackFindingsJobFactory,
+    DeduplicateDatasetJobFactory,
+    SyncDnnFilesJobFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory  # noqa: E402
 
@@ -124,4 +129,9 @@ register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(EncodeChunkJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(DedupeChunkJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(CallbackFindingsJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(DeduplicateDatasetJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(SyncDnnFilesJobFactory)
 register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
