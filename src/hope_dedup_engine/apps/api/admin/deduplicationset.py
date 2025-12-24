@@ -8,7 +8,7 @@ from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
 from django.contrib.admin import register
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -109,7 +109,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     def findings(self, button: ChoiceButton) -> None:
         """Provide choices to Findings filtered by this Deduplication Set."""
         button.choices = [
-            self.export_to_csv,
+            self.findings_export,
             self.findings_view,
             self.findings_remove,
         ]
@@ -137,12 +137,9 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         )
 
     @view(label="Export to CSV")
-    def export_to_csv(self, request: HttpRequest, pk: str) -> HttpResponse:
+    def findings_export(self, request: HttpRequest, pk: str) -> StreamingHttpResponse:
         """Export Findings for this Deduplication Set to a CSV file."""
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-        queryset = deduplication_set.finding_set.all()
-        return export_as_csv(
-            request,
-            queryset,
-            filename=f"deduplication_set_{deduplication_set.pk}_findings.csv",
-        )
+        qs = deduplication_set.finding_set.all()
+        filename = f"deduplication_set_{deduplication_set}_findings.csv"
+        return export_as_csv(qs, filename)
