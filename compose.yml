@@ -2,7 +2,7 @@ x-common: &common
   build:
     context: .
     dockerfile: docker/Dockerfile
-    target: python_dev_deps
+    target: tests
   platform: linux/amd64
   environment:
     - ADMIN_EMAIL=adm@hde.org
