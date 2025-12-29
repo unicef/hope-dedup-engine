@@ -9,7 +9,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0055_deduplicationsetgroup_name"),
+        ("api", "0056_encoding_face_coverage"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
