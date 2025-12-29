@@ -11,10 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+    env:
+      DOCKER_BUILDKIT: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
       - name: Extract tag
         id: version
         run: |
@@ -36,6 +37,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.uv/bin" >> $GITHUB_PATH
+
       - name: Set target input
         id: config
         run: |
@@ -52,6 +58,17 @@ jobs:
           echo "tag=$tag" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Build and push versioned image
         run: |
@@ -81,7 +98,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ${{ vars.DOCKERHUB_ORGANIZATION }}/${{ vars.DOCKERHUB_REPOSITORY }}:${{ needs.prepare-version.outputs.version }}
           format: 'sarif'
