@@ -1,17 +1,16 @@
 from typing import cast
 
 from admin_extra_buttons.decorators import button
-from admin_extra_buttons.mixins import ExtraButtonsMixin, confirm_action
-from adminfilters.mixin import AdminFiltersMixin
-from django.contrib.admin import ModelAdmin, register
+from admin_extra_buttons.mixins import confirm_action
+from django.contrib.admin import register
 from django.http import HttpRequest, HttpResponse
 
-
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 
 
 @register(DeduplicationSetGroup)
-class DeduplicationSetGroupAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
+class DeduplicationSetGroupAdmin(BaseModelAdmin):
     readonly_fields = ("reference_pk", "name")
     search_fields = ("reference_pk", "name")
 

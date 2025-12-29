@@ -1,17 +1,17 @@
-from django.contrib.admin import ModelAdmin, register
+from django.contrib.admin import register
 from django.urls import path, reverse
 from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
-from adminfilters.mixin import AdminFiltersMixin
-from admin_extra_buttons.api import ExtraButtonsMixin, link
+from admin_extra_buttons.api import link
 
 from hope_dedup_engine.apps.api.models import Finding
 from hope_dedup_engine.apps.api.admin.finding.views import FindingImageView, FindingPreviewView
 from hope_dedup_engine.apps.api.permissions import can_view_finding_details
+from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 
 
 @register(Finding)
-class FindingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
+class FindingAdmin(BaseModelAdmin):
     list_display = (
         "id",
         "deduplication_set",
