@@ -68,9 +68,6 @@ RUN groupadd --gid 1024 unicef \
     && adduser --disabled-login --disabled-password --no-create-home --ingroup unicef -q hope \
     && echo $CHECKSUM > /CHECKSUM
 
-COPY docker/bin/* /usr/local/bin/
-COPY docker/conf/* /conf/
-
 # ------------- builder -------------
 FROM base_os AS builder
 
@@ -126,39 +123,44 @@ RUN --mount=type=cache,target=/root/.uv-cache \
         --python-preference=system \
         --frozen --group dev
 
-# ------------- python_prod_deps -------------
-FROM builder AS python_prod_deps
+# ------------- production -------------
+FROM builder AS production
 ARG CHECKSUM
-ENV CHECKSUM=$CHECKSUM
 ARG VERSION
-ENV VERSION=$VERSION
 ARG BUILD_DATE
-ENV BUILD_DATE=$BUILD_DATE
 ARG SOURCE_COMMIT
-ENV SOURCE_COMMIT=$SOURCE_COMMIT
 ARG GITHUB_SERVER_URL
-ENV GITHUB_SERVER_URL=$GITHUB_SERVER_URL
 ARG GITHUB_REPOSITORY
-ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
+
+ENV PATH=/venv/bin:/usr/local/bin/:/usr/bin:/bin \
+    DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    VIRTUAL_ENV=/venv \
+    UWSGI_PROCESSES=4 \
+    CHECKSUM=$CHECKSUM \
+    VERSION=$VERSION \
+    BUILD_DATE=$BUILD_DATE \
+    SOURCE_COMMIT=$SOURCE_COMMIT \
+    GITHUB_SERVER_URL=$GITHUB_SERVER_URL \
+    GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
 LABEL date=$BUILD_DATE
 LABEL version=$VERSION
 LABEL checksum=$CHECKSUM
 LABEL distro="builder-prod"
 
-COPY docker/conf/config.toml /etc/xdg/pdm/config.toml
-
-COPY . /code
-WORKDIR /code
-
-RUN pip install uv uwsgi
+WORKDIR /app
+COPY uv.lock README.md MANIFEST.in pyproject.toml /app/
+COPY src /app/src/
 
 RUN --mount=type=cache,target=/root/.uv-cache \
     uv sync -v \
         --cache-dir=/root/.uv-cache \
         --python=/usr/local/bin/python \
         --python-preference=system \
-        --no-dev --no-editable --frozen --extra distribution
+        --no-dev --no-editable --frozen
 
 
 # ------------- dist -------------
@@ -177,11 +179,16 @@ ENV GITHUB_SERVER_URL=$GITHUB_SERVER_URL
 ARG GITHUB_REPOSITORY
 ENV GITHUB_REPOSITORY=$GITHUB_REPOSITORY
 
+WORKDIR /app
+COPY docker/bin/* /usr/local/bin/
+COPY docker/conf/* /conf/
 
-WORKDIR /code
-COPY --chown=hope:unicef --from=python_prod_deps /code/.venv /code/.venv
+COPY . /app/
 
-ENV PATH=/code/.venv/bin:/usr/local/bin/:/usr/bin:/bin \
+COPY --chown=hope:unicef --from=production /venv /venv
+COPY --from=builder /usr/local/bin/uwsgi /usr/local/bin/uv /usr/local/bin/
+
+ENV PATH=/venv/bin:/usr/local/bin/:/usr/bin:/bin \
     DJANGO_SETTINGS_MODULE=hope_dedup_engine.config.settings \
     PYTHONPATH="" \
     PYTHONDBUFFERED=1 \
@@ -199,6 +206,11 @@ RUN <<EOF cat> /RELEASE
  "source": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${SOURCE_COMMIT:-master}/"
 }
 EOF
+
+RUN --mount=type=cache,target=/root/.uv-cache \
+    uv --cache-dir=/root/.uv-cache  pip install --no-deps . \
+    && rm -fr /app/* \
+
 
 VOLUME /var/run/app/
 EXPOSE 8000

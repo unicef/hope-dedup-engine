@@ -116,6 +116,7 @@ packages = [ "src/hope_dedup_engine" ]
 
 [tool.uv]
 package = true
+required-environments = "sys_platform == 'linux' and platform_machine == 'aarch64'"
 
 [tool.django-stubs]
 django_settings_module = "hope_dedup_engine.config.settings"
