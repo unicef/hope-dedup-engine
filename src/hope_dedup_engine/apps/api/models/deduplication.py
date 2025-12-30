@@ -83,6 +83,15 @@ class DeduplicationSet(models.Model):
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True, help_text="Error message.")
     settings = models.JSONField(default=dict, null=True, blank=True, help_text="Deduplication set settings.")
 
+    class Meta:
+        permissions = [
+            ("clear_embeddings", "Can clear embeddings"),
+            ("export_findings", "Can export findings"),
+            ("process_encodings", "Can process encodings"),
+            ("process_deduplicate", "Can process deduplication"),
+            ("remove_findings", "Can remove findings"),
+        ]
+
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
 
@@ -184,6 +193,9 @@ class Encoding(models.Model):
                 ),
                 name="encoding_embedding_or_status",
             ),
+        ]
+        permissions = [
+            ("detect_faces", "Can detect faces"),
         ]
 
     def __str__(self) -> str:

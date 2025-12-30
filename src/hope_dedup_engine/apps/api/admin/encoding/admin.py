@@ -17,6 +17,7 @@ from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face,
 from hope_dedup_engine.apps.api.admin.encoding.utils.threshold import calculate_thresholds, group_by_thresholds
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.models import Encoding
+from hope_dedup_engine.apps.core.permissions import can
 
 
 FILE_LINK = '<a target="_blank" href="{link}">{filename}</a>'
@@ -93,7 +94,7 @@ class EncodingAdmin(BaseModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
-    @button(change_form=True)
+    @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
         encoding = cast("Encoding", self.get_object(request, pk))
         context = {
