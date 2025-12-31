@@ -7,6 +7,7 @@ from django.http import HttpRequest, HttpResponse
 
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.core.permissions import can
 
 
 @register(DeduplicationSetGroup)
@@ -17,7 +18,7 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
     def has_add_permission(self, request) -> bool:
         return False
 
-    @button(change_form=True)
+    @button(change_form=True, permission=can.api.clear_embeddings)
     def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
 
@@ -33,7 +34,7 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
             message="Do you confirm to clear all embeddings for all Deduplication Sets in this group?",
         )
 
-    @button(change_form=True)
+    @button(change_form=True, permission=can.api.remove_findings)
     def remove_findings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
 
