@@ -2,12 +2,10 @@ from operator import attrgetter
 from typing import cast, NamedTuple
 
 from admin_extra_buttons.decorators import button
-from admin_extra_buttons.mixins import ExtraButtonsMixin
 from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
-from adminfilters.mixin import AdminFiltersMixin
-from django.contrib.admin import ModelAdmin, register
+from django.contrib.admin import register
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -17,7 +15,9 @@ from django.utils.html import format_html, format_html_join
 from hope_dedup_engine.apps.api.admin.encoding.forms import FindFaceForm, DeduplicateForm
 from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face, deduplicate, Finding
 from hope_dedup_engine.apps.api.admin.encoding.utils.threshold import calculate_thresholds, group_by_thresholds
+from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.models import Encoding
+from hope_dedup_engine.apps.core.permissions import can
 
 
 FILE_LINK = '<a target="_blank" href="{link}">{filename}</a>'
@@ -69,7 +69,7 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
 
 @register(Encoding)
-class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
+class EncodingAdmin(BaseModelAdmin):
     list_display = (
         "id",
         "filename",
@@ -94,7 +94,7 @@ class EncodingAdmin(ExtraButtonsMixin, AdminFiltersMixin, ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
-    @button(change_form=True)
+    @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
         encoding = cast("Encoding", self.get_object(request, pk))
         context = {

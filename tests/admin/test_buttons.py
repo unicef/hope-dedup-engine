@@ -106,15 +106,31 @@ def test_finding_details_button_visibility(
     ("url_name", "clears"),
     [
         ("admin:api_deduplicationset_clear_embeddings", True),
-        ("admin:api_deduplicationset_remove_findings", False),
+        ("admin:api_deduplicationset_findings_remove", False),
     ],
-    ids=["clear_embeddings", "remove_findings"],
+    ids=["clear_embeddings", "findings_remove"],
 )
 def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
     assert confirm(reverse(url_name, args=[seeded_ds.pk])).status_code == 200
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
+
+
+def test_ds_findings_view_redirect(app, seeded_ds) -> None:
+    res = app.get(reverse("admin:api_deduplicationset_findings_view", args=[seeded_ds.pk]), expect_errors=True)
+    assert res.status_code == 302
+
+    expected = reverse("admin:api_finding_changelist", query={"deduplication_set": str(seeded_ds.pk)})
+    assert res.location.endswith(expected)
+
+
+def test_ds_findings_export_csv(app, seeded_ds) -> None:
+    res = app.get(reverse("admin:api_deduplicationset_findings_export", args=[seeded_ds.pk]), expect_errors=True)
+    assert res.status_code == 200
+    assert res.headers["Content-Type"].startswith("text/csv")
+    assert res.headers["Content-Disposition"].startswith("attachment;")
+    assert "findings.csv" in res.headers["Content-Disposition"]
 
 
 def test_ds_encode(confirm, seeded_ds, mocker):
