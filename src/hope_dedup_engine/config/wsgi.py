@@ -19,7 +19,7 @@ from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault(
     "DJANGO_SETTINGS_MODULE",
-    "src.hope_dedup_engine.config.settings",
+    "hope_dedup_engine.config.settings",
 )
 
 application = get_wsgi_application()
