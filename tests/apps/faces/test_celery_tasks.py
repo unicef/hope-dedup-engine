@@ -36,7 +36,7 @@ def deduplication_set(db) -> DeduplicationSet:
 @pytest.fixture
 def dedup_job(deduplication_set) -> MainJob:
     """Fixture to create a DeduplicationSet with an associated DedupJob."""
-    return MainJob.objects.create(deduplication_set=deduplication_set, progress=0)
+    return MainJob.objects.create(deduplication_set=deduplication_set)
 
 
 @pytest.fixture

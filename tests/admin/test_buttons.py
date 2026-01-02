@@ -134,7 +134,7 @@ def test_ds_findings_export_csv(app, seeded_ds) -> None:
 
 
 def test_ds_encode(confirm, seeded_ds, mocker):
-    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.DedupJob.objects.create")
+    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
     job = mocker.Mock()
     create.return_value = job
 
@@ -150,7 +150,7 @@ def test_ds_encode(confirm, seeded_ds, mocker):
 
 
 def test_ds_deduplicate(confirm, seeded_ds, mocker):
-    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.DedupJob.objects.create")
+    create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
     job = mocker.Mock()
     create.return_value = job
 

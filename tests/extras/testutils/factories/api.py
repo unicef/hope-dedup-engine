@@ -23,6 +23,7 @@ from hope_dedup_engine.apps.api.models.jobs import (
     CallbackFindingsJob,
     DeduplicateDatasetJob,
     SyncDnnFilesJob,
+    DedupJob,
 )
 from testutils.factories import SystemFactory, UserFactory
 
@@ -139,6 +140,13 @@ class IgnoredReferencePkPairFactory(DjangoModelFactory):
 
 
 class DedupJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = DedupJob
+
+
+class MainJobFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
 
     class Meta:

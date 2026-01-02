@@ -22,12 +22,12 @@ def test_find_duplicates_orchestration(
     mock_encode_chunk_job_class,
     mock_deduplicate_dataset_job_class,
     mock_send_notification,
-    dedup_job_factory,
+    main_job_factory,
     encoding_factory,
     finding_factory,
 ):
     """Test that find_duplicates correctly orchestrates Celery tasks."""
-    job = dedup_job_factory()
+    job = main_job_factory()
     dedup_set = job.deduplication_set
     encoding_factory(deduplication_set=dedup_set, filename="file1.jpg", embedding=None)
     encoding_factory(deduplication_set=dedup_set, filename="file2.jpg", embedding=None)
@@ -39,10 +39,6 @@ def test_find_duplicates_orchestration(
     dedup_set.refresh_from_db()
     assert dedup_set.state == DeduplicationSet.State.PROCESSING
     mock_send_notification.assert_called_once_with(dedup_set)
-
-    job.refresh_from_db()
-    assert job.progress == 0
-
     assert mock_encode_chunk_job_class.objects.create.return_value.s.call_count == 1
     mock_chord.assert_called_once_with([mock_encode_chunk_job_class.objects.create.return_value.s.return_value])
     mock_deduplicate_dataset_job_class.objects.create.return_value.s.assert_called_once()
@@ -59,10 +55,10 @@ def test_find_duplicates_orchestration(
 def test_find_duplicates_exception(
     mock_send_notification,
     mock_capture_exception,
-    dedup_job_factory,
+    main_job_factory,
 ):
     """Test the exception handling path for the find_duplicates task."""
-    job = dedup_job_factory()
+    job = main_job_factory()
     dedup_set = job.deduplication_set
 
     with pytest.raises(Exception, match="Test Error"):
@@ -76,10 +72,10 @@ def test_find_duplicates_exception(
 @patch("hope_dedup_engine.apps.api.deduplication.process.find_duplicates.apply_async")
 def test_find_duplicates_reschedules_when_processing(
     mock_apply_async,
-    dedup_job_factory,
+    main_job_factory,
 ):
     """Test that find_duplicates reschedules when dataset is already being processed."""
-    job = dedup_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
+    job = main_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
 
     result = find_duplicates(job.id, job.version)
 
@@ -100,10 +96,10 @@ def test_find_duplicates_proceeds_when_stale(
     mock_send_notification,
     mock_encode_chunk_job_class,
     mock_chord,
-    dedup_job_factory,
+    main_job_factory,
 ):
     """Test that find_duplicates proceeds when PROCESSING state is stale (>24h)."""
-    job = dedup_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
+    job = main_job_factory(deduplication_set__state=DeduplicationSet.State.PROCESSING)
     dedup_set = job.deduplication_set
 
     DeduplicationSet.objects.filter(pk=dedup_set.pk).update(updated_at=timezone.now() - timedelta(hours=25))

@@ -17,7 +17,7 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
         DeduplicationSet.State.FAILED,
     ],
 )
-@patch("hope_dedup_engine.apps.api.views.DedupJob.queue")
+@patch("hope_dedup_engine.apps.api.views.MainJob.queue")
 def test_can_trigger_deduplication_set_processing(
     mock_dedup_job_queue: MagicMock,
     api_client: APIClient,

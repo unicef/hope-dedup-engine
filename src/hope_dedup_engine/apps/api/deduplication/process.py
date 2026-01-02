@@ -46,9 +46,9 @@ def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> Deduplic
 
 @shared_task(bind=True, soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
-    dedup_job: MainJob = MainJob.objects.get(pk=dedup_job_id, version=version)
+    main_job: MainJob = MainJob.objects.get(pk=dedup_job_id, version=version)
 
-    deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set)
+    deduplication_set = try_acquire_processing_lock(main_job.deduplication_set)
 
     if deduplication_set is None:
         self.apply_async(
@@ -70,7 +70,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             EncodeChunkJob.objects.create(deduplication_set=deduplication_set, encoding_ids=chunk).s()
             for chunk in chunks
         ]
-        if dedup_job.encode_only:
+        if main_job.encode_only:
             chord_id = group(tasks)()
             finish_with_success(deduplication_set)
         else:
