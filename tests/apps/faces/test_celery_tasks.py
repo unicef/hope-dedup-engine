@@ -4,7 +4,7 @@ import pytest
 from celery import states
 from celery.canvas import Signature
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.models.jobs import (
     SyncDnnFilesJob,
@@ -34,9 +34,9 @@ def deduplication_set(db) -> DeduplicationSet:
 
 
 @pytest.fixture
-def dedup_job(deduplication_set) -> DedupJob:
+def dedup_job(deduplication_set) -> MainJob:
     """Fixture to create a DeduplicationSet with an associated DedupJob."""
-    return DedupJob.objects.create(deduplication_set=deduplication_set, progress=0)
+    return MainJob.objects.create(deduplication_set=deduplication_set, progress=0)
 
 
 @pytest.fixture

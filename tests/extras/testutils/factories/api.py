@@ -9,7 +9,7 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     EncodingOptions,
     ModelOptions,
 )
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
     IgnoredFilenamePair,
@@ -142,7 +142,7 @@ class DedupJobFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
 
     class Meta:
-        model = DedupJob
+        model = MainJob
 
 
 class EncodeChunkJobFactory(DjangoModelFactory):

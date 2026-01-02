@@ -3,12 +3,12 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import Finding, Encoding
 
 
 def test_previous_results_are_removed_before_processing(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     finding: Finding,
 ) -> None:
@@ -18,7 +18,7 @@ def test_previous_results_are_removed_before_processing(
 
 
 def test_duplicates_are_stored(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     image: Encoding,
     second_image: Encoding,
@@ -29,7 +29,7 @@ def test_duplicates_are_stored(
 
 
 def test_ignored_reference_pk_pairs(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     image: Encoding,
     second_image: Encoding,
@@ -45,7 +45,7 @@ def test_ignored_reference_pk_pairs(
 
 
 def test_ignored_filename_pairs(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     image: Encoding,
     second_image: Encoding,
@@ -61,7 +61,7 @@ def test_ignored_filename_pairs(
 
 
 def test_weight_is_taken_into_account(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     image: Encoding,
     second_image: Encoding,
@@ -71,7 +71,7 @@ def test_weight_is_taken_into_account(
 
 
 def test_notification_sent_on_successful_run(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     send_notification: MagicMock,
 ) -> None:
@@ -81,7 +81,7 @@ def test_notification_sent_on_successful_run(
 
 
 def test_notification_sent_on_failure(
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     deduplication_set: DeduplicationSet,
     send_notification: MagicMock,
 ) -> None:

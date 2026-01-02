@@ -10,6 +10,13 @@ from hope_dedup_engine.apps.api.models import (
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Encoding,
+    MainJob,
+)
+from hope_dedup_engine.apps.api.models.jobs import (
+    EncodeChunkJob,
+    DeduplicateDatasetJob,
+    DedupeChunkJob,
+    CallbackFindingsJob,
 )
 
 
@@ -37,11 +44,11 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
         # created before the current job is finished
 
         job_managers = (
-            deduplication_set.dedup_jobs,
-            deduplication_set.encode_chunk_jobs,
-            deduplication_set.deduplicate_dataset_jobs,
-            deduplication_set.dedupe_chunk_jobs,
-            deduplication_set.callback_findings_jobs,
+            MainJob.objects.filter(deduplication_set=deduplication_set),
+            EncodeChunkJob.objects.filter(deduplication_set=deduplication_set),
+            DeduplicateDatasetJob.objects.filter(deduplication_set=deduplication_set),
+            DedupeChunkJob.objects.filter(deduplication_set=deduplication_set),
+            CallbackFindingsJob.objects.filter(deduplication_set=deduplication_set),
         )
 
         first_task = True

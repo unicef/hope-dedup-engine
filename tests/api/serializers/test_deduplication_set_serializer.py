@@ -2,7 +2,7 @@ from django_celery_boost.models import CeleryTaskModel
 import pytest
 from pytest_mock import MockerFixture
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.jobs import (
     EncodeChunkJob,
     DeduplicateDatasetJob,
@@ -17,7 +17,7 @@ def test_status_when_no_job_run(deduplication_set: DeduplicationSet) -> None:
     assert serializer.get_status(deduplication_set) == CeleryTaskModel.NOT_SCHEDULED
 
 
-def test_status_when_job_queued(deduplication_set: DeduplicationSet, dedup_job: DedupJob) -> None:
+def test_status_when_job_queued(deduplication_set: DeduplicationSet, dedup_job: MainJob) -> None:
     serializer = DeduplicationSetSerializer(deduplication_set)
     assert dedup_job.async_result is None
     assert serializer.get_status(deduplication_set) == CeleryTaskModel.PENDING
@@ -51,7 +51,7 @@ def test_status_when_job_queued(deduplication_set: DeduplicationSet, dedup_job: 
 def test_status_when_job_started(
     mocker: MockerFixture,
     deduplication_set: DeduplicationSet,
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     encode_chunk_job: EncodeChunkJob,
     deduplicate_dataset_job: DeduplicateDatasetJob,
     dedupe_chunk_job: DedupeChunkJob,
@@ -76,7 +76,7 @@ def test_status_when_job_started(
 def test_status_when_job_started_but_task_is_not(
     mocker: MockerFixture,
     deduplication_set: DeduplicationSet,
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     encode_chunk_job: EncodeChunkJob,
     deduplicate_dataset_job: DeduplicateDatasetJob,
     dedupe_chunk_job: DedupeChunkJob,
@@ -98,7 +98,7 @@ def test_status_when_job_started_but_task_is_not(
 def test_status_when_job_finished(
     mocker: MockerFixture,
     deduplication_set: DeduplicationSet,
-    dedup_job: DedupJob,
+    dedup_job: MainJob,
     encode_chunk_job: EncodeChunkJob,
     deduplicate_dataset_job: DeduplicateDatasetJob,
     dedupe_chunk_job: DedupeChunkJob,

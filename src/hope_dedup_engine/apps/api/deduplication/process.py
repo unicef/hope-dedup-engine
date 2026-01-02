@@ -7,7 +7,7 @@ from django.utils import timezone
 import sentry_sdk
 from celery import chord, shared_task, group
 
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.models.jobs import EncodeChunkJob, DeduplicateDatasetJob
 from hope_dedup_engine.apps.api.utils.notification import send_notification
@@ -46,7 +46,7 @@ def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> Deduplic
 
 @shared_task(bind=True, soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
-    dedup_job: DedupJob = DedupJob.objects.get(pk=dedup_job_id, version=version)
+    dedup_job: MainJob = MainJob.objects.get(pk=dedup_job_id, version=version)
 
     deduplication_set = try_acquire_processing_lock(dedup_job.deduplication_set)
 
@@ -63,9 +63,6 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
 
     try:
         send_notification(deduplication_set)
-
-        dedup_job.progress = 0
-        dedup_job.save(update_fields=["progress"])
 
         encoding_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
         chunks = get_chunks(encoding_ids, purpose=ChunkPurpose.ENCODE)

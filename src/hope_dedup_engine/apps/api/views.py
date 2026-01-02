@@ -30,7 +30,7 @@ from hope_dedup_engine.apps.api.models import (
     Encoding,
 )
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
-from hope_dedup_engine.apps.api.models.jobs import DedupJob
+from hope_dedup_engine.apps.api.models.jobs import MainJob
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
@@ -109,7 +109,7 @@ class DeduplicationSetViewSet(
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, group__reference_pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
-        job = DedupJob.objects.create(deduplication_set=deduplication_set)
+        job = MainJob.objects.create(deduplication_set=deduplication_set)
         job.queue()
         return Response({"message": "started"})
 
