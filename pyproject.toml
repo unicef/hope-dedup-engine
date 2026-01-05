@@ -58,18 +58,7 @@ dependencies = [
   "tf-keras",
   "ultralytics",
   "unicef-security",
-]
-
-optional-dependencies.distribution = [
   "uwsgi",
-]
-optional-dependencies.docs = [
-  "mkdocs",
-  "mkdocs-awesome-pages-plugin",
-  "mkdocs-gen-files",
-  "mkdocs-material",
-  "mkdocs-panzoom-plugin",
-  "mkdocstrings-python",
 ]
 
 [dependency-groups]
@@ -109,6 +98,14 @@ dev = [
   "types-requests",
   "unittest-xml-reporting",
   "watchdog",
+]
+docs = [
+  "mkdocs",
+  "mkdocs-awesome-pages-plugin",
+  "mkdocs-gen-files",
+  "mkdocs-material",
+  "mkdocs-panzoom-plugin",
+  "mkdocstrings-python",
 ]
 
 [tool.hatch.build.targets.wheel]
