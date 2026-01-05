@@ -5,7 +5,10 @@ from unittest import mock
 from django.core.management import call_command
 
 import pytest
+from pytest_mock import MockerFixture
+
 from testutils.factories import SuperUserFactory
+from hope_dedup_engine.apps.core.management.commands import upgrade as upgrade_cmd
 
 pytestmark = pytest.mark.django_db
 
@@ -123,3 +126,29 @@ def test_upgrade_exception(mocked_responses, environment):
         out = StringIO()
         with pytest.raises(SystemExit):
             call_command("upgrade", stdout=out, check=True, admin_email="")
+
+
+@pytest.mark.parametrize(
+    ("factory_name", "factory_kwargs", "expect_changed"),
+    [
+        ("UserFactory", {"is_staff": False, "is_superuser": False}, True),
+        ("SuperUserFactory", {}, False),
+    ],
+    ids=["promotes", "noop"],
+)
+def test_upgrade_ensure_superuser(
+    mocker: MockerFixture, factory_name: str, factory_kwargs: dict[str, bool], expect_changed: bool
+) -> None:
+    from testutils import factories as f  # noqa: PLC0415
+
+    user = getattr(f, factory_name)(**factory_kwargs)
+    save_spy = mocker.spy(user, "save")
+
+    assert upgrade_cmd.Command()._ensure_superuser(user) is expect_changed
+
+    if expect_changed:
+        assert user.is_staff is True
+        assert user.is_superuser is True
+        save_spy.assert_called_once_with(update_fields=["is_staff", "is_superuser"])
+    else:
+        save_spy.assert_not_called()
