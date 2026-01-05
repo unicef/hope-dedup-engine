@@ -184,7 +184,7 @@ LOGGING = {
 }
 
 AUTH_USER_MODEL = "security.User"
-
+SUPERUSERS = env("SUPERUSERS")
 
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
