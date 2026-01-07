@@ -152,3 +152,10 @@ def test_upgrade_ensure_superuser(
         save_spy.assert_called_once_with(update_fields=["is_staff", "is_superuser"])
     else:
         save_spy.assert_not_called()
+
+
+def test_upgrade_superuser_logins_drops_whitespace_only() -> None:
+    cmd = upgrade_cmd.Command()
+    cmd.admin_email = " admin@example.com "
+    cmd.superusers = ["  ", "u1", " u1 ", "", "   "]
+    assert cmd._superuser_logins() == ["admin@example.com", "u1"]
