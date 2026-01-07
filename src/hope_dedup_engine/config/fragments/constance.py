@@ -1,4 +1,7 @@
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
+from .. import env
+
+HOPE_API_TOKEN = env("HOPE_API_TOKEN")
 
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 
@@ -51,6 +54,7 @@ CONSTANCE_CONFIG = {
         "Set count of allowed reference pks as query params",
         int,
     ),
+    "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_input"),
 }
 
 
@@ -71,7 +75,10 @@ CONSTANCE_CONFIG_FIELDSETS = {
         "collapse": False,
     },
     "API settings": {
-        "fields": ("MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS",),
+        "fields": (
+            "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS",
+            "HOPE_API_TOKEN",
+        ),
         "collapse": False,
     },
 }
@@ -142,4 +149,14 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             ),
         },
     ],
+    "write_only_input": [
+        "django.forms.fields.CharField",
+        {
+            "required": False,
+            "widget": "hope_dedup_engine.utils.constance.WriteOnlyTextInput",
+        },
+    ],
 }
+
+CONSTANCE_DEFAULTS_MASK = "***"
+CONSTANCE_MASKED_DEFAULTS = ("HOPE_API_TOKEN",)
