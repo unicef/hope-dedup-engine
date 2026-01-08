@@ -23,6 +23,16 @@ class Group(Enum):
 
 
 CONFIG: "dict[str, ConfigItem]" = {
+    "SUPERUSERS": (
+        list,
+        [],
+        [],
+        False,
+        """"list of emails/or usernames that will automatically granted superusers privileges
+ ONLY the first time they are created. This is designed to be used in dev/qa environments deployed by CI,
+ where database can be empty.
+        """,
+    ),
     "ADMIN_EMAIL": (
         str,
         SmartEnv.NOTSET,

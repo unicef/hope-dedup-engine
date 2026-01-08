@@ -3,16 +3,16 @@ import os
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, Final
 
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 from django.core.management.base import CommandError, SystemCheckError
 from django.core.validators import validate_email
+from django.contrib.auth import get_user_model
 
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
-from hope_dedup_engine.apps.security.models import User
 from hope_dedup_engine.config import env
 
 if TYPE_CHECKING:
@@ -24,6 +24,8 @@ class Echo(Protocol):
 
 
 logger = logging.getLogger(__name__)
+
+FALLBACK_EMAIL_DOMAIN: Final[str] = "example.org"
 
 
 def noop(*_: Any, **__: Any) -> None:
@@ -64,36 +66,59 @@ class Command(BaseCommand):
         echo("Remove stale contenttypes")
         call_command("remove_stale_contenttypes", **extra)
 
-    def _create_superuser(self, echo: Echo) -> None:
-        if self.admin_email:
-            if User.objects.filter(email=self.admin_email).exists():
-                echo(
-                    f"User {self.admin_email} found, skip creation",
-                    style_func=self.style.WARNING,
-                )
-            else:
-                echo(
-                    f"Creating superuser: {self.admin_email}",
-                    style_func=self.style.WARNING,
-                )
-                validate_email(self.admin_email)
-                os.environ["DJANGO_SUPERUSER_USERNAME"] = self.admin_email
-                os.environ["DJANGO_SUPERUSER_EMAIL"] = self.admin_email
-                os.environ["DJANGO_SUPERUSER_PASSWORD"] = self.admin_password
-                call_command(
-                    "createsuperuser",
-                    email=self.admin_email,
-                    username=self.admin_email,
-                    verbosity=self.verbosity - 1,
-                    interactive=False,
-                )
+    def _ensure_superuser(self, user: Any) -> bool:
+        if user.is_staff and user.is_superuser:
+            return False
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(update_fields=["is_staff", "is_superuser"])
+        return True
 
-            admin = User.objects.get(email=self.admin_email)
+    def _run_createsuperuser(self, username: str, email: str) -> bool:
+        os.environ["DJANGO_SUPERUSER_USERNAME"] = username
+        os.environ["DJANGO_SUPERUSER_EMAIL"] = email
+
+        if password := self.admin_password if username == self.admin_email else "":
+            os.environ["DJANGO_SUPERUSER_PASSWORD"] = password
         else:
-            admin = User.objects.filter(is_superuser=True).first()
+            os.environ.pop("DJANGO_SUPERUSER_PASSWORD", None)
 
-        if not admin:
-            raise CommandError("Failure: Error when creating an admin user!")
+        call_command(
+            "createsuperuser",
+            email=email,
+            username=username,
+            verbosity=max(self.verbosity - 1, 0),
+            interactive=False,
+        )
+        return bool(password)
+
+    def _superuser_logins(self) -> list[str]:
+        raw = [self.admin_email, *self.superusers]
+        return list(dict.fromkeys(s for x in raw if x and (s := x.strip())))
+
+    def _create_superusers(self, echo: Any) -> None:
+        users = get_user_model().objects
+
+        for login in self._superuser_logins():
+            email = login if "@" in login else f"{login}@{FALLBACK_EMAIL_DOMAIN}"
+
+            if user := (
+                (users.filter(email=email).first() if "@" in login else None) or users.filter(username=login).first()
+            ):
+                changed = self._ensure_superuser(user)
+                echo(
+                    f"{'Granted superuser privileges' if changed else 'User found, skip'}: {login}",
+                    style_func=self.style.WARNING,
+                )
+                continue
+
+            validate_email(email)
+            password_provided = self._run_createsuperuser(login, email)
+
+            echo(
+                f"Created superuser: {email}{'' if password_provided else ' with unusable password'}",
+                style_func=self.style.WARNING,
+            )
 
     def _create_groups(self) -> None:
         Group.objects.get_or_create(name="Admins")
@@ -162,6 +187,13 @@ class Command(BaseCommand):
             default="",
             help="Admin password",
         )
+        parser.add_argument(
+            "--superusers",
+            nargs="+",
+            dest="superusers",
+            default=None,
+            help="Emails/usernames to grant superuser privileges (space-separated)",
+        )
 
     def get_options(self, options: dict[str, Any]) -> None:
         self.verbosity = options["verbosity"]
@@ -174,6 +206,7 @@ class Command(BaseCommand):
 
         self.admin_email = str(options["admin_email"] or env("ADMIN_EMAIL", ""))
         self.admin_password = str(options["admin_password"] or env("ADMIN_PASSWORD", ""))
+        self.superusers = options["superusers"] if options["superusers"] is not None else env("SUPERUSERS", [])
 
     def halt(self, e: Exception) -> None:
         self.stdout.write(str(e), style_func=self.style.ERROR)
@@ -203,7 +236,7 @@ class Command(BaseCommand):
             self._run_collectstatic(echo, extra)
             self._run_migrate(echo, extra)
             self._run_remove_stale_contenttypes(echo, extra)
-            self._create_superuser(echo)
+            self._create_superusers(echo)
             self._create_groups()
 
             echo("Upgrade completed", style_func=self.style.SUCCESS)
