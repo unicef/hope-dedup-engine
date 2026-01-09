@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockFixture
 from requests import RequestException
+from constance.test import override_config
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import (
@@ -45,9 +46,17 @@ def test_send_notification(
 ) -> None:
     deduplication_set_mock.notification_url = url
     deduplication_set_mock.notify = notify
-    send_notification(deduplication_set_mock)
+
+    token = "very-secret-token"
+    with override_config(HOPE_API_TOKEN=token):
+        send_notification(deduplication_set_mock)
+
     if http_request_sent:
-        requests_get.assert_called_once_with(url, timeout=REQUEST_TIMEOUT)
+        requests_get.assert_called_once_with(
+            url,
+            headers={"Authorization": f"Token {token}"},
+            timeout=REQUEST_TIMEOUT,
+        )
     else:
         requests_get.assert_not_called()
 
@@ -57,7 +66,8 @@ def test_exception_is_sent_to_sentry(
 ) -> None:
     exception = RequestException()
     requests_get.side_effect = exception
-    send_notification(deduplication_set_mock)
+    with override_config(HOPE_API_TOKEN="any-token"):
+        send_notification(deduplication_set_mock)
     sentry_sdk_capture_exception.assert_called_once_with(exception)
 
 
