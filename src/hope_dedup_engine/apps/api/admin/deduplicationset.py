@@ -12,7 +12,7 @@ from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet, DedupJob
+from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.utils.export import export_as_csv
@@ -77,7 +77,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         def _action(_: HttpRequest) -> HttpResponse:
             deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
             deduplication_set.finding_set.all().delete()
-            job = DedupJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
+            job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
             job.queue()
 
         return confirm_action(
@@ -92,7 +92,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
-            job = DedupJob.objects.create(deduplication_set=deduplication_set)
+            job = MainJob.objects.create(deduplication_set=deduplication_set)
             job.queue()
 
         return confirm_action(

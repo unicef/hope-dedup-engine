@@ -114,7 +114,7 @@ def dedupe_images(  # noqa: PLR0913
     deduplication_set: DeduplicationSet,
     encodings0: list[Encoding],
     encodings1: list[Encoding],
-    ignored_pairs: set[set[str]],
+    ignored_pairs: set[frozenset[str]],
     duplicate_confidence_threshold: float,
     model_name: str,
     detector_backend: str,

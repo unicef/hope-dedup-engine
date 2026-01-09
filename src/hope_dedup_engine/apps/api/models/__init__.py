@@ -7,7 +7,7 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     IgnoredReferencePkPair,
     Encoding,
 )
-from hope_dedup_engine.apps.api.models.jobs import DedupJob
+from hope_dedup_engine.apps.api.models.jobs import MainJob
 
 __all__ = [
     "HDEToken",
@@ -17,5 +17,5 @@ __all__ = [
     "IgnoredPair",
     "IgnoredReferencePkPair",
     "Encoding",
-    "DedupJob",
+    "MainJob",
 ]

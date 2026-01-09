@@ -16,7 +16,6 @@ sys.path.insert(0, str(here / "../src"))
 sys.path.insert(0, str(here / "extras"))
 
 from testutils.factories.api import (  # noqa: E402
-    DedupJobFactory,
     DeduplicationSetFactory,
     FindingFactory,
     IgnoredFilenamePairFactory,
@@ -24,6 +23,12 @@ from testutils.factories.api import (  # noqa: E402
     EncodingFactory,
     HDETokenFactory,
     DeduplicationSetGroupFactory,
+    EncodeChunkJobFactory,
+    DedupeChunkJobFactory,
+    CallbackFindingsJobFactory,
+    DeduplicateDatasetJobFactory,
+    SyncDnnFilesJobFactory,
+    MainJobFactory,
 )
 from testutils.factories.user import SystemFactory, UserFactory  # noqa: E402
 
@@ -123,5 +128,10 @@ register(
 register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(DedupJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(MainJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(EncodeChunkJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(DedupeChunkJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(CallbackFindingsJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(DeduplicateDatasetJobFactory, deduplication_set=LazyFixture("deduplication_set"))
+register(SyncDnnFilesJobFactory)
 register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))

@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait, SelfAttribute
 from factory.django import DjangoModelFactory
@@ -9,13 +9,21 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     EncodingOptions,
     ModelOptions,
 )
-from hope_dedup_engine.apps.api.models import DedupJob, DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
     IgnoredFilenamePair,
     IgnoredReferencePkPair,
     Encoding,
     DeduplicationSetGroup,
+)
+from hope_dedup_engine.apps.api.models.jobs import (
+    EncodeChunkJob,
+    DedupeChunkJob,
+    CallbackFindingsJob,
+    DeduplicateDatasetJob,
+    SyncDnnFilesJob,
+    DedupJob,
 )
 from testutils.factories import SystemFactory, UserFactory
 
@@ -136,6 +144,49 @@ class DedupJobFactory(DjangoModelFactory):
 
     class Meta:
         model = DedupJob
+
+
+class MainJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = MainJob
+
+
+class EncodeChunkJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+    encoding_ids: list[UUID] = []
+
+    class Meta:
+        model = EncodeChunkJob
+
+
+class DedupeChunkJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+    encoding_ids0: list[UUID] = []
+    encoding_ids1: list[UUID] = []
+
+    class Meta:
+        model = DedupeChunkJob
+
+
+class CallbackFindingsJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = CallbackFindingsJob
+
+
+class DeduplicateDatasetJobFactory(DjangoModelFactory):
+    deduplication_set = SubFactory(DeduplicationSetFactory)
+
+    class Meta:
+        model = DeduplicateDatasetJob
+
+
+class SyncDnnFilesJobFactory(DjangoModelFactory):
+    class Meta:
+        model = SyncDnnFilesJob
 
 
 class ModelOptionsFactory(Factory):
