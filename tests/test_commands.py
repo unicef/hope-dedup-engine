@@ -1,14 +1,13 @@
 import os
+import pytest
 from io import StringIO
 from unittest import mock
 
 from django.core.management import call_command
+from django.core.management.base import CommandError
 
-import pytest
-from pytest_mock import MockerFixture
-
-from testutils.factories import SuperUserFactory, UserFactory
 from hope_dedup_engine.apps.core.management.commands import upgrade as upgrade_cmd
+from testutils.factories import SuperUserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -128,57 +127,9 @@ def test_upgrade_exception(mocked_responses, environment):
             call_command("upgrade", stdout=out, check=True, admin_email="")
 
 
-@pytest.mark.parametrize(
-    ("factory_key", "kwargs", "expect_changed"),
-    [
-        ("user", {"is_staff": False, "is_superuser": False}, True),
-        ("superuser", {}, False),
-    ],
-    ids=["promotes", "noop"],
-)
-def test_upgrade_ensure_superuser(
-    mocker: MockerFixture,
-    factory_key: str,
-    kwargs: dict[str, object],
-    expect_changed: bool,
-) -> None:
-    factory = {"user": UserFactory, "superuser": SuperUserFactory}[factory_key]
-    user = factory(**kwargs)
-    save_spy = mocker.spy(user, "save")
-
-    assert upgrade_cmd.Command()._ensure_superuser(user) is expect_changed
-
-    if expect_changed:
-        assert user.is_staff is True
-        assert user.is_superuser is True
-        save_spy.assert_called_once_with(update_fields=["is_staff", "is_superuser"])
-    else:
-        save_spy.assert_not_called()
-
-
-def test_upgrade_run_createsuperuser_pops_password_env_when_missing(mocker: MockerFixture) -> None:
+def test_upgrade_raises_when_no_admin_user_exists() -> None:
     cmd = upgrade_cmd.Command()
-    cmd.admin_email = "admin@example.com"
-    cmd.admin_password = ""
-    cmd.verbosity = 1
+    cmd.admin_email = ""
 
-    call = mocker.patch.object(upgrade_cmd, "call_command")
-    mocker.patch.dict(os.environ, {"DJANGO_SUPERUSER_PASSWORD": "stale"}, clear=True)
-
-    assert cmd._run_createsuperuser("admin@example.com", "admin@example.com") is False
-    assert "DJANGO_SUPERUSER_PASSWORD" not in os.environ
-
-    call.assert_called_once_with(
-        "createsuperuser",
-        email="admin@example.com",
-        username="admin@example.com",
-        verbosity=0,
-        interactive=False,
-    )
-
-
-def test_upgrade_superuser_logins_drops_whitespace_only() -> None:
-    cmd = upgrade_cmd.Command()
-    cmd.admin_email = " admin@example.com "
-    cmd.superusers = ["  ", "u1", " u1 ", "", "   "]
-    assert cmd._superuser_logins() == ["admin@example.com", "u1"]
+    with pytest.raises(CommandError, match=r"Failure: Error when creating an admin user!"):
+        cmd._create_superuser(lambda *_a, **_k: None)
