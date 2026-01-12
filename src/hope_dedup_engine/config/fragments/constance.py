@@ -54,7 +54,7 @@ CONSTANCE_CONFIG = {
         "Set count of allowed reference pks as query params",
         int,
     ),
-    "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_input"),
+    "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_text_input"),
 }
 
 
@@ -149,7 +149,7 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             ),
         },
     ],
-    "write_only_input": [
+    "write_only_text_input": [
         "django.forms.fields.CharField",
         {
             "required": False,

@@ -1,8 +1,8 @@
-from typing import Any
+from typing import Any, Mapping
 
 from constance import config
-from django.forms import TextInput, Textarea
 from django.conf import settings
+from django.forms import TextInput, Textarea
 
 
 class WriteOnlyMixin:
@@ -18,10 +18,14 @@ class WriteOnlyMixin:
     def format_value(self, value: Any) -> str:
         return ""
 
-    def value_from_datadict(self, data: dict[str, Any], files: Any, name: str) -> Any:
-        value = data.get(name)
-        if value in (None, "", self.mask):
+    def value_from_datadict(self, data: Mapping[str, Any], files: Any, name: str) -> Any:
+        if (value := data.get(name) or "") == "":
             return getattr(config, name)
+
+        if value.strip() == self.mask:
+            default_value, *_ = settings.CONSTANCE_CONFIG[name]
+            return default_value
+
         return value
 
 
