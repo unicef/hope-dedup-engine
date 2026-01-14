@@ -178,6 +178,7 @@ CONFIG: "dict[str, ConfigItem]" = {
         "storages.backends.azure_storage.AzureStorage",
         setting("storages"),
     ),
+    "HOPE_API_TOKEN": (str, "", "", False, "Hope API token"),
     "LOG_LEVEL": (str, "CRITICAL", "DEBUG", False, setting("logging-level")),
     "MEDIA_ROOT": (
         str,

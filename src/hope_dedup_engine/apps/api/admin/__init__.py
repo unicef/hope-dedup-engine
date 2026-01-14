@@ -1,3 +1,4 @@
+from .constance import ConstanceAdmin  # noqa
 from .deduplicationset import DeduplicationSetAdmin  # noqa
 from .finding import FindingAdmin  # noqa
 from .hdetoken import HDETokenAdmin  # noqa
