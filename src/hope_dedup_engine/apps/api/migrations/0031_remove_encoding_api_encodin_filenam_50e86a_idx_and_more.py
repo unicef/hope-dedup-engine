@@ -2,10 +2,12 @@
 
 import django.contrib.postgres.fields
 from django.conf import settings
+from django.contrib.postgres.operations import AddIndexConcurrently
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    atomic = False
     dependencies = [
         ("api", "0030_encoding_api_encodin_filenam_50e86a_idx"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -69,7 +71,7 @@ class Migration(migrations.Migration):
             name="second",
             field=models.CharField(max_length=255),
         ),
-        migrations.AddIndex(
+        AddIndexConcurrently(
             model_name="image",
             index=models.Index(
                 fields=["deduplication_set", "filename"],

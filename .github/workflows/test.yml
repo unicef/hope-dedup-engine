@@ -3,36 +3,12 @@ name: Test
 on:
   workflow_dispatch:
   push:
-    branches:
-      - develop
-      - master
-      - staging
-      - release/*
-      - feature/*
-      - bugfix/*
-      - hotfix/*
-#  pull_request:
-#    branches: [ develop, master ]
-#    types: [ synchronize, opened, reopened, ready_for_review ]
-
-concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
-
-defaults:
-  run:
-    shell: bash
-
-permissions:
-  id-token: write
-  attestations: write
-
+    branches: [ "develop" ]
+    tags-ignore: [ "**" ]
+  pull_request:
 
 jobs:
   changes:
-    if: (github.event_name != 'pull_request'
-            || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name)
-            || github.event_name == 'create'
     runs-on: ubuntu-latest
     timeout-minutes: 1
     defaults:
@@ -53,18 +29,17 @@ jobs:
 
   test:
     needs: [ changes ]
-    if: needs.changes.outputs.run_tests == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.run_tests == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ env.IMAGE }}
-      commit: ${{env.sha_short}}
-      build_date: ${{env.BUILD_DATE}}
-      branch: ${{env.BRANCH}}
     services:
       redis:
         image: redis:7
         ports:
-          - 16379:6379
+          - 6379:6379
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
       db:
         image: postgres:14
         env:
@@ -72,7 +47,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USERNAME: postgres
         ports:
-          - 15432:5432
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -81,93 +56,50 @@ jobs:
     env:
       DOCKER_DEFAULT_PLATFORM: linux/amd64
       DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
-      DATABASE_URL: postgres://postgres:postgres@localhost:15432/dedup_engine
-      CELERY_BROKER_URL: redis://localhost:16379/1
-      CACHE_URL: redis://localhost:16379/2
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/dedup_engine
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CACHE_URL: redis://localhost:6379/2
       DOCKER_BUILDKIT: 1
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+      - uses: actions/checkout@v6
         with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
-      - name: Hack container for local development
-        if: ${{ env.ACT }}
-        run: |
-          echo /home/runner/externals/node20/bin >> $GITHUB_PATH
-      - name: Hack container for local development
-        run: |
-          echo BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_ENV
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: "unicef/hope-dedup-engine"
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{raw}}
-      - name: DockerHub login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - id: last_commit
-        uses: ./.github/actions/last_commit
-      - id: calc
-        shell: bash
-        run: |
-          set -x
-          LOCK_SHA=$(sha1sum uv.lock docker/bin/* docker/conf/* docker/Dockerfile | sha1sum | awk '{print $1}' | cut -c 1-8)
-          IMAGE=$(echo '${{env.DOCKER_METADATA_OUTPUT_JSON}}' | jq '.tags[0]')
-          echo "checksum=$LOCK_SHA" >> "$GITHUB_ENV"
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "BUILD_DATE=$(date +"%Y-%m-%d %H:%M" )" >> $GITHUB_ENV
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          fetch-depth: 0
 
-      - name: Build Test Image
-        run: |
-             docker build \
-                --target tests \
-                -t ${{env.IMAGE}} \
-                --cache-from "type=gha" \
-                --cache-to "type=gha,mode=max" \
-                -f docker/Dockerfile .
-
-      - name: Run Test suite
-        run: |
-            mkdir output
-            docker run --rm \
-              --network host \
-              -e PYTHONPATH=/app/src \
-              -e DATABASE_URL=${DATABASE_URL} \
-              -e CELERY_BROKER_URL=${CELERY_BROKER_URL} \
-              -e CACHE_URL=${CACHE_URL} \
-              -e SECRET_KEY=super-secret-key-just-for-testing \
-              -v "./output/:/app/output" \
-              -v "./src/:/app/src" \
-              -v "./tests:/app/tests" \
-              -v "./pytest.ini:/app/pytest.ini" \
-              -v "./tox.ini:/app/tox.ini" \
-              -t ${{env.IMAGE}} \
-              uv run tox -e unit -- --cov-report xml:./output/coverage.xml --junit-xml=./output/test-results.xml
-
-      - name: Test Report
-        uses: dorny/test-reporter@v2
-        if: success() || failure()
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
         with:
-          name: Unit Tests
-          path: ./output/test-results.xml
-          reporter: jest-junit
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+          cache-suffix: ${{ matrix.cfg }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          python-version: ${{ matrix.python }}
+
+      - name: Install tox
+        run: uv tool install --python-preference only-managed --python 3.12 tox --with tox-uv --with tox-gh-actions
+
+      - name: Setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false -e tests
+
+      - name: Run test suite tests
+        run: tox -e tests
+
+      - name: Archive selenium results
+        uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: selenium-log-report
+          path: latest_logs
+          retention-days: 5
+
+      - name: Upload pytest test results
+        uses: actions/upload-artifact@v6
+        with:
+          name: pytest-results-tests
+          path: junit.xml
+        if: ${{ always() }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -175,7 +107,9 @@ jobs:
         with:
           env_vars: OS,PYTHON
           fail_ci_if_error: true
-          files: /app/output/coverage.xml
+          flags: unittests
+          files: ./coverage.xml
+          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: false
           name: codecov-${{env.GITHUB_REF_NAME}}
+          slug: ${{ github.repository }}

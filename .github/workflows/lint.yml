@@ -57,7 +57,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
-        run: uv sync --group dev
+        run: uv sync --all-groups
 
       - name: lint
         if: needs.changes.outputs.lint

@@ -1,37 +1,50 @@
-# Contributing
+# Contributing to HOPE Deduplication Engine
+
+First off, thank you for considering contributing to the HOPE Dedup Engine. It's people like you that make this project such a great tool.
 
 ## System Requirements
 
 - python 3.12
 - [direnv](https://direnv.net/) - not mandatory but strongly recommended
-- [pdm](https://pdm.fming.dev/2.9/)
 
+## Where do I start?
 
+If you have an idea for a new feature or have found a bug, please open an issue on GitHub. This allows us to track the work and discuss the best way to implement it.
 
+### Reporting Bugs
 
-**WARNING**
-> Hope Deduplication Engine implements **security first** policy. It means that configuration default values are "almost" production compliant.
->
-> Es. `DEBUG=False` or `SECURE_SSL_REDIRECT=True`.
->
-> Be sure to run `./manage.py env --check` and  `./manage.py env -g all` to check and display your configuration
+When reporting a bug, please include as much detail as possible. This should include:
 
+*   A clear and descriptive title.
+*   A step-by-step description of how to reproduce the bug.
+*   The expected behavior and what actually happened.
+*   Any error messages or stack traces.
+*   The version of the project you are using.
 
+### Suggesting Enhancements
 
-### 1. Clone repo and install requirements
-    git clone https://github.com/unicef/hope-dedup-engine
-    pdm venv create 3.11
-    pdm install
-    pdm venv activate in-project
-    pre-commit install
+When suggesting an enhancement, please include:
 
-### 2. configure your environment
+*   A clear and descriptive title.
+*   A detailed description of the enhancement.
+*   Any mockups or screenshots that might help explain the enhancement.
+*   An explanation of why this enhancement would be useful.
 
-Uses `./manage.py env` to check required (and optional) variables to put
+## Pull Requests
 
-    ./manage.py env --check
+We welcome pull requests. When you are ready to submit a pull request, please ensure that:
 
+1.  You have opened an issue for the change and it has been approved.
+2.  Your code follows the project's coding style.
+3.  You have added or updated any relevant documentation.
+4.  You have added or updated tests to cover your changes.
+5.  Your pull request has a clear and descriptive title.
+6.  Your pull request has a detailed description of the changes.
 
-### 3. Run upgrade to run migrations and initial setup
+## Development Setup
 
-    ./manage.py upgrade
+Please refer to the `README.md` file for instructions on how to set up your development environment.
+
+## Code of Conduct
+
+This project and everyone participating in it is governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.

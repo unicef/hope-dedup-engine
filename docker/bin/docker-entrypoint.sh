@@ -31,20 +31,20 @@ case "$1" in
       ;;
     worker)
 	    set -- tini -- "$@"
-      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=DEBUG --concurrency=2
+      set -- celery -A hope_dedup_engine.config.celery worker -E --loglevel=DEBUG --concurrency=2
       ;;
     beat)
 	    set -- tini -- "$@"
-      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery beat --loglevel=DEBUG --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      set -- celery -A hope_dedup_engine.config.celery beat --loglevel=DEBUG --scheduler django_celery_beat.schedulers:DatabaseScheduler
       ;;
     syncmodels)
-      gosu hope:unicef django-admin syncmodels || exit 1
+      django-admin syncmodels || exit 1
       exit 0
       ;;
     run)
       django-admin check --deploy || exit 1
 	    set -- tini -- "$@"
-      set -- gosu hope:unicef uwsgi --ini /conf/uwsgi.ini
+      set -- uwsgi --ini /conf/uwsgi.ini
 	    ;;
 esac
 

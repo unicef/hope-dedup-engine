@@ -27,6 +27,8 @@ class RegexList(_RegexList):
 GLOBAL_EXCLUDED_MODELS = RegexList(
     [
         r"api\.Finding",
+        r"api\.DedupJob",
+        r"api\.SyncDnnFilesJob",
         r"django_celery_beat\.ClockedSchedule",
         r"contenttypes\.ContentType",
         r"faces\.DummyModel",

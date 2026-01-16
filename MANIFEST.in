@@ -1,8 +1,39 @@
-include README.md
-include CHANGES
-include LICENSE
-include MANIFEST.in
+include package.json
+include package-lock.json
+include *.py
 
 recursive-include docs *
 recursive-include src/hope_dedup_engine *
 recursive-include tests *
+
+exclude Dockerfile*
+exclude .dockerignore
+exclude .tx
+exclude ~*
+exclude docker
+exclude node_modules
+
+exclude hooks
+exclude extras
+exclude plugins
+exclude .pytest_cache
+exclude .demo
+exclude .venv
+exclude .envrc
+exclude .demo-sax
+exclude .DS_Store
+exclude .css.map
+exclude .js.map
+
+recursive-exclude docker *
+recursive-exclude . ~*
+recursive-exclude .tx *
+recursive-exclude .venv *
+recursive-exclude extras *
+recursive-exclude plugins *
+recursive-exclude hooks *
+recursive-exclude . *.pyc
+recursive-exclude .pytest_cache *
+recursive-exclude **/__pycache__ *
+recursive-exclude **/node_modules *
+recursive-exclude **/static_src *

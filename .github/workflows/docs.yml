@@ -4,9 +4,20 @@ on:
   push:
     branches:
       - develop
-      - master
-  schedule:
-    - cron: '37 23 * * 2'
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yaml'
+      - './github/workflows/docs.yml'
+  pull_request:
+    branches:
+      - develop
+    types:
+      - opened
+      - synchronize
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yaml'
+      - './github/workflows/docs.yml'
 
 permissions:
   contents: read
@@ -45,26 +56,13 @@ jobs:
       PYTHONPATH: src/
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-
-      - uses: actions/cache/restore@v5
-        id: restore-cache
+      - uses: actions/setup-python@v6
         with:
-          path: .venv
-          key: ${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+          python-version: '3.12'
+      - run: pip install tox
+      - name: Check Python Package structure
+        run: tox -e docs -- -d docs-output
 
-      - name: Install dependencies
-        run: uv sync --group docs
-
-      - name: Build Doc
-        run: .venv/bin/mkdocs build -d ./docs-output
-
-      - uses: actions/cache/save@v5
-        id: cache
-        if: always() && steps.restore-cache.outputs.cache-hit != 'true'
-        with:
-          path: .venv
-          key: ${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
@@ -73,6 +71,7 @@ jobs:
   # Deployment job
   deploy:
     needs: generate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
