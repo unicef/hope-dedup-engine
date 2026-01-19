@@ -25,6 +25,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="group.name", read_only=True, allow_null=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
     status = serializers.SerializerMethodField()
+    duplicates_found = serializers.IntegerField()
 
     class Meta:
         model = DeduplicationSet

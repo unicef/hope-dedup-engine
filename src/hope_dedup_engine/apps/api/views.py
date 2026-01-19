@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any, cast
 
-from django.db.models import QuerySet, Model
+from django.db.models import QuerySet, Model, Count
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -78,7 +78,11 @@ class DeduplicationSetViewSet(
     lookup_field = "group__reference_pk"
 
     def get_queryset(self) -> QuerySet["DeduplicationSet"]:
-        return get_active_deduplication_sets(self.request).select_related("group")
+        return (
+            get_active_deduplication_sets(self.request)
+            .select_related("group")
+            .annotate(duplicates_found=Count("finding"))
+        )
 
     def get_serializer_class(self) -> type[Serializer]:
         if self.action == "create":
