@@ -27,6 +27,12 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     duplicates_found = serializers.IntegerField()
 
+    def to_representation(self, instance: DeduplicationSet) -> dict[str, Any]:
+        if not hasattr(instance, "duplicates_found"):
+            instance.duplicates_found = instance.finding_set.count()
+
+        return super().to_representation(instance)
+
     class Meta:
         model = DeduplicationSet
         fields = "__all__"

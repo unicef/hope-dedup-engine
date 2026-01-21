@@ -32,6 +32,9 @@ class DeduplicationSetGroup(models.Model):
         return f"{self.name} ({self.reference_pk})"
 
 
+INACTIVE_STATE: Final[int] = 4
+
+
 class DeduplicationSet(models.Model):
     """Bucket for entries we want to deduplicate."""
 
@@ -43,7 +46,7 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
-        INACTIVE = 4, "Inactive"  # set cannot be modified but takes part in the deduplication process
+        INACTIVE = INACTIVE_STATE, "Inactive"  # set cannot be modified but takes part in the deduplication process
 
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
@@ -90,6 +93,13 @@ class DeduplicationSet(models.Model):
             ("process_encodings", "Can process encodings"),
             ("process_deduplicate", "Can process deduplication"),
             ("remove_findings", "Can remove findings"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group"],
+                condition=~Q(state=INACTIVE_STATE),
+                name="unique_active_deduplication_set_per_group",
+            ),
         ]
 
     def __str__(self) -> str:
