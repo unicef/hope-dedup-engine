@@ -1,6 +1,6 @@
 # Build and use your docker
 
-After you have cloned the repo, be sure to have a Reddis and PostgreSQL server running on your machine
+After you have cloned the repo, be sure to have a Redis and PostgreSQL server running on your machine
 
     export ADMIN_EMAIL=admin@example.com
     export ADMIN_PASSWORD=password
