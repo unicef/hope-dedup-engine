@@ -196,3 +196,46 @@ class EmptySerializer(serializers.Serializer):
 class EncodingReferencePks(serializers.Serializer):
     action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
     reference_pks = serializers.ListField(child=serializers.CharField(), required=True)
+
+
+class IdentityDocumentSerializer(serializers.Serializer):
+    number = serializers.CharField(max_length=255)
+    partner = serializers.CharField(max_length=255)
+
+
+class IndividualDataSerializer(serializers.Serializer):
+    reference_pk = serializers.CharField(max_length=255)
+    given_name = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    family_name = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    middle_name = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
+    full_name = serializers.CharField(max_length=512, required=False, allow_blank=True, allow_null=True)
+    sex = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    birth_date = serializers.DateField(required=False, allow_null=True)
+    phone_no = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    phone_no_alternative = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    relationship = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    identities = IdentityDocumentSerializer(many=True, required=False, default=list)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        has_name = any(
+            [
+                attrs.get("given_name"),
+                attrs.get("family_name"),
+                attrs.get("full_name"),
+            ]
+        )
+        if not has_name:
+            raise serializers.ValidationError(
+                "At least one name field (given_name, family_name, or full_name) is required."
+            )
+        return attrs
+
+
+class BulkIndividualDataSerializer(serializers.Serializer):
+    individuals = IndividualDataSerializer(many=True)
+
+    def validate_individuals(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one individual is required.")
+        return value
