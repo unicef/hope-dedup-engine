@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
+from rest_framework.views import APIView
 from rest_framework_nested import viewsets as nested_viewsets
 
 from hope_dedup_engine.apps.api.auth import (
@@ -44,6 +45,7 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredReferencePkPairSerializer,
     EncodingSerializer,
     EncodingReferencePks,
+    BulkIndividualDataSerializer,
 )
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
@@ -379,3 +381,15 @@ class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)
+
+
+class ReceiveIndividualsView(APIView):
+    permission_classes = (IsAuthenticated,)  # adjust as needed
+
+    def post(self, request):
+        serializer = BulkIndividualDataSerializer(data=request.data)
+
+        if serializer.is_valid():
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

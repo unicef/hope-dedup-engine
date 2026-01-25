@@ -1,5 +1,4 @@
 from django.urls import include, path
-
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -24,6 +23,7 @@ from hope_dedup_engine.apps.api.views import (
     IgnoredFilenamePairViewSet,
     IgnoredReferencePkPairViewSet,
     EncodingViewSet,
+    ReceiveIndividualsView,
 )
 
 router = routers.SimpleRouter()
@@ -43,6 +43,7 @@ deduplication_sets_router.register(
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(deduplication_sets_router.urls)),
+    path("individuals/receive/", ReceiveIndividualsView.as_view(), name="receive-individuals"),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/rest/redoc/",
