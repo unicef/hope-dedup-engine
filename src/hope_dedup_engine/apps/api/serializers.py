@@ -67,7 +67,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
                 # we only get here if no job was scheduled or the previous task
                 # finished without being able to create the next task, which
                 # means some other failure
-                return CeleryTaskModel.NOT_SCHEDULED
+                return CeleryTaskModel.NOT_SCHEDULED.replace(" ", "_").upper()
 
             if (result := job.async_result) is None:
                 # job record was created but the task is not yet started
@@ -95,7 +95,7 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        fields = ("reference_pk", "name", "notification_url", "notify", "state", "settings")
+        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state", "settings")
         write_only_fields = ("settings",)
 
 

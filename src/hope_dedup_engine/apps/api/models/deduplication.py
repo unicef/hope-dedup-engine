@@ -164,7 +164,7 @@ class Encoding(models.Model):
     state = models.IntegerField(choices=State, default=State.ACTIVE, help_text="Encoding state.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
-    filename = models.CharField(max_length=FILENAME_LENGTH, help_text="Filename used in encoding.")
+    filename = models.TextField(help_text="Filename or data URL used in encoding.")
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
         choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
@@ -187,9 +187,6 @@ class Encoding(models.Model):
     objects = EncodingManager()
 
     class Meta:
-        indexes = [
-            models.Index(fields=["deduplication_set", "filename"]),
-        ]
         unique_together = [
             # Here we assume reference_pk is unique per deduplication set
             ("deduplication_set", "reference_pk"),
