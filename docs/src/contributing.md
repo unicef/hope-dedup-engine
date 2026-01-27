@@ -18,7 +18,7 @@ This last step is very important, don't start developing from main, it'll cause 
 
 ## Testing
 
-You'll need to run the tests using Python 3.13. We recommend using [tox](https://tox.readthedocs.io/en/latest/) to run the tests. It will automatically create a fresh virtual environment and install our test dependencies, such as [pytest-cookies](https://pypi.python.org/pypi/pytest-cookies/) and [flake8](https://pypi.python.org/pypi/flake8/).
+You'll need to run the tests using Python 3.12. We recommend using [tox](https://tox.readthedocs.io/en/latest/) to run the tests. It will automatically create a fresh virtual environment and install our test dependencies, such as [pytest-cookies](https://pypi.python.org/pypi/pytest-cookies/) and [flake8](https://pypi.python.org/pypi/flake8/).
 
 We'll also run the tests on GitHub actions when you send your pull request, but it's a good idea to run them locally before you send it.
 
@@ -51,10 +51,7 @@ $ python -m venv venv
 $ source venv/bin/activate
 ```
 
-These tests are slower and can be run with or without Docker:
-
-- Without Docker: `tests/test_bare.sh` (for bare metal)
-- With Docker: `tests/test_docker.sh`
+These tests are slower and can be run with or without Docker
 
 All arguments to these scripts will be passed to the `cookiecutter` CLI, letting you set options, for example:
 
