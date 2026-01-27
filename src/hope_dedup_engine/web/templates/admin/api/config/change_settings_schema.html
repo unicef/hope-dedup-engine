@@ -1,21 +1,27 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
-
 {% if not is_popup %}
-{% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-    &rsaquo; {% if has_view_permission %}<a href="{% url 'admin:api_config_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>{% else %}{{ opts.verbose_name_plural|capfirst }}{% endif %}
-    &rsaquo; <span>{{ trail_label }}</span>
-</div>
-{% endblock breadcrumbs %}
+    {% block breadcrumbs %}
+        <div class="breadcrumbs">
+            <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+            &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+            &rsaquo;
+            {% if has_view_permission %}
+                <a href="{% url 'admin:api_config_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+            {% else %}
+                {{ opts.verbose_name_plural|capfirst }}
+            {% endif %}
+            &rsaquo; <span>{{ trail_label }}</span>
+        </div>
+    {% endblock breadcrumbs %}
 {% endif %}
-
 {% block content %}
-  <form method="post" action=".">{% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="button">Save</button>
-    <a href="{% url 'admin:api_config_changelist' %}" class="button">Cancel</a>
-  </form>
+    <form method="post" action=".">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="button">
+            Save
+        </button>
+        <a href="{% url 'admin:api_config_changelist' %}" class="button">Cancel</a>
+    </form>
 {% endblock content %}

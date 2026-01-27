@@ -1,49 +1,58 @@
 {% extends "admin/base_site.html" %}
-
 {% load admin_urls i18n static %}
-
-{% block title %}{{ page_title }}{% endblock %}
-
+{% block title %}
+    {{ page_title }}
+{% endblock %}
 {% block extrastyle %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'api/encoding/threshold_results.css' %}">
+    <link rel="stylesheet" href="{% static 'api/encoding/threshold_results.css' %}" />
 {% endblock extrastyle %}
-
 {% block breadcrumbs %}
-  <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% translate "Home" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
-    &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}?id__exact={{ encoding.pk }}">{{ encoding }}</a>
-    &rsaquo; {% translate "Details" %}
-  </div>
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% translate "Home" %}</a>
+        &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+        &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+        &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}?id__exact={{ encoding.pk }}">{{ encoding }}</a>
+        &rsaquo; {% translate "Details" %}
+    </div>
 {% endblock breadcrumbs %}
-
 {% block content %}
     <div id="threshold-results">
         {{ extra }}
         <form action="" method="post">
             {% csrf_token %}
             {{ form }}
-            <input type="submit" name="submit" value="{{ button_title }}"/>
+            <input type="submit" name="submit" value="{{ button_title }}" />
         </form>
         {% if results %}
             <table>
                 <thead>
-                <tr>
-                    <th>Threshold</th>
-                    <th>{{ value_title }}</th>
-                    <th>{{ details_title }}</th>
-                </tr>
+                    <tr>
+                        <th>
+                            Threshold
+                        </th>
+                        <th>
+                            {{ value_title }}
+                        </th>
+                        <th>
+                            {{ details_title }}
+                        </th>
+                    </tr>
                 </thead>
                 <tbody>
-                {% for result in results %}
-                    <tr>
-                        <td>{{ result.threshold }}</td>
-                        <td>{{ result.value }}</td>
-                        <td>{{ result.details }}</td>
-                    </tr>
-                {% endfor %}
+                    {% for result in results %}
+                        <tr>
+                            <td>
+                                {{ result.threshold }}
+                            </td>
+                            <td>
+                                {{ result.value }}
+                            </td>
+                            <td>
+                                {{ result.details }}
+                            </td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         {% endif %}

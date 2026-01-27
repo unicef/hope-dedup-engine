@@ -1,6 +1,6 @@
 nav:
   - index.md
-  # - settings.md
+  - docker.md
   - Setup service: setup.md
   - REST API: API.md
   - Duplicated Image Detection: did

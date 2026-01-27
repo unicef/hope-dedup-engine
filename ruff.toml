@@ -1,4 +1,4 @@
-target-version = "py313"
+target-version = "py312"
 line-length = 120
 
 [lint.isort]
@@ -43,6 +43,8 @@ select = [
 ]
 extend-select = ["UP", ]
 ignore = [
+    "ANN002",
+    "ANN003",
     "ANN401",
     "B904",  # raise-without-from-inside-except: syntax not compatible with py2
     "COM812",
@@ -55,7 +57,7 @@ ignore = [
     "D106",  # Missing docstring in public nested class
     "D107",  # Missing docstring in `__init__`
     "D203", # one-blank-line-before-class
-#    "D212", # multi-line-summary-first-line
+    "D212", # multi-line-summary-first-line
     "D213", # multi-line-summary-second-line
     "E731",  # lambda-assignment: lambdas are substential in maintenance of py2/3 codebase
     "ISC001",  # conflicts with ruff format command
@@ -77,5 +79,8 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [lint.per-file-ignores]
-"tests/**.py" = ["S101", "PLR2004", "S", "SIM117", "D", "UP", "PLR0913", "ANN", "N999"]
-"src/**/versioning/**.py" = ["N999", ]
+".semgrep/**/*.py" = ["ALL"]
+"docs/**.py" = ["TC002", "U"]
+"tests/**.py" = ["S101", "PLR2004", "S", "SIM117", "D", "UP", "PLR0913", "ANN", "N999", "PT006", "PLC0415", "TC002"]
+"src/hope_dedup_engine/migrations/*.py" = ["ALL", ]
+"src/hope_dedup_engine/version.py" = ["ALL", ]

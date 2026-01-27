@@ -1,7 +1,9 @@
 [build-system]
 build-backend = "hatchling.build"
-
-requires = [ "hatchling" ]
+requires = [
+  "hatch-vcs>=0.4",
+  "hatchling>=1.25",
+]
 
 [project]
 name = "hope-dedup-engine"
@@ -9,10 +11,9 @@ version = "1.11.0"
 description = "HOPE Deduplication Engine (HDE)"
 readme = "README.md"
 license = { text = "MIT" }
-
 authors = [
-  { name = "ddinicola" },
-  { name = "Domenico DiNicola", email = "dom.dinicola@gmail.com" },
+  { name = "Domenico DiNicola", email = "ddinicola@unicef.org" },
+  { name = "Stefano Apostolico", email = "sapostolico@unicef.org" },
 ]
 requires-python = ">=3.12,<3.13"
 classifiers = [
@@ -60,6 +61,10 @@ dependencies = [
   "unicef-security",
   "uwsgi",
 ]
+urls.Documentation = "https://unicef.github.io/hope-dedup-engine/"
+urls.Homepage = "https://github.com/unicef/hope_dedup_engine"
+urls.Issues = "https://github.com/unicef/hope-dedup-engine/issues"
+urls.Repository = "https://github.com/unicef/hope-dedup-engine/"
 
 [dependency-groups]
 dev = [
@@ -99,6 +104,7 @@ dev = [
   "unittest-xml-reporting",
   "watchdog",
 ]
+
 docs = [
   "mkdocs",
   "mkdocs-awesome-pages-plugin",
@@ -108,12 +114,30 @@ docs = [
   "mkdocstrings-python",
 ]
 
+[tool.hatch]
+build.hooks.vcs.version-file = "src/hope_dedup_engine/version.py"
+version.source = "vcs"
+raw-options = { root = "../.." }
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+include = [
+  "src/hope_dedup_engine/**/*.*",
+]
+exclude = [
+  "~*",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = [ "src/hope_dedup_engine" ]
+packages = [
+  "src/hope_dedup_engine",
+]
+exclude = [
+  "~*",
+]
 
 [tool.uv]
 package = true
-required-environments = "sys_platform == 'linux' and platform_machine == 'aarch64'"
-
-[tool.django-stubs]
-django_settings_module = "hope_dedup_engine.config.settings"
