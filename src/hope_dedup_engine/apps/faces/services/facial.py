@@ -101,12 +101,14 @@ def encode_faces(  # noqa: PLR0913
             encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage"])
 
             if encoding.embedding_status_code is not None:
-                Finding.objects.create(
+                Finding.objects.update_or_create(
                     deduplication_set=ds,
                     first_encoding=encoding,
                     second_encoding=None,
-                    score=0,
-                    status_code=encoding.embedding_status_code,
+                    defaults={
+                        "score": 0,
+                        "status_code": encoding.embedding_status_code,
+                    },
                 )
 
 
@@ -142,10 +144,12 @@ def dedupe_images(  # noqa: PLR0913
                     silent=silent,
                 )
                 if (confidence := res.get("confidence", 0)) >= duplicate_confidence_threshold:
-                    Finding.objects.create(
+                    Finding.objects.update_or_create(
                         deduplication_set=deduplication_set,
                         first_encoding=encoding0,
                         second_encoding=encoding1,
-                        score=confidence / 100,
-                        status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+                        defaults={
+                            "score": confidence / 100,
+                            "status_code": Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+                        },
                     )
