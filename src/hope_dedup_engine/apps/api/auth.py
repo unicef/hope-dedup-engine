@@ -18,10 +18,16 @@ class CanUseApi(BasePermission):
 
 class HasAccessToDeduplicationSet(BasePermission):
     def has_permission(self, request: Request, view: View) -> bool:
-        if group_reference_pk := view.kwargs.get(DEDUPLICATION_SET_GROUP_PARAM) or view.kwargs.get(GROUP_REFERENCE_PK):
-            return DeduplicationSet.objects.filter(
-                group__system=request.auth.system, group__reference_pk=group_reference_pk
-            ).exists()
+        if group_reference_pk := (
+            view.kwargs.get(DEDUPLICATION_SET_GROUP_PARAM) or view.kwargs.get(GROUP_REFERENCE_PK)
+        ):
+            deduplication_set = (
+                DeduplicationSet.objects.filter(group__reference_pk=group_reference_pk, group__deleted=False)
+                .exclude(state=DeduplicationSet.State.INACTIVE)
+                .first()
+            )
+            if deduplication_set:
+                return deduplication_set.group.system == request.auth.system
         return True
 
 
