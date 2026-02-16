@@ -4,7 +4,7 @@ from django.test import Client
 from django.urls import reverse
 
 from hope_dedup_engine.apps.security.models import User
-from hope_dedup_engine.apps.api.models import Finding
+from hope_dedup_engine.apps.api.models import Finding, DeduplicationSet
 from testutils.perms import user_grant_permissions
 from testutils.factories.user import SuperUserFactory
 
@@ -53,7 +53,7 @@ def seeded_ds(deduplication_set_factory, encoding_factory, finding_factory):
 @pytest.fixture
 def seeded_group(deduplication_set_factory, encoding_factory, finding_factory):
     """Group with 2 sets; each set has (1 embedding) + (1 status_code) + (1 finding)."""
-    ds1 = deduplication_set_factory()
+    ds1 = deduplication_set_factory(state=DeduplicationSet.State.INACTIVE)
     group = ds1.group
     ds2 = deduplication_set_factory(group=group)
 
