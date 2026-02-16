@@ -17,17 +17,21 @@ class CanUseApi(BasePermission):
 
 
 class HasAccessToDeduplicationSet(BasePermission):
+    def get_group_reference_pk(self, view: View) -> str | None:
+        return view.kwargs.get(DEDUPLICATION_SET_GROUP_PARAM) or view.kwargs.get(GROUP_REFERENCE_PK)
+
+    def get_deduplication_set(self, group_reference_pk: str) -> DeduplicationSet | None:
+        return (
+            DeduplicationSet.objects.filter(group__reference_pk=group_reference_pk, group__deleted=False)
+            .exclude(state=DeduplicationSet.State.INACTIVE)
+            .first()
+        )
+
     def has_permission(self, request: Request, view: View) -> bool:
-        if group_reference_pk := (
-            view.kwargs.get(DEDUPLICATION_SET_GROUP_PARAM) or view.kwargs.get(GROUP_REFERENCE_PK)
+        if (group_reference_pk := self.get_group_reference_pk(view)) and (
+            deduplication_set := self.get_deduplication_set(group_reference_pk)
         ):
-            deduplication_set = (
-                DeduplicationSet.objects.filter(group__reference_pk=group_reference_pk, group__deleted=False)
-                .exclude(state=DeduplicationSet.State.INACTIVE)
-                .first()
-            )
-            if deduplication_set:
-                return deduplication_set.group.system == request.auth.system
+            return deduplication_set.group.system == request.auth.system
         return True
 
 

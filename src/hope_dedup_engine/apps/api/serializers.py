@@ -21,6 +21,7 @@ from hope_dedup_engine.apps.api.models.jobs import (
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
+    NOT_SCHEDULED = "NOT_SCHEDULED"
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", read_only=True, allow_null=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
@@ -67,7 +68,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
                 # we only get here if no job was scheduled or the previous task
                 # finished without being able to create the next task, which
                 # means some other failure
-                return CeleryTaskModel.NOT_SCHEDULED.replace(" ", "_").upper()
+                return self.NOT_SCHEDULED
 
             if (result := job.async_result) is None:
                 # job record was created but the task is not yet started
