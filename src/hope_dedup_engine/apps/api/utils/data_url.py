@@ -1,4 +1,6 @@
 from typing import NamedTuple, Literal
+import hashlib
+from base64 import b64decode
 
 
 class ParsedDataURL(NamedTuple):
@@ -39,3 +41,25 @@ def parse_data_url(content: str) -> ParsedDataURL | None:
         encoding="base64" if encoding else None,
         content=content,
     )
+
+
+def inline_label(value: str) -> str:
+    parsed = parse_data_url(value)
+    if not parsed or parsed.encoding != "base64":
+        return value
+
+    mime = (parsed.mimetype or "application/octet-stream").lower()
+    digest = hashlib.blake2b(parsed.content[:4096].encode("ascii", "ignore"), digest_size=6).hexdigest()
+    return f"inline:{mime}:{digest}"
+
+
+def decode_inline(value: str) -> tuple[bytes, str] | None:
+    parsed = parse_data_url(value)
+    if not parsed or parsed.encoding != "base64":
+        return None
+
+    mime = (parsed.mimetype or "application/octet-stream").lower()
+    try:
+        return b64decode(parsed.content, validate=False), mime
+    except ValueError:
+        return None

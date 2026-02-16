@@ -11,6 +11,7 @@ from django.views.generic import TemplateView
 from django.urls import reverse
 
 from hope_dedup_engine.apps.api.models import Finding, Encoding
+from hope_dedup_engine.apps.api.utils.data_url import parse_data_url, inline_label
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 
@@ -61,6 +62,8 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
             status_label=Encoding.StatusCode(finding.status_code).label,
             first_image_url=self._image_url(first.filename),
             second_image_url=self._image_url(second.filename if second else None),
+            first_filename=inline_label(finding.first_encoding.filename),
+            second_filename=inline_label(finding.second_encoding.filename) if finding.second_encoding else None,
         )
         return context
 
@@ -68,4 +71,6 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
     def _image_url(filename: str | None) -> str | None:
         if not filename:
             return None
+        if parse_data_url(filename):
+            return filename
         return reverse("admin:api_finding_image", kwargs={"filename": filename})

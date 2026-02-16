@@ -5,7 +5,7 @@ from admin_extra_buttons.decorators import button
 from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
-from django.contrib.admin import register
+from django.contrib.admin import register, display
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -17,6 +17,7 @@ from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face,
 from hope_dedup_engine.apps.api.admin.encoding.utils.threshold import calculate_thresholds, group_by_thresholds
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.models import Encoding
+from hope_dedup_engine.apps.api.utils.data_url import inline_label, parse_data_url
 from hope_dedup_engine.apps.core.permissions import can
 
 
@@ -70,10 +71,14 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
 @register(Encoding)
 class EncodingAdmin(BaseModelAdmin):
-    list_display = (
-        "id",
-        "filename",
+    list_display = ("id", "filename_pretty", "deduplication_set", "face_coverage", "created_at")
+
+    readonly_fields = fields = (
         "deduplication_set",
+        "reference_pk",
+        "filename_pretty",
+        "state",
+        "embedding_status_code",
         "face_coverage",
         "created_at",
     )
@@ -88,6 +93,10 @@ class EncodingAdmin(BaseModelAdmin):
 
     actions = ["deduplicate_selected_encodings"]
 
+    @display(description="Filename", ordering="filename")
+    def filename_pretty(self, obj: Encoding) -> str:
+        return inline_label(obj.filename)
+
     def has_add_permission(self, request):
         return False
 
@@ -97,17 +106,22 @@ class EncodingAdmin(BaseModelAdmin):
     @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
         encoding = cast("Encoding", self.get_object(request, pk))
+        label = inline_label(encoding.filename)
+        image_url = (
+            encoding.filename
+            if parse_data_url(encoding.filename)
+            else reverse("admin:api_finding_image", kwargs={"filename": encoding.filename})
+        )
+
         context = {
-            "page_title": f"Detect face on {encoding.filename}",
-            "title": f"Detect face on {encoding.filename}",
+            "page_title": f"Detect face on {label}",
+            "title": f"Detect face on {label}",
             "opts": Encoding._meta,
             "encoding": encoding,
             "value_title": "Face detected",
             "button_title": "Detect face",
             "details_title": "Confidence delta",
-            "extra": format_html(  # noqa: S308
-                IMAGE, image_url=reverse("admin:api_finding_image", kwargs={"filename": encoding.filename})
-            ),
+            "extra": format_html(IMAGE, image_url=image_url),  # noqa: S308
         }
 
         if "submit" in request.POST:

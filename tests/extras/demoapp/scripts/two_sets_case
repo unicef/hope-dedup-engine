@@ -8,18 +8,18 @@ if [[ $# -ne 1 ]] ; then
 fi
 
 ./create_deduplication_set "$1"
-./create_image Aaron_Eckhart_0001.jpg
-./create_image Aaron_Guiel_0001.jpg
-./create_image Aaron_Peirsol_0001.jpg
-./create_image Cathy_Freeman_0001.jpg
+./create_image Aaron_Eckhart_0001.jpg Aaron_Eckhart_0001.jpg
+./create_image Aaron_Guiel_0001.jpg Aaron_Guiel_0001.jpg
+./create_image Aaron_Peirsol_0001.jpg Aaron_Peirsol_0001.jpg
+./create_image Cathy_Freeman_0001.jpg Cathy_Freeman_0001.jpg
 ./process_deduplication_set
 ./show_duplicates
 ./approve Aaron_Eckhart_0001.jpg Aaron_Guiel_0001.jpg Aaron_Peirsol_0001.jpg Cathy_Freeman_0001.jpg
 
 ./create_deduplication_set "$1"
-./create_image Aaron_Peirsol_0002.jpg
-./create_image Cathy_Freeman_0002.jpg
-./create_image Ziwang_Xu_0001.jpg
-./create_image Zoe_Ball_0001.jpg
+./create_image Aaron_Peirsol_0002.jpg Aaron_Peirsol_0002.jpg
+./create_image Cathy_Freeman_0002.jpg Cathy_Freeman_0002.jpg
+./create_image Ziwang_Xu_0001.jpg Ziwang_Xu_0001.jpg
+./create_image Zoe_Ball_0001.jpg Zoe_Ball_0001.jpg
 ./process_deduplication_set
 ./show_duplicates
