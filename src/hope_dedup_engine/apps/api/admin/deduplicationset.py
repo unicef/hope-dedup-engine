@@ -20,6 +20,9 @@ from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.utils.export import export_as_csv
 
 
+NOTIFICATION_SENT = "Notification sent."
+
+
 @register(DeduplicationSet)
 class DeduplicationSetAdmin(BaseModelAdmin):
     list_display = (
@@ -122,7 +125,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         obj: DeduplicationSet = self.get_object(request, pk)
         match send_notification(obj, force=True):
             case None:
-                self.message_user(request, "Notification sent.", messages.SUCCESS)
+                self.message_user(request, NOTIFICATION_SENT, messages.SUCCESS)
             case WarningMessage(message):
                 self.message_user(request, message, messages.WARNING)
             case ErrorMessage(message):
