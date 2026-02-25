@@ -32,6 +32,9 @@ class DeduplicationSetGroup(models.Model):
         return f"{self.name} ({self.reference_pk})"
 
 
+INACTIVE_STATE: Final[int] = 4
+
+
 class DeduplicationSet(models.Model):
     """Bucket for entries we want to deduplicate."""
 
@@ -43,7 +46,7 @@ class DeduplicationSet(models.Model):
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
         FAILED = 3, "Failed"  # an error occurred
-        INACTIVE = 4, "Inactive"  # set cannot be modified but takes part in the deduplication process
+        INACTIVE = INACTIVE_STATE, "Inactive"  # set cannot be modified but takes part in the deduplication process
 
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
@@ -90,6 +93,13 @@ class DeduplicationSet(models.Model):
             ("process_encodings", "Can process encodings"),
             ("process_deduplicate", "Can process deduplication"),
             ("remove_findings", "Can remove findings"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group"],
+                condition=~Q(state=INACTIVE_STATE),
+                name="unique_active_deduplication_set_per_group",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -154,7 +164,7 @@ class Encoding(models.Model):
     state = models.IntegerField(choices=State, default=State.ACTIVE, help_text="Encoding state.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
-    filename = models.CharField(max_length=FILENAME_LENGTH, help_text="Filename used in encoding.")
+    filename = models.TextField(help_text="Filename or data URL used in encoding.")
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
         choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
@@ -177,9 +187,6 @@ class Encoding(models.Model):
     objects = EncodingManager()
 
     class Meta:
-        indexes = [
-            models.Index(fields=["deduplication_set", "filename"]),
-        ]
         unique_together = [
             # Here we assume reference_pk is unique per deduplication set
             ("deduplication_set", "reference_pk"),

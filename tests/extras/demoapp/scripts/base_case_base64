@@ -14,7 +14,7 @@ fi
 for path in ../demo_images/*.{jpg,png}; do
   file=$(basename $path)
   if [[ -f "$path" ]] && [ "$file" != "too_small.jpg" ] && [ "$file" != "without_face.jpg" ]; then
-    ./create_image "$file" "$file"
+    ./create_image "$file" "data:$(mimetype -b "$path");base64,$(base64 "$path")"
   fi
 done
 

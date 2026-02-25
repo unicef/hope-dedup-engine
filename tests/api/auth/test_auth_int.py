@@ -1,6 +1,5 @@
 from http import HTTPMethod
 from typing import Any
-from uuid import uuid4
 
 import pytest
 from rest_framework import status
@@ -9,7 +8,7 @@ from rest_framework.test import APIClient
 from testutils.factories.api import HDETokenFactory
 from testutils.factories.user import UserFactory, SystemFactory
 
-from hope_dedup_engine.apps.api.models import HDEToken
+from hope_dedup_engine.apps.api.models import HDEToken, DeduplicationSet
 from hope_dedup_engine.apps.security.models import User, System
 from api.api_const import (
     BULK_IMAGE_CLEAR_VIEW,
@@ -23,7 +22,7 @@ from api.api_const import (
 )
 from api.utils import get_auth_headers
 
-PK = uuid4()
+PK = object()
 
 
 REQUESTS = (
@@ -40,22 +39,35 @@ REQUESTS = (
 )
 
 
+def preprocess_args(deduplication_set: DeduplicationSet, args: tuple[Any, ...]) -> tuple[Any, ...]:
+    return tuple(deduplication_set.group.reference_pk if arg == PK else arg for arg in args)
+
+
 @pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_anonymous_cannot_access(
     anonymous_api_client: APIClient,
+    deduplication_set: DeduplicationSet,
     view_name: str,
     method: HTTPMethod,
     args: tuple[Any, ...],
 ) -> None:
-    response = getattr(anonymous_api_client, method.lower())(reverse(view_name, args))
+    response = getattr(anonymous_api_client, method.lower())(
+        reverse(view_name, preprocess_args(deduplication_set, args))
+    )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
 def test_authenticated_can_access(
-    api_client: APIClient, view_name: str, method: HTTPMethod, args: tuple[Any, ...]
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    view_name: str,
+    method: HTTPMethod,
+    args: tuple[Any, ...],
 ) -> None:
-    response = getattr(api_client, method.lower())(reverse(view_name, args), format=JSON)
+    response = getattr(api_client, method.lower())(
+        reverse(view_name, preprocess_args(deduplication_set, args)), format=JSON
+    )
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 

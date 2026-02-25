@@ -21,10 +21,18 @@ from hope_dedup_engine.apps.api.models.jobs import (
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
+    NOT_SCHEDULED = "NOT_SCHEDULED"
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", read_only=True, allow_null=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
     status = serializers.SerializerMethodField()
+    duplicates_found = serializers.IntegerField()
+
+    def to_representation(self, instance: DeduplicationSet) -> dict[str, Any]:
+        if not hasattr(instance, "duplicates_found"):
+            instance.duplicates_found = instance.finding_set.count()
+
+        return super().to_representation(instance)
 
     class Meta:
         model = DeduplicationSet
@@ -60,7 +68,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
                 # we only get here if no job was scheduled or the previous task
                 # finished without being able to create the next task, which
                 # means some other failure
-                return CeleryTaskModel.NOT_SCHEDULED
+                return self.NOT_SCHEDULED
 
             if (result := job.async_result) is None:
                 # job record was created but the task is not yet started
@@ -88,7 +96,7 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeduplicationSet
-        fields = ("reference_pk", "name", "notification_url", "notify", "state", "settings")
+        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state", "settings")
         write_only_fields = ("settings",)
 
 

@@ -52,9 +52,11 @@ class DeduplicationSetFactory(DjangoModelFactory):
     settings = {
         "threshold": 0.9,
     }
+    duplicates_found = 0
 
     class Meta:
         model = DeduplicationSet
+        exclude = ("duplicates_found",)
 
 
 class EncodingFactory(DjangoModelFactory):
