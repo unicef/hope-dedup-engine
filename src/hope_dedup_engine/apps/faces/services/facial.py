@@ -3,10 +3,12 @@ from uuid import UUID
 from typing import Any, Mapping
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
+from deepface.commons.image_utils import load_image_from_base64
 from django.db import transaction
 from numpy import ndarray
 
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
+from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 logger = logging.getLogger(__name__)
@@ -83,8 +85,13 @@ def encode_faces(  # noqa: PLR0913
             try:
                 # we can have the previous status code set (i.e., system error)
                 encoding.embedding_status_code = None
+                image_data = (
+                    load_image_from_base64(encoding.filename)
+                    if parse_data_url(encoding.filename)
+                    else storage.load_image(encoding.filename)
+                )
                 encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
-                    storage.load_image(encoding.filename),
+                    image_data,
                     face_confidence_threshold,
                     face_coverage_threshold,
                     model_name,

@@ -14,7 +14,7 @@ from hope_dedup_engine.apps.api.serializers import DeduplicationSetSerializer
 
 def test_status_when_no_job_run(deduplication_set: DeduplicationSet) -> None:
     serializer = DeduplicationSetSerializer(deduplication_set)
-    assert serializer.get_status(deduplication_set) == CeleryTaskModel.NOT_SCHEDULED
+    assert serializer.get_status(deduplication_set) == DeduplicationSetSerializer.NOT_SCHEDULED
 
 
 def test_status_when_job_queued(deduplication_set: DeduplicationSet, main_job: MainJob) -> None:

@@ -6,9 +6,9 @@ echo Create image >&2
 
 # We use image name provided as both reference pk and filename
 
-if [[ $# -ne 1 ]] ; then
-  show_required_args filename
+if [[ $# -ne 2 ]] ; then
+  show_required_args reference_pk filename
   exit 1
 fi
 
-call_api POST "deduplication_sets/$DEDUPLICATION_SET_REFERENCE_PK/images" reference_pk="$1" filename="$1"
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_REFERENCE_PK/images" reference_pk="$1" filename="$2"
