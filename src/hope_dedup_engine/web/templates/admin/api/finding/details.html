@@ -33,7 +33,7 @@
                 <img src="{{ first_image_url }}" alt="First image for finding {{ finding.pk }}" />
                 <figcaption class="finding-details__caption">
                     filename:
-                    <span class="finding-details__value">{{ finding.first_encoding.filename }}</span>
+                    <span class="finding-details__value">{{ first_filename }}</span>
                     <br />
                     reference:
                     <span class="finding-details__value">{{ finding.first_encoding.reference_pk }}</span>
@@ -48,7 +48,7 @@
                 <img src="{{ second_image_url }}" alt="Second image for finding {{ finding.pk }}" />
                 <figcaption class="finding-details__caption">
                     filename:
-                    <span class="finding-details__value">{{ finding.second_encoding.filename }}</span>
+                    <span class="finding-details__value">{{ second_filename }}</span>
                     <br />
                     reference:
                     <span class="finding-details__value">{{ finding.second_encoding.reference_pk }}</span>

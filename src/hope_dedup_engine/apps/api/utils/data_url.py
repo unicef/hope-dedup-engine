@@ -39,3 +39,12 @@ def parse_data_url(content: str) -> ParsedDataURL | None:
         encoding="base64" if encoding else None,
         content=content,
     )
+
+
+def inline_label(value: str) -> str:
+    parsed = parse_data_url(value)
+    if not parsed or parsed.encoding != "base64":
+        return value
+
+    mime = (parsed.mimetype or "application/octet-stream").lower()
+    return f"{mime}:<binary-data>"

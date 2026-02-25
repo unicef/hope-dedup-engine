@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.api.models import Encoding
+from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 
 pytestmark = pytest.mark.django_db
 
@@ -87,6 +88,7 @@ def test_finding_preview_requires_staff(client: MagicMock, finding: MagicMock) -
     [
         ("first.jpg", ""),
         ("first.jpg", "second.jpg"),
+        ("data:image/png;base64,AAAA", ""),
     ],
 )
 def test_finding_preview_context(
@@ -114,8 +116,16 @@ def test_finding_preview_context(
     ctx = res.context
     assert ctx["finding"].pk == finding.pk
     assert ctx["status_label"] == Encoding.StatusCode(finding.status_code).label
-    assert ctx["first_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": first_filename})
+
+    if parse_data_url(first_filename):
+        assert ctx["first_image_url"] == first_filename
+    else:
+        assert ctx["first_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": first_filename})
+
     if second_filename:
-        assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
+        if parse_data_url(second_filename):
+            assert ctx["second_image_url"] == second_filename
+        else:
+            assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
     else:
         assert ctx["second_image_url"] is None

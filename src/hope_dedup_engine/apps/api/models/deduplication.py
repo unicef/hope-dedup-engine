@@ -8,6 +8,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, QuerySet
 
+from hope_dedup_engine.apps.api.utils.data_url import inline_label
 from hope_dedup_engine.apps.security.models import System
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -206,7 +207,7 @@ class Encoding(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"Image {self.filename}"
+        return f"Image {inline_label(self.filename)}"
 
 
 class EncodingErrorGroup:
@@ -264,9 +265,9 @@ class Finding(models.Model):
         ]
 
     def __str__(self) -> str:
-        return (
-            f"Finding({self.first_encoding.filename}, {self.second_encoding.filename if self.second_encoding else '-'})"
-        )
+        first = inline_label(self.first_encoding.filename)
+        second = inline_label(self.second_encoding.filename) if self.second_encoding else "—"
+        return f"Finding({first}, {second})"
 
 
 class IgnoredPair(models.Model):

@@ -1,6 +1,6 @@
 import pytest
 
-from hope_dedup_engine.apps.api.utils.data_url import ParsedDataURL, parse_data_url
+from hope_dedup_engine.apps.api.utils.data_url import ParsedDataURL, parse_data_url, inline_label
 
 
 @pytest.mark.parametrize(
@@ -21,3 +21,15 @@ from hope_dedup_engine.apps.api.utils.data_url import ParsedDataURL, parse_data_
 )
 def test_data_url(url: str, expected: ParsedDataURL | None) -> None:
     assert parse_data_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("plain-filename.png", "plain-filename.png"),
+        ("data:image/png;base64,AAAA", "image/png:<binary-data>"),
+        ("data:;base64,AAAA", "application/octet-stream:<binary-data>"),
+    ],
+)
+def test_inline_label(value: str, expected: str) -> None:
+    assert inline_label(value) == expected
