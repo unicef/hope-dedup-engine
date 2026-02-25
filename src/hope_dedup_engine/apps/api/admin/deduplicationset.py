@@ -6,6 +6,7 @@ from admin_extra_buttons.api import button, choice, view
 from admin_extra_buttons.buttons import ChoiceButton
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
+from django.contrib import messages
 from django.contrib.admin import register
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
@@ -14,8 +15,12 @@ from django.urls import reverse
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.api.utils.notification import send_notification, WarningMessage, ErrorMessage
 from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.utils.export import export_as_csv
+
+
+NOTIFICATION_SENT = "Notification sent."
 
 
 @register(DeduplicationSet)
@@ -114,6 +119,17 @@ class DeduplicationSetAdmin(BaseModelAdmin):
             self.findings_view,
             self.findings_remove,
         ]
+
+    @button(label="Send notification", permission=can.api.send_notification)
+    def send_notification(self, request: HttpRequest, pk: str) -> HttpResponse:
+        obj: DeduplicationSet = self.get_object(request, pk)
+        match send_notification(obj, force=True):
+            case None:
+                self.message_user(request, NOTIFICATION_SENT, messages.SUCCESS)
+            case WarningMessage(message):
+                self.message_user(request, message, messages.WARNING)
+            case ErrorMessage(message):
+                self.message_user(request, message, messages.ERROR)
 
     @view(label="View", permission=can.api.view_finding)
     def findings_view(self, request: HttpRequest, pk: str) -> HttpResponse:

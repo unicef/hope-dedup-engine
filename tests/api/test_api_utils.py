@@ -9,6 +9,11 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import (
     REQUEST_TIMEOUT,
     send_notification,
+    WarningMessage,
+    ErrorMessage,
+    NOTIFICATION_DISABLED,
+    NO_NOTIFICATION_URL,
+    FAILED_TO_NOTIFY,
 )
 from hope_dedup_engine.apps.api.utils.progress import callback_filter
 
@@ -29,17 +34,21 @@ def deduplication_set_mock(mocker: MockFixture) -> MagicMock:
 
 
 @pytest.mark.parametrize(
-    ("url", "notify", "http_request_sent"),
+    ("url", "notify", "force", "expected_notification_result", "http_request_sent"),
     [
-        ("https://example.com", True, True),
-        ("https://example.com", False, False),
-        (None, True, False),
-        (None, False, False),
+        ("https://example.com", True, False, None, True),
+        ("https://example.com", True, True, None, True),
+        ("https://example.com", False, False, WarningMessage(NOTIFICATION_DISABLED), False),
+        ("https://example.com", False, True, None, True),
+        (None, True, False, WarningMessage(NO_NOTIFICATION_URL), False),
+        (None, False, True, WarningMessage(NO_NOTIFICATION_URL), False),
     ],
 )
 def test_send_notification(
     url: str | None,
     notify: bool,
+    force: bool,
+    expected_notification_result: None | WarningMessage,
     http_request_sent: bool,
     requests_get: MagicMock,
     deduplication_set_mock: DeduplicationSet,
@@ -49,7 +58,9 @@ def test_send_notification(
 
     token = "very-secret-token"
     with override_config(HOPE_API_TOKEN=token):
-        send_notification(deduplication_set_mock)
+        notification_result = send_notification(deduplication_set_mock, force=force)
+
+    assert notification_result == expected_notification_result
 
     if http_request_sent:
         requests_get.assert_called_once_with(
@@ -64,10 +75,10 @@ def test_send_notification(
 def test_exception_is_sent_to_sentry(
     requests_get: MagicMock, sentry_sdk_capture_exception: MagicMock, deduplication_set_mock: DeduplicationSet
 ) -> None:
-    exception = RequestException()
+    exception = RequestException("Error")
     requests_get.side_effect = exception
     with override_config(HOPE_API_TOKEN="any-token"):
-        send_notification(deduplication_set_mock)
+        assert send_notification(deduplication_set_mock) == ErrorMessage(FAILED_TO_NOTIFY.format(error=exception))
     sentry_sdk_capture_exception.assert_called_once_with(exception)
 
 
