@@ -3,6 +3,7 @@ from ..settings import env  # type: ignore[attr-defined]
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 CELERY_BROKER_VISIBILITY_VAR = env("CELERY_VISIBILITY_TIMEOUT")
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": CELERY_BROKER_VISIBILITY_VAR}
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers.DatabaseScheduler"
 

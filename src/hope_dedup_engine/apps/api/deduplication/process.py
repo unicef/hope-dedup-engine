@@ -46,7 +46,7 @@ def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> Deduplic
         return deduplication_set
 
 
-@shared_task(bind=True, soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
+@shared_task(bind=True)
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     """
     Process a deduplication job: encode faces and find duplicates.
