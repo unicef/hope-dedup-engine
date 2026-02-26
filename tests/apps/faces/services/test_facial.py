@@ -1,12 +1,10 @@
-import copy
-
 import numpy as np
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
-from hope_dedup_engine.apps.api.models import Encoding
+from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
-    dedupe_images,
+    dedupe_all,
     encode_face,
     encode_faces,
     face_coverage_ratio,
@@ -24,15 +22,6 @@ def fa(*, w: int, h: int, x: int = 0, y: int = 0) -> dict[str, int]:
 
 def cov(*, w: int, h: int, side: int = IMG_SIDE) -> float:
     return round((w * h) / (side * side), 4)
-
-
-def assert_findings(ds, expected: list[tuple[str, str, float, str]]) -> None:
-    """Assert DeduplicationSet.finding_set contains exactly the expected findings."""
-    assert ds.finding_set.count() == len(expected)
-    for f0, f1, score, status_code in expected:
-        finding = ds.finding_set.get(first_encoding__filename=f0, second_encoding__filename=f1)
-        assert finding.score == pytest.approx(score)
-        assert finding.status_code == status_code
 
 
 @pytest.fixture
@@ -71,24 +60,6 @@ def call_encode_face(mock_deepface, sample_image):
         )
 
     return _call
-
-
-@pytest.fixture
-def sample_data(deduplication_set_factory, encoding_factory):
-    """Provide sample data for dedupe_images tests."""
-    deduplication_set = deduplication_set_factory()
-    return {
-        "deduplication_set": deduplication_set,
-        "encodings0": [encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=[1.0])],
-        "encodings1": [encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=[1.1])],
-        "ignored_pairs": set(),
-        "duplicate_confidence_threshold": 60.0,
-        "model_name": MODEL_NAME,
-        "detector_backend": DETECTOR_BACKEND,
-        "distance_metric": "metric",
-        "align": ALIGN,
-        "silent": True,
-    }
 
 
 # --- face_coverage_ratio -------------------------------------------------------------------------
@@ -261,69 +232,274 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
     mock_deepface.represent.assert_not_called()
 
 
-# --- dedupe_images ----------------------------------------------------------------------------------
+# --- dedupe_all (matrix-based deduplication) --------------------------------------------------------
+
+
+@pytest.fixture
+def mock_deepface_verification(mocker):
+    """Fixture to mock the DeepFace verification module functions."""
+    mock_find_distance = mocker.patch("hope_dedup_engine.apps.faces.services.facial.find_distance")
+    mock_find_threshold = mocker.patch("hope_dedup_engine.apps.faces.services.facial.find_threshold")
+    mock_find_confidence = mocker.patch("hope_dedup_engine.apps.faces.services.facial.find_confidence")
+    return mock_find_distance, mock_find_threshold, mock_find_confidence
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    ("verify_return", "expected_result"),
-    [
-        (
-            {"confidence": 70.0},
-            [("file1.jpg", "file2.jpg", 0.7, Encoding.StatusCode.DEDUPLICATE_SUCCESS.value)],
-        ),
-        ({"confidence": 50.0}, []),
-    ],
-    ids=["above_threshold", "below_threshold"],
-)
-def test_dedupe_images_confidence_threshold(mock_deepface, sample_data, verify_return, expected_result):
-    """Test dedupe_images creates findings only above the configured confidence threshold."""
-    mock_deepface.verify.return_value = verify_return
+def test_dedupe_all_no_encodings(deduplication_set_factory, mock_deepface_verification):
+    """Test dedupe_all returns 0 when no encodings exist."""
+    ds = deduplication_set_factory()
 
-    dedupe_images(**sample_data)
-
-    assert_findings(sample_data["deduplication_set"], expected_result)
-    mock_deepface.verify.assert_called_once_with(
-        sample_data["encodings0"][0].embedding,
-        sample_data["encodings1"][0].embedding,
-        model_name=MODEL_NAME,
-        detector_backend=DETECTOR_BACKEND,
-        distance_metric=sample_data["distance_metric"],
-        align=ALIGN,
-        silent=True,
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
     )
 
-
-@pytest.mark.django_db
-def test_dedupe_images_with_ignored_pair(mock_deepface, sample_data):
-    """Test that ignored pairs are not compared."""
-    test_data = copy.deepcopy(sample_data)
-    test_data["ignored_pairs"] = {frozenset(("file1.jpg", "file2.jpg"))}
-
-    dedupe_images(**test_data)
-
-    assert sample_data["deduplication_set"].finding_set.count() == 0
-    mock_deepface.verify.assert_not_called()
+    assert count == 0
+    assert ds.finding_set.count() == 0
 
 
 @pytest.mark.django_db
-def test_dedupe_images_complex_scenario(mock_deepface, complex_deduplication_data):
-    mock_deepface.verify.side_effect = [
-        {"confidence": 99.0},  # f1-f2
-        {"confidence": 50.0},  # f1-f3
-        # f1-f4 skipped because of ignored_pairs
-        {"confidence": 50.0},  # f2-f3
-        {"confidence": 50.0},  # f2-f4
-        {"confidence": 50.0},  # f3-f4
-    ]
+def test_dedupe_all_single_encoding(deduplication_set_factory, encoding_factory, mock_deepface_verification):
+    """Test dedupe_all with a single encoding creates no findings."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
 
-    dedupe_images(**complex_deduplication_data)
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
 
-    dedup_set = complex_deduplication_data["deduplication_set"]
-    assert dedup_set.finding_set.count() == 1
-    finding = dedup_set.finding_set.first()
-    assert finding.first_encoding.filename == "f1.jpg"
-    assert finding.second_encoding.filename == "f2.jpg"
-    assert finding.score == 0.99
-    assert finding.status_code == Encoding.StatusCode.DEDUPLICATE_SUCCESS.value
-    assert mock_deepface.verify.call_count == 5
+    # For a single encoding, the only pair is (0, 0) which is on the diagonal and should be skipped
+    mock_find_distance.return_value = np.array([[0.0]])  # Self-distance
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    assert count == 0
+    assert ds.finding_set.count() == 0
+
+
+@pytest.mark.django_db
+def test_dedupe_all_finds_duplicates(deduplication_set_factory, encoding_factory, mock_deepface_verification):
+    """Test dedupe_all creates findings for duplicates above threshold."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 75.0  # Above threshold
+
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
+
+    # Distance matrix: row is chunk, col is all embeddings
+    # For 2 encodings with chunk_size=7000, we get one chunk with both
+    # Distance matrix should be (2, 2) - transposed from (2, 2)
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0, 0.3],  # enc1 vs enc1, enc1 vs enc2
+            [0.3, 0.0],  # enc2 vs enc1, enc2 vs enc2
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    # Should create 1 finding (0,1 pair - upper triangle only)
+    assert count == 1
+    assert ds.finding_set.count() == 1
+    finding = ds.finding_set.first()
+    assert finding.score == 0.75  # 75.0 / 100
+    assert finding.status_code == Encoding.StatusCode.DEDUPLICATE_SUCCESS
+
+
+@pytest.mark.django_db
+def test_dedupe_all_respects_confidence_threshold(
+    deduplication_set_factory, encoding_factory, mock_deepface_verification
+):
+    """Test dedupe_all skips pairs below confidence threshold."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 40.0  # Below threshold of 50.0
+
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
+
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0, 0.5],
+            [0.5, 0.0],
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    assert count == 0
+    assert ds.finding_set.count() == 0
+
+
+@pytest.mark.django_db
+def test_dedupe_all_respects_distance_threshold(
+    deduplication_set_factory, encoding_factory, mock_deepface_verification
+):
+    """Test dedupe_all skips pairs above distance threshold."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68  # Distance threshold
+    mock_find_confidence.return_value = 75.0
+
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.9] * 512)
+
+    # Distance is 0.8, above threshold of 0.68
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0, 0.8],
+            [0.8, 0.0],
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    # No findings because distance exceeds threshold
+    assert count == 0
+    assert ds.finding_set.count() == 0
+    # find_confidence should not be called since no pairs passed distance filter
+    mock_find_confidence.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_dedupe_all_with_ignored_pairs(
+    deduplication_set_factory, encoding_factory, ignored_filename_pair_factory, mock_deepface_verification
+):
+    """Test dedupe_all respects ignored pairs."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 90.0
+
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
+    ignored_filename_pair_factory(deduplication_set=ds, first="file1.jpg", second="file2.jpg")
+
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0, 0.2],
+            [0.2, 0.0],
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    # No findings because the pair is ignored
+    assert count == 0
+    assert ds.finding_set.count() == 0
+
+
+@pytest.mark.django_db
+def test_dedupe_all_with_approved_encodings(
+    deduplication_set_group_factory, deduplication_set_factory, encoding_factory, mock_deepface_verification
+):
+    """Test dedupe_all includes approved encodings from inactive sets in the same group."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 85.0
+
+    group = deduplication_set_group_factory()
+
+    # Create inactive set with approved encodings
+    inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
+    approved_enc = encoding_factory(
+        deduplication_set=inactive_ds,
+        filename="approved.jpg",
+        embedding=[0.1] * 512,
+        state=Encoding.State.APPROVED,
+    )
+
+    # Create current deduplication set
+    current_ds = deduplication_set_factory(group=group)
+    current_enc = encoding_factory(
+        deduplication_set=current_ds,
+        filename="current.jpg",
+        embedding=[0.11] * 512,
+    )
+
+    # Distance matrix: current encodings (1) vs all (1 current + 1 approved)
+    # find_distance returns shape (n_all, n_chunk) = (2, 1), then .T gives (1, 2)
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0],  # current_enc distance
+            [0.2],  # approved_enc distance
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=current_ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    # Should create 1 finding: current vs approved
+    assert count == 1
+    assert current_ds.finding_set.count() == 1
+    finding = current_ds.finding_set.first()
+    assert finding.first_encoding_id == current_enc.id
+    assert finding.second_encoding_id == approved_enc.id
+    assert finding.score == 0.85
+
+
+@pytest.mark.django_db
+def test_dedupe_all_multiple_encodings(deduplication_set_factory, encoding_factory, mock_deepface_verification):
+    """Test dedupe_all with multiple encodings creates correct findings."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 80.0
+
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
+    encoding_factory(deduplication_set=ds, filename="file3.jpg", embedding=[0.12] * 512)
+
+    # Distance matrix where enc1-enc2 and enc2-enc3 are similar, but enc1-enc3 is not
+    mock_find_distance.return_value = np.array(
+        [
+            [0.0, 0.3, 0.9],  # enc1 vs all
+            [0.3, 0.0, 0.3],  # enc2 vs all
+            [0.9, 0.3, 0.0],  # enc3 vs all
+        ]
+    )
+
+    count = dedupe_all(
+        deduplication_set=ds,
+        duplicate_confidence_threshold=50.0,
+        model_name="Facenet512",
+        distance_metric="cosine",
+    )
+
+    # Upper triangle pairs below threshold: (0,1)=0.3, (1,2)=0.3
+    # (0,2)=0.9 is above threshold
+    assert count == 2
+    assert ds.finding_set.count() == 2
