@@ -446,12 +446,9 @@ def test_dedupe_all_with_approved_encodings(
         embedding=[0.11] * 512,
     )
 
-    # Distance matrix: current encodings (1) vs all (1 current + 1 approved)
-    # find_distance returns shape (n_all, n_chunk) = (2, 1), then .T gives (1, 2)
     mock_find_distance.return_value = np.array(
         [
-            [0.0],  # current_enc distance
-            [0.2],  # approved_enc distance
+            [0.0, 0.2],  # current_enc vs [current, approved]
         ]
     )
 

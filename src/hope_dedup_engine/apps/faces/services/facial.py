@@ -195,8 +195,7 @@ def dedupe_all(
 
     for start in range(0, n_current, chunk_size):
         chunk_emb = emb[start : start + chunk_size]
-        # find_distance returns shape (n_all, chunk_size), transpose to (chunk_size, n_all)
-        distances = find_distance(chunk_emb, all_emb, distance_metric).T
+        distances = find_distance(all_emb, chunk_emb, distance_metric)
 
         # Find pairs below distance threshold (verified pairs)
         rows, cols = np.where(distances <= pretuned_threshold)
