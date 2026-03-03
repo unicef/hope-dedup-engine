@@ -94,12 +94,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         # Run deduplication unless encode_only
         findings_count = 0
         if not main_job.encode_only:
-            findings_count = dedupe_all(
-                deduplication_set=deduplication_set,
-                duplicate_confidence_threshold=config.duplicate_confidence_threshold,
-                model_name=config.deduplicate.model_name,
-                distance_metric=config.deduplicate.distance_metric,
-            )
+            findings_count = dedupe_all(deduplication_set, config)
 
         finish_processing(deduplication_set)
 
