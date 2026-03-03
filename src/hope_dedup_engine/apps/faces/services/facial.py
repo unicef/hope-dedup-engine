@@ -11,6 +11,7 @@ from deepface.modules.verification import find_confidence, find_distance, find_t
 from django.db import transaction
 from numpy import ndarray
 
+from hope_dedup_engine.utils.image_quality import image_quality_result
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
@@ -92,19 +93,25 @@ def encode_faces(  # noqa: PLR0913
         with transaction.atomic():
             try:
                 encoding.embedding_status_code = None
+                encoding.michelson_contrast = None
                 image_data = (
                     load_image_from_base64(encoding.filename)
                     if parse_data_url(encoding.filename)
                     else storage.load_image(encoding.filename)
                 )
-                encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
-                    image_data,
-                    face_confidence_threshold,
-                    face_coverage_threshold,
-                    model_name,
-                    detector_backend,
-                    align,
-                )
+                sc, score = image_quality_result(image_data)
+                encoding.michelson_contrast = score
+                if sc is not None:
+                    encoding.embedding_status_code = sc
+                else:
+                    encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
+                        image_data,
+                        face_confidence_threshold,
+                        face_coverage_threshold,
+                        model_name,
+                        detector_backend,
+                        align,
+                    )
 
             except TypeError as e:
                 logger.exception(e)
@@ -112,7 +119,7 @@ def encode_faces(  # noqa: PLR0913
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage"])
+            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage", "michelson_contrast"])
 
             if encoding.embedding_status_code is not None:
                 Finding.objects.update_or_create(

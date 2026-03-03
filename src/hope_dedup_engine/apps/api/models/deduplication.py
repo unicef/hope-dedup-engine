@@ -158,6 +158,7 @@ class Encoding(models.Model):
         NO_FACE_DETECTED = 412, "no face detected"
         FACE_NOT_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
         INSUFFICIENT_FACE_COVERAGE = 417, "face does not cover sufficient part of the image"
+        IMAGE_QUALITY_TOO_LOW = 422, "image did not meet quality requirements"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
@@ -175,6 +176,12 @@ class Encoding(models.Model):
         blank=True,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Face bbox area divided by image area (0..1).",
+    )
+    michelson_contrast = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        help_text="Michelson contrast calculated on the image.",
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -215,6 +222,7 @@ class EncodingErrorGroup:
         Encoding.StatusCode.FACE_NOT_ACCEPTED,
         Encoding.StatusCode.NO_FACE_DETECTED,
         Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
+        Encoding.StatusCode.IMAGE_QUALITY_TOO_LOW,
         Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
     SYSTEM = (Encoding.StatusCode.FILE_NOT_FOUND, Encoding.StatusCode.GENERIC_ERROR)

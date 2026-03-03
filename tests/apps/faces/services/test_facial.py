@@ -37,7 +37,9 @@ def mock_deepface(mocker):
 @pytest.fixture
 def sample_image() -> np.ndarray:
     """Sample image data for face encoding tests."""
-    return np.zeros((IMG_SIDE, IMG_SIDE, 3), dtype=np.uint8)
+    img = np.zeros((IMG_SIDE, IMG_SIDE, 3), dtype=np.uint8)
+    img[0, 0] = 255
+    return img
 
 
 @pytest.fixture
@@ -233,6 +235,18 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
+    mock_deepface.represent.assert_not_called()
+
+
+def test_encode_faces_sets_status_code_from_quality_gate(mocker, mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file1.jpg", embedding=None)
+    mocker.patch(
+        "hope_dedup_engine.apps.faces.services.facial.image_quality_result",
+        return_value=(Encoding.StatusCode.IMAGE_QUALITY_TOO_LOW, 1.0),
+    )
+    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, 0.0, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.IMAGE_QUALITY_TOO_LOW.value
     mock_deepface.represent.assert_not_called()
 
 

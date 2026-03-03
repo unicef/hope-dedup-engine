@@ -71,7 +71,7 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
 @register(Encoding)
 class EncodingAdmin(BaseModelAdmin):
-    list_display = ("id", "filename_pretty", "deduplication_set", "face_coverage", "created_at")
+    list_display = ("id", "filename_pretty", "deduplication_set", "face_coverage", "michelson_contrast", "created_at")
 
     readonly_fields = fields = (
         "deduplication_set",
@@ -80,6 +80,7 @@ class EncodingAdmin(BaseModelAdmin):
         "state",
         "embedding_status_code",
         "face_coverage",
+        "michelson_contrast",
         "created_at",
     )
 

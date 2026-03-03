@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, Any
 
 from admin_extra_buttons.mixins import confirm_action
 from adminfilters.autocomplete import AutoCompleteFilter
@@ -6,6 +6,8 @@ from admin_extra_buttons.api import button, choice, view
 from admin_extra_buttons.buttons import ChoiceButton
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
+from azure.core.exceptions import ResourceNotFoundError
+from cv2 import error as cv2_error
 from django.contrib import messages
 from django.contrib.admin import register
 from django.db.models import QuerySet
@@ -17,7 +19,9 @@ from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.utils.notification import send_notification, WarningMessage, ErrorMessage
 from hope_dedup_engine.apps.core.permissions import can
-from hope_dedup_engine.apps.api.utils.export import export_as_csv
+from hope_dedup_engine.apps.api.utils.export import stream_as_csv
+from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+from hope_dedup_engine.utils.image_quality import michelson_contrast
 
 
 NOTIFICATION_SENT = "Notification sent."
@@ -59,6 +63,24 @@ class DeduplicationSetAdmin(BaseModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return DeduplicationSet.objects.only(*self.get_list_display(request))
+
+    @button(change_form=True)
+    def assess_quality(self, request: HttpRequest, pk: str) -> StreamingHttpResponse:
+        storage = ImagesStorageManager()
+        ds = cast("DeduplicationSet", self.get_object(request, pk))
+        qs = ds.encoding_set.all()
+        out_name = f"deduplication_set_{ds.pk}_quality.csv"
+        fields = ("reference_pk", "filename")
+        headers = (*fields, "michelson_contrast")
+
+        def row_mapper(row: tuple[Any, ...]) -> tuple[str, str, float | None]:
+            ref_pk, img_name = row
+            try:
+                return ref_pk, img_name, float(michelson_contrast(storage.load_image(img_name)))
+            except (ValueError, ResourceNotFoundError, cv2_error):
+                return ref_pk, img_name, None
+
+        return stream_as_csv(qs, out_name, fields=fields, headers=headers, row_mapper=row_mapper)
 
     @button(change_form=True, permission=can.api.clear_embeddings)
     def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
@@ -158,5 +180,12 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         """Export Findings for this Deduplication Set to a CSV file."""
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
         qs = deduplication_set.finding_set.all()
-        filename = f"deduplication_set_{deduplication_set}_findings.csv"
-        return export_as_csv(qs, filename)
+        out_name = f"deduplication_set_{deduplication_set.pk}_findings.csv"
+        fields = (
+            "pk",
+            "first_encoding__reference_pk",
+            "second_encoding__reference_pk",
+            "score",
+            "status_code",
+        )
+        return stream_as_csv(qs, out_name, fields=fields)

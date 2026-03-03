@@ -55,6 +55,16 @@ CONSTANCE_CONFIG = {
         int,
     ),
     "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_text_input"),
+    "DEFAULT_MICHELSON_CONTRAST_ENABLED": (
+        True,
+        "Enable Michelson contrast quality gate.",
+        bool,
+    ),
+    "DEFAULT_MICHELSON_CONTRAST_THRESHOLD": (
+        0.95,
+        "Minimum Michelson contrast score (0..1). Images below are rejected.",
+        "bounded_confidence_0_1",
+    ),
 }
 
 
@@ -67,6 +77,13 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD",
             "DEFAULT_FACE_COVERAGE_THRESHOLD",
             "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD",
+        ),
+        "collapse": False,
+    },
+    "Image quality": {
+        "fields": (
+            "DEFAULT_MICHELSON_CONTRAST_ENABLED",
+            "DEFAULT_MICHELSON_CONTRAST_THRESHOLD",
         ),
         "collapse": False,
     },

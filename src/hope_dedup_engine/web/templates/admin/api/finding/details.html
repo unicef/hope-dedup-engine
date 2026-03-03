@@ -40,6 +40,9 @@
                     <br />
                     face coverage:
                     <span class="finding-details__value">{{ finding.first_encoding.face_coverage|default:"-" }}</span>
+                    <br />
+                    Michelson contrast:
+                    <span class="finding-details__value">{{ finding.first_encoding.michelson_contrast|default:"-" }}</span>
                 </figcaption>
             </figure>
         {% endif %}
@@ -55,6 +58,9 @@
                     <br />
                     face coverage:
                     <span class="finding-details__value">{{ finding.second_encoding.face_coverage|default:"-" }}</span>
+                    <br />
+                    Michelson contrast:
+                    <span class="finding-details__value">{{ finding.second_encoding.michelson_contrast|default:"-" }}</span>
                 </figcaption>
             </figure>
         {% endif %}
