@@ -5,23 +5,25 @@ from django.db import transaction
 from django.utils import timezone
 
 import sentry_sdk
-from celery import chord, shared_task, group
+from celery import shared_task
 
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
-from hope_dedup_engine.apps.api.models.jobs import EncodeChunkJob, DeduplicateDatasetJob
 from hope_dedup_engine.apps.api.utils.notification import send_notification
-
-from hope_dedup_engine.apps.faces.celery_tasks import (
-    get_chunks,
-    finish_with_error,
-    finish_with_success,
-    ChunkPurpose,
-)
+from hope_dedup_engine.apps.faces.services.facial import dedupe_all, encode_faces
 
 HOUR = 60 * 60
 RESCHEDULE_INTERVAL = 6 * HOUR
 STALE_PROCESSING_THRESHOLD = 24 * HOUR
+
+
+def finish_processing(ds: DeduplicationSet, error: Exception | None = None) -> None:
+    if error:
+        ds.set_state(DeduplicationSet.State.FAILED, error)
+    else:
+        ds.set_state(DeduplicationSet.State.READY)
+    send_notification(ds)
 
 
 def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> DeduplicationSet | None:
@@ -44,8 +46,17 @@ def try_acquire_processing_lock(deduplication_set: DeduplicationSet) -> Deduplic
         return deduplication_set
 
 
-@shared_task(bind=True, soft_time_limit=0.5 * HOUR, time_limit=1 * HOUR)
+@shared_task(bind=True)
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
+    """
+    Process a deduplication job: encode faces and find duplicates.
+
+    This task handles the complete deduplication workflow:
+    1. Acquires a processing lock on the deduplication set
+    2. Encodes all images without embeddings
+    3. Runs deduplication (unless encode_only is True)
+    4. Updates state and sends notification
+    """
     main_job: MainJob = MainJob.objects.get(pk=dedup_job_id, version=version)
 
     deduplication_set = try_acquire_processing_lock(main_job.deduplication_set)
@@ -63,25 +74,36 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
 
     try:
         send_notification(deduplication_set)
+        config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
 
-        encoding_ids = deduplication_set.encodings_without_embeddings().values_list("id", flat=True)
-        chunks = get_chunks(encoding_ids, purpose=ChunkPurpose.ENCODE)
-        tasks = [
-            EncodeChunkJob.objects.create(deduplication_set=deduplication_set, encoding_ids=chunk).s()
-            for chunk in chunks
-        ]
-        if main_job.encode_only:
-            chord_id = group(tasks)()
-            finish_with_success(deduplication_set)
-        else:
-            chord_id = chord(tasks)(DeduplicateDatasetJob.objects.create(deduplication_set_id=deduplication_set.pk).s())
+        # Encode all images without embeddings
+        encoding_ids = list(deduplication_set.encodings_without_embeddings().values_list("id", flat=True))
+        encodings_count = len(encoding_ids)
+
+        if encoding_ids:
+            encode_faces(
+                deduplication_set,
+                encoding_ids,
+                config.face_confidence_threshold,
+                config.face_coverage_threshold,
+                config.deduplicate.model_name,
+                config.deduplicate.detector_backend,
+                align=config.deduplicate.align,
+            )
+
+        # Run deduplication unless encode_only
+        findings_count = 0
+        if not main_job.encode_only:
+            findings_count = dedupe_all(deduplication_set, config)
+
+        finish_processing(deduplication_set)
 
         return {
             "deduplication_set": str(deduplication_set),
-            "chord_id": str(chord_id),
-            "chunks": len(chunks),
+            "encodings_processed": encodings_count,
+            "findings_created": findings_count,
         }
     except Exception as e:
-        finish_with_error(deduplication_set, e)
+        finish_processing(deduplication_set, e)
         sentry_sdk.capture_exception(e)
         raise

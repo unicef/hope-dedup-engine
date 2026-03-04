@@ -12,12 +12,6 @@ from hope_dedup_engine.apps.api.models import (
     Encoding,
     MainJob,
 )
-from hope_dedup_engine.apps.api.models.jobs import (
-    EncodeChunkJob,
-    DeduplicateDatasetJob,
-    DedupeChunkJob,
-    CallbackFindingsJob,
-)
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -46,46 +40,15 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
         )
 
     def get_status(self, deduplication_set: DeduplicationSet) -> str:
-        # EncodeChunkJob and DeduplicateDatasetJob are created inside the
-        # DedupJob. DedupeChunkJob and CallbackFindingsJob are created inside
-        # the DeduplicateDatasetJob. So we always have the next job object
-        # created before the current job is finished
+        job = MainJob.objects.filter(deduplication_set=deduplication_set).order_by("-id").first()
 
-        job_managers = (
-            MainJob.objects.filter(deduplication_set=deduplication_set),
-            EncodeChunkJob.objects.filter(deduplication_set=deduplication_set),
-            DeduplicateDatasetJob.objects.filter(deduplication_set=deduplication_set),
-            DedupeChunkJob.objects.filter(deduplication_set=deduplication_set),
-            CallbackFindingsJob.objects.filter(deduplication_set=deduplication_set),
-        )
+        if job is None:
+            return self.NOT_SCHEDULED
 
-        first_task = True
+        if (result := job.async_result) is None:
+            return CeleryTaskModel.PENDING
 
-        for job_manager in job_managers:
-            job = job_manager.order_by("-id").first()
-
-            if job is None:
-                # we only get here if no job was scheduled or the previous task
-                # finished without being able to create the next task, which
-                # means some other failure
-                return self.NOT_SCHEDULED
-
-            if (result := job.async_result) is None:
-                # job record was created but the task is not yet started
-                if first_task:
-                    return CeleryTaskModel.PENDING
-
-                # we had some tasks finished before
-                return CeleryTaskModel.STARTED
-
-            first_task = False
-
-            # if the current task status is SUCCESS, we need to check the next
-            # one
-            if (status := result.status) != CeleryTaskModel.SUCCESS:
-                return status
-
-        return CeleryTaskModel.SUCCESS
+        return result.status
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):

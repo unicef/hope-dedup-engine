@@ -1,15 +1,23 @@
+from __future__ import annotations
+
 import logging
-from uuid import UUID
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
+
+import numpy as np
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.commons.image_utils import load_image_from_base64
+from deepface.modules.verification import find_confidence, find_distance, find_threshold
 from django.db import transaction
 from numpy import ndarray
 
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+
+if TYPE_CHECKING:
+    from uuid import UUID
+    from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +86,11 @@ def encode_faces(  # noqa: PLR0913
 ) -> None:
     storage = ImagesStorageManager()
 
-    encodings = Encoding.objects.filter(id__in=encoding_ids)
+    encodings = Encoding.objects.filter(id__in=encoding_ids).iterator(chunk_size=25)
 
-    with transaction.atomic():
-        for encoding in encodings:
+    for encoding in encodings:
+        with transaction.atomic():
             try:
-                # we can have the previous status code set (i.e., system error)
                 encoding.embedding_status_code = None
                 image_data = (
                     load_image_from_base64(encoding.filename)
@@ -119,44 +126,142 @@ def encode_faces(  # noqa: PLR0913
                 )
 
 
-def dedupe_images(  # noqa: PLR0913
-    deduplication_set: DeduplicationSet,
-    encodings0: list[Encoding],
-    encodings1: list[Encoding],
-    ignored_pairs: set[frozenset[str]],
-    duplicate_confidence_threshold: float,
-    model_name: str,
-    detector_backend: str,
-    distance_metric: str,
-    align: bool,
-    silent: bool,
-) -> None:
-    with transaction.atomic():
-        for i, encoding0 in enumerate(encodings0):
-            if encodings0 == encodings1:
-                encodings1_ = encodings1[i + 1 :]
-            else:
-                encodings1_ = encodings1
+def load_encodings(
+    current_qs,
+    approved_qs,
+    embedding_dim: int,
+    chunk_size: int,
+) -> tuple[np.ndarray, list, list, int]:
+    """
+    Stream encodings from DB into pre-allocated numpy arrays.
 
-            for encoding1 in encodings1_:
-                if {encoding0.filename, encoding1.filename} in ignored_pairs:
-                    continue
-                res = DeepFace.verify(
-                    encoding0.embedding,
-                    encoding1.embedding,
-                    model_name=model_name,
-                    detector_backend=detector_backend,
-                    distance_metric=distance_metric,
-                    align=align,
-                    silent=silent,
-                )
-                if (confidence := res.get("confidence", 0)) >= duplicate_confidence_threshold:
-                    Finding.objects.update_or_create(
-                        deduplication_set=deduplication_set,
-                        first_encoding=encoding0,
-                        second_encoding=encoding1,
-                        defaults={
-                            "score": confidence / 100,
-                            "status_code": Encoding.StatusCode.DEDUPLICATE_SUCCESS,
-                        },
-                    )
+    Returns (all_emb, all_ids, all_filenames, n_current) where current encodings
+    occupy indices [0:n_current] and approved encodings occupy [n_current:].
+    """
+    n_current = current_qs.count()
+    n_approved = approved_qs.count()
+    n_all = n_current + n_approved
+
+    all_emb = np.empty((n_all, embedding_dim), dtype=np.float32)
+    all_ids: list = []
+    all_filenames: list = []
+
+    for i, (enc_id, filename, embedding) in enumerate(
+        current_qs.values_list("id", "filename", "embedding").iterator(chunk_size=chunk_size)
+    ):
+        all_ids.append(enc_id)
+        all_filenames.append(filename)
+        all_emb[i] = embedding
+
+    if n_approved > 0:
+        for i, (enc_id, filename, embedding) in enumerate(
+            approved_qs.values_list("id", "filename", "embedding").iterator(chunk_size=chunk_size)
+        ):
+            all_ids.append(enc_id)
+            all_filenames.append(filename)
+            all_emb[n_current + i] = embedding
+
+    return all_emb, all_ids, all_filenames, n_current
+
+
+def find_duplicate_pairs(  # noqa
+    all_emb: np.ndarray,
+    all_ids: list,
+    all_filenames: list,
+    n_current: int,
+    ignored_pairs: set,
+    config: DeduplicationSetConfig,
+    chunk_size: int,
+) -> list[tuple[int, int, float]]:
+    """
+    Find duplicate pairs using chunked matrix distance calculations.
+
+    Compares current encodings against all (current + approved) using vectorized
+    operations. Returns list of (first_id, second_id, confidence) for matches.
+    """
+    model_name = config.deduplicate.model_name
+    distance_metric = config.deduplicate.distance_metric
+    confidence_threshold = config.duplicate_confidence_threshold
+
+    distance_threshold = find_threshold(model_name, distance_metric)
+    duplicates = []
+
+    for start in range(0, n_current, chunk_size):
+        chunk_emb = all_emb[start : start + chunk_size]
+        distances = find_distance(all_emb, chunk_emb, distance_metric)
+
+        rows, cols = np.where(distances <= distance_threshold)
+
+        for r, c in zip(rows, cols, strict=True):
+            global_r = start + r
+
+            if c < n_current and global_r >= c:
+                continue
+
+            if frozenset([all_filenames[global_r], all_filenames[c]]) in ignored_pairs:
+                continue
+
+            distance = float(distances[r, c])
+            confidence = find_confidence(distance, model_name, distance_metric, verified=True)
+
+            if confidence >= confidence_threshold:
+                duplicates.append((all_ids[global_r], all_ids[c], confidence))
+
+    return duplicates
+
+
+def dedupe_all(
+    deduplication_set: DeduplicationSet,
+    config: DeduplicationSetConfig,
+    chunk_size: int = 1000,
+) -> int:
+    """
+    Deduplicate all encodings in a deduplication set using matrix operations.
+
+    Uses vectorized distance calculations instead of per-pair DeepFace.verify()
+    calls, providing significant performance improvement for large datasets.
+    """
+    current_qs = deduplication_set.encoding_set.filter(
+        embedding__isnull=False,
+    ).order_by("id")
+
+    n_current = current_qs.count()
+    if n_current == 0:
+        return 0
+
+    first_embedding = current_qs.values_list("embedding", flat=True).first()
+    embedding_dim = len(first_embedding)
+
+    approved_qs = Encoding.objects.filter(
+        state=Encoding.State.APPROVED,
+        deduplication_set__state=DeduplicationSet.State.INACTIVE,
+        deduplication_set__group=deduplication_set.group,
+        embedding__isnull=False,
+    ).order_by("id")
+
+    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, embedding_dim, chunk_size)
+
+    ignored_pairs = deduplication_set.get_ignored_pairs()
+
+    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, ignored_pairs, config, chunk_size)
+
+    if duplicates:
+        findings = [
+            Finding(
+                deduplication_set=deduplication_set,
+                first_encoding_id=first_id,
+                second_encoding_id=second_id,
+                score=confidence / 100,
+                status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+            )
+            for first_id, second_id, confidence in duplicates
+        ]
+
+        Finding.objects.bulk_create(
+            findings,
+            update_conflicts=True,
+            unique_fields=["deduplication_set", "first_encoding", "second_encoding"],
+            update_fields=["score", "status_code", "updated_at"],
+        )
+
+    return len(duplicates)

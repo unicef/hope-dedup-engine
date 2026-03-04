@@ -1,4 +1,4 @@
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait, SelfAttribute
 from factory.django import DjangoModelFactory
@@ -18,10 +18,6 @@ from hope_dedup_engine.apps.api.models.deduplication import (
     DeduplicationSetGroup,
 )
 from hope_dedup_engine.apps.api.models.jobs import (
-    EncodeChunkJob,
-    DedupeChunkJob,
-    CallbackFindingsJob,
-    DeduplicateDatasetJob,
     SyncDnnFilesJob,
     DedupJob,
 )
@@ -153,37 +149,6 @@ class MainJobFactory(DjangoModelFactory):
 
     class Meta:
         model = MainJob
-
-
-class EncodeChunkJobFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-    encoding_ids: list[UUID] = []
-
-    class Meta:
-        model = EncodeChunkJob
-
-
-class DedupeChunkJobFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-    encoding_ids0: list[UUID] = []
-    encoding_ids1: list[UUID] = []
-
-    class Meta:
-        model = DedupeChunkJob
-
-
-class CallbackFindingsJobFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-
-    class Meta:
-        model = CallbackFindingsJob
-
-
-class DeduplicateDatasetJobFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-
-    class Meta:
-        model = DeduplicateDatasetJob
 
 
 class SyncDnnFilesJobFactory(DjangoModelFactory):
