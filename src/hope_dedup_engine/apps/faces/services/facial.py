@@ -7,6 +7,7 @@ import numpy as np
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.commons.image_utils import load_image_from_base64
+from deepface.modules.exceptions import DataTypeError
 from deepface.modules.verification import find_confidence, find_distance, find_threshold
 from django.db import transaction
 from numpy import ndarray
@@ -106,7 +107,7 @@ def encode_faces(  # noqa: PLR0913
                     align,
                 )
 
-            except TypeError as e:
+            except (TypeError, DataTypeError) as e:
                 logger.exception(e)
                 encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
             except ResourceNotFoundError:
