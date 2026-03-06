@@ -87,7 +87,7 @@ jobs:
         run: tox -e tests
 
       - name: Archive selenium results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: selenium-log-report
@@ -95,7 +95,7 @@ jobs:
           retention-days: 5
 
       - name: Upload pytest test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-tests
           path: junit.xml

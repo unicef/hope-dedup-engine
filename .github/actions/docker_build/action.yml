@@ -141,7 +141,7 @@ runs:
         fi
     - name: Set up Docker BuildX
       if: steps.image_status.outputs.updated != 'true' || inputs.rebuild == 'true'
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
       with:
         platforms: linux/amd64
         driver: docker-container
