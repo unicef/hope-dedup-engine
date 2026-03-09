@@ -45,6 +45,7 @@ from hope_dedup_engine.apps.api.serializers import (
     EncodingSerializer,
     EncodingReferencePks,
 )
+from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
@@ -91,11 +92,14 @@ class DeduplicationSetViewSet(
 
     def perform_create(self, serializer: Serializer) -> None:
         group_data = serializer.validated_data["group"]
-        group, _ = DeduplicationSetGroup.objects.update_or_create(
+        group, created = DeduplicationSetGroup.objects.update_or_create(
             system=self.request.auth.system,
             reference_pk=group_data["reference_pk"],
             defaults={"name": group_data.get("name")},
         )
+        if created:
+            group.settings = get_default_group_settings()
+            group.save(update_fields=["settings"])
         serializer.save(group=group, created_by=self.request.user)
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:

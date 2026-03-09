@@ -252,8 +252,8 @@ def mock_deepface_verification(mocker):
 def mock_dedup_config():
     """Fixture to create a mock DeduplicationSetConfig."""
     config = Mock()
-    config.deduplicate.model_name = "Facenet512"
-    config.deduplicate.distance_metric = "cosine"
+    config.recognition_model = "Facenet512"
+    config.distance_metric = "cosine"
     config.duplicate_confidence_threshold = 50.0
     return config
 

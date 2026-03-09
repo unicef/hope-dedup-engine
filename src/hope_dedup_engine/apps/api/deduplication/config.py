@@ -7,60 +7,51 @@ from constance import config as constance_cfg
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
-@dataclass
-class ModelOptions:
-    model_name: str = field(default_factory=lambda: constance_cfg.DEFAULT_RECOGNITION_MODEL)
-    detector_backend: str = field(default_factory=lambda: constance_cfg.DEFAULT_DETECTOR_BACKEND)
-    align: bool = True  # Flag to enable face alignment
-
-    def update(self, overrides: dict[str, Any]) -> None:
-        for k, v in overrides.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-
-
-@dataclass
-class EncodingOptions(ModelOptions):
-    max_faces: int = 2  # Maximum number of faces to detect and encode per image
-    enforce_detection: bool = False  #  # Don't raise exception if no face detected
+def get_default_group_settings() -> dict[str, Any]:
+    """Return a dict of current Constance defaults to snapshot into DeduplicationSetGroup.settings."""
+    return {
+        "recognition_model": constance_cfg.DEFAULT_RECOGNITION_MODEL,
+        "detector_backend": constance_cfg.DEFAULT_DETECTOR_BACKEND,
+        "distance_metric": constance_cfg.DEFAULT_DISTANCE_METRIC,
+        "face_detection_confidence_threshold": constance_cfg.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD,
+        "face_coverage_threshold": constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD,
+        "duplicate_confidence_threshold": constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD,
+    }
 
 
-@dataclass
-class DeduplicateOptions(ModelOptions):
-    distance_metric: str = field(default_factory=lambda: constance_cfg.DEFAULT_DISTANCE_METRIC)
-    silent: bool = True  # Suppress or allow some log messages for a quieter analysis process
+SETTINGS_FIELDS = (
+    "recognition_model",
+    "detector_backend",
+    "distance_metric",
+    "face_detection_confidence_threshold",
+    "face_coverage_threshold",
+    "duplicate_confidence_threshold",
+)
 
 
 @dataclass
 class DeduplicationSetConfig:
     deduplication_set_id: UUID | None = None
-    encoding: EncodingOptions = field(default_factory=EncodingOptions)
-    deduplicate: DeduplicateOptions = field(default_factory=DeduplicateOptions)
-    face_confidence_threshold: float = field(
+    recognition_model: str = field(default_factory=lambda: constance_cfg.DEFAULT_RECOGNITION_MODEL)
+    detector_backend: str = field(default_factory=lambda: constance_cfg.DEFAULT_DETECTOR_BACKEND)
+    distance_metric: str = field(default_factory=lambda: constance_cfg.DEFAULT_DISTANCE_METRIC)
+    face_detection_confidence_threshold: float = field(
         default_factory=lambda: constance_cfg.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD
     )
+    face_coverage_threshold: float = field(default_factory=lambda: constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD)
     duplicate_confidence_threshold: float = field(
         default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD * 100
-    )  # Normalized to 0..100 range
-    face_coverage_threshold: float = field(default_factory=lambda: constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD)
-
-    def update(self, overrides: dict[str, Any]) -> None:
-        if not isinstance(overrides, dict):
-            raise ValueError("Overrides values must be a dictionary.")
-        for k, v in overrides.items():
-            match k:
-                case "encoding" if isinstance(v, dict):
-                    self.encoding.update(v)
-                case "deduplicate" if isinstance(v, dict):
-                    self.deduplicate.update(v)
-                case _ if hasattr(self, k):
-                    setattr(self, k, v)
-                case _:
-                    raise KeyError(f"Unknown config key: {k}")
+    )  # Stored as 0-1 in settings, converted to 0-100 internally
+    align: bool = True
 
     @classmethod
     def from_deduplication_set(cls, deduplication_set: DeduplicationSet) -> Self:
-        instance = cls(deduplication_set_id=deduplication_set.pk)
-        if settings := deduplication_set.group.settings:
-            instance.update(settings)
-        return instance
+        settings = deduplication_set.group.settings or {}
+        kwargs: dict[str, Any] = {"deduplication_set_id": deduplication_set.pk}
+        for key in SETTINGS_FIELDS:
+            if key in settings:
+                value = settings[key]
+                if key == "duplicate_confidence_threshold":
+                    value = value * 100
+                kwargs[key] = value
+        return cls(**kwargs)

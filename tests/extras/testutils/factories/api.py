@@ -3,12 +3,7 @@ from uuid import uuid4
 from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait, SelfAttribute
 from factory.django import DjangoModelFactory
 
-from hope_dedup_engine.apps.api.deduplication.config import (
-    DeduplicateOptions,
-    DeduplicationSetConfig,
-    EncodingOptions,
-    ModelOptions,
-)
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
@@ -156,31 +151,14 @@ class SyncDnnFilesJobFactory(DjangoModelFactory):
         model = SyncDnnFilesJob
 
 
-class ModelOptionsFactory(Factory):
-    class Meta:
-        model = ModelOptions
-
-    model_name = fuzzy.FuzzyChoice(["model1", "model2"])
-    detector_backend = fuzzy.FuzzyChoice(["backend1", "backend2"])
-
-
-class EncodingOptionsFactory(ModelOptionsFactory):
-    class Meta:
-        model = EncodingOptions
-
-
-class DeduplicateOptionsFactory(ModelOptionsFactory):
-    class Meta:
-        model = DeduplicateOptions
-
-    threshold = fuzzy.FuzzyFloat(0.1, 1.0)
-    silent = fuzzy.FuzzyChoice([True, False])
-
-
 class DeduplicationSetConfigFactory(Factory):
     class Meta:
         model = DeduplicationSetConfig
 
     deduplication_set_id = uuid4()
-    encoding = SubFactory(EncodingOptionsFactory)
-    deduplicate = SubFactory(DeduplicateOptionsFactory)
+    recognition_model = fuzzy.FuzzyChoice(["Facenet512", "VGG-Face"])
+    detector_backend = fuzzy.FuzzyChoice(["retinaface", "mtcnn"])
+    distance_metric = fuzzy.FuzzyChoice(["cosine", "euclidean"])
+    face_detection_confidence_threshold = fuzzy.FuzzyFloat(0.5, 0.99)
+    face_coverage_threshold = fuzzy.FuzzyFloat(0.1, 0.5)
+    duplicate_confidence_threshold = fuzzy.FuzzyFloat(30.0, 80.0)

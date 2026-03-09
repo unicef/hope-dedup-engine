@@ -3,25 +3,68 @@ from typing import cast
 from admin_extra_buttons.api import choice, view
 from admin_extra_buttons.buttons import ChoiceButton
 from admin_extra_buttons.mixins import confirm_action
+from django.contrib import messages
 from django.contrib.admin import register, display
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.core.permissions import can
 
 
 @register(DeduplicationSetGroup)
 class DeduplicationSetGroupAdmin(BaseModelAdmin):
+    form = DeduplicationSetGroupSettingsForm
     readonly_fields = ("reference_pk", "name", "deduplication_sets")
-    fields = ("reference_pk", "name", "deduplication_sets")
     search_fields = ("reference_pk", "name")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("reference_pk", "name", "deduplication_sets"),
+            },
+        ),
+        (
+            "Face Detection Settings",
+            {
+                "fields": ("detector_backend", "face_detection_confidence_threshold"),
+            },
+        ),
+        (
+            "Recognition Settings",
+            {
+                "fields": ("recognition_model", "distance_metric", "duplicate_confidence_threshold"),
+            },
+        ),
+        (
+            "Image Quality Settings",
+            {
+                "fields": ("face_coverage_threshold",),
+            },
+        ),
+    )
 
-    def has_add_permission(self, request) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
+
+    def save_model(
+        self, request: HttpRequest, obj: DeduplicationSetGroup, form: DeduplicationSetGroupSettingsForm, change: bool
+    ) -> None:
+        if change and "recognition_model" in form.changed_data:
+            old_value = form.initial.get("recognition_model")
+            if old_value:
+                for ds in obj.deduplicationset_set.all():
+                    ds.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+                    ds.finding_set.all().delete()
+                messages.warning(
+                    request,
+                    "Recognition model changed - all embeddings and findings have been cleared.",
+                )
+        super().save_model(request, obj, form, change)
 
     @display(description="Deduplication Sets")
     def deduplication_sets(self, obj: DeduplicationSetGroup) -> str:

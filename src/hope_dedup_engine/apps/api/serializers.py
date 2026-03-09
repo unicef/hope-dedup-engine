@@ -55,12 +55,10 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", required=False, allow_null=True, allow_blank=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
-    settings = serializers.JSONField(default=dict)
 
     class Meta:
         model = DeduplicationSet
-        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state", "settings")
-        write_only_fields = ("settings",)
+        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state")
 
 
 class EncodingSerializer(serializers.ModelSerializer):

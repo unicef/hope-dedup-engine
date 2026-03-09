@@ -1,3 +1,8 @@
+from hope_dedup_engine.apps.api.const import (
+    DETECTOR_BACKEND_CHOICES,
+    DISTANCE_METRIC_CHOICES,
+    RECOGNITION_MODEL_CHOICES,
+)
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 from .. import env
 
@@ -97,57 +102,15 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     ],
     "recognition_model": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("Facenet512", "FaceNet 512D"),
-                ("Facenet", "FaceNet 128D"),
-                ("VGG-Face", "VGG-Face"),
-                ("ArcFace", "ArcFace"),
-                # ("DeepFace", "DeepFace") Deepface model is commented out due to compatibility issues with TensorFlow
-                # versions. Requires LocallyConnected2D but it is no longer supported after tf 2.12 but you have 2.19.
-                ("OpenFace", "OpenFace"),
-                ("DeepID", "DeepID"),
-                ("Dlib", "Dlib"),
-                ("SFace", "SFace"),
-                ("GhostFaceNet", "GhostFaceNet"),
-            ),
-        },
+        {"choices": RECOGNITION_MODEL_CHOICES},
     ],
     "detector_backend": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("retinaface", "RetinaFace"),
-                ("mtcnn", "MTCNN"),
-                ("ssd", "SSD"),
-                ("dlib", "Dlib"),
-                ("mediapipe", "MediaPipe"),
-                ("opencv", "OpenCV"),
-                ("yolov8n", "YOLOv8n"),
-                ("yolov8m", "YOLOv8m"),
-                ("yolov8l", "YOLOv8l"),
-                ("yolov11n", "YOLOv11n"),
-                ("yolov11s", "YOLOv11s"),
-                ("yolov11m", "YOLOv11m"),
-                ("yolov11l", "YOLOv11l"),
-                ("yolov12n", "YOLOv12n"),
-                ("yolov12s", "YOLOv12s"),
-                ("yolov12m", "YOLOv12m"),
-                ("yolov12l", "YOLOv12l"),
-                ("centerface", "CenterFace"),
-            ),
-        },
+        {"choices": DETECTOR_BACKEND_CHOICES},
     ],
     "distance_metric": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("cosine", "Cosine"),
-                ("euclidean", "Euclidean"),
-                ("euclidean_l2", "Euclidean L2"),
-                ("angular", "Angular"),
-            ),
-        },
+        {"choices": DISTANCE_METRIC_CHOICES},
     ],
     "write_only_text_input": [
         "django.forms.fields.CharField",

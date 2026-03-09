@@ -180,8 +180,8 @@ def find_duplicate_pairs(  # noqa
     Compares current encodings against all (current + approved) using vectorized
     operations. Returns list of (first_id, second_id, confidence) for matches.
     """
-    model_name = config.deduplicate.model_name
-    distance_metric = config.deduplicate.distance_metric
+    model_name = config.recognition_model
+    distance_metric = config.distance_metric
     confidence_threshold = config.duplicate_confidence_threshold
 
     distance_threshold = find_threshold(model_name, distance_metric)
