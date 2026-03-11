@@ -1,10 +1,12 @@
 from typing import cast
 
-from admin_extra_buttons.decorators import button
+from admin_extra_buttons.api import choice, view
+from admin_extra_buttons.buttons import ChoiceButton
 from admin_extra_buttons.mixins import confirm_action
 from django.contrib.admin import register, display
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
+from django.shortcuts import redirect
 from django.urls import reverse
 
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
@@ -37,7 +39,21 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
             ),
         )
 
-    @button(change_form=True, permission=can.api.clear_embeddings)
+    @choice(label="Encodings", change_form=True, change_list=False)
+    def encodings(self, button: ChoiceButton) -> None:
+        """Provide choices to Encodings filtered by this DeduplicationSetGroup."""
+        button.choices = [
+            self.encodings_view,
+            self.clear_embeddings,
+        ]
+
+    @view(label="View", permission=can.api.view_encodings)
+    def encodings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        url = reverse("admin:api_encoding_changelist") + f"?deduplication_set__group__exact={group.pk}"
+        return redirect(url)
+
+    @view(label="Clear Embeddings", permission=can.api.clear_embeddings)
     def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
 
@@ -53,7 +69,21 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
             message="Do you confirm to clear all embeddings for all Deduplication Sets in this group?",
         )
 
-    @button(change_form=True, permission=can.api.remove_findings)
+    @choice(label="Findings", change_form=True, change_list=False)
+    def findings(self, button: ChoiceButton) -> None:
+        """Provide choices to Findings filtered by this DeduplicationSetGroup."""
+        button.choices = [
+            self.findings_view,
+            self.remove_findings,
+        ]
+
+    @view(label="View", permission=can.api.view_findings)
+    def findings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        url = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={group.pk}"
+        return redirect(url)
+
+    @view(label="Remove", change_form=True, permission=can.api.remove_findings)
     def remove_findings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
 

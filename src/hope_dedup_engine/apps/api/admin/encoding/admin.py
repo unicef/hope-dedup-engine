@@ -2,7 +2,7 @@ from operator import attrgetter
 from typing import cast, NamedTuple
 
 from admin_extra_buttons.decorators import button
-from adminfilters.autocomplete import AutoCompleteFilter
+from adminfilters.filters import LinkedAutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
 from django.contrib.admin import register, display
@@ -71,7 +71,7 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
 @register(Encoding)
 class EncodingAdmin(BaseModelAdmin):
-    list_display = ("id", "filename_pretty", "deduplication_set", "face_coverage", "created_at")
+    list_display = ("id", "reference_pk", "filename_pretty", "deduplication_set", "face_coverage", "created_at")
 
     readonly_fields = fields = (
         "deduplication_set",
@@ -84,7 +84,8 @@ class EncodingAdmin(BaseModelAdmin):
     )
 
     list_filter = (
-        ("deduplication_set", AutoCompleteFilter),
+        ("deduplication_set__group", LinkedAutoCompleteFilter.factory(parent=None)),
+        ("deduplication_set", LinkedAutoCompleteFilter.factory(parent="deduplication_set__group")),
         ("created_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )

@@ -1,6 +1,6 @@
 from django.contrib.admin import register
 from django.urls import path, reverse
-from adminfilters.autocomplete import AutoCompleteFilter
+from adminfilters.autocomplete import LinkedAutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
 from admin_extra_buttons.api import link
 
@@ -14,17 +14,17 @@ from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 class FindingAdmin(BaseModelAdmin):
     list_display = (
         "id",
-        "deduplication_set",
         "score",
         "first_encoding",
         "second_encoding",
+        "deduplication_set",
         "status_code",
         "created_at",
         "updated_at",
     )
     list_filter = (
-        ("deduplication_set__group", AutoCompleteFilter),
-        ("deduplication_set", AutoCompleteFilter),
+        ("deduplication_set__group", LinkedAutoCompleteFilter.factory(parent=None)),
+        ("deduplication_set", LinkedAutoCompleteFilter.factory(parent="deduplication_set__group")),
         ("score", NumberFilter),
         "status_code",
         DjangoLookupFilter,

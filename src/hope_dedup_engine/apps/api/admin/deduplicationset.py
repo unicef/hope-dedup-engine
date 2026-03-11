@@ -1,11 +1,11 @@
 from typing import cast
 
 from admin_extra_buttons.mixins import confirm_action
-from adminfilters.autocomplete import AutoCompleteFilter
 from admin_extra_buttons.api import button, choice, view
 from admin_extra_buttons.buttons import ChoiceButton
 from adminfilters.dates import DateInDateRangeFilter
-from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
+from adminfilters.filters import AutoCompleteFilter, ChoicesFieldComboFilter, DjangoLookupFilter
+
 from django.contrib import messages
 from django.contrib.admin import register
 from django.db.models import QuerySet
@@ -60,21 +60,6 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return DeduplicationSet.objects.only(*self.get_list_display(request))
 
-    @button(change_form=True, permission=can.api.clear_embeddings)
-    def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
-
-        def _action(_: HttpRequest) -> HttpResponse:
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
-            deduplication_set.finding_set.all().delete()
-
-        return confirm_action(
-            modeladmin=self,
-            request=request,
-            action=_action,
-            message="Do you confirm to clear all embeddings for this Deduplication Set?",
-        )
-
     @button(change_form=True, permission=can.api.process_encodings)
     def encode(self, request: HttpRequest, pk: str) -> HttpResponse:
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
@@ -105,6 +90,40 @@ class DeduplicationSetAdmin(BaseModelAdmin):
             request=request,
             action=_action,
             message="Do you confirm to start deduplication job for this Deduplication Set?",
+        )
+
+    @choice(
+        label="Encodings",
+        change_form=True,
+        change_list=False,
+    )
+    def encodings(self, button: ChoiceButton) -> None:
+        """Provide choices to Encodings filtered by this Deduplication Set."""
+        button.choices = [
+            self.encodings_view,
+            self.clear_embeddings,
+        ]
+
+    @view(label="View", permission=can.api.view_encoding)
+    def encodings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
+        """Redirect to the Encoding changelist filtered by Deduplication Set."""
+        ds = cast("DeduplicationSet", self.get_object(request, pk))
+        url = reverse("admin:api_encoding_changelist", query={"deduplication_set": str(ds.pk)})
+        return redirect(url)
+
+    @view(label="Clear Embeddings", permission=can.api.clear_embeddings)
+    def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+
+        def _action(_: HttpRequest) -> HttpResponse:
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+            deduplication_set.finding_set.all().delete()
+
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=_action,
+            message="Do you confirm to clear all embeddings for this Deduplication Set?",
         )
 
     @choice(
