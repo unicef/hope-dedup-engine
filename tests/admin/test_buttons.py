@@ -117,10 +117,22 @@ def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
 
 
+def test_ds_encodings_view_redirect(app, seeded_ds) -> None:
+    res = app.get(
+        reverse("admin:api_deduplicationset_encodings_view", args=[seeded_ds.pk]),
+        expect_errors=True,
+    )
+    assert res.status_code == 302
+    expected = reverse(
+        "admin:api_encoding_changelist",
+        query={"deduplication_set": str(seeded_ds.pk)},
+    )
+    assert res.location.endswith(expected)
+
+
 def test_ds_findings_view_redirect(app, seeded_ds) -> None:
     res = app.get(reverse("admin:api_deduplicationset_findings_view", args=[seeded_ds.pk]), expect_errors=True)
     assert res.status_code == 302
-
     expected = reverse("admin:api_finding_changelist", query={"deduplication_set": str(seeded_ds.pk)})
     assert res.location.endswith(expected)
 
@@ -183,3 +195,25 @@ def test_group_cleanup_buttons(confirm, seeded_group, url_name, clears):
         assert ds.finding_set.count() == 0
         assert ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
         assert ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
+
+
+def test_group_encodings_view_redirect(app, seeded_group) -> None:
+    res = app.get(
+        reverse("admin:api_deduplicationsetgroup_encodings_view", args=[seeded_group.pk]),
+        expect_errors=True,
+    )
+    assert res.status_code == 302
+
+    expected = reverse("admin:api_encoding_changelist") + f"?deduplication_set__group__exact={seeded_group.pk}"
+    assert res.location.endswith(expected)
+
+
+def test_group_findings_view_redirect(app, seeded_group) -> None:
+    res = app.get(
+        reverse("admin:api_deduplicationsetgroup_findings_view", args=[seeded_group.pk]),
+        expect_errors=True,
+    )
+    assert res.status_code == 302
+
+    expected = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={seeded_group.pk}"
+    assert res.location.endswith(expected)

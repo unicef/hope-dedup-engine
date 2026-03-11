@@ -1,7 +1,7 @@
 from typing import Any
 from collections.abc import Iterator
 from admin_extra_buttons.mixins import ExtraButtonsMixin
-from adminfilters.mixin import AdminFiltersMixin
+from adminfilters.mixin import AdminAutoCompleteSearchMixin, AdminFiltersMixin
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
@@ -47,7 +47,7 @@ class FixedChoiceButton(BaseChoiceButton):
 ChoiceHandler.button_class = FixedChoiceButton
 
 
-class BaseModelAdmin(ExtraButtonsMixin, AdminFiltersMixin, admin.ModelAdmin):
+class BaseModelAdmin(ExtraButtonsMixin, AdminAutoCompleteSearchMixin, AdminFiltersMixin, admin.ModelAdmin):
     @property
     def media(self) -> forms.Media:
         base = super().media
