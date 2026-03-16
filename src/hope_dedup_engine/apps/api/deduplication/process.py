@@ -84,11 +84,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             encode_faces(
                 deduplication_set,
                 encoding_ids,
-                config.face_detection_confidence_threshold,
-                config.face_coverage_threshold,
-                config.recognition_model,
-                config.detector_backend,
-                align=config.align,
+                config,
             )
 
         # Run deduplication unless encode_only

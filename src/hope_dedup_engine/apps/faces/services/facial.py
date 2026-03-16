@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Mapping
 
 import numpy as np
+from ofiq import OFIQ
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.commons.image_utils import load_image_from_base64
@@ -12,9 +13,11 @@ from deepface.modules.verification import find_confidence, find_distance, find_t
 from django.db import transaction
 from numpy import ndarray
 
+
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+from hope_dedup_engine.apps.faces.services.quality import get_active_thresholds, check_image_quality
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -76,36 +79,48 @@ def encode_face(  # noqa: PLR0911, PLR0913
     return None, Encoding.StatusCode.GENERIC_ERROR, None
 
 
-def encode_faces(  # noqa: PLR0913
+def encode_faces(
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
-    face_confidence_threshold: float,
-    face_coverage_threshold: float,
-    model_name: str,
-    detector_backend: str,
-    align: bool,
+    config: DeduplicationSetConfig,
 ) -> None:
     storage = ImagesStorageManager()
+    active_thresholds = get_active_thresholds(config)
 
+    ofiq = None
+    if active_thresholds:
+        ofiq = OFIQ()
     encodings = Encoding.objects.filter(id__in=encoding_ids).iterator(chunk_size=25)
 
     for encoding in encodings:
         with transaction.atomic():
             try:
                 encoding.embedding_status_code = None
+                encoding.image_quality_scores = None
                 image_data = (
                     load_image_from_base64(encoding.filename)
                     if parse_data_url(encoding.filename)
                     else storage.load_image(encoding.filename)
                 )
-                encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
-                    image_data,
-                    face_confidence_threshold,
-                    face_coverage_threshold,
-                    model_name,
-                    detector_backend,
-                    align,
-                )
+
+                if ofiq is not None:
+                    qr = check_image_quality(ofiq, image_data, active_thresholds)
+                    encoding.image_quality_scores = qr.scores
+
+                    if not qr.face_detected:
+                        encoding.embedding_status_code = Encoding.StatusCode.NO_FACE_DETECTED
+                    elif not qr.passed:
+                        encoding.embedding_status_code = Encoding.StatusCode.BAD_IMAGE_QUALITY
+
+                if encoding.embedding_status_code is None:
+                    encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
+                        image_data,
+                        config.face_detection_confidence_threshold,
+                        config.face_coverage_threshold,
+                        config.recognition_model,
+                        config.detector_backend,
+                        config.align,
+                    )
 
             except (TypeError, DataTypeError) as e:
                 logger.exception(e)
@@ -113,7 +128,7 @@ def encode_faces(  # noqa: PLR0913
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage"])
+            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage", "image_quality_scores"])
 
             if encoding.embedding_status_code is not None:
                 Finding.objects.update_or_create(

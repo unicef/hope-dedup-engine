@@ -51,6 +51,7 @@ dependencies = [
   "numpy<2",
   "psycopg[binary]",
   "psycopg-pool",
+  "python-ofiq",
   "requests",
   "sentry-sdk[celery,django]",
   "setuptools",

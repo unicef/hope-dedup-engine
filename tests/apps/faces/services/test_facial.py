@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_all,
@@ -18,6 +19,26 @@ MODEL_NAME = "model"
 DETECTOR_BACKEND = "backend"
 ALIGN = True
 IMG_SIDE = 300
+
+
+def make_encode_config(
+    fc_th: float = 0.1,
+    cov_th: float = 0.0,
+) -> DeduplicationSetConfig:
+    return DeduplicationSetConfig(
+        recognition_model=MODEL_NAME,
+        detector_backend=DETECTOR_BACKEND,
+        face_detection_confidence_threshold=fc_th,
+        face_coverage_threshold=cov_th,
+        duplicate_confidence_threshold=50.0,
+        sharpness_threshold=0,
+        dynamic_range_threshold=0,
+        no_head_cover_threshold=0,
+        eyes_open_threshold=0,
+        inter_eye_distance_threshold=0,
+        unified_quality_score_threshold=0,
+        align=ALIGN,
+    )
 
 
 def fa(*, w: int, h: int, x: int = 0, y: int = 0) -> dict[str, int]:
@@ -160,7 +181,7 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
         [{"embedding": [2.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}],
     ]
 
-    encode_faces(deduplication_set, [encoding0.id, encoding1.id], 0.1, 0.0, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1, cov_th=0.0))
 
     encoding0.refresh_from_db()
     encoding1.refresh_from_db()
@@ -217,7 +238,7 @@ def test_encode_faces_deepface_outcomes(
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, coverage_th, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9, cov_th=coverage_th))
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == expected_status.value
@@ -229,7 +250,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, 0.0, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9, cov_th=0.0))
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
