@@ -43,7 +43,15 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         (
             "Image Quality Settings",
             {
-                "fields": ("face_coverage_threshold",),
+                "fields": (
+                    "face_coverage_threshold",
+                    "sharpness_threshold",
+                    "dynamic_range_threshold",
+                    "no_head_cover_threshold",
+                    "eyes_open_threshold",
+                    "inter_eye_distance_threshold",
+                    "unified_quality_score_threshold",
+                ),
             },
         ),
     )

@@ -8,16 +8,8 @@ from hope_dedup_engine.apps.api.const import (
     DISTANCE_METRIC_CHOICES,
     RECOGNITION_MODEL_CHOICES,
 )
+from hope_dedup_engine.apps.api.deduplication.config import SETTINGS_FIELDS
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
-
-SETTINGS_FIELDS = (
-    "recognition_model",
-    "detector_backend",
-    "distance_metric",
-    "face_detection_confidence_threshold",
-    "face_coverage_threshold",
-    "duplicate_confidence_threshold",
-)
 
 
 class DeduplicationSetGroupSettingsForm(forms.ModelForm):
@@ -50,6 +42,36 @@ class DeduplicationSetGroupSettingsForm(forms.ModelForm):
         required=False,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Threshold on face match confidence (0-1) for treating pairs as duplicates.",
+    )
+    sharpness_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum sharpness score (0-100). 0 = disabled.",
+    )
+    dynamic_range_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum dynamic range score (0-100). 0 = disabled.",
+    )
+    no_head_cover_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum no-head-cover score (0-100). 0 = disabled.",
+    )
+    eyes_open_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum eyes-open score (0-100). 0 = disabled.",
+    )
+    inter_eye_distance_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum inter-eye distance score (0-100). 0 = disabled.",
+    )
+    unified_quality_score_threshold = forms.IntegerField(
+        required=False,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Minimum unified quality score (0-100). 0 = disabled.",
     )
 
     class Meta:

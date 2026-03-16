@@ -6,19 +6,6 @@ from constance import config as constance_cfg
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
-
-def get_default_group_settings() -> dict[str, Any]:
-    """Return a dict of current Constance defaults to snapshot into DeduplicationSetGroup.settings."""
-    return {
-        "recognition_model": constance_cfg.DEFAULT_RECOGNITION_MODEL,
-        "detector_backend": constance_cfg.DEFAULT_DETECTOR_BACKEND,
-        "distance_metric": constance_cfg.DEFAULT_DISTANCE_METRIC,
-        "face_detection_confidence_threshold": constance_cfg.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD,
-        "face_coverage_threshold": constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD,
-        "duplicate_confidence_threshold": constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD,
-    }
-
-
 SETTINGS_FIELDS = (
     "recognition_model",
     "detector_backend",
@@ -26,7 +13,18 @@ SETTINGS_FIELDS = (
     "face_detection_confidence_threshold",
     "face_coverage_threshold",
     "duplicate_confidence_threshold",
+    "sharpness_threshold",
+    "dynamic_range_threshold",
+    "no_head_cover_threshold",
+    "eyes_open_threshold",
+    "inter_eye_distance_threshold",
+    "unified_quality_score_threshold",
 )
+
+
+def get_default_group_settings() -> dict[str, Any]:
+    """Return a dict of current Constance defaults to snapshot into DeduplicationSetGroup.settings."""
+    return {key: getattr(constance_cfg, f"DEFAULT_{key.upper()}") for key in SETTINGS_FIELDS}
 
 
 @dataclass
@@ -42,6 +40,16 @@ class DeduplicationSetConfig:
     duplicate_confidence_threshold: float = field(
         default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD * 100
     )  # Stored as 0-1 in settings, converted to 0-100 internally
+    sharpness_threshold: int = field(default_factory=lambda: constance_cfg.DEFAULT_SHARPNESS_THRESHOLD)
+    dynamic_range_threshold: int = field(default_factory=lambda: constance_cfg.DEFAULT_DYNAMIC_RANGE_THRESHOLD)
+    no_head_cover_threshold: int = field(default_factory=lambda: constance_cfg.DEFAULT_NO_HEAD_COVER_THRESHOLD)
+    eyes_open_threshold: int = field(default_factory=lambda: constance_cfg.DEFAULT_EYES_OPEN_THRESHOLD)
+    inter_eye_distance_threshold: int = field(
+        default_factory=lambda: constance_cfg.DEFAULT_INTER_EYE_DISTANCE_THRESHOLD
+    )
+    unified_quality_score_threshold: int = field(
+        default_factory=lambda: constance_cfg.DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD
+    )
     align: bool = True
 
     @classmethod

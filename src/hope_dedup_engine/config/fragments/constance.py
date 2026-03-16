@@ -48,6 +48,36 @@ CONSTANCE_CONFIG = {
         "lowering it makes matching more permissive (more potential duplicates and more false matches).",
         "bounded_confidence_0_1",
     ),
+    "DEFAULT_SHARPNESS_THRESHOLD": (
+        0,
+        "Minimum sharpness score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
+    "DEFAULT_DYNAMIC_RANGE_THRESHOLD": (
+        0,
+        "Minimum dynamic range score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
+    "DEFAULT_NO_HEAD_COVER_THRESHOLD": (
+        0,
+        "Minimum no-head-cover score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
+    "DEFAULT_EYES_OPEN_THRESHOLD": (
+        0,
+        "Minimum eyes-open score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
+    "DEFAULT_INTER_EYE_DISTANCE_THRESHOLD": (
+        0,
+        "Minimum inter-eye distance score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
+    "DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD": (
+        0,
+        "Minimum unified quality score (0-100). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_0_100",
+    ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
         DEFAULT_GROUP_NAME,
@@ -72,6 +102,12 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD",
             "DEFAULT_FACE_COVERAGE_THRESHOLD",
             "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD",
+            "DEFAULT_SHARPNESS_THRESHOLD",
+            "DEFAULT_DYNAMIC_RANGE_THRESHOLD",
+            "DEFAULT_NO_HEAD_COVER_THRESHOLD",
+            "DEFAULT_EYES_OPEN_THRESHOLD",
+            "DEFAULT_INTER_EYE_DISTANCE_THRESHOLD",
+            "DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD",
         ),
         "collapse": False,
     },
@@ -98,6 +134,13 @@ CONSTANCE_ADDITIONAL_FIELDS = {
         {
             "min_value": 0.0,
             "max_value": 1.0,
+        },
+    ],
+    "bounded_0_100": [
+        "django.forms.IntegerField",
+        {
+            "min_value": 0,
+            "max_value": 100,
         },
     ],
     "recognition_model": [
