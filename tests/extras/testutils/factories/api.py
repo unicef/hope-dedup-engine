@@ -40,9 +40,6 @@ class DeduplicationSetFactory(DjangoModelFactory):
     group = SubFactory(DeduplicationSetGroupFactory)
     state = DeduplicationSet.State.READY
     notification_url = fuzzy.FuzzyText(prefix="https://")
-    settings = {
-        "threshold": 0.9,
-    }
     duplicates_found = 0
 
     class Meta:
