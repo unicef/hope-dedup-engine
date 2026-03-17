@@ -11,8 +11,24 @@ from django.urls import reverse
 
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.core.permissions import can
+
+CATEGORY_LABELS = {
+    "detection": "Face Detection Settings",
+    "recognition": "Recognition Settings",
+    "quality": "Image Quality Settings",
+}
+
+
+def _build_fieldsets() -> tuple:
+    base: list = [(None, {"fields": ("reference_pk", "name", "deduplication_sets")})]
+    for cat, label in CATEGORY_LABELS.items():
+        fields = tuple(f.name for f in DeduplicationSetConfig.setting_fields(category=cat, admin=True))
+        if fields:
+            base.append((label, {"fields": fields}))
+    return tuple(base)
 
 
 @register(DeduplicationSetGroup)
@@ -20,40 +36,10 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
     form = DeduplicationSetGroupSettingsForm
     readonly_fields = ("reference_pk", "name", "deduplication_sets")
     search_fields = ("reference_pk", "name")
-    fieldsets = (
-        (
-            None,
-            {
-                "fields": ("reference_pk", "name", "deduplication_sets"),
-            },
-        ),
-        (
-            "Face Detection Settings",
-            {
-                "fields": ("detector_backend", "face_detection_confidence_threshold"),
-            },
-        ),
-        (
-            "Recognition Settings",
-            {
-                "fields": ("recognition_model", "distance_metric", "duplicate_confidence_threshold"),
-            },
-        ),
-        (
-            "Image Quality Settings",
-            {
-                "fields": (
-                    "face_coverage_threshold",
-                    "sharpness_threshold",
-                    "dynamic_range_threshold",
-                    "no_head_cover_threshold",
-                    "eyes_open_threshold",
-                    "inter_eye_distance_threshold",
-                    "unified_quality_score_threshold",
-                ),
-            },
-        ),
-    )
+    fieldsets = _build_fieldsets()
+
+    def get_form(self, request: HttpRequest, obj: DeduplicationSetGroup | None = None, **kwargs):
+        return DeduplicationSetGroupSettingsForm
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

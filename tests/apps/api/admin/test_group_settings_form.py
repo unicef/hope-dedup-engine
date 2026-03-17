@@ -9,12 +9,12 @@ VALID_FORM_DATA = {
     "face_detection_confidence_threshold": 0.8,
     "face_coverage_threshold": 0.1,
     "duplicate_confidence_threshold": 0.6,
-    "sharpness_threshold": 40,
-    "dynamic_range_threshold": 30,
-    "no_head_cover_threshold": 50,
-    "eyes_open_threshold": 60,
-    "inter_eye_distance_threshold": 70,
-    "unified_quality_score_threshold": 80,
+    "sharpness_threshold": 0.4,
+    "dynamic_range_threshold": 0.3,
+    "no_head_cover_threshold": 0.5,
+    "eyes_open_threshold": 0.6,
+    "inter_eye_distance_threshold": 0.7,
+    "unified_quality_score_threshold": 0.8,
 }
 
 
@@ -22,13 +22,13 @@ VALID_FORM_DATA = {
 def test_form_populates_initial_from_settings(deduplication_set_group_factory):
     """__init__ sets field initials from instance.settings."""
     group = deduplication_set_group_factory()
-    group.settings = {"recognition_model": "ArcFace", "sharpness_threshold": 55}
+    group.settings = {"recognition_model": "ArcFace", "sharpness_threshold": 0.55}
     group.save()
 
     form = DeduplicationSetGroupSettingsForm(instance=group)
 
     assert form.fields["recognition_model"].initial == "ArcFace"
-    assert form.fields["sharpness_threshold"].initial == 55
+    assert form.fields["sharpness_threshold"].initial == 0.55
 
 
 @pytest.mark.django_db
@@ -41,8 +41,8 @@ def test_form_save_writes_all_fields_to_settings(deduplication_set_group_factory
     saved = form.save()
 
     assert saved.settings["recognition_model"] == "Facenet512"
-    assert saved.settings["sharpness_threshold"] == 40
-    assert saved.settings["eyes_open_threshold"] == 60
+    assert saved.settings["sharpness_threshold"] == 0.4
+    assert saved.settings["eyes_open_threshold"] == 0.6
     assert saved.settings["duplicate_confidence_threshold"] == 0.6
 
 
@@ -51,8 +51,8 @@ def test_form_save_writes_all_fields_to_settings(deduplication_set_group_factory
     [
         ("face_detection_confidence_threshold", 1.5),
         ("face_detection_confidence_threshold", -0.1),
-        ("sharpness_threshold", 101),
-        ("sharpness_threshold", -1),
+        ("sharpness_threshold", 1.5),
+        ("sharpness_threshold", -0.1),
         ("recognition_model", "UnknownModel"),
         ("detector_backend", "unknown_backend"),
         ("recognition_model", ""),
@@ -61,7 +61,7 @@ def test_form_save_writes_all_fields_to_settings(deduplication_set_group_factory
     ids=[
         "confidence_above_1",
         "confidence_below_0",
-        "sharpness_above_100",
+        "sharpness_above_1",
         "sharpness_below_0",
         "invalid_recognition_model",
         "invalid_detector_backend",

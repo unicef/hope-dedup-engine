@@ -44,8 +44,9 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredReferencePkPairSerializer,
     EncodingSerializer,
     EncodingReferencePks,
+    GroupSettingsSerializer,
 )
-from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
@@ -387,3 +388,51 @@ class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)
+
+
+class DeduplicationSetGroupConfigView(viewsets.ViewSet):
+    authentication_classes = (HDETokenAuthentication,)
+    permission_classes = (IsAuthenticated, CanUseApi)
+    serializer_class = GroupSettingsSerializer
+
+    def _api_field_names(self) -> list[str]:
+        return [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+
+    def _get_settings_for_response(self, group: DeduplicationSetGroup | None) -> dict[str, Any]:
+        defaults = get_default_group_settings()
+        if group and group.settings:
+            defaults.update(group.settings)
+        return {k: defaults[k] for k in self._api_field_names() if k in defaults}
+
+    @extend_schema(
+        responses=GroupSettingsSerializer,
+        description="Get quality threshold settings for a deduplication set group.",
+    )
+    def retrieve(self, request: Request, reference_pk: str) -> Response:
+        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, system=request.auth.system).first()
+        return Response(self._get_settings_for_response(group))
+
+    @extend_schema(
+        request=GroupSettingsSerializer,
+        responses=GroupSettingsSerializer,
+        description="Create or update quality threshold settings for a deduplication set group.",
+    )
+    def update(self, request: Request, reference_pk: str) -> Response:
+        serializer = GroupSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        group, created = DeduplicationSetGroup.objects.get_or_create(
+            reference_pk=reference_pk,
+            system=request.auth.system,
+            defaults={"settings": get_default_group_settings()},
+        )
+
+        if not group.settings:
+            group.settings = get_default_group_settings()
+
+        for key, value in serializer.validated_data.items():
+            group.settings[key] = value
+
+        group.save(update_fields=["settings"])
+
+        return Response(self._get_settings_for_response(group))

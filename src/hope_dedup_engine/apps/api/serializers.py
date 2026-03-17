@@ -3,7 +3,7 @@ from typing import Any
 
 from django_celery_boost.models import CeleryTaskModel
 from rest_framework import serializers
-
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
@@ -165,3 +165,16 @@ class EmptySerializer(serializers.Serializer):
 class EncodingReferencePks(serializers.Serializer):
     action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
     reference_pks = serializers.ListField(child=serializers.CharField(), required=True)
+
+
+class GroupSettingsSerializer(serializers.Serializer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for f in DeduplicationSetConfig.setting_fields(api=True):
+            meta = f.metadata
+            self.fields[f.name] = serializers.FloatField(
+                min_value=meta["min_value"],
+                max_value=meta["max_value"],
+                required=False,
+                help_text=meta["help_text"],
+            )

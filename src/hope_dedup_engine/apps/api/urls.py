@@ -19,6 +19,7 @@ from hope_dedup_engine.apps.api.const import (
 )
 from hope_dedup_engine.apps.api.views import (
     BulkEncodingViewSet,
+    DeduplicationSetGroupConfigView,
     DeduplicationSetViewSet,
     DuplicateViewSet,
     IgnoredFilenamePairViewSet,
@@ -40,9 +41,16 @@ deduplication_sets_router.register(
     basename=IGNORED_REFERENCE_PK_LIST,
 )
 
+group_config_view = DeduplicationSetGroupConfigView.as_view({"get": "retrieve", "post": "update"})
+
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(deduplication_sets_router.urls)),
+    path(
+        "deduplication_set_groups/config/<str:reference_pk>/",
+        group_config_view,
+        name="deduplication_set_group_config",
+    ),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/rest/redoc/",

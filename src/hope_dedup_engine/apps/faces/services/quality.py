@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from ofiq import FaceDetectionError
 from ofiq import OFIQ
 
@@ -10,18 +11,9 @@ import cv2
 
 if TYPE_CHECKING:
     from numpy import ndarray
-    from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+
 
 logger = logging.getLogger(__name__)
-
-QUALITY_THRESHOLDS: dict[str, str] = {
-    "sharpness_threshold": "Sharpness",
-    "dynamic_range_threshold": "DynamicRange",
-    "no_head_cover_threshold": "NoHeadCoverings",
-    "eyes_open_threshold": "EyesOpen",
-    "inter_eye_distance_threshold": "InterEyeDistance",
-    "unified_quality_score_threshold": "UnifiedQualityScore",
-}
 
 
 @dataclass
@@ -35,9 +27,9 @@ class QualityCheckResult:
 def get_active_thresholds(config: DeduplicationSetConfig) -> dict[str, float]:
     """Extract non-zero OFIQ thresholds from config, mapped to OFIQ metric names."""
     return {
-        ofiq_name: threshold
-        for config_key, ofiq_name in QUALITY_THRESHOLDS.items()
-        if (threshold := getattr(config, config_key, 0)) > 0
+        f.metadata["ofiq_metric"]: getattr(config, f.name)
+        for f in DeduplicationSetConfig.setting_fields()
+        if f.metadata.get("ofiq_metric") and getattr(config, f.name) > 0
     }
 
 
