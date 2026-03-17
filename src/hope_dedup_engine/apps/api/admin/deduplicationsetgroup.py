@@ -3,7 +3,6 @@ from typing import cast
 from admin_extra_buttons.api import choice, view
 from admin_extra_buttons.buttons import ChoiceButton
 from admin_extra_buttons.mixins import confirm_action
-from django.contrib import messages
 from django.contrib.admin import register, display
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
@@ -58,21 +57,6 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
-
-    def save_model(
-        self, request: HttpRequest, obj: DeduplicationSetGroup, form: DeduplicationSetGroupSettingsForm, change: bool
-    ) -> None:
-        if change and "recognition_model" in form.changed_data:
-            old_value = form.initial.get("recognition_model")
-            if old_value:
-                for ds in obj.deduplicationset_set.all():
-                    ds.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
-                    ds.finding_set.all().delete()
-                messages.warning(
-                    request,
-                    "Recognition model changed - all embeddings and findings have been cleared.",
-                )
-        super().save_model(request, obj, form, change)
 
     @display(description="Deduplication Sets")
     def deduplication_sets(self, obj: DeduplicationSetGroup) -> str:

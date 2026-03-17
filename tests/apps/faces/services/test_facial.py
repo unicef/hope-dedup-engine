@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -14,6 +14,7 @@ from hope_dedup_engine.apps.faces.services.facial import (
     find_duplicate_pairs,
     load_encodings,
 )
+from hope_dedup_engine.apps.faces.services.quality import QualityCheckResult
 
 MODEL_NAME = "model"
 DETECTOR_BACKEND = "backend"
@@ -572,7 +573,77 @@ def test_load_encodings_with_approved(deduplication_set_group_factory, deduplica
     assert all_filenames[1] == "approved.jpg"
 
 
-# --- find_duplicate_pairs ---------------------------------------------------------------------------
+def make_config_with_ofiq(sharpness: int = 50, **kwargs) -> DeduplicationSetConfig:
+    config = make_encode_config(fc_th=kwargs.get("fc_th", 0.9))
+    config.sharpness_threshold = sharpness
+    return config
+
+
+@pytest.mark.django_db
+def test_encode_faces_skips_ofiq_when_no_thresholds(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    mock_deepface.represent.return_value = [
+        {"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}
+    ]
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ") as mock_ofiq_cls:
+        encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config())
+
+    mock_ofiq_cls.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding == [1.0]
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_quality_passes_proceeds_to_deepface(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    mock_deepface.represent.return_value = [
+        {"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}
+    ]
+    quality_pass = QualityCheckResult(passed=True, scores={"Sharpness": 80.0})
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=quality_pass):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    encoding.refresh_from_db()
+    assert encoding.embedding == [1.0]
+    assert encoding.embedding_status_code is None
+    assert encoding.image_quality_scores == {"Sharpness": 80.0}
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_quality_fails_sets_bad_quality_status(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    quality_fail = QualityCheckResult(
+        passed=False,
+        face_detected=True,
+        scores={"Sharpness": 20.0},
+        failed_metrics={"Sharpness": 20.0},
+    )
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=quality_fail):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    mock_deepface.represent.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.BAD_IMAGE_QUALITY
+    assert encoding.image_quality_scores == {"Sharpness": 20.0}
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_no_face_detected_sets_no_face_status(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    no_face = QualityCheckResult(passed=False, face_detected=False, scores={})
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=no_face):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    mock_deepface.represent.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.NO_FACE_DETECTED
 
 
 @pytest.mark.django_db

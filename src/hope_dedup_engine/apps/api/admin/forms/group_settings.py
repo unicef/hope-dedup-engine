@@ -29,47 +29,47 @@ class DeduplicationSetGroupSettingsForm(forms.ModelForm):
         help_text="Metric for measuring similarity between face embeddings.",
     )
     face_detection_confidence_threshold = forms.FloatField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Minimum confidence score (0-1) for a detected face to be accepted.",
     )
     face_coverage_threshold = forms.FloatField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Minimum ratio of image area (0-1) that must be covered by the face.",
     )
     duplicate_confidence_threshold = forms.FloatField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Threshold on face match confidence (0-1) for treating pairs as duplicates.",
     )
     sharpness_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum sharpness score (0-100). 0 = disabled.",
     )
     dynamic_range_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum dynamic range score (0-100). 0 = disabled.",
     )
     no_head_cover_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum no-head-cover score (0-100). 0 = disabled.",
     )
     eyes_open_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum eyes-open score (0-100). 0 = disabled.",
     )
     inter_eye_distance_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum inter-eye distance score (0-100). 0 = disabled.",
     )
     unified_quality_score_threshold = forms.IntegerField(
-        required=False,
+        required=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Minimum unified quality score (0-100). 0 = disabled.",
     )
@@ -90,11 +90,7 @@ class DeduplicationSetGroupSettingsForm(forms.ModelForm):
         instance = super().save(commit=False)
         settings = instance.settings.copy() if instance.settings else {}
         for field_name in SETTINGS_FIELDS:
-            value = self.cleaned_data.get(field_name)
-            if value is not None and value != "":
-                settings[field_name] = value
-            elif field_name in settings:
-                del settings[field_name]
+            settings[field_name] = self.cleaned_data.get(field_name)
         instance.settings = settings
         if commit:
             instance.save()
