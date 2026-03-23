@@ -75,3 +75,31 @@ def test_form_validation_rejects_invalid_values(field, value):
     form = DeduplicationSetGroupSettingsForm(data=data)
     assert not form.is_valid()
     assert field in form.errors
+
+
+@pytest.mark.django_db
+def test_form_rejects_changes_when_embeddings_exist(
+    deduplication_set_group_factory, deduplication_set_factory, encoding_factory
+):
+    group = deduplication_set_group_factory()
+    group.settings = dict(VALID_FORM_DATA)
+    group.save()
+
+    ds = deduplication_set_factory(group=group)
+    encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
+
+    changed_data = {**VALID_FORM_DATA, "sharpness_threshold": 0.9}
+    form = DeduplicationSetGroupSettingsForm(data=changed_data, instance=group)
+    assert not form.is_valid()
+    assert "__all__" in form.errors
+
+
+@pytest.mark.django_db
+def test_form_allows_save_when_no_embeddings(deduplication_set_group_factory):
+    group = deduplication_set_group_factory()
+    group.settings = dict(VALID_FORM_DATA)
+    group.save()
+
+    changed_data = {**VALID_FORM_DATA, "sharpness_threshold": 0.9}
+    form = DeduplicationSetGroupSettingsForm(data=changed_data, instance=group)
+    assert form.is_valid(), form.errors

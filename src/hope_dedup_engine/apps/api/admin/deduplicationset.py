@@ -65,7 +65,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
             deduplication_set.finding_set.all().delete()
             job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
             job.queue()

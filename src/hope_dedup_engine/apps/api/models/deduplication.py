@@ -32,6 +32,15 @@ class DeduplicationSetGroup(models.Model):
     def __str__(self) -> str:
         return f"{self.name} ({self.reference_pk})"
 
+    def has_calculated_embeddings(self) -> bool:
+        return Encoding.objects.filter(
+            deduplication_set__group=self,
+            embedding__isnull=False,
+        ).exists()
+
+    def has_inactive_deduplication_sets(self) -> bool:
+        return self.deduplicationset_set.filter(state=DeduplicationSet.State.INACTIVE).exists()
+
 
 INACTIVE_STATE: Final[int] = 4
 

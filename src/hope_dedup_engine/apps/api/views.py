@@ -427,6 +427,12 @@ class DeduplicationSetGroupConfigView(viewsets.ViewSet):
             defaults={"settings": get_default_group_settings()},
         )
 
+        if not created and group.has_inactive_deduplication_sets():
+            return Response(
+                {"detail": "Cannot change settings while inactive deduplication sets exist."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         if not group.settings:
             group.settings = get_default_group_settings()
 
@@ -434,5 +440,11 @@ class DeduplicationSetGroupConfigView(viewsets.ViewSet):
             group.settings[key] = value
 
         group.save(update_fields=["settings"])
+
+        if not created and group.has_calculated_embeddings():
+            for ds in group.deduplicationset_set.all():
+                ds.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+                ds.finding_set.all().delete()
+                MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
 
         return Response(self._get_settings_for_response(group))

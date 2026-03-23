@@ -1,9 +1,12 @@
+from unittest.mock import patch
+
 import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 
 URL_NAME = "deduplication_set_group_config"
@@ -96,3 +99,48 @@ def test_post_rejects_out_of_range_value(api_client: APIClient):
 def test_post_anonymous_is_rejected(anonymous_api_client: APIClient):
     response = anonymous_api_client.post(config_url("any-ref"), data={"sharpness_threshold": 0.5}, format=JSON)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+def test_post_blocked_when_inactive_dedup_set_exists(
+    api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
+):
+    group = deduplication_set_group_factory(system=hde_token.system)
+    group.settings = get_default_group_settings()
+    group.save()
+    deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
+
+    response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+@pytest.mark.django_db
+@patch("hope_dedup_engine.apps.api.views.MainJob.objects.create")
+def test_post_clears_embeddings_and_triggers_reencoding(
+    mock_create,
+    api_client: APIClient,
+    hde_token,
+    deduplication_set_group_factory,
+    deduplication_set_factory,
+    encoding_factory,
+    finding_factory,
+):
+    mock_job = mock_create.return_value
+    group = deduplication_set_group_factory(system=hde_token.system)
+    group.settings = get_default_group_settings()
+    group.save()
+
+    ds = deduplication_set_factory(group=group)
+    encoding = encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
+    finding_factory(deduplication_set=ds, first_encoding=encoding)
+
+    response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+    assert response.status_code == status.HTTP_200_OK
+
+    encoding.refresh_from_db()
+    assert encoding.embedding is None
+    assert ds.finding_set.count() == 0
+
+    mock_create.assert_called_once()
+    assert mock_create.call_args.kwargs["encode_only"] is True
+    mock_job.queue.assert_called_once()

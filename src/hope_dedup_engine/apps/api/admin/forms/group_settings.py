@@ -34,6 +34,14 @@ class DeduplicationSetGroupSettingsForm(forms.ModelForm):
             if f.name in settings:
                 self.fields[f.name].initial = settings[f.name]
 
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean()
+        if self.instance.pk and self.has_changed() and self.instance.has_calculated_embeddings():
+            raise forms.ValidationError(
+                "Cannot change settings while deduplication sets have calculated embeddings. Clear embeddings first."
+            )
+        return cleaned
+
     def save(self, commit: bool = True) -> DeduplicationSetGroup:
         instance = super().save(commit=False)
         settings = instance.settings.copy() if instance.settings else {}
