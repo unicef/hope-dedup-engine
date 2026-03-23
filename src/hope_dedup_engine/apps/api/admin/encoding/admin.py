@@ -77,11 +77,10 @@ class EncodingAdmin(BaseModelAdmin):
         "deduplication_set",
         "reference_pk",
         "filename_pretty",
-        "state",
         "embedding_status_code",
         "face_coverage",
         "created_at",
-        "image_quality_scores",
+        "image_quality_scores_sorted",
     )
 
     list_filter = (
@@ -98,6 +97,13 @@ class EncodingAdmin(BaseModelAdmin):
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
         return inline_label(obj.filename)
+
+    @display(description="Image quality scores")
+    def image_quality_scores_sorted(self, obj: Encoding) -> str:
+        if not obj.image_quality_scores:
+            return "-"
+        sorted_scores = dict(sorted(obj.image_quality_scores.items(), key=lambda x: x[1] if x[1] is not None else -1))
+        return str(sorted_scores)
 
     def has_add_permission(self, request):
         return False

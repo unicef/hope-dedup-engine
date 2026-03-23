@@ -249,7 +249,6 @@ def dedupe_all(
     embedding_dim = len(first_embedding)
 
     approved_qs = Encoding.objects.filter(
-        state=Encoding.State.APPROVED,
         deduplication_set__state=DeduplicationSet.State.INACTIVE,
         deduplication_set__group=deduplication_set.group,
         embedding__isnull=False,

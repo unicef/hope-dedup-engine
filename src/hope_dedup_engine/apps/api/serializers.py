@@ -162,9 +162,8 @@ class EmptySerializer(serializers.Serializer):
     pass
 
 
-class EncodingReferencePks(serializers.Serializer):
+class ApproveOrRejectSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
-    reference_pks = serializers.ListField(child=serializers.CharField(), required=True)
 
 
 class GroupSettingsSerializer(serializers.Serializer):

@@ -42,7 +42,9 @@ class DeduplicationSetGroup(models.Model):
         return self.deduplicationset_set.filter(state=DeduplicationSet.State.INACTIVE).exists()
 
 
+FAILED_STATE: Final[int] = 3
 INACTIVE_STATE: Final[int] = 4
+REJECTED_STATE: Final[int] = 5
 
 
 class DeduplicationSet(models.Model):
@@ -55,8 +57,9 @@ class DeduplicationSet(models.Model):
             "Modified",
         )  # Images are added to deduplication set, but not yet processed
         PROCESSING = 2, "Processing"  # deduplication set is being processed
-        FAILED = 3, "Failed"  # an error occurred
+        FAILED = FAILED_STATE, "Failed"  # an error occurred
         INACTIVE = INACTIVE_STATE, "Inactive"  # set cannot be modified but takes part in the deduplication process
+        REJECTED = REJECTED_STATE, "Rejected"
 
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
@@ -106,7 +109,7 @@ class DeduplicationSet(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["group"],
-                condition=~Q(state=INACTIVE_STATE),
+                condition=~Q(state=INACTIVE_STATE) & ~Q(state=REJECTED_STATE) & ~Q(state=FAILED_STATE),
                 name="unique_active_deduplication_set_per_group",
             ),
         ]
@@ -155,11 +158,6 @@ class EncodingManager(models.Manager["Encoding"]):
 class Encoding(models.Model):
     """# TODO: Enforce per-set uniqueness of identifiers (filename/reference_pk)."""
 
-    class State(models.IntegerChoices):
-        ACTIVE = 0, "Active"
-        APPROVED = 1, "Approved"
-        REJECTED = 2, "Rejected"
-
     class StatusCode(models.IntegerChoices):
         DEDUPLICATE_SUCCESS = 200, "deduplication success"
         FILE_NOT_FOUND = 404, "no file found"
@@ -171,7 +169,6 @@ class Encoding(models.Model):
         GENERIC_ERROR = 500, "generic error"
 
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
-    state = models.IntegerField(choices=State, default=State.ACTIVE, help_text="Encoding state.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
     filename = models.TextField(help_text="Filename or data URL used in encoding.")

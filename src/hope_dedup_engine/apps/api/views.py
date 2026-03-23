@@ -43,7 +43,7 @@ from hope_dedup_engine.apps.api.serializers import (
     IgnoredFilenamePairSerializer,
     IgnoredReferencePkPairSerializer,
     EncodingSerializer,
-    EncodingReferencePks,
+    ApproveOrRejectSerializer,
     GroupSettingsSerializer,
 )
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
@@ -54,7 +54,7 @@ def get_active_deduplication_sets(request: Request) -> QuerySet[DeduplicationSet
     return cast(
         "QuerySet[DeduplicationSet]",
         DeduplicationSet.objects.filter(group__system=request.auth.system, group__deleted=False).exclude(
-            state=DeduplicationSet.State.INACTIVE
+            state__in=[DeduplicationSet.State.INACTIVE, DeduplicationSet.State.REJECTED]
         ),
     )
 
@@ -123,30 +123,26 @@ class DeduplicationSetViewSet(
         return Response({"message": "started"})
 
     @extend_schema(
-        request=EncodingReferencePks,
+        request=ApproveOrRejectSerializer,
         responses=EmptySerializer,
         description="Approve deduplication set or individual records",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def approve_or_reject(self, request: Request, group__reference_pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
-        serializer = EncodingReferencePks(data=request.data)
+        serializer = ApproveOrRejectSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             action_ = serializer.validated_data["action"]
-            reference_pks = serializer.validated_data["reference_pks"]
 
-            encodings = deduplication_set.encoding_set.filter(reference_pk__in=reference_pks)
-            other_encodings = deduplication_set.encoding_set.exclude(reference_pk__in=reference_pks)
             if action_ == "approve":
-                encodings.update(state=Encoding.State.APPROVED)
-                other_encodings.update(state=Encoding.State.REJECTED)
+                deduplication_set.state = DeduplicationSet.State.INACTIVE
             else:
-                encodings.update(state=Encoding.State.REJECTED)
-                other_encodings.update(state=Encoding.State.APPROVED)
+                deduplication_set.state = DeduplicationSet.State.REJECTED
 
-            deduplication_set.state = DeduplicationSet.State.INACTIVE
             deduplication_set.updated_by = self.request.user
-            deduplication_set.save()
+            deduplication_set.save(
+                update_fields=["state", "updated_by"],
+            )
 
         return Response({"message": "ok"})
 

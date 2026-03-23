@@ -44,8 +44,6 @@ def check_image_quality(
         scores = ofiq.vector_quality(image_rgb)
     except FaceDetectionError:
         return QualityCheckResult(passed=False, face_detected=False)
-    else:
-        scores = dict(sorted(scores.items(), key=lambda x: x[1] if x[1] is not None else -1))
 
     passed = all(
         (actual := scores.get(metric_name)) is not None and actual >= min_score

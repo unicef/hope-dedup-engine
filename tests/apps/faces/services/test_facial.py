@@ -433,30 +433,27 @@ def test_dedupe_all_with_ignored_pairs(
 
 
 @pytest.mark.django_db
-def test_dedupe_all_with_approved_encodings(
+def test_dedupe_all_with_inactive_set_encodings(
     deduplication_set_group_factory,
     deduplication_set_factory,
     encoding_factory,
     mock_deepface_verification,
     mock_dedup_config,
 ):
-    """Test dedupe_all includes approved encodings from inactive sets in the same group."""
+    """Test dedupe_all includes encodings from inactive sets in the same group."""
     mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
     mock_find_threshold.return_value = 0.68
     mock_find_confidence.return_value = 85.0
 
     group = deduplication_set_group_factory()
 
-    # Create inactive set with approved encodings
     inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    approved_enc = encoding_factory(
+    inactive_enc = encoding_factory(
         deduplication_set=inactive_ds,
-        filename="approved.jpg",
+        filename="inactive.jpg",
         embedding=[0.1] * 512,
-        state=Encoding.State.APPROVED,
     )
 
-    # Create current deduplication set
     current_ds = deduplication_set_factory(group=group)
     current_enc = encoding_factory(
         deduplication_set=current_ds,
@@ -466,18 +463,17 @@ def test_dedupe_all_with_approved_encodings(
 
     mock_find_distance.return_value = np.array(
         [
-            [0.0, 0.2],  # current_enc vs [current, approved]
+            [0.0, 0.2],  # current_enc vs [current, inactive]
         ]
     )
 
     count = dedupe_all(current_ds, mock_dedup_config)
 
-    # Should create 1 finding: current vs approved
     assert count == 1
     assert current_ds.finding_set.count() == 1
     finding = current_ds.finding_set.first()
     assert finding.first_encoding_id == current_enc.id
-    assert finding.second_encoding_id == approved_enc.id
+    assert finding.second_encoding_id == inactive_enc.id
     assert finding.score == 0.85
 
 
@@ -536,16 +532,15 @@ def test_load_encodings_current_only(deduplication_set_factory, encoding_factory
 
 
 @pytest.mark.django_db
-def test_load_encodings_with_approved(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
-    """Test load_encodings includes approved encodings from inactive sets."""
+def test_load_encodings_with_inactive_set(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
+    """Test load_encodings includes encodings from inactive sets."""
     group = deduplication_set_group_factory()
 
     inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    approved_enc = encoding_factory(
+    inactive_enc = encoding_factory(
         deduplication_set=inactive_ds,
-        filename="approved.jpg",
+        filename="inactive.jpg",
         embedding=[0.3] * 512,
-        state=Encoding.State.APPROVED,
     )
 
     current_ds = deduplication_set_factory(group=group)
@@ -556,21 +551,20 @@ def test_load_encodings_with_approved(deduplication_set_group_factory, deduplica
     )
 
     current_qs = current_ds.encoding_set.filter(embedding__isnull=False).order_by("id")
-    approved_qs = Encoding.objects.filter(
-        state=Encoding.State.APPROVED,
+    inactive_qs = Encoding.objects.filter(
         deduplication_set__state=DeduplicationSet.State.INACTIVE,
         deduplication_set__group=group,
         embedding__isnull=False,
     ).order_by("id")
 
-    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, 512, 1000)
+    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, inactive_qs, 512, 1000)
 
     assert all_emb.shape == (2, 512)
     assert n_current == 1
     assert all_ids[0] == current_enc.id
-    assert all_ids[1] == approved_enc.id
+    assert all_ids[1] == inactive_enc.id
     assert all_filenames[0] == "current.jpg"
-    assert all_filenames[1] == "approved.jpg"
+    assert all_filenames[1] == "inactive.jpg"
 
 
 def make_config_with_ofiq(sharpness: int = 50, **kwargs) -> DeduplicationSetConfig:
