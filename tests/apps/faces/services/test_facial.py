@@ -619,7 +619,6 @@ def test_encode_faces_ofiq_quality_fails_sets_bad_quality_status(mock_deepface, 
         passed=False,
         face_detected=True,
         scores={"Sharpness": 20.0},
-        failed_metrics={"Sharpness": 20.0},
     )
 
     with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):

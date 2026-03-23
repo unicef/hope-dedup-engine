@@ -81,6 +81,7 @@ class EncodingAdmin(BaseModelAdmin):
         "embedding_status_code",
         "face_coverage",
         "created_at",
+        "image_quality_scores",
     )
 
     list_filter = (

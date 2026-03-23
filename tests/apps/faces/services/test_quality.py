@@ -78,8 +78,7 @@ def test_check_image_quality_passes(mock_cvt, mock_ofiq, sample_bgr_image):
 
     assert result.passed is True
     assert result.face_detected is True
-    assert result.failed_metrics == {}
-    assert result.scores == {"Sharpness": 80.0, "EyesOpen": 90.0}
+    assert result.scores == {"Sharpness": 0.8, "EyesOpen": 0.9}
 
 
 @patch("hope_dedup_engine.apps.faces.services.quality.cv2.cvtColor")
@@ -91,7 +90,6 @@ def test_check_image_quality_fails_below_threshold(mock_cvt, mock_ofiq, sample_b
 
     assert result.passed is False
     assert result.face_detected is True
-    assert result.failed_metrics == {"Sharpness": 30.0}
 
 
 @patch("hope_dedup_engine.apps.faces.services.quality.cv2.cvtColor")
@@ -102,7 +100,6 @@ def test_check_image_quality_missing_metric(mock_cvt, mock_ofiq, sample_bgr_imag
     result = check_image_quality(mock_ofiq, sample_bgr_image, {"Sharpness": 50})
 
     assert result.passed is False
-    assert result.failed_metrics == {"Sharpness": -1.0}
 
 
 @patch("hope_dedup_engine.apps.faces.services.quality.cv2.cvtColor")

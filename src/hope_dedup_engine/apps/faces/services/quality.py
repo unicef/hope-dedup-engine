@@ -21,7 +21,6 @@ class QualityCheckResult:
     passed: bool
     face_detected: bool = True
     scores: dict[str, float | None] = field(default_factory=dict)
-    failed_metrics: dict[str, float] = field(default_factory=dict)
 
 
 def get_active_thresholds(config: DeduplicationSetConfig) -> dict[str, float]:
@@ -45,15 +44,15 @@ def check_image_quality(
         scores = ofiq.vector_quality(image_rgb)
     except FaceDetectionError:
         return QualityCheckResult(passed=False, face_detected=False)
+    else:
+        scores = dict(sorted(scores.items(), key=lambda x: x[1] if x[1] is not None else -1))
 
-    failed = {}
-    for metric_name, min_score in thresholds.items():
-        actual = scores.get(metric_name)
-        if actual is None or actual < min_score:
-            failed[metric_name] = actual if actual is not None else -1.0
+    passed = all(
+        (actual := scores.get(metric_name)) is not None and actual >= min_score
+        for metric_name, min_score in thresholds.items()
+    )
 
     return QualityCheckResult(
-        passed=len(failed) == 0,
-        scores=scores,
-        failed_metrics=failed,
+        passed=passed,
+        scores={key: value / 100 if value else value for key, value in scores.items()},
     )
