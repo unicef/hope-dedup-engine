@@ -12,7 +12,7 @@ from django.urls import reverse
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup, Finding
 from hope_dedup_engine.apps.core.permissions import can
 
 CATEGORY_LABELS = {
@@ -83,11 +83,16 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
                 deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
                 deduplication_set.finding_set.all().delete()
 
+        findings_count = Finding.objects.filter(deduplication_set__group=group).count()
+        message = "Do you confirm to clear all embeddings for all Deduplication Sets in this group?"
+        if findings_count:
+            message += f"\n\nWARNING: {findings_count} existing finding(s) across all sets will also be deleted."
+
         return confirm_action(
             modeladmin=self,
             request=request,
             action=_action,
-            message="Do you confirm to clear all embeddings for all Deduplication Sets in this group?",
+            message=message,
         )
 
     @choice(label="Findings", change_form=True, change_list=False)
