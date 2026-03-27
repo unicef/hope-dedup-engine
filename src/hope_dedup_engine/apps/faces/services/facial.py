@@ -169,7 +169,6 @@ def find_duplicate_pairs(  # noqa
     all_ids: list,
     all_filenames: list,
     n_current: int,
-    ignored_pairs: set,
     config: DeduplicationSetConfig,
     chunk_size: int,
 ) -> list[tuple[int, int, float]]:
@@ -196,9 +195,6 @@ def find_duplicate_pairs(  # noqa
             global_r = start + r
 
             if c < n_current and global_r >= c:
-                continue
-
-            if frozenset([all_filenames[global_r], all_filenames[c]]) in ignored_pairs:
                 continue
 
             distance = float(distances[r, c])
@@ -240,9 +236,7 @@ def dedupe_all(
 
     all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, embedding_dim, chunk_size)
 
-    ignored_pairs = deduplication_set.get_ignored_pairs()
-
-    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, ignored_pairs, config, chunk_size)
+    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, config, chunk_size)
 
     if duplicates:
         config_snapshot = config.as_dict()

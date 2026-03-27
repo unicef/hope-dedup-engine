@@ -7,8 +7,6 @@ from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConf
 from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet, HDEToken
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
     Encoding,
     DeduplicationSetGroup,
 )
@@ -109,24 +107,6 @@ class FindingFactory(DjangoModelFactory):
             if self.score == 0
             else Encoding.StatusCode.DEDUPLICATE_SUCCESS.value
         )
-
-
-class IgnoredFilenamePairFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-    first = fuzzy.FuzzyText()
-    second = fuzzy.FuzzyText()
-
-    class Meta:
-        model = IgnoredFilenamePair
-
-
-class IgnoredReferencePkPairFactory(DjangoModelFactory):
-    deduplication_set = SubFactory(DeduplicationSetFactory)
-    first = fuzzy.FuzzyText()
-    second = fuzzy.FuzzyText()
-
-    class Meta:
-        model = IgnoredReferencePkPair
 
 
 class DedupJobFactory(DjangoModelFactory):

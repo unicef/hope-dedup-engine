@@ -1,5 +1,5 @@
 import traceback
-from typing import Any, Final, override
+from typing import Any, Final
 from uuid import uuid4
 
 from django.conf import settings
@@ -128,15 +128,6 @@ class DeduplicationSet(models.Model):
     def encodings_without_embeddings(self) -> QuerySet["Encoding"]:
         return self.encoding_set.filter(embedding__isnull=True).exclude(
             embedding_status_code__in=EncodingErrorGroup.FACE_DETECT + EncodingErrorGroup.IMAGE_QUALITY
-        )
-
-    def get_ignored_pairs(self) -> set[frozenset[str]]:
-        return set(
-            map(
-                frozenset,
-                tuple(self.ignoredreferencepkpair_set.values_list("first", "second"))
-                + tuple(self.ignoredfilenamepair_set.values_list("first", "second")),
-            )
         )
 
     def set_state(self, state: State, error: Exception | None = None) -> None:
@@ -282,44 +273,3 @@ class Finding(models.Model):
         first = inline_label(self.first_encoding.filename)
         second = inline_label(self.second_encoding.filename) if self.second_encoding else "—"
         return f"Finding({first}, {second})"
-
-
-class IgnoredPair(models.Model):
-    deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
-
-    class Meta:
-        abstract = True
-
-    @override
-    def save(self, **kwargs: Any) -> None:
-        self.first, self.second = sorted((self.first, self.second))
-        super().save(**kwargs)
-
-
-UNIQUE_FOR_IGNORED_PAIR = (
-    "deduplication_set",
-    "first",
-    "second",
-)
-
-
-class IgnoredReferencePkPair(IgnoredPair):
-    first = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="First reference pk.")
-    second = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="Second reference pk.")
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_ref_pair")]
-
-    def __str__(self) -> str:
-        return f"IgnoredReferencePkPair({self.first}, {self.second})"
-
-
-class IgnoredFilenamePair(IgnoredPair):
-    first = models.CharField(max_length=FILENAME_LENGTH, help_text="First filename.")
-    second = models.CharField(max_length=FILENAME_LENGTH, help_text="Second filename.")
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=UNIQUE_FOR_IGNORED_PAIR, name="unique_ignored_filename_pair")]
-
-    def __str__(self) -> str:
-        return f"IgnoredFilenamePair({self.first}, {self.second})"

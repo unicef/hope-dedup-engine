@@ -356,38 +356,6 @@ def test_dedupe_all_respects_distance_threshold(
 
 
 @pytest.mark.django_db
-def test_dedupe_all_with_ignored_pairs(
-    deduplication_set_factory,
-    encoding_factory,
-    ignored_filename_pair_factory,
-    mock_deepface_verification,
-    mock_dedup_config,
-):
-    """Test dedupe_all respects ignored pairs."""
-    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
-    mock_find_threshold.return_value = 0.68
-    mock_find_confidence.return_value = 90.0
-
-    ds = deduplication_set_factory()
-    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
-    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
-    ignored_filename_pair_factory(deduplication_set=ds, first="file1.jpg", second="file2.jpg")
-
-    mock_find_distance.return_value = np.array(
-        [
-            [0.0, 0.2],
-            [0.2, 0.0],
-        ]
-    )
-
-    count = dedupe_all(ds, mock_dedup_config)
-
-    # No findings because the pair is ignored
-    assert count == 0
-    assert ds.finding_set.count() == 0
-
-
-@pytest.mark.django_db
 def test_dedupe_all_with_inactive_set_encodings(
     deduplication_set_group_factory,
     deduplication_set_factory,
@@ -608,38 +576,11 @@ def test_find_duplicate_pairs_returns_matches(mock_deepface_verification, mock_d
     mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
 
     duplicates = find_duplicate_pairs(
-        all_emb, all_ids, all_filenames, n_current=2, ignored_pairs=set(), config=mock_dedup_config, chunk_size=1000
+        all_emb, all_ids, all_filenames, n_current=2, config=mock_dedup_config, chunk_size=1000
     )
 
     assert len(duplicates) == 1
     assert duplicates[0] == (1, 2, 75.0)
-
-
-@pytest.mark.django_db
-def test_find_duplicate_pairs_skips_ignored(mock_deepface_verification, mock_dedup_config):
-    """Test find_duplicate_pairs skips ignored pairs."""
-    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
-    mock_find_threshold.return_value = 0.68
-    mock_find_confidence.return_value = 75.0
-
-    all_emb = np.array([[0.1] * 512, [0.2] * 512], dtype=np.float32)
-    all_ids = [1, 2]
-    all_filenames = ["file1.jpg", "file2.jpg"]
-    ignored_pairs = {frozenset(["file1.jpg", "file2.jpg"])}
-
-    mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
-
-    duplicates = find_duplicate_pairs(
-        all_emb,
-        all_ids,
-        all_filenames,
-        n_current=2,
-        ignored_pairs=ignored_pairs,
-        config=mock_dedup_config,
-        chunk_size=1000,
-    )
-
-    assert len(duplicates) == 0
 
 
 @pytest.mark.django_db
@@ -656,7 +597,7 @@ def test_find_duplicate_pairs_skips_below_confidence(mock_deepface_verification,
     mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
 
     duplicates = find_duplicate_pairs(
-        all_emb, all_ids, all_filenames, n_current=2, ignored_pairs=set(), config=mock_dedup_config, chunk_size=1000
+        all_emb, all_ids, all_filenames, n_current=2, config=mock_dedup_config, chunk_size=1000
     )
 
     assert len(duplicates) == 0

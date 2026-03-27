@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any, cast
 
-from django.db.models import QuerySet, Model, Count
+from django.db.models import QuerySet, Count
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -25,8 +25,6 @@ from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
     Encoding,
 )
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
@@ -34,14 +32,10 @@ from hope_dedup_engine.apps.api.models.jobs import MainJob
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
-    CreateIgnoredFilenamePairSerializer,
-    CreateIgnoredReferencePkPairSerializer,
     CreateEncodingSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
-    IgnoredFilenamePairSerializer,
-    IgnoredReferencePkPairSerializer,
     EncodingSerializer,
     ApproveOrRejectSerializer,
     GroupSettingsSerializer,
@@ -327,63 +321,6 @@ class DuplicateViewSet(
     )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
-
-
-class IgnoredPairViewSet[T: Model](
-    UseGroupReferencePkMixin,
-    nested_viewsets.NestedViewSetMixin[T],
-    mixins.ListModelMixin,
-    mixins.CreateModelMixin,
-    viewsets.GenericViewSet,
-):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,
-    }
-
-    def perform_create(self, serializer: Serializer) -> None:
-        super().perform_create(serializer)
-        deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.MODIFIED
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
-
-
-class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
-    serializer_class = IgnoredFilenamePairSerializer
-    queryset = IgnoredFilenamePair.objects.all()
-
-    @extend_schema(description="List all ignored filename pairs for the deduplication set")
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        request=CreateIgnoredFilenamePairSerializer,
-        description="Add ignored filename pair for the deduplication set",
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
-
-
-class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
-    serializer_class = IgnoredReferencePkPairSerializer
-    queryset = IgnoredReferencePkPair.objects.all()
-
-    @extend_schema(description="List all ignored reference pk pairs for the deduplication set")
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        request=CreateIgnoredReferencePkPairSerializer,
-        description="Add ignored reference pk pair for the deduplication set",
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
 
 
 class DeduplicationSetGroupConfigView(viewsets.ViewSet):

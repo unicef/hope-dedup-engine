@@ -13,8 +13,6 @@ from hope_dedup_engine.apps.api.const import (
     DEDUPLICATION_SET,
     DEDUPLICATION_SET_LIST,
     DUPLICATE_LIST,
-    IGNORED_FILENAME_LIST,
-    IGNORED_REFERENCE_PK_LIST,
     ENCODING_LIST,
 )
 from hope_dedup_engine.apps.api.views import (
@@ -22,8 +20,6 @@ from hope_dedup_engine.apps.api.views import (
     DeduplicationSetGroupConfigView,
     DeduplicationSetViewSet,
     DuplicateViewSet,
-    IgnoredFilenamePairViewSet,
-    IgnoredReferencePkPairViewSet,
     EncodingViewSet,
 )
 
@@ -34,12 +30,6 @@ deduplication_sets_router = nested_routers.NestedSimpleRouter(router, DEDUPLICAT
 deduplication_sets_router.register(ENCODING_LIST, EncodingViewSet, basename=ENCODING_LIST)
 deduplication_sets_router.register(BULK_ENCODING_LIST, BulkEncodingViewSet, basename=BULK_ENCODING_LIST)
 deduplication_sets_router.register(DUPLICATE_LIST, DuplicateViewSet, basename=DUPLICATE_LIST)
-deduplication_sets_router.register(IGNORED_FILENAME_LIST, IgnoredFilenamePairViewSet, basename=IGNORED_FILENAME_LIST)
-deduplication_sets_router.register(
-    IGNORED_REFERENCE_PK_LIST,
-    IgnoredReferencePkPairViewSet,
-    basename=IGNORED_REFERENCE_PK_LIST,
-)
 
 group_config_view = DeduplicationSetGroupConfigView.as_view({"get": "retrieve", "post": "update"})
 

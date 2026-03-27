@@ -7,8 +7,6 @@ from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConf
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
     Encoding,
     MainJob,
 )
@@ -128,34 +126,6 @@ class DuplicateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Finding
         fields = "first", "second", "score", "status_code", "config", "updated_at"
-
-
-CREATE_PAIR_FIELDS = "first", "second"
-PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
-
-
-class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredReferencePkPair
-        fields = PAIR_FIELDS
-
-
-class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredReferencePkPair
-        fields = CREATE_PAIR_FIELDS
-
-
-class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredFilenamePair
-        fields = PAIR_FIELDS
-
-
-class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredFilenamePair
-        fields = CREATE_PAIR_FIELDS
 
 
 class EmptySerializer(serializers.Serializer):
