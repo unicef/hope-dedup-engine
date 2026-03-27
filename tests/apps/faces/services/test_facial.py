@@ -183,10 +183,15 @@ def test_encode_faces_deepface_outcomes(
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9))
+    config = make_encode_config(fc_th=0.9)
+    encode_faces(encoding.deduplication_set, [encoding.id], config)
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == expected_status.value
+
+    finding = encoding.deduplication_set.finding_set.first()
+    assert finding is not None
+    assert finding.config == config.as_dict()
 
 
 @pytest.mark.django_db
@@ -221,6 +226,11 @@ def mock_dedup_config():
     config.recognition_model = "Facenet512"
     config.distance_metric = "cosine"
     config.duplicate_confidence_threshold = 50.0
+    config.as_dict.return_value = {
+        "recognition_model": "Facenet512",
+        "distance_metric": "cosine",
+        "duplicate_confidence_threshold": 50.0,
+    }
     return config
 
 
@@ -286,6 +296,7 @@ def test_dedupe_all_finds_duplicates(
     finding = ds.finding_set.first()
     assert finding.score == 0.75  # 75.0 / 100
     assert finding.status_code == Encoding.StatusCode.DEDUPLICATE_SUCCESS
+    assert finding.config == mock_dedup_config.as_dict()
 
 
 @pytest.mark.django_db

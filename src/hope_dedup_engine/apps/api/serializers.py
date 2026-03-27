@@ -127,7 +127,7 @@ class DuplicateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Finding
-        fields = "first", "second", "score", "status_code", "updated_at"
+        fields = "first", "second", "score", "status_code", "config", "updated_at"
 
 
 CREATE_PAIR_FIELDS = "first", "second"

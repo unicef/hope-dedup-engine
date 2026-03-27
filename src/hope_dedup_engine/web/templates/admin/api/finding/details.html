@@ -26,6 +26,8 @@
         <br />
         Score: <span class="finding-details__value">{{ finding.score }}</span>&nbsp;·&nbsp;
         Status code: <span class="finding-details__value">{{ status_label }}</span>
+        <br />
+        Config at creation: <span class="finding-details__value">{{ finding.config|default:"-" }}</span>
     </p>
     <div class="finding-details__images">
         {% if first_image_url %}

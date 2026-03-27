@@ -251,6 +251,11 @@ class Finding(models.Model):
     status_code = models.IntegerField(
         choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS, help_text="Finding status code."
     )
+    config = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Snapshot of the deduplication settings active when this finding was created.",
+    )
     created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this finding was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="Date and time when this finding was updated.")
 

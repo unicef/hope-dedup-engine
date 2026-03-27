@@ -26,6 +26,7 @@ def test_can_list_duplicates(api_client: APIClient, deduplication_set: Deduplica
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data.get("results")) == 1
+    assert "config" in data["results"][0]
 
 
 def test_cannot_list_duplicates_between_systems(

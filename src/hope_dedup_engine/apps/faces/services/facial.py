@@ -69,6 +69,7 @@ def encode_faces(
 ) -> None:
     storage = ImagesStorageManager()
     active_thresholds = get_active_thresholds(config)
+    config_snapshot = config.as_dict()
 
     ofiq = None
     if active_thresholds:
@@ -120,6 +121,7 @@ def encode_faces(
                     defaults={
                         "score": 0,
                         "status_code": encoding.embedding_status_code,
+                        "config": config_snapshot,
                     },
                 )
 
@@ -243,6 +245,7 @@ def dedupe_all(
     duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, ignored_pairs, config, chunk_size)
 
     if duplicates:
+        config_snapshot = config.as_dict()
         findings = [
             Finding(
                 deduplication_set=deduplication_set,
@@ -250,6 +253,7 @@ def dedupe_all(
                 second_encoding_id=second_id,
                 score=confidence / 100,
                 status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+                config=config_snapshot,
             )
             for first_id, second_id, confidence in duplicates
         ]
@@ -258,7 +262,7 @@ def dedupe_all(
             findings,
             update_conflicts=True,
             unique_fields=["deduplication_set", "first_encoding", "second_encoding"],
-            update_fields=["score", "status_code", "updated_at"],
+            update_fields=["score", "status_code", "config", "updated_at"],
         )
 
     return len(duplicates)

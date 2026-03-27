@@ -141,6 +141,9 @@ class DeduplicationSetConfig:
 
     align: bool = True
 
+    def as_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
     @classmethod
     def setting_fields(cls, **filters: Any) -> list[dataclasses.Field]:
         """Return dataclass fields whose metadata matches all given key=value filters."""
