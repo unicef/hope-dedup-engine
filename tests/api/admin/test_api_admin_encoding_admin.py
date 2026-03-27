@@ -1,3 +1,4 @@
+import pytest
 from django.contrib.admin import AdminSite
 from django.test import RequestFactory
 from pytest_mock import MockerFixture
@@ -13,6 +14,43 @@ from hope_dedup_engine.apps.api.admin.encoding.admin import (
 )
 from hope_dedup_engine.apps.api.admin.encoding.utils.process import Finding
 from hope_dedup_engine.apps.api.models import Encoding
+
+
+@pytest.mark.parametrize(
+    "scores, expected",
+    [
+        (None, "N/A"),
+        ({}, "N/A"),
+        (
+            {"Sharpness": 80.0, "DynamicRange": 50.0, "Contrast": 90.0},
+            str({"DynamicRange": 50.0, "Sharpness": 80.0, "Contrast": 90.0}),
+        ),
+        (
+            {"Sharpness": 80.0, "DynamicRange": None, "Contrast": 90.0},
+            str({"DynamicRange": None, "Sharpness": 80.0, "Contrast": 90.0}),
+        ),
+        (
+            {"Only": 42.0},
+            str({"Only": 42.0}),
+        ),
+        (
+            {"A": None, "B": None},
+            str({"A": None, "B": None}),
+        ),
+    ],
+    ids=[
+        "none_scores",
+        "empty_scores",
+        "sorted_by_value_ascending",
+        "none_values_sorted_first",
+        "single_score",
+        "all_none_values",
+    ],
+)
+def test_image_quality_scores_sorted(scores: dict | None, expected: str, mocker: MockerFixture) -> None:
+    encoding = mocker.Mock(spec=Encoding, image_quality_scores=scores)
+    admin = EncodingAdmin(Encoding, AdminSite())
+    assert admin.image_quality_scores_sorted(encoding) == expected
 
 
 def test_prepare_detection_results() -> None:

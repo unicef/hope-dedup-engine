@@ -4,6 +4,8 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     DeduplicationSetConfig,
     get_default_group_settings,
 )
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from testutils.factories.api import DeduplicationSetFactory
 
 
 @pytest.mark.django_db
@@ -13,18 +15,41 @@ def test_get_default_group_settings_contains_all_setting_fields():
     assert set(result.keys()) == expected_keys
 
 
-@pytest.mark.django_db
-def test_from_deduplication_set_uses_group_settings(deduplication_set_factory):
-    ds = deduplication_set_factory()
-    ds.group.settings = {
-        "recognition_model": "ArcFace",
-        "detector_backend": "ssd",
-        "distance_metric": "euclidean",
-        "face_detection_confidence_threshold": 0.8,
-    }
-    ds.group.save()
+@pytest.fixture
+def ds_with_model_settings(db) -> DeduplicationSet:
+    return DeduplicationSetFactory.create(
+        group__settings={
+            "recognition_model": "ArcFace",
+            "detector_backend": "ssd",
+            "distance_metric": "euclidean",
+            "face_detection_confidence_threshold": 0.8,
+        }
+    )
 
-    config = DeduplicationSetConfig.from_deduplication_set(ds)
+
+@pytest.fixture
+def ds_with_duplicate_confidence_settings(db) -> DeduplicationSet:
+    return DeduplicationSetFactory.create(group__settings={"duplicate_confidence_threshold": 0.65})
+
+
+@pytest.fixture
+def ds_with_ofiq_settings(db) -> DeduplicationSet:
+    return DeduplicationSetFactory.create(group__settings={"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7})
+
+
+@pytest.fixture
+def ds_with_empty_settings(db) -> DeduplicationSet:
+    return DeduplicationSetFactory.create(group__settings={})
+
+
+@pytest.fixture
+def ds_default(db) -> DeduplicationSet:
+    return DeduplicationSetFactory.create()
+
+
+@pytest.mark.django_db
+def test_from_deduplication_set_uses_group_settings(ds_with_model_settings: DeduplicationSet):
+    config = DeduplicationSetConfig.from_deduplication_set(ds_with_model_settings)
 
     assert config.recognition_model == "ArcFace"
     assert config.detector_backend == "ssd"
@@ -33,35 +58,23 @@ def test_from_deduplication_set_uses_group_settings(deduplication_set_factory):
 
 
 @pytest.mark.django_db
-def test_from_deduplication_set_scales_duplicate_confidence(deduplication_set_factory):
-    ds = deduplication_set_factory()
-    ds.group.settings = {"duplicate_confidence_threshold": 0.65}
-    ds.group.save()
-
-    config = DeduplicationSetConfig.from_deduplication_set(ds)
+def test_from_deduplication_set_scales_duplicate_confidence(ds_with_duplicate_confidence_settings: DeduplicationSet):
+    config = DeduplicationSetConfig.from_deduplication_set(ds_with_duplicate_confidence_settings)
 
     assert config.duplicate_confidence_threshold == pytest.approx(65.0)
 
 
 @pytest.mark.django_db
-def test_from_deduplication_set_scales_ofiq_thresholds(deduplication_set_factory):
-    ds = deduplication_set_factory()
-    ds.group.settings = {"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7}
-    ds.group.save()
-
-    config = DeduplicationSetConfig.from_deduplication_set(ds)
+def test_from_deduplication_set_scales_ofiq_thresholds(ds_with_ofiq_settings: DeduplicationSet):
+    config = DeduplicationSetConfig.from_deduplication_set(ds_with_ofiq_settings)
 
     assert config.sharpness_threshold == pytest.approx(50.0)
     assert config.eyes_open_threshold == pytest.approx(70.0)
 
 
 @pytest.mark.django_db
-def test_from_deduplication_set_falls_back_to_constance_defaults(deduplication_set_factory):
-    ds = deduplication_set_factory()
-    ds.group.settings = {}
-    ds.group.save()
-
-    config = DeduplicationSetConfig.from_deduplication_set(ds)
+def test_from_deduplication_set_falls_back_to_constance_defaults(ds_with_empty_settings: DeduplicationSet):
+    config = DeduplicationSetConfig.from_deduplication_set(ds_with_empty_settings)
     default_config = DeduplicationSetConfig()
 
     assert config.recognition_model == default_config.recognition_model
@@ -70,10 +83,9 @@ def test_from_deduplication_set_falls_back_to_constance_defaults(deduplication_s
 
 
 @pytest.mark.django_db
-def test_from_deduplication_set_stores_pk(deduplication_set_factory):
-    ds = deduplication_set_factory()
-    config = DeduplicationSetConfig.from_deduplication_set(ds)
-    assert config.deduplication_set_id == ds.pk
+def test_from_deduplication_set_stores_pk(ds_default: DeduplicationSet):
+    config = DeduplicationSetConfig.from_deduplication_set(ds_default)
+    assert config.deduplication_set_id == ds_default.pk
 
 
 def test_setting_fields_filters_by_metadata():
