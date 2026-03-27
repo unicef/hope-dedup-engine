@@ -97,6 +97,11 @@ class DeduplicationSet(models.Model):
         default=True, help_text="Whether to send notifications about deduplication set state changes."
     )
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True, help_text="Error message.")
+    log = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Append-only audit log of encoding/deduplication attempts.",
+    )
 
     class Meta:
         permissions = [

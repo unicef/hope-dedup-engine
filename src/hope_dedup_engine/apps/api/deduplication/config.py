@@ -142,7 +142,10 @@ class DeduplicationSetConfig:
     align: bool = True
 
     def as_dict(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
+        d = dataclasses.asdict(self)
+        if isinstance(d.get("deduplication_set_id"), UUID):
+            d["deduplication_set_id"] = str(d["deduplication_set_id"])
+        return d
 
     @classmethod
     def setting_fields(cls, **filters: Any) -> list[dataclasses.Field]:

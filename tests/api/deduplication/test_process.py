@@ -40,6 +40,14 @@ def test_find_duplicates_full_process(
     assert result["encodings_processed"] == 2
     assert result["findings_created"] == 5
 
+    assert len(dedup_set.log) == 1
+    log_entry = dedup_set.log[0]
+    assert log_entry["action"] == "deduplicate"
+    assert log_entry["encodings_processed"] == 2
+    assert log_entry["findings_created"] == 5
+    assert log_entry["config"] is not None
+    assert "error" not in log_entry
+
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
@@ -64,6 +72,10 @@ def test_find_duplicates_encode_only(
     mock_dedupe_all.assert_not_called()
     assert result["findings_created"] == 0
 
+    assert len(dedup_set.log) == 1
+    assert dedup_set.log[0]["action"] == "encode"
+    assert "error" not in dedup_set.log[0]
+
 
 @patch("sentry_sdk.capture_exception")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
@@ -85,6 +97,11 @@ def test_find_duplicates_exception(
     dedup_set.refresh_from_db()
     assert dedup_set.state == DeduplicationSet.State.FAILED
     mock_capture_exception.assert_called()
+
+    assert len(dedup_set.log) == 1
+    log_entry = dedup_set.log[0]
+    assert "error" in log_entry
+    assert log_entry["config"] is None
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.find_duplicates.apply_async")

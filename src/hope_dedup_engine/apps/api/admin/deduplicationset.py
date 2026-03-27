@@ -41,6 +41,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         "created_by",
         "updated_at",
         "updated_by",
+        "log",
     )
     search_fields = (
         "name",
