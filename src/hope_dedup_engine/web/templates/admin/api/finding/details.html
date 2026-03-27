@@ -37,9 +37,6 @@
                     <br />
                     reference:
                     <span class="finding-details__value">{{ finding.first_encoding.reference_pk }}</span>
-                    <br />
-                    face coverage:
-                    <span class="finding-details__value">{{ finding.first_encoding.face_coverage|default:"-" }}</span>
                 </figcaption>
             </figure>
         {% endif %}
@@ -52,9 +49,6 @@
                     <br />
                     reference:
                     <span class="finding-details__value">{{ finding.second_encoding.reference_pk }}</span>
-                    <br />
-                    face coverage:
-                    <span class="finding-details__value">{{ finding.second_encoding.face_coverage|default:"-" }}</span>
                 </figcaption>
             </figure>
         {% endif %}

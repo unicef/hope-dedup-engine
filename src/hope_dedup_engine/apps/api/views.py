@@ -439,7 +439,7 @@ class DeduplicationSetGroupConfigView(viewsets.ViewSet):
 
         if not created and group.has_calculated_embeddings():
             for ds in group.deduplicationset_set.all():
-                ds.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+                ds.encoding_set.update(embedding=None, embedding_status_code=None)
                 ds.finding_set.all().delete()
                 MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
 

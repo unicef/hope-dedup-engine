@@ -7,7 +7,6 @@ VALID_FORM_DATA = {
     "detector_backend": "retinaface",
     "distance_metric": "cosine",
     "face_detection_confidence_threshold": 0.8,
-    "face_coverage_threshold": 0.1,
     "duplicate_confidence_threshold": 0.6,
     "sharpness_threshold": 0.4,
     "dynamic_range_threshold": 0.3,

@@ -71,14 +71,13 @@ def prepare_deduplication_results(thresholds: list[float], grouped_findings: lis
 
 @register(Encoding)
 class EncodingAdmin(BaseModelAdmin):
-    list_display = ("id", "reference_pk", "filename_pretty", "deduplication_set", "face_coverage", "created_at")
+    list_display = ("id", "reference_pk", "filename_pretty", "deduplication_set", "created_at")
 
     readonly_fields = fields = (
         "deduplication_set",
         "reference_pk",
         "filename_pretty",
         "embedding_status_code",
-        "face_coverage",
         "created_at",
         "image_quality_scores_sorted",
     )

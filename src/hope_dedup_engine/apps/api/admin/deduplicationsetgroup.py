@@ -80,7 +80,7 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
 
         def _action(_: HttpRequest) -> HttpResponse:
             for deduplication_set in group.deduplicationset_set.all():
-                deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+                deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
                 deduplication_set.finding_set.all().delete()
 
         return confirm_action(

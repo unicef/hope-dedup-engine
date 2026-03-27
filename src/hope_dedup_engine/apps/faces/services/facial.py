@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 from ofiq import OFIQ
@@ -29,24 +29,13 @@ logger = logging.getLogger(__name__)
 Embedding = list[float]
 
 
-def face_coverage_ratio(*, fa: Mapping[str, Any], img_w: int, img_h: int) -> float:
-    if (img_box := float(img_w) * float(img_h)) <= 0.0:
-        return 0.0
-    if (w := float(fa.get("w") or 0.0)) <= 0.0 or (h := float(fa.get("h") or 0.0)) <= 0.0:
-        return 0.0
-    return (w * h) / img_box
-
-
-def encode_face(  # noqa: PLR0911, PLR0913
+def encode_face(
     data: ndarray,
     face_confidence_threshold: float,
-    face_coverage_threshold: float,
     model_name: str,
     detector_backend: str,
     align: bool,
-) -> tuple[Embedding | None, Encoding.StatusCode | None, float | None]:
-    # we use max_faces=2 not to waste time searching for more faces than we need
-    # we use enforce_detection=False not to raise exception when no face found
+) -> tuple[Embedding | None, Encoding.StatusCode | None]:
     result = DeepFace.represent(
         data,
         max_faces=2,
@@ -58,25 +47,19 @@ def encode_face(  # noqa: PLR0911, PLR0913
 
     match result:
         case []:
-            return None, Encoding.StatusCode.NO_FACE_DETECTED, None
+            return None, Encoding.StatusCode.NO_FACE_DETECTED
         case [_, _, *_]:
-            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED, None
+            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
         case [face]:
             match fc := float(face.get("face_confidence") or 0.0):
                 case 0.0:
-                    return None, Encoding.StatusCode.NO_FACE_DETECTED, None
+                    return None, Encoding.StatusCode.NO_FACE_DETECTED
                 case _ if fc < face_confidence_threshold:
-                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED, None
+                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
                 case _:
-                    if not (fa := face.get("facial_area")):
-                        return None, Encoding.StatusCode.GENERIC_ERROR, None
-                    coverage_raw = face_coverage_ratio(fa=fa, img_w=data.shape[1], img_h=data.shape[0])
-                    coverage = round(coverage_raw, 4)
-                    if coverage_raw < face_coverage_threshold:
-                        return None, Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE, coverage
-                    return face["embedding"], None, coverage
+                    return face["embedding"], None
 
-    return None, Encoding.StatusCode.GENERIC_ERROR, None
+    return None, Encoding.StatusCode.GENERIC_ERROR
 
 
 def encode_faces(
@@ -113,10 +96,9 @@ def encode_faces(
                         encoding.embedding_status_code = Encoding.StatusCode.BAD_IMAGE_QUALITY
 
                 if encoding.embedding_status_code is None:
-                    encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
+                    encoding.embedding, encoding.embedding_status_code = encode_face(
                         image_data,
                         config.face_detection_confidence_threshold,
-                        config.face_coverage_threshold,
                         config.recognition_model,
                         config.detector_backend,
                         config.align,
@@ -128,7 +110,7 @@ def encode_faces(
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage", "image_quality_scores"])
+            encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
 
             if encoding.embedding_status_code is not None:
                 Finding.objects.update_or_create(

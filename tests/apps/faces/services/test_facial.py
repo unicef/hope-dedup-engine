@@ -10,7 +10,6 @@ from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_all,
     encode_face,
     encode_faces,
-    face_coverage_ratio,
     find_duplicate_pairs,
     load_encodings,
 )
@@ -24,13 +23,11 @@ IMG_SIDE = 300
 
 def make_encode_config(
     fc_th: float = 0.1,
-    cov_th: float = 0.0,
 ) -> DeduplicationSetConfig:
     return DeduplicationSetConfig(
         recognition_model=MODEL_NAME,
         detector_backend=DETECTOR_BACKEND,
         face_detection_confidence_threshold=fc_th,
-        face_coverage_threshold=cov_th,
         duplicate_confidence_threshold=50.0,
         sharpness_threshold=0,
         dynamic_range_threshold=0,
@@ -44,10 +41,6 @@ def make_encode_config(
 
 def fa(*, w: int, h: int, x: int = 0, y: int = 0) -> dict[str, int]:
     return {"x": x, "y": y, "w": w, "h": h}
-
-
-def cov(*, w: int, h: int, side: int = IMG_SIDE) -> float:
-    return round((w * h) / (side * side), 4)
 
 
 @pytest.fixture
@@ -74,12 +67,11 @@ def mock_storage(mocker, sample_image):
 def call_encode_face(mock_deepface, sample_image):
     """Call encode_face with a configurable DeepFace.represent return value."""
 
-    def _call(represent_return, *, fc_th: float = 0.1, cov_th: float = 0.0):
+    def _call(represent_return, *, fc_th: float = 0.1):
         mock_deepface.represent.return_value = represent_return
         return encode_face(
             sample_image,
             face_confidence_threshold=fc_th,
-            face_coverage_threshold=cov_th,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
             align=ALIGN,
@@ -88,63 +80,31 @@ def call_encode_face(mock_deepface, sample_image):
     return _call
 
 
-# --- face_coverage_ratio -------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("fa_", "img_w", "img_h", "expected"),
-    [
-        ({"w": 10, "h": 10}, 100, 100, 0.01),
-        ({"w": 0, "h": 10}, 100, 100, 0.0),
-        ({"w": 10, "h": 10}, 0, 100, 0.0),
-    ],
-    ids=["normal_case", "zero_width_face", "zero_image_width"],
-)
-def test_face_coverage_ratio(fa_, img_w, img_h, expected):
-    """Test face_coverage_ratio computes bbox/image area ratio."""
-    assert face_coverage_ratio(fa=fa_, img_w=img_w, img_h=img_h) == pytest.approx(expected)
-
-
 # --- encode_face ----------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("represent_return", "fc_th", "cov_th", "exp_embedding", "exp_status", "exp_coverage"),
+    ("represent_return", "fc_th", "exp_embedding", "exp_status"),
     [
-        ([], 0.1, 0.0, None, Encoding.StatusCode.NO_FACE_DETECTED, None),
-        (None, 0.1, 0.0, None, Encoding.StatusCode.GENERIC_ERROR, None),
+        ([], 0.1, None, Encoding.StatusCode.NO_FACE_DETECTED),
+        (None, 0.1, None, Encoding.StatusCode.GENERIC_ERROR),
         (
             [{"embedding": [1.0], "face_confidence": 0.0, "facial_area": fa(w=10, h=10)}],
             0.1,
-            0.0,
             None,
             Encoding.StatusCode.NO_FACE_DETECTED,
-            None,
         ),
         (
             [{"embedding": [1.0], "face_confidence": 0.05, "facial_area": fa(w=10, h=10)}],
             0.1,
-            0.0,
             None,
             Encoding.StatusCode.FACE_NOT_ACCEPTED,
-            None,
-        ),
-        ([{"embedding": [1.0], "face_confidence": 0.99}], 0.1, 0.0, None, Encoding.StatusCode.GENERIC_ERROR, None),
-        (
-            [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=10, h=10)}],
-            0.1,
-            0.05,
-            None,
-            Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
-            cov(w=10, h=10),
         ),
         (
             [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}],
             0.1,
-            0.0,
             [1.0],
             None,
-            pytest.approx(cov(w=120, h=170)),
         ),
     ],
     ids=[
@@ -152,19 +112,14 @@ def test_face_coverage_ratio(fa_, img_w, img_h, expected):
         "generic_error",
         "no_face_detected_zero_confidence",
         "face_not_accepted",
-        "generic_error_no_facial_area",
-        "insufficient_face_coverage",
         "successful_encoding",
     ],
 )
-def test_encode_face_outcomes(
-    call_encode_face, represent_return, fc_th, cov_th, exp_embedding, exp_status, exp_coverage
-):
-    """Test encode_face status/coverage outcomes across represent shapes and thresholds."""
-    embedding, status, coverage = call_encode_face(represent_return, fc_th=fc_th, cov_th=cov_th)
+def test_encode_face_outcomes(call_encode_face, represent_return, fc_th, exp_embedding, exp_status):
+    """Test encode_face status outcomes across represent shapes and thresholds."""
+    embedding, status_code = call_encode_face(represent_return, fc_th=fc_th)
     assert embedding == exp_embedding
-    assert status == exp_status
-    assert coverage == exp_coverage
+    assert status_code == exp_status
 
 
 # --- encode_faces ----------------------------------------------------------------------------------
@@ -182,7 +137,7 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
         [{"embedding": [2.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}],
     ]
 
-    encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1, cov_th=0.0))
+    encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1))
 
     encoding0.refresh_from_db()
     encoding1.refresh_from_db()
@@ -192,7 +147,7 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
 
 
 @pytest.mark.parametrize(
-    ("represent_kwargs", "coverage_th", "expected_status"),
+    ("represent_kwargs", "expected_status"),
     [
         (
             {
@@ -201,25 +156,16 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
                     {"embedding": [2.0], "face_confidence": 0.5},
                 ]
             },
-            0.0,
             Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
         ),
-        ({"side_effect": TypeError("generic error")}, 0.0, Encoding.StatusCode.GENERIC_ERROR),
+        ({"side_effect": TypeError("generic error")}, Encoding.StatusCode.GENERIC_ERROR),
         (
             {"return_value": [{"embedding": [1.0], "face_confidence": 0.0, "facial_area": fa(w=10, h=10)}]},
-            0.0,
             Encoding.StatusCode.NO_FACE_DETECTED,
         ),
         (
             {"return_value": [{"embedding": [1.0], "face_confidence": 0.3, "facial_area": fa(w=10, h=10)}]},
-            0.0,
             Encoding.StatusCode.FACE_NOT_ACCEPTED,
-        ),
-        ({"return_value": [{"embedding": [1.0], "face_confidence": 0.99}]}, 0.0, Encoding.StatusCode.GENERIC_ERROR),
-        (
-            {"return_value": [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=10, h=10)}]},
-            0.05,
-            Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
         ),
     ],
     ids=[
@@ -227,19 +173,17 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
         "generic_error",
         "no_face_detected",
         "face_not_accepted",
-        "generic_error_no_facial_area",
-        "insufficient_face_coverage",
     ],
 )
 @pytest.mark.django_db
 def test_encode_faces_deepface_outcomes(
-    mock_deepface, mock_storage, encoding_factory, represent_kwargs, coverage_th, expected_status
+    mock_deepface, mock_storage, encoding_factory, represent_kwargs, expected_status
 ):
     """Test encode_faces persists status codes for represent outcomes."""
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9, cov_th=coverage_th))
+    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9))
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == expected_status.value
@@ -251,7 +195,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9, cov_th=0.0))
+    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9))
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
@@ -567,8 +511,8 @@ def test_load_encodings_with_inactive_set(deduplication_set_group_factory, dedup
     assert all_filenames[1] == "inactive.jpg"
 
 
-def make_config_with_ofiq(sharpness: int = 50, **kwargs) -> DeduplicationSetConfig:
-    config = make_encode_config(fc_th=kwargs.get("fc_th", 0.9))
+def make_config_with_ofiq(sharpness: int = 50, fc_th: float = 0.9) -> DeduplicationSetConfig:
+    config = make_encode_config(fc_th=fc_th)
     config.sharpness_threshold = sharpness
     return config
 

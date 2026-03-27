@@ -163,7 +163,6 @@ class Encoding(models.Model):
         FILE_NOT_FOUND = 404, "no file found"
         NO_FACE_DETECTED = 412, "no face detected"
         FACE_NOT_ACCEPTED = 416, "face was detected but did not meet confidence threshold"
-        INSUFFICIENT_FACE_COVERAGE = 417, "face does not cover sufficient part of the image"
         BAD_IMAGE_QUALITY = 418, "image quality below threshold"
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
@@ -175,12 +174,6 @@ class Encoding(models.Model):
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
         choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
-    )
-    face_coverage = models.FloatField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-        help_text="Face bbox area divided by image area (0..1).",
     )
     image_quality_scores = models.JSONField(
         null=True,
@@ -225,7 +218,6 @@ class EncodingErrorGroup:
     FACE_DETECT = (
         Encoding.StatusCode.FACE_NOT_ACCEPTED,
         Encoding.StatusCode.NO_FACE_DETECTED,
-        Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
         Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
     )
     IMAGE_QUALITY = (Encoding.StatusCode.BAD_IMAGE_QUALITY,)

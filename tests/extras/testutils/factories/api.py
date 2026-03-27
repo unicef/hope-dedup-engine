@@ -157,5 +157,4 @@ class DeduplicationSetConfigFactory(Factory):
     detector_backend = fuzzy.FuzzyChoice(["retinaface", "mtcnn"])
     distance_metric = fuzzy.FuzzyChoice(["cosine", "euclidean"])
     face_detection_confidence_threshold = fuzzy.FuzzyFloat(0.5, 0.99)
-    face_coverage_threshold = fuzzy.FuzzyFloat(0.1, 0.5)
     duplicate_confidence_threshold = fuzzy.FuzzyFloat(30.0, 80.0)

@@ -76,14 +76,6 @@ class DeduplicationSetConfig:
             help_text="Minimum confidence score (0-1) for a detected face to be accepted.",
         ),
     )
-    face_coverage_threshold: float = field(
-        default_factory=lambda: constance_cfg.DEFAULT_FACE_COVERAGE_THRESHOLD,
-        metadata=_meta(
-            category="quality",
-            api=True,
-            help_text="Minimum ratio of image area (0-1) that must be covered by the face.",
-        ),
-    )
     duplicate_confidence_threshold: float = field(
         default_factory=lambda: constance_cfg.DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD * 100,
         metadata=_meta(
