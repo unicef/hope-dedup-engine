@@ -38,8 +38,6 @@ def _append_log(  # noqa
     if error:
         entry["error"] = "".join(traceback.format_exception(error))
 
-    if not isinstance(ds.log, list):
-        ds.log = []
     ds.log.append(entry)
     ds.save(update_fields=["log"])
 
