@@ -266,7 +266,10 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         try:
             group.update_settings(serializer.validated_data)
         except GroupSettingsError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "The provided group settings are invalid."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})
