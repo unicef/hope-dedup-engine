@@ -35,8 +35,8 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     )
     readonly_fields = (
         "id",
-        "state",
         "group",
+        "error",
         "created_at",
         "created_by",
         "updated_at",
@@ -66,8 +66,16 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
+            group = deduplication_set.group
+            if not group.acquire_processing_lock():
+                self.message_user(request, "Another task is already running for this group.", messages.ERROR)
+                return None
+
             deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
             deduplication_set.finding_set.all().delete()
+            deduplication_set.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
+            deduplication_set.error = None
+            deduplication_set.save(update_fields=["state", "error"])
             job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
             job.queue()
 
@@ -88,6 +96,14 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
+            group = deduplication_set.group
+            if not group.acquire_processing_lock():
+                self.message_user(request, "Another task is already running for this group.", messages.ERROR)
+                return None
+
+            deduplication_set.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
+            deduplication_set.error = None
+            deduplication_set.save(update_fields=["state", "error"])
             job = MainJob.objects.create(deduplication_set=deduplication_set)
             job.queue()
 

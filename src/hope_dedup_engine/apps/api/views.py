@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any, cast
 
+from django.db import transaction
 from django.db.models import QuerySet, Count
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
@@ -10,17 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
-from rest_framework_nested import viewsets as nested_viewsets
 
 from hope_dedup_engine.apps.api.auth import (
     CanUseApi,
     HDETokenAuthentication,
-    HasAccessToDeduplicationSet,
 )
-from hope_dedup_engine.apps.api.const import (
-    DEDUPLICATION_SET_GROUP_FILTER,
-    DEDUPLICATION_SET_GROUP_PARAM,
-)
+from django_filters.rest_framework import DjangoFilterBackend
+
 from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
@@ -36,8 +32,6 @@ from hope_dedup_engine.apps.api.serializers import (
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
-    EncodingSerializer,
-    ApproveOrRejectSerializer,
     GroupSettingsSerializer,
 )
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
@@ -48,13 +42,9 @@ def get_active_deduplication_sets(request: Request) -> QuerySet[DeduplicationSet
     return cast(
         "QuerySet[DeduplicationSet]",
         DeduplicationSet.objects.filter(group__system=request.auth.system, group__deleted=False).exclude(
-            state__in=[DeduplicationSet.State.INACTIVE, DeduplicationSet.State.REJECTED]
+            state=DeduplicationSet.State.APPROVED,
         ),
     )
-
-
-def get_deduplication_set(request: Request, group_reference_pk: str) -> DeduplicationSet:
-    return get_active_deduplication_sets(request).get(group__reference_pk=group_reference_pk)
 
 
 class DeduplicationSetViewSet(
@@ -65,13 +55,9 @@ class DeduplicationSetViewSet(
     viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
+    permission_classes = (IsAuthenticated, CanUseApi)
     serializer_class = DeduplicationSetSerializer
-    lookup_field = "group__reference_pk"
+    lookup_field = "pk"
 
     def get_queryset(self) -> QuerySet["DeduplicationSet"]:
         return (
@@ -99,45 +85,54 @@ class DeduplicationSetViewSet(
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
         instance.updated_by = self.request.user
-        instance.group.deleted = True
-        instance.group.save()
-        instance.save()
+        instance.save(update_fields=["updated_by"])
         delete_model_data(instance)
 
     @extend_schema(
         request=EmptySerializer,
         responses=EmptySerializer,
-        description="Run duplicate search process for the deduplication set",
+        description="Run encoding and/or deduplication for the deduplication set",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
-    def process(self, request: Request, group__reference_pk: str | None = None) -> Response:
+    def process(self, request: Request, pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
+
+        if deduplication_set.state not in DeduplicationSet.PROCESSABLE_STATES:
+            return Response(
+                {"detail": f"Cannot process set in '{deduplication_set.get_state_display()}' state."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        group = deduplication_set.group
+        if not group.acquire_processing_lock():
+            return Response(
+                {"detail": "Another task is already running for this group."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS)
         job = MainJob.objects.create(deduplication_set=deduplication_set)
         job.queue()
         return Response({"message": "started"})
 
     @extend_schema(
-        request=ApproveOrRejectSerializer,
+        request=EmptySerializer,
         responses=EmptySerializer,
-        description="Approve deduplication set or individual records",
+        description="Reject the deduplication set findings",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
-    def approve_or_reject(self, request: Request, group__reference_pk: str | None = None) -> Response:
+    def reject(self, request: Request, pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
-        serializer = ApproveOrRejectSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            action_ = serializer.validated_data["action"]
 
-            if action_ == "approve":
-                deduplication_set.state = DeduplicationSet.State.INACTIVE
-            else:
-                deduplication_set.state = DeduplicationSet.State.REJECTED
-
-            deduplication_set.updated_by = self.request.user
-            deduplication_set.save(
-                update_fields=["state", "updated_by"],
+        if deduplication_set.state != DeduplicationSet.State.DEDUPLICATED:
+            return Response(
+                {"detail": f"Cannot reject set in '{deduplication_set.get_state_display()}' state."},
+                status=status.HTTP_409_CONFLICT,
             )
 
+        deduplication_set.set_state(DeduplicationSet.State.REJECTED)
+        deduplication_set.updated_by = self.request.user
+        deduplication_set.save(update_fields=["updated_by"])
         return Response({"message": "ok"})
 
     @extend_schema(description="List all deduplication sets available to the user")
@@ -160,197 +155,98 @@ class DeduplicationSetViewSet(
         return super().destroy(request, *args, **kwargs)
 
 
-class UseGroupReferencePkMixin:
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        if group_reference_pk := kwargs.get("deduplication_set_group__reference_pk"):
-            deduplication_set = get_deduplication_set(request, group_reference_pk)
-            if isinstance(request.data, list):
-                for i in request.data:
-                    i["deduplication_set"] = deduplication_set.pk
-            else:
-                request.data["deduplication_set"] = deduplication_set.pk
-
-        return super().create(request, *args, **kwargs)
-
-
-class EncodingViewSet(
-    UseGroupReferencePkMixin,
-    nested_viewsets.NestedViewSetMixin[Encoding],
-    mixins.ListModelMixin,
-    mixins.CreateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
-    serializer_class = EncodingSerializer
-    queryset = Encoding.objects.all()
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,
-    }
-
-    def get_serializer_class(self) -> type[Serializer]:
-        if self.action == "create":
-            return CreateEncodingSerializer
-        return super().get_serializer_class()
-
-    def perform_create(self, serializer: Serializer) -> None:
-        super().perform_create(serializer)
-        deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.MODIFIED
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
-
-    def perform_destroy(self, instance: Encoding) -> None:
-        deduplication_set = instance.deduplication_set
-        super().perform_destroy(instance)
-        deduplication_set.state = DeduplicationSet.State.MODIFIED
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
-
-    @extend_schema(description="List all images for the deduplication set")
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(request=CreateEncodingSerializer, description="Add image to the deduplication set")
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
-
-    @extend_schema(description="Delete image from the deduplication set")
-    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().destroy(request, *args, **kwargs)
-
-
-@dataclass
-class ListDataWrapper:
-    data: list[dict[str, Any]]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        for item in self.data:
-            item[key] = value
-
-
-class WrapRequestDataMixin:
-    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
-        super().initial(request, *args, **kwargs)
-        request._full_data = ListDataWrapper(request.data)
-
-
-class UnwrapRequestDataMixin:
-    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
-        super().initial(request, *args, **kwargs)
-        request._full_data = request._full_data.data
-
-
-# drf-nested-routers doesn't work correctly when request data is a list, so we use WrapRequestDataMixin,
-# UnwrapRequestDataMixin, and ListDataWrapper to make it work with list of objects
 class BulkEncodingViewSet(
-    UseGroupReferencePkMixin,
-    UnwrapRequestDataMixin,
-    nested_viewsets.NestedViewSetMixin[Encoding],
-    WrapRequestDataMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
-    serializer_class = EncodingSerializer
+    permission_classes = (IsAuthenticated, CanUseApi)
+    serializer_class = CreateEncodingSerializer
     queryset = Encoding.objects.all()
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,
-    }
+
+    def _get_deduplication_set(self) -> DeduplicationSet:
+        ds_pk = self.kwargs["deduplication_set_pk"]
+        return get_active_deduplication_sets(self.request).get(pk=ds_pk)
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
-        if self.action == "create":
-            return CreateEncodingSerializer(*args, **kwargs, many=True)
-        return super().get_serializer(*args, **kwargs, many=True)
+        return CreateEncodingSerializer(*args, **kwargs, many=True)
 
-    def perform_create(self, serializer: Serializer) -> None:
-        super().perform_create(serializer)
-        if deduplication_set := (serializer.instance[0].deduplication_set if serializer.instance else None):
-            deduplication_set.updated_by = self.request.user
-            deduplication_set.save()
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        deduplication_set = self._get_deduplication_set()
+
+        allowed = (DeduplicationSet.State.EMPTY, DeduplicationSet.State.UPLOADING_IN_PROGRESS)
+        if deduplication_set.state not in allowed:
+            return Response(
+                {"detail": f"Cannot upload images in '{deduplication_set.get_state_display()}' state."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if isinstance(request.data, list):
+            for item in request.data:
+                item["deduplication_set"] = deduplication_set.pk
+        else:
+            request.data["deduplication_set"] = deduplication_set.pk
+
+        response = super().create(request, *args, **kwargs)
+
+        is_last = request.query_params.get("last", "").lower() in ("true", "1")
+        if deduplication_set.state == DeduplicationSet.State.EMPTY:
+            target_state = DeduplicationSet.State.READY if is_last else DeduplicationSet.State.UPLOADING_IN_PROGRESS
+            deduplication_set.set_state(target_state)
+        elif is_last:
+            deduplication_set.set_state(DeduplicationSet.State.READY)
+
+        deduplication_set.updated_by = request.user
+        deduplication_set.save(update_fields=["updated_by"])
+        return response
 
     @extend_schema(description="Delete all images from deduplication set")
     @action(detail=False, methods=(HTTPMethod.DELETE,))
-    def clear(self, request: Request, deduplication_set_group__reference_pk: str) -> Response:
-        deduplication_set = get_deduplication_set(request, deduplication_set_group__reference_pk)
+    def clear(self, request: Request, deduplication_set_pk: str) -> Response:
+        deduplication_set = self._get_deduplication_set()
         Encoding.objects.filter(deduplication_set=deduplication_set).delete()
+        deduplication_set.state = DeduplicationSet.State.EMPTY
+        deduplication_set.error = None
         deduplication_set.updated_by = request.user
-        deduplication_set.save()
+        deduplication_set.save(update_fields=["state", "error", "updated_by"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @extend_schema(
-        request=CreateEncodingSerializer(many=True),
-        description="Add multiple images to the deduplication set",
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
 
+class DeduplicationSetGroupView(viewsets.ViewSet):
+    """Group-level endpoints used by HOPE (by group reference_pk) and for config management."""
 
-class DuplicateViewSet(
-    UseGroupReferencePkMixin,
-    nested_viewsets.NestedViewSetMixin[Finding],
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet,
-):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
-    serializer_class = DuplicateSerializer
-    queryset = Finding.objects.select_related("first_encoding", "second_encoding").order_by("-updated_at", "-id")
-    filterset_class = FindingFilter
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,
-    }
-    pagination_class = FindingResultsPagination
-
-    @extend_schema(
-        description="List all duplicates found in the deduplication set",
-    )
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
-
-
-class DeduplicationSetGroupConfigView(viewsets.ViewSet):
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (IsAuthenticated, CanUseApi)
-    serializer_class = GroupSettingsSerializer
+    lookup_field = "reference_pk"
 
-    def _api_field_names(self) -> list[str]:
-        return [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
-
-    def _get_settings_for_response(self, group: DeduplicationSetGroup | None) -> dict[str, Any]:
-        defaults = get_default_group_settings()
-        if group and group.settings:
-            defaults.update(group.settings)
-        return {k: defaults[k] for k in self._api_field_names() if k in defaults}
+    def _get_group(self, request: Request, reference_pk: str) -> DeduplicationSetGroup:
+        return DeduplicationSetGroup.objects.get(
+            reference_pk=reference_pk,
+            system=request.auth.system,
+            deleted=False,
+        )
 
     @extend_schema(
         responses=GroupSettingsSerializer,
         description="Get quality threshold settings for a deduplication set group.",
     )
-    def retrieve(self, request: Request, reference_pk: str) -> Response:
+    @action(detail=True, methods=(HTTPMethod.GET,), url_path="config")
+    def config_retrieve(self, request: Request, reference_pk: str) -> Response:
         group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, system=request.auth.system).first()
-        return Response(self._get_settings_for_response(group))
+        defaults = get_default_group_settings()
+        if group and group.settings:
+            defaults.update(group.settings)
+        api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+        return Response({k: defaults[k] for k in api_fields if k in defaults})
 
     @extend_schema(
         request=GroupSettingsSerializer,
         responses=GroupSettingsSerializer,
         description="Create or update quality threshold settings for a deduplication set group.",
     )
-    def update(self, request: Request, reference_pk: str) -> Response:
+    @transaction.atomic
+    @action(detail=True, methods=(HTTPMethod.POST,), url_path="config")
+    def config_update(self, request: Request, reference_pk: str) -> Response:
         serializer = GroupSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -360,9 +256,9 @@ class DeduplicationSetGroupConfigView(viewsets.ViewSet):
             defaults={"settings": get_default_group_settings()},
         )
 
-        if not created and group.has_inactive_deduplication_sets():
+        if not created and group.has_approved_deduplication_sets():
             return Response(
-                {"detail": "Cannot change settings while inactive deduplication sets exist."},
+                {"detail": "Cannot change settings while approved deduplication sets exist."},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -374,10 +270,75 @@ class DeduplicationSetGroupConfigView(viewsets.ViewSet):
 
         group.save(update_fields=["settings"])
 
-        if not created and group.has_calculated_embeddings():
-            for ds in group.deduplicationset_set.all():
+        if not created:
+            ds = (
+                group.deduplicationset_set.exclude(state=DeduplicationSet.State.APPROVED)
+                .order_by("-created_at")
+                .first()
+            )
+            if ds and ds.encodings_with_embeddings().exists():
                 ds.encoding_set.update(embedding=None, embedding_status_code=None)
                 ds.finding_set.all().delete()
-                MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
+                if group.acquire_processing_lock():
+                    ds.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
+                    ds.error = None
+                    ds.save(update_fields=["state", "error"])
+                    MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
+                else:
+                    ds.state = DeduplicationSet.State.READY
+                    ds.error = None
+                    ds.save(update_fields=["state", "error"])
 
-        return Response(self._get_settings_for_response(group))
+        api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+        settings_response = {k: group.settings[k] for k in api_fields if k in group.settings}
+        return Response(settings_response)
+
+    @extend_schema(
+        request=EmptySerializer,
+        responses=EmptySerializer,
+        description="Approve the deduplicated set in this group (used by HOPE).",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def approve(self, request: Request, reference_pk: str) -> Response:
+        group = self._get_group(request, reference_pk)
+        deduplication_set = group.deduplicationset_set.filter(
+            state=DeduplicationSet.State.DEDUPLICATED,
+        ).first()
+
+        if deduplication_set is None:
+            return Response(
+                {"detail": "No deduplicated set found in this group."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        deduplication_set.set_state(DeduplicationSet.State.APPROVED)
+        deduplication_set.updated_by = request.user
+        deduplication_set.save(update_fields=["updated_by"])
+        return Response({"message": "ok"})
+
+
+class GroupFindingsViewSet(
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Paginated, filterable findings for a deduplication set group (used by HOPE)."""
+
+    authentication_classes = (HDETokenAuthentication,)
+    permission_classes = (IsAuthenticated, CanUseApi)
+    serializer_class = DuplicateSerializer
+    queryset = Finding.objects.none()
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = FindingFilter
+    pagination_class = FindingResultsPagination
+
+    def get_queryset(self) -> QuerySet[Finding]:
+        return (
+            Finding.objects.filter(
+                deduplication_set__group__reference_pk=self.kwargs["reference_pk"],
+                deduplication_set__group__system=self.request.auth.system,
+                deduplication_set__group__deleted=False,
+                deduplication_set__state=DeduplicationSet.State.DEDUPLICATED,
+            )
+            .select_related("first_encoding", "second_encoding")
+            .order_by("-updated_at", "-id")
+        )

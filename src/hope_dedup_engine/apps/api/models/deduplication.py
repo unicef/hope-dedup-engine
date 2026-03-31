@@ -5,7 +5,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.api.utils.data_url import inline_label
@@ -28,6 +28,9 @@ class DeduplicationSetGroup(models.Model):
         default=dict, null=True, blank=True, help_text="Settings common for all deduplication sets in this group."
     )
     deleted = models.BooleanField(null=False, blank=False, default=False, help_text="Whether this group was deleted.")
+    processing_locked = models.BooleanField(
+        default=False, help_text="Whether any deduplication task is currently running for this group."
+    )
 
     def __str__(self) -> str:
         return f"{self.name} ({self.reference_pk})"
@@ -38,28 +41,66 @@ class DeduplicationSetGroup(models.Model):
             embedding__isnull=False,
         ).exists()
 
-    def has_inactive_deduplication_sets(self) -> bool:
-        return self.deduplicationset_set.filter(state=DeduplicationSet.State.INACTIVE).exists()
+    def has_approved_deduplication_sets(self) -> bool:
+        return self.deduplicationset_set.filter(state=DeduplicationSet.State.APPROVED).exists()
+
+    def acquire_processing_lock(self) -> bool:
+        with transaction.atomic():
+            group = DeduplicationSetGroup.objects.select_for_update().get(pk=self.pk)
+            if group.processing_locked:
+                return False
+            group.processing_locked = True
+            group.save(update_fields=["processing_locked"])
+            self.processing_locked = True
+            return True
+
+    def release_processing_lock(self) -> None:
+        self.processing_locked = False
+        self.save(update_fields=["processing_locked"])
 
 
-FAILED_STATE: Final[int] = 3
-INACTIVE_STATE: Final[int] = 4
-REJECTED_STATE: Final[int] = 5
+ENCODING_FAILED_STATE: Final[int] = 5
+DEDUPLICATION_FAILED_STATE: Final[int] = 8
+APPROVED_STATE: Final[int] = 9
+REJECTED_STATE: Final[int] = 10
 
 
 class DeduplicationSet(models.Model):
     """Bucket for entries we want to deduplicate."""
 
     class State(models.IntegerChoices):
-        READY = 0, "Ready"  # Deduplication set is created or already processed
-        MODIFIED = (
-            1,
-            "Modified",
-        )  # Images are added to deduplication set, but not yet processed
-        PROCESSING = 2, "Processing"  # deduplication set is being processed
-        FAILED = FAILED_STATE, "Failed"  # an error occurred
-        INACTIVE = INACTIVE_STATE, "Inactive"  # set cannot be modified but takes part in the deduplication process
+        EMPTY = 0, "Empty"
+        UPLOADING_IN_PROGRESS = 1, "Uploading in progress"
+        READY = 2, "Ready"
+        ENCODING_IN_PROGRESS = 3, "Encoding in progress"
+        ENCODED = 4, "Encoded"
+        ENCODING_FAILED = ENCODING_FAILED_STATE, "Encoding failed"
+        DEDUPLICATION_IN_PROGRESS = 6, "Deduplication in progress"
+        DEDUPLICATED = 7, "Deduplicated"
+        DEDUPLICATION_FAILED = DEDUPLICATION_FAILED_STATE, "Deduplication failed"
+        APPROVED = APPROVED_STATE, "Approved"
         REJECTED = REJECTED_STATE, "Rejected"
+
+    VALID_TRANSITIONS: Final[dict[int, tuple[int, ...]]] = {
+        State.EMPTY: (State.UPLOADING_IN_PROGRESS,),
+        State.UPLOADING_IN_PROGRESS: (State.UPLOADING_IN_PROGRESS, State.READY),
+        State.READY: (State.ENCODING_IN_PROGRESS,),
+        State.ENCODING_IN_PROGRESS: (State.ENCODED, State.ENCODING_FAILED),
+        State.ENCODED: (State.DEDUPLICATION_IN_PROGRESS,),
+        State.ENCODING_FAILED: (State.ENCODING_IN_PROGRESS,),
+        State.DEDUPLICATION_IN_PROGRESS: (State.DEDUPLICATED, State.DEDUPLICATION_FAILED),
+        State.DEDUPLICATED: (State.APPROVED, State.REJECTED),
+        State.DEDUPLICATION_FAILED: (State.DEDUPLICATION_IN_PROGRESS, State.ENCODING_IN_PROGRESS),
+        State.APPROVED: (),
+        State.REJECTED: (State.READY, State.ENCODED),
+    }
+
+    PROCESSABLE_STATES: Final[tuple[int, ...]] = (
+        State.READY,
+        State.ENCODED,
+        State.ENCODING_FAILED,
+        State.DEDUPLICATION_FAILED,
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
@@ -68,7 +109,7 @@ class DeduplicationSet(models.Model):
     )
     description = models.TextField(null=True, blank=True, help_text="Deduplication set description.")
     state = models.IntegerField(
-        choices=State, default=State.READY, db_column="state", help_text="Deduplication set state."
+        choices=State, default=State.EMPTY, db_column="state", help_text="Deduplication set state."
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -114,7 +155,12 @@ class DeduplicationSet(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["group"],
-                condition=~Q(state=INACTIVE_STATE) & ~Q(state=REJECTED_STATE) & ~Q(state=FAILED_STATE),
+                condition=(
+                    ~Q(state=ENCODING_FAILED_STATE)
+                    & ~Q(state=DEDUPLICATION_FAILED_STATE)
+                    & ~Q(state=APPROVED_STATE)
+                    & ~Q(state=REJECTED_STATE)
+                ),
                 name="unique_active_deduplication_set_per_group",
             ),
         ]
@@ -131,6 +177,9 @@ class DeduplicationSet(models.Model):
         )
 
     def set_state(self, state: State, error: Exception | None = None) -> None:
+        allowed = self.VALID_TRANSITIONS.get(self.state, ())
+        if state not in allowed:
+            raise ValueError(f"Invalid state transition: {self.State(self.state).label} -> {state.label}")
         self.state = state.value
         if error:
             formatted_error = "".join(traceback.format_exception(error))

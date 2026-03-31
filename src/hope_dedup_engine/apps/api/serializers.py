@@ -1,52 +1,30 @@
 from itertools import filterfalse
 from typing import Any
 
-from django_celery_boost.models import CeleryTaskModel
 from rest_framework import serializers
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
     Encoding,
-    MainJob,
 )
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
-    NOT_SCHEDULED = "NOT_SCHEDULED"
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", read_only=True, allow_null=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
-    status = serializers.SerializerMethodField()
-    duplicates_found = serializers.IntegerField()
+    findings_count = serializers.IntegerField()
 
     def to_representation(self, instance: DeduplicationSet) -> dict[str, Any]:
-        if not hasattr(instance, "duplicates_found"):
-            instance.duplicates_found = instance.finding_set.count()
+        if not hasattr(instance, "findings_count"):
+            instance.findings_count = instance.finding_set.count()
 
         return super().to_representation(instance)
 
     class Meta:
         model = DeduplicationSet
-        fields = "__all__"
-        read_only_fields = (
-            "group",
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
-        )
-
-    def get_status(self, deduplication_set: DeduplicationSet) -> str:
-        job = MainJob.objects.filter(deduplication_set=deduplication_set).order_by("-id").first()
-
-        if job is None:
-            return self.NOT_SCHEDULED
-
-        if (result := job.async_result) is None:
-            return CeleryTaskModel.PENDING
-
-        return result.status
+        fields = ("id", "reference_pk", "name", "state", "findings_count", "created_at", "updated_at")
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
@@ -130,10 +108,6 @@ class DuplicateSerializer(serializers.ModelSerializer):
 
 class EmptySerializer(serializers.Serializer):
     pass
-
-
-class ApproveOrRejectSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
 
 
 class GroupSettingsSerializer(serializers.Serializer):

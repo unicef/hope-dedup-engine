@@ -6,40 +6,33 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework import routers
-from rest_framework_nested import routers as nested_routers
 
-from hope_dedup_engine.apps.api.const import (
-    BULK_ENCODING_LIST,
-    DEDUPLICATION_SET,
-    DEDUPLICATION_SET_LIST,
-    DUPLICATE_LIST,
-    ENCODING_LIST,
-)
 from hope_dedup_engine.apps.api.views import (
     BulkEncodingViewSet,
-    DeduplicationSetGroupConfigView,
+    DeduplicationSetGroupView,
     DeduplicationSetViewSet,
-    DuplicateViewSet,
-    EncodingViewSet,
+    GroupFindingsViewSet,
 )
 
 router = routers.SimpleRouter()
-router.register(DEDUPLICATION_SET_LIST, DeduplicationSetViewSet, basename=DEDUPLICATION_SET_LIST)
+router.register("deduplication_sets", DeduplicationSetViewSet, basename="deduplication_sets")
+router.register("deduplication_set_groups", DeduplicationSetGroupView, basename="deduplication_set_groups")
 
-deduplication_sets_router = nested_routers.NestedSimpleRouter(router, DEDUPLICATION_SET_LIST, lookup=DEDUPLICATION_SET)
-deduplication_sets_router.register(ENCODING_LIST, EncodingViewSet, basename=ENCODING_LIST)
-deduplication_sets_router.register(BULK_ENCODING_LIST, BulkEncodingViewSet, basename=BULK_ENCODING_LIST)
-deduplication_sets_router.register(DUPLICATE_LIST, DuplicateViewSet, basename=DUPLICATE_LIST)
+images_router = routers.SimpleRouter()
+images_router.register("images", BulkEncodingViewSet, basename="images")
 
-group_config_view = DeduplicationSetGroupConfigView.as_view({"get": "retrieve", "post": "update"})
+findings_router = routers.SimpleRouter()
+findings_router.register("findings", GroupFindingsViewSet, basename="group_findings")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("", include(deduplication_sets_router.urls)),
     path(
-        "deduplication_set_groups/config/<str:reference_pk>/",
-        group_config_view,
-        name="deduplication_set_group_config",
+        "deduplication_sets/<uuid:deduplication_set_pk>/",
+        include(images_router.urls),
+    ),
+    path(
+        "deduplication_set_groups/<str:reference_pk>/",
+        include(findings_router.urls),
     ),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),
     path(
