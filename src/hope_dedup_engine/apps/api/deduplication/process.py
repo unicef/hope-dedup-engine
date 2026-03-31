@@ -1,3 +1,4 @@
+import traceback
 from datetime import timedelta
 from typing import Any
 
@@ -16,6 +17,29 @@ from hope_dedup_engine.apps.faces.services.facial import dedupe_all, encode_face
 HOUR = 60 * 60
 RESCHEDULE_INTERVAL = 6 * HOUR
 STALE_PROCESSING_THRESHOLD = 24 * HOUR
+
+
+def _append_log(  # noqa
+    ds: DeduplicationSet,
+    config: DeduplicationSetConfig | None,
+    job: MainJob,
+    encodings_count: int = 0,
+    findings_count: int = 0,
+    error: Exception | None = None,
+) -> None:
+    entry: dict[str, Any] = {
+        "timestamp": timezone.now().isoformat(),
+        "action": "encode" if job.encode_only else "deduplicate",
+        "state": ds.get_state_display(),
+        "config": config.as_dict() if config else None,
+        "encodings_processed": encodings_count,
+        "findings_created": findings_count,
+    }
+    if error:
+        entry["error"] = "".join(traceback.format_exception(error))
+
+    ds.log.append(entry)
+    ds.save(update_fields=["log"])
 
 
 def finish_processing(ds: DeduplicationSet, error: Exception | None = None) -> None:
@@ -72,11 +96,11 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             "retry_in_seconds": RESCHEDULE_INTERVAL,
         }
 
+    config = None
     try:
         send_notification(deduplication_set)
         config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
 
-        # Encode all images without embeddings
         encoding_ids = list(deduplication_set.encodings_without_embeddings().values_list("id", flat=True))
         encodings_count = len(encoding_ids)
 
@@ -84,19 +108,16 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             encode_faces(
                 deduplication_set,
                 encoding_ids,
-                config.face_confidence_threshold,
-                config.face_coverage_threshold,
-                config.deduplicate.model_name,
-                config.deduplicate.detector_backend,
-                align=config.deduplicate.align,
+                config,
             )
 
-        # Run deduplication unless encode_only
         findings_count = 0
         if not main_job.encode_only:
             findings_count = dedupe_all(deduplication_set, config)
 
         finish_processing(deduplication_set)
+
+        _append_log(deduplication_set, config, main_job, encodings_count, findings_count)
 
         return {
             "deduplication_set": str(deduplication_set),
@@ -105,5 +126,6 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         }
     except Exception as e:
         finish_processing(deduplication_set, e)
+        _append_log(deduplication_set, config, main_job, error=e)
         sentry_sdk.capture_exception(e)
         raise

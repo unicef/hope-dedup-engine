@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from http import HTTPMethod
 from typing import Any, cast
 
-from django.db.models import QuerySet, Model, Count
+from django.db.models import QuerySet, Count
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -25,8 +25,6 @@ from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
     Encoding,
 )
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
@@ -34,17 +32,15 @@ from hope_dedup_engine.apps.api.models.jobs import MainJob
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
-    CreateIgnoredFilenamePairSerializer,
-    CreateIgnoredReferencePkPairSerializer,
     CreateEncodingSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
-    IgnoredFilenamePairSerializer,
-    IgnoredReferencePkPairSerializer,
     EncodingSerializer,
-    EncodingReferencePks,
+    ApproveOrRejectSerializer,
+    GroupSettingsSerializer,
 )
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
@@ -52,7 +48,7 @@ def get_active_deduplication_sets(request: Request) -> QuerySet[DeduplicationSet
     return cast(
         "QuerySet[DeduplicationSet]",
         DeduplicationSet.objects.filter(group__system=request.auth.system, group__deleted=False).exclude(
-            state=DeduplicationSet.State.INACTIVE
+            state__in=[DeduplicationSet.State.INACTIVE, DeduplicationSet.State.REJECTED]
         ),
     )
 
@@ -91,11 +87,14 @@ class DeduplicationSetViewSet(
 
     def perform_create(self, serializer: Serializer) -> None:
         group_data = serializer.validated_data["group"]
-        group, _ = DeduplicationSetGroup.objects.update_or_create(
+        group, created = DeduplicationSetGroup.objects.update_or_create(
             system=self.request.auth.system,
             reference_pk=group_data["reference_pk"],
             defaults={"name": group_data.get("name")},
         )
+        if created:
+            group.settings = get_default_group_settings()
+            group.save(update_fields=["settings"])
         serializer.save(group=group, created_by=self.request.user)
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
@@ -118,30 +117,26 @@ class DeduplicationSetViewSet(
         return Response({"message": "started"})
 
     @extend_schema(
-        request=EncodingReferencePks,
+        request=ApproveOrRejectSerializer,
         responses=EmptySerializer,
         description="Approve deduplication set or individual records",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def approve_or_reject(self, request: Request, group__reference_pk: str | None = None) -> Response:
         deduplication_set = self.get_object()
-        serializer = EncodingReferencePks(data=request.data)
+        serializer = ApproveOrRejectSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             action_ = serializer.validated_data["action"]
-            reference_pks = serializer.validated_data["reference_pks"]
 
-            encodings = deduplication_set.encoding_set.filter(reference_pk__in=reference_pks)
-            other_encodings = deduplication_set.encoding_set.exclude(reference_pk__in=reference_pks)
             if action_ == "approve":
-                encodings.update(state=Encoding.State.APPROVED)
-                other_encodings.update(state=Encoding.State.REJECTED)
+                deduplication_set.state = DeduplicationSet.State.INACTIVE
             else:
-                encodings.update(state=Encoding.State.REJECTED)
-                other_encodings.update(state=Encoding.State.APPROVED)
+                deduplication_set.state = DeduplicationSet.State.REJECTED
 
-            deduplication_set.state = DeduplicationSet.State.INACTIVE
             deduplication_set.updated_by = self.request.user
-            deduplication_set.save()
+            deduplication_set.save(
+                update_fields=["state", "updated_by"],
+            )
 
         return Response({"message": "ok"})
 
@@ -328,58 +323,61 @@ class DuplicateViewSet(
         return super().list(request, *args, **kwargs)
 
 
-class IgnoredPairViewSet[T: Model](
-    UseGroupReferencePkMixin,
-    nested_viewsets.NestedViewSetMixin[T],
-    mixins.ListModelMixin,
-    mixins.CreateModelMixin,
-    viewsets.GenericViewSet,
-):
+class DeduplicationSetGroupConfigView(viewsets.ViewSet):
     authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (
-        IsAuthenticated,
-        CanUseApi,
-        HasAccessToDeduplicationSet,
-    )
-    parent_lookup_kwargs = {
-        DEDUPLICATION_SET_GROUP_PARAM: DEDUPLICATION_SET_GROUP_FILTER,
-    }
+    permission_classes = (IsAuthenticated, CanUseApi)
+    serializer_class = GroupSettingsSerializer
 
-    def perform_create(self, serializer: Serializer) -> None:
-        super().perform_create(serializer)
-        deduplication_set = serializer.instance.deduplication_set
-        deduplication_set.state = DeduplicationSet.State.MODIFIED
-        deduplication_set.updated_by = self.request.user
-        deduplication_set.save()
+    def _api_field_names(self) -> list[str]:
+        return [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
 
-
-class IgnoredFilenamePairViewSet(IgnoredPairViewSet[IgnoredFilenamePair]):
-    serializer_class = IgnoredFilenamePairSerializer
-    queryset = IgnoredFilenamePair.objects.all()
-
-    @extend_schema(description="List all ignored filename pairs for the deduplication set")
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
+    def _get_settings_for_response(self, group: DeduplicationSetGroup | None) -> dict[str, Any]:
+        defaults = get_default_group_settings()
+        if group and group.settings:
+            defaults.update(group.settings)
+        return {k: defaults[k] for k in self._api_field_names() if k in defaults}
 
     @extend_schema(
-        request=CreateIgnoredFilenamePairSerializer,
-        description="Add ignored filename pair for the deduplication set",
+        responses=GroupSettingsSerializer,
+        description="Get quality threshold settings for a deduplication set group.",
     )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
-
-
-class IgnoredReferencePkPairViewSet(IgnoredPairViewSet[IgnoredReferencePkPair]):
-    serializer_class = IgnoredReferencePkPairSerializer
-    queryset = IgnoredReferencePkPair.objects.all()
-
-    @extend_schema(description="List all ignored reference pk pairs for the deduplication set")
-    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().list(request, *args, **kwargs)
+    def retrieve(self, request: Request, reference_pk: str) -> Response:
+        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, system=request.auth.system).first()
+        return Response(self._get_settings_for_response(group))
 
     @extend_schema(
-        request=CreateIgnoredReferencePkPairSerializer,
-        description="Add ignored reference pk pair for the deduplication set",
+        request=GroupSettingsSerializer,
+        responses=GroupSettingsSerializer,
+        description="Create or update quality threshold settings for a deduplication set group.",
     )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        return super().create(request, *args, **kwargs)
+    def update(self, request: Request, reference_pk: str) -> Response:
+        serializer = GroupSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        group, created = DeduplicationSetGroup.objects.get_or_create(
+            reference_pk=reference_pk,
+            system=request.auth.system,
+            defaults={"settings": get_default_group_settings()},
+        )
+
+        if not created and group.has_inactive_deduplication_sets():
+            return Response(
+                {"detail": "Cannot change settings while inactive deduplication sets exist."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if not group.settings:
+            group.settings = get_default_group_settings()
+
+        for key, value in serializer.validated_data.items():
+            group.settings[key] = value
+
+        group.save(update_fields=["settings"])
+
+        if not created and group.has_calculated_embeddings():
+            for ds in group.deduplicationset_set.all():
+                ds.encoding_set.update(embedding=None, embedding_status_code=None)
+                ds.finding_set.all().delete()
+                MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
+
+        return Response(self._get_settings_for_response(group))

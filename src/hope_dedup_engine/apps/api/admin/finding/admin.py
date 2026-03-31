@@ -19,6 +19,7 @@ class FindingAdmin(BaseModelAdmin):
         "second_encoding",
         "deduplication_set",
         "status_code",
+        "config",
         "created_at",
         "updated_at",
     )

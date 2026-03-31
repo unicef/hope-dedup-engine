@@ -17,8 +17,6 @@ sys.path.insert(0, str(here / "extras"))
 from testutils.factories.api import (  # noqa: E402
     DeduplicationSetFactory,
     FindingFactory,
-    IgnoredFilenamePairFactory,
-    IgnoredReferencePkPairFactory,
     EncodingFactory,
     HDETokenFactory,
     DeduplicationSetGroupFactory,
@@ -95,8 +93,6 @@ register(
     deduplication_Set=LazyFixture("deduplication_set"),
 )
 register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredFilenamePairFactory, deduplication_set=LazyFixture("deduplication_set"))
-register(IgnoredReferencePkPairFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(MainJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(SyncDnnFilesJobFactory)
 register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))

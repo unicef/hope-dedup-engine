@@ -23,7 +23,12 @@ class HasAccessToDeduplicationSet(BasePermission):
     def get_deduplication_set(self, group_reference_pk: str) -> DeduplicationSet | None:
         return (
             DeduplicationSet.objects.filter(group__reference_pk=group_reference_pk, group__deleted=False)
-            .exclude(state=DeduplicationSet.State.INACTIVE)
+            .exclude(
+                state__in=[
+                    DeduplicationSet.State.INACTIVE,
+                    DeduplicationSet.State.REJECTED,
+                ]
+            )
             .first()
         )
 

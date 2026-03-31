@@ -1,18 +1,19 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
 
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_all,
     encode_face,
     encode_faces,
-    face_coverage_ratio,
     find_duplicate_pairs,
     load_encodings,
 )
+from hope_dedup_engine.apps.faces.services.quality import QualityCheckResult
 
 MODEL_NAME = "model"
 DETECTOR_BACKEND = "backend"
@@ -20,12 +21,26 @@ ALIGN = True
 IMG_SIDE = 300
 
 
+def make_encode_config(
+    fc_th: float = 0.1,
+) -> DeduplicationSetConfig:
+    return DeduplicationSetConfig(
+        recognition_model=MODEL_NAME,
+        detector_backend=DETECTOR_BACKEND,
+        face_detection_confidence_threshold=fc_th,
+        duplicate_confidence_threshold=50.0,
+        sharpness_threshold=0,
+        dynamic_range_threshold=0,
+        no_head_cover_threshold=0,
+        eyes_open_threshold=0,
+        inter_eye_distance_threshold=0,
+        unified_quality_score_threshold=0,
+        align=ALIGN,
+    )
+
+
 def fa(*, w: int, h: int, x: int = 0, y: int = 0) -> dict[str, int]:
     return {"x": x, "y": y, "w": w, "h": h}
-
-
-def cov(*, w: int, h: int, side: int = IMG_SIDE) -> float:
-    return round((w * h) / (side * side), 4)
 
 
 @pytest.fixture
@@ -52,12 +67,11 @@ def mock_storage(mocker, sample_image):
 def call_encode_face(mock_deepface, sample_image):
     """Call encode_face with a configurable DeepFace.represent return value."""
 
-    def _call(represent_return, *, fc_th: float = 0.1, cov_th: float = 0.0):
+    def _call(represent_return, *, fc_th: float = 0.1):
         mock_deepface.represent.return_value = represent_return
         return encode_face(
             sample_image,
             face_confidence_threshold=fc_th,
-            face_coverage_threshold=cov_th,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
             align=ALIGN,
@@ -66,63 +80,31 @@ def call_encode_face(mock_deepface, sample_image):
     return _call
 
 
-# --- face_coverage_ratio -------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("fa_", "img_w", "img_h", "expected"),
-    [
-        ({"w": 10, "h": 10}, 100, 100, 0.01),
-        ({"w": 0, "h": 10}, 100, 100, 0.0),
-        ({"w": 10, "h": 10}, 0, 100, 0.0),
-    ],
-    ids=["normal_case", "zero_width_face", "zero_image_width"],
-)
-def test_face_coverage_ratio(fa_, img_w, img_h, expected):
-    """Test face_coverage_ratio computes bbox/image area ratio."""
-    assert face_coverage_ratio(fa=fa_, img_w=img_w, img_h=img_h) == pytest.approx(expected)
-
-
 # --- encode_face ----------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("represent_return", "fc_th", "cov_th", "exp_embedding", "exp_status", "exp_coverage"),
+    ("represent_return", "fc_th", "exp_embedding", "exp_status"),
     [
-        ([], 0.1, 0.0, None, Encoding.StatusCode.NO_FACE_DETECTED, None),
-        (None, 0.1, 0.0, None, Encoding.StatusCode.GENERIC_ERROR, None),
+        ([], 0.1, None, Encoding.StatusCode.NO_FACE_DETECTED),
+        (None, 0.1, None, Encoding.StatusCode.GENERIC_ERROR),
         (
             [{"embedding": [1.0], "face_confidence": 0.0, "facial_area": fa(w=10, h=10)}],
             0.1,
-            0.0,
             None,
             Encoding.StatusCode.NO_FACE_DETECTED,
-            None,
         ),
         (
             [{"embedding": [1.0], "face_confidence": 0.05, "facial_area": fa(w=10, h=10)}],
             0.1,
-            0.0,
             None,
             Encoding.StatusCode.FACE_NOT_ACCEPTED,
-            None,
-        ),
-        ([{"embedding": [1.0], "face_confidence": 0.99}], 0.1, 0.0, None, Encoding.StatusCode.GENERIC_ERROR, None),
-        (
-            [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=10, h=10)}],
-            0.1,
-            0.05,
-            None,
-            Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
-            cov(w=10, h=10),
         ),
         (
             [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}],
             0.1,
-            0.0,
             [1.0],
             None,
-            pytest.approx(cov(w=120, h=170)),
         ),
     ],
     ids=[
@@ -130,19 +112,14 @@ def test_face_coverage_ratio(fa_, img_w, img_h, expected):
         "generic_error",
         "no_face_detected_zero_confidence",
         "face_not_accepted",
-        "generic_error_no_facial_area",
-        "insufficient_face_coverage",
         "successful_encoding",
     ],
 )
-def test_encode_face_outcomes(
-    call_encode_face, represent_return, fc_th, cov_th, exp_embedding, exp_status, exp_coverage
-):
-    """Test encode_face status/coverage outcomes across represent shapes and thresholds."""
-    embedding, status, coverage = call_encode_face(represent_return, fc_th=fc_th, cov_th=cov_th)
+def test_encode_face_outcomes(call_encode_face, represent_return, fc_th, exp_embedding, exp_status):
+    """Test encode_face status outcomes across represent shapes and thresholds."""
+    embedding, status_code = call_encode_face(represent_return, fc_th=fc_th)
     assert embedding == exp_embedding
-    assert status == exp_status
-    assert coverage == exp_coverage
+    assert status_code == exp_status
 
 
 # --- encode_faces ----------------------------------------------------------------------------------
@@ -160,7 +137,7 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
         [{"embedding": [2.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}],
     ]
 
-    encode_faces(deduplication_set, [encoding0.id, encoding1.id], 0.1, 0.0, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1))
 
     encoding0.refresh_from_db()
     encoding1.refresh_from_db()
@@ -170,7 +147,7 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
 
 
 @pytest.mark.parametrize(
-    ("represent_kwargs", "coverage_th", "expected_status"),
+    ("represent_kwargs", "expected_status"),
     [
         (
             {
@@ -179,25 +156,16 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
                     {"embedding": [2.0], "face_confidence": 0.5},
                 ]
             },
-            0.0,
             Encoding.StatusCode.MULTIPLE_FACES_DETECTED,
         ),
-        ({"side_effect": TypeError("generic error")}, 0.0, Encoding.StatusCode.GENERIC_ERROR),
+        ({"side_effect": TypeError("generic error")}, Encoding.StatusCode.GENERIC_ERROR),
         (
             {"return_value": [{"embedding": [1.0], "face_confidence": 0.0, "facial_area": fa(w=10, h=10)}]},
-            0.0,
             Encoding.StatusCode.NO_FACE_DETECTED,
         ),
         (
             {"return_value": [{"embedding": [1.0], "face_confidence": 0.3, "facial_area": fa(w=10, h=10)}]},
-            0.0,
             Encoding.StatusCode.FACE_NOT_ACCEPTED,
-        ),
-        ({"return_value": [{"embedding": [1.0], "face_confidence": 0.99}]}, 0.0, Encoding.StatusCode.GENERIC_ERROR),
-        (
-            {"return_value": [{"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=10, h=10)}]},
-            0.05,
-            Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE,
         ),
     ],
     ids=[
@@ -205,22 +173,25 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
         "generic_error",
         "no_face_detected",
         "face_not_accepted",
-        "generic_error_no_facial_area",
-        "insufficient_face_coverage",
     ],
 )
 @pytest.mark.django_db
 def test_encode_faces_deepface_outcomes(
-    mock_deepface, mock_storage, encoding_factory, represent_kwargs, coverage_th, expected_status
+    mock_deepface, mock_storage, encoding_factory, represent_kwargs, expected_status
 ):
     """Test encode_faces persists status codes for represent outcomes."""
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_deepface.represent.configure_mock(**represent_kwargs)
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, coverage_th, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    config = make_encode_config(fc_th=0.9)
+    encode_faces(encoding.deduplication_set, [encoding.id], config)
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == expected_status.value
+
+    finding = encoding.deduplication_set.finding_set.first()
+    assert finding is not None
+    assert finding.config == config.as_dict()
 
 
 @pytest.mark.django_db
@@ -229,7 +200,7 @@ def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_facto
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
     mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
 
-    encode_faces(encoding.deduplication_set, [encoding.id], 0.9, 0.0, MODEL_NAME, DETECTOR_BACKEND, ALIGN)
+    encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9))
 
     encoding.refresh_from_db()
     assert encoding.embedding_status_code == Encoding.StatusCode.FILE_NOT_FOUND.value
@@ -252,9 +223,14 @@ def mock_deepface_verification(mocker):
 def mock_dedup_config():
     """Fixture to create a mock DeduplicationSetConfig."""
     config = Mock()
-    config.deduplicate.model_name = "Facenet512"
-    config.deduplicate.distance_metric = "cosine"
+    config.recognition_model = "Facenet512"
+    config.distance_metric = "cosine"
     config.duplicate_confidence_threshold = 50.0
+    config.as_dict.return_value = {
+        "recognition_model": "Facenet512",
+        "distance_metric": "cosine",
+        "duplicate_confidence_threshold": 50.0,
+    }
     return config
 
 
@@ -320,6 +296,7 @@ def test_dedupe_all_finds_duplicates(
     finding = ds.finding_set.first()
     assert finding.score == 0.75  # 75.0 / 100
     assert finding.status_code == Encoding.StatusCode.DEDUPLICATE_SUCCESS
+    assert finding.config == mock_dedup_config.as_dict()
 
 
 @pytest.mark.django_db
@@ -379,62 +356,27 @@ def test_dedupe_all_respects_distance_threshold(
 
 
 @pytest.mark.django_db
-def test_dedupe_all_with_ignored_pairs(
-    deduplication_set_factory,
-    encoding_factory,
-    ignored_filename_pair_factory,
-    mock_deepface_verification,
-    mock_dedup_config,
-):
-    """Test dedupe_all respects ignored pairs."""
-    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
-    mock_find_threshold.return_value = 0.68
-    mock_find_confidence.return_value = 90.0
-
-    ds = deduplication_set_factory()
-    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
-    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.11] * 512)
-    ignored_filename_pair_factory(deduplication_set=ds, first="file1.jpg", second="file2.jpg")
-
-    mock_find_distance.return_value = np.array(
-        [
-            [0.0, 0.2],
-            [0.2, 0.0],
-        ]
-    )
-
-    count = dedupe_all(ds, mock_dedup_config)
-
-    # No findings because the pair is ignored
-    assert count == 0
-    assert ds.finding_set.count() == 0
-
-
-@pytest.mark.django_db
-def test_dedupe_all_with_approved_encodings(
+def test_dedupe_all_with_inactive_set_encodings(
     deduplication_set_group_factory,
     deduplication_set_factory,
     encoding_factory,
     mock_deepface_verification,
     mock_dedup_config,
 ):
-    """Test dedupe_all includes approved encodings from inactive sets in the same group."""
+    """Test dedupe_all includes encodings from inactive sets in the same group."""
     mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
     mock_find_threshold.return_value = 0.68
     mock_find_confidence.return_value = 85.0
 
     group = deduplication_set_group_factory()
 
-    # Create inactive set with approved encodings
     inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    approved_enc = encoding_factory(
+    inactive_enc = encoding_factory(
         deduplication_set=inactive_ds,
-        filename="approved.jpg",
+        filename="inactive.jpg",
         embedding=[0.1] * 512,
-        state=Encoding.State.APPROVED,
     )
 
-    # Create current deduplication set
     current_ds = deduplication_set_factory(group=group)
     current_enc = encoding_factory(
         deduplication_set=current_ds,
@@ -444,18 +386,17 @@ def test_dedupe_all_with_approved_encodings(
 
     mock_find_distance.return_value = np.array(
         [
-            [0.0, 0.2],  # current_enc vs [current, approved]
+            [0.0, 0.2],  # current_enc vs [current, inactive]
         ]
     )
 
     count = dedupe_all(current_ds, mock_dedup_config)
 
-    # Should create 1 finding: current vs approved
     assert count == 1
     assert current_ds.finding_set.count() == 1
     finding = current_ds.finding_set.first()
     assert finding.first_encoding_id == current_enc.id
-    assert finding.second_encoding_id == approved_enc.id
+    assert finding.second_encoding_id == inactive_enc.id
     assert finding.score == 0.85
 
 
@@ -514,16 +455,15 @@ def test_load_encodings_current_only(deduplication_set_factory, encoding_factory
 
 
 @pytest.mark.django_db
-def test_load_encodings_with_approved(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
-    """Test load_encodings includes approved encodings from inactive sets."""
+def test_load_encodings_with_inactive_set(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
+    """Test load_encodings includes encodings from inactive sets."""
     group = deduplication_set_group_factory()
 
     inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    approved_enc = encoding_factory(
+    inactive_enc = encoding_factory(
         deduplication_set=inactive_ds,
-        filename="approved.jpg",
+        filename="inactive.jpg",
         embedding=[0.3] * 512,
-        state=Encoding.State.APPROVED,
     )
 
     current_ds = deduplication_set_factory(group=group)
@@ -534,24 +474,92 @@ def test_load_encodings_with_approved(deduplication_set_group_factory, deduplica
     )
 
     current_qs = current_ds.encoding_set.filter(embedding__isnull=False).order_by("id")
-    approved_qs = Encoding.objects.filter(
-        state=Encoding.State.APPROVED,
+    inactive_qs = Encoding.objects.filter(
         deduplication_set__state=DeduplicationSet.State.INACTIVE,
         deduplication_set__group=group,
         embedding__isnull=False,
     ).order_by("id")
 
-    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, 512, 1000)
+    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, inactive_qs, 512, 1000)
 
     assert all_emb.shape == (2, 512)
     assert n_current == 1
     assert all_ids[0] == current_enc.id
-    assert all_ids[1] == approved_enc.id
+    assert all_ids[1] == inactive_enc.id
     assert all_filenames[0] == "current.jpg"
-    assert all_filenames[1] == "approved.jpg"
+    assert all_filenames[1] == "inactive.jpg"
 
 
-# --- find_duplicate_pairs ---------------------------------------------------------------------------
+def make_config_with_ofiq(sharpness: int = 50, fc_th: float = 0.9) -> DeduplicationSetConfig:
+    config = make_encode_config(fc_th=fc_th)
+    config.sharpness_threshold = sharpness
+    return config
+
+
+@pytest.mark.django_db
+def test_encode_faces_skips_ofiq_when_no_thresholds(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    mock_deepface.represent.return_value = [
+        {"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}
+    ]
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ") as mock_ofiq_cls:
+        encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config())
+
+    mock_ofiq_cls.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding == [1.0]
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_quality_passes_proceeds_to_deepface(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    mock_deepface.represent.return_value = [
+        {"embedding": [1.0], "face_confidence": 0.99, "facial_area": fa(w=120, h=170)}
+    ]
+    quality_pass = QualityCheckResult(passed=True, scores={"Sharpness": 80.0})
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=quality_pass):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    encoding.refresh_from_db()
+    assert encoding.embedding == [1.0]
+    assert encoding.embedding_status_code is None
+    assert encoding.image_quality_scores == {"Sharpness": 80.0}
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_quality_fails_sets_bad_quality_status(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    quality_fail = QualityCheckResult(
+        passed=False,
+        face_detected=True,
+        scores={"Sharpness": 20.0},
+    )
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=quality_fail):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    mock_deepface.represent.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.BAD_IMAGE_QUALITY
+    assert encoding.image_quality_scores == {"Sharpness": 20.0}
+
+
+@pytest.mark.django_db
+def test_encode_faces_ofiq_no_face_detected_sets_no_face_status(mock_deepface, mock_storage, encoding_factory):
+    encoding = encoding_factory(filename="file.jpg", embedding=None)
+    no_face = QualityCheckResult(passed=False, face_detected=False, scores={})
+
+    with patch("hope_dedup_engine.apps.faces.services.facial.OFIQ"):
+        with patch("hope_dedup_engine.apps.faces.services.facial.check_image_quality", return_value=no_face):
+            encode_faces(encoding.deduplication_set, [encoding.id], make_config_with_ofiq())
+
+    mock_deepface.represent.assert_not_called()
+    encoding.refresh_from_db()
+    assert encoding.embedding_status_code == Encoding.StatusCode.NO_FACE_DETECTED
 
 
 @pytest.mark.django_db
@@ -568,38 +576,11 @@ def test_find_duplicate_pairs_returns_matches(mock_deepface_verification, mock_d
     mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
 
     duplicates = find_duplicate_pairs(
-        all_emb, all_ids, all_filenames, n_current=2, ignored_pairs=set(), config=mock_dedup_config, chunk_size=1000
+        all_emb, all_ids, all_filenames, n_current=2, config=mock_dedup_config, chunk_size=1000
     )
 
     assert len(duplicates) == 1
     assert duplicates[0] == (1, 2, 75.0)
-
-
-@pytest.mark.django_db
-def test_find_duplicate_pairs_skips_ignored(mock_deepface_verification, mock_dedup_config):
-    """Test find_duplicate_pairs skips ignored pairs."""
-    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
-    mock_find_threshold.return_value = 0.68
-    mock_find_confidence.return_value = 75.0
-
-    all_emb = np.array([[0.1] * 512, [0.2] * 512], dtype=np.float32)
-    all_ids = [1, 2]
-    all_filenames = ["file1.jpg", "file2.jpg"]
-    ignored_pairs = {frozenset(["file1.jpg", "file2.jpg"])}
-
-    mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
-
-    duplicates = find_duplicate_pairs(
-        all_emb,
-        all_ids,
-        all_filenames,
-        n_current=2,
-        ignored_pairs=ignored_pairs,
-        config=mock_dedup_config,
-        chunk_size=1000,
-    )
-
-    assert len(duplicates) == 0
 
 
 @pytest.mark.django_db
@@ -616,7 +597,7 @@ def test_find_duplicate_pairs_skips_below_confidence(mock_deepface_verification,
     mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
 
     duplicates = find_duplicate_pairs(
-        all_emb, all_ids, all_filenames, n_current=2, ignored_pairs=set(), config=mock_dedup_config, chunk_size=1000
+        all_emb, all_ids, all_filenames, n_current=2, config=mock_dedup_config, chunk_size=1000
     )
 
     assert len(duplicates) == 0

@@ -81,7 +81,12 @@ def test_has_access_to_deduplication_set_get_deduplication_set(
     deduplication_set_model_mock.assert_has_calls(
         [
             mocker.call.objects.filter(group__reference_pk=GROUP_REFERENCE_PK, group__deleted=False),
-            mocker.call.objects.filter().exclude(state=deduplication_set_model_mock.State.INACTIVE),
+            mocker.call.objects.filter().exclude(
+                state__in=[
+                    deduplication_set_model_mock.State.INACTIVE,
+                    deduplication_set_model_mock.State.REJECTED,
+                ]
+            ),
             mocker.call.objects.filter().exclude().first(),
         ]
     )

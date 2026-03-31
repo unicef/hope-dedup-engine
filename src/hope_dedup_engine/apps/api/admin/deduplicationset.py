@@ -41,6 +41,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         "created_by",
         "updated_at",
         "updated_by",
+        "log",
     )
     search_fields = (
         "name",
@@ -70,11 +71,16 @@ class DeduplicationSetAdmin(BaseModelAdmin):
             job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
             job.queue()
 
+        findings_count = deduplication_set.finding_set.count()
+        message = "Do you confirm to start encoding job for this Deduplication Set?"
+        if findings_count:
+            message += f"\n\nWARNING: {findings_count} existing finding(s) will be deleted."
+
         return confirm_action(
             modeladmin=self,
             request=request,
             action=_action,
-            message="Do you confirm to start encoding job for this Deduplication Set?",
+            message=message,
         )
 
     @button(change_form=True, permission=can.api.process_deduplicate)
@@ -116,14 +122,19 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None, face_coverage=None)
+            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
             deduplication_set.finding_set.all().delete()
+
+        findings_count = deduplication_set.finding_set.count()
+        message = "Do you confirm to clear all embeddings for this Deduplication Set?"
+        if findings_count:
+            message += f"\n\nWARNING: {findings_count} existing finding(s) will also be deleted."
 
         return confirm_action(
             modeladmin=self,
             request=request,
             action=_action,
-            message="Do you confirm to clear all embeddings for this Deduplication Set?",
+            message=message,
         )
 
     @choice(

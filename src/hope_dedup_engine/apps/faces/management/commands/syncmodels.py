@@ -1,7 +1,7 @@
 import logging
 import sys
 from typing import Any, Final
-
+from ofiq import setup as ofiq_setup
 from django.conf import settings
 from django.core.management import BaseCommand
 from django.core.management.base import CommandError, SystemCheckError
@@ -53,6 +53,7 @@ class Command(BaseCommand):
                     on_progress=on_progress,
                 )
                 on_progress(filename, result, is_complete=True)
+            ofiq_setup()
         except (CommandError, SystemCheckError) as e:
             self.halt(e)
         # this clause is for any unexpected exception, so we use a base exception class here

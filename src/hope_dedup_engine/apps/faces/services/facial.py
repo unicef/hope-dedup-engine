@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
+from ofiq import OFIQ
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.commons.image_utils import load_image_from_base64
@@ -12,9 +13,11 @@ from deepface.modules.verification import find_confidence, find_distance, find_t
 from django.db import transaction
 from numpy import ndarray
 
+
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+from hope_dedup_engine.apps.faces.services.quality import get_active_thresholds, check_image_quality
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -26,24 +29,13 @@ logger = logging.getLogger(__name__)
 Embedding = list[float]
 
 
-def face_coverage_ratio(*, fa: Mapping[str, Any], img_w: int, img_h: int) -> float:
-    if (img_box := float(img_w) * float(img_h)) <= 0.0:
-        return 0.0
-    if (w := float(fa.get("w") or 0.0)) <= 0.0 or (h := float(fa.get("h") or 0.0)) <= 0.0:
-        return 0.0
-    return (w * h) / img_box
-
-
-def encode_face(  # noqa: PLR0911, PLR0913
+def encode_face(
     data: ndarray,
     face_confidence_threshold: float,
-    face_coverage_threshold: float,
     model_name: str,
     detector_backend: str,
     align: bool,
-) -> tuple[Embedding | None, Encoding.StatusCode | None, float | None]:
-    # we use max_faces=2 not to waste time searching for more faces than we need
-    # we use enforce_detection=False not to raise exception when no face found
+) -> tuple[Embedding | None, Encoding.StatusCode | None]:
     result = DeepFace.represent(
         data,
         max_faces=2,
@@ -55,57 +47,63 @@ def encode_face(  # noqa: PLR0911, PLR0913
 
     match result:
         case []:
-            return None, Encoding.StatusCode.NO_FACE_DETECTED, None
+            return None, Encoding.StatusCode.NO_FACE_DETECTED
         case [_, _, *_]:
-            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED, None
+            return None, Encoding.StatusCode.MULTIPLE_FACES_DETECTED
         case [face]:
             match fc := float(face.get("face_confidence") or 0.0):
                 case 0.0:
-                    return None, Encoding.StatusCode.NO_FACE_DETECTED, None
+                    return None, Encoding.StatusCode.NO_FACE_DETECTED
                 case _ if fc < face_confidence_threshold:
-                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED, None
+                    return None, Encoding.StatusCode.FACE_NOT_ACCEPTED
                 case _:
-                    if not (fa := face.get("facial_area")):
-                        return None, Encoding.StatusCode.GENERIC_ERROR, None
-                    coverage_raw = face_coverage_ratio(fa=fa, img_w=data.shape[1], img_h=data.shape[0])
-                    coverage = round(coverage_raw, 4)
-                    if coverage_raw < face_coverage_threshold:
-                        return None, Encoding.StatusCode.INSUFFICIENT_FACE_COVERAGE, coverage
-                    return face["embedding"], None, coverage
+                    return face["embedding"], None
 
-    return None, Encoding.StatusCode.GENERIC_ERROR, None
+    return None, Encoding.StatusCode.GENERIC_ERROR
 
 
-def encode_faces(  # noqa: PLR0913
+def encode_faces(
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
-    face_confidence_threshold: float,
-    face_coverage_threshold: float,
-    model_name: str,
-    detector_backend: str,
-    align: bool,
+    config: DeduplicationSetConfig,
 ) -> None:
     storage = ImagesStorageManager()
+    active_thresholds = get_active_thresholds(config)
+    config_snapshot = config.as_dict()
 
+    ofiq = None
+    if active_thresholds:
+        ofiq = OFIQ()
     encodings = Encoding.objects.filter(id__in=encoding_ids).iterator(chunk_size=25)
 
     for encoding in encodings:
         with transaction.atomic():
             try:
                 encoding.embedding_status_code = None
+                encoding.image_quality_scores = None
                 image_data = (
                     load_image_from_base64(encoding.filename)
                     if parse_data_url(encoding.filename)
                     else storage.load_image(encoding.filename)
                 )
-                encoding.embedding, encoding.embedding_status_code, encoding.face_coverage = encode_face(
-                    image_data,
-                    face_confidence_threshold,
-                    face_coverage_threshold,
-                    model_name,
-                    detector_backend,
-                    align,
-                )
+
+                if ofiq is not None:
+                    qr = check_image_quality(ofiq, image_data, active_thresholds)
+                    encoding.image_quality_scores = qr.scores
+
+                    if not qr.face_detected:
+                        encoding.embedding_status_code = Encoding.StatusCode.NO_FACE_DETECTED
+                    elif not qr.passed:
+                        encoding.embedding_status_code = Encoding.StatusCode.BAD_IMAGE_QUALITY
+
+                if encoding.embedding_status_code is None:
+                    encoding.embedding, encoding.embedding_status_code = encode_face(
+                        image_data,
+                        config.face_detection_confidence_threshold,
+                        config.recognition_model,
+                        config.detector_backend,
+                        config.align,
+                    )
 
             except (TypeError, DataTypeError) as e:
                 logger.exception(e)
@@ -113,7 +111,7 @@ def encode_faces(  # noqa: PLR0913
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code", "face_coverage"])
+            encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
 
             if encoding.embedding_status_code is not None:
                 Finding.objects.update_or_create(
@@ -123,6 +121,7 @@ def encode_faces(  # noqa: PLR0913
                     defaults={
                         "score": 0,
                         "status_code": encoding.embedding_status_code,
+                        "config": config_snapshot,
                     },
                 )
 
@@ -170,7 +169,6 @@ def find_duplicate_pairs(  # noqa
     all_ids: list,
     all_filenames: list,
     n_current: int,
-    ignored_pairs: set,
     config: DeduplicationSetConfig,
     chunk_size: int,
 ) -> list[tuple[int, int, float]]:
@@ -180,8 +178,8 @@ def find_duplicate_pairs(  # noqa
     Compares current encodings against all (current + approved) using vectorized
     operations. Returns list of (first_id, second_id, confidence) for matches.
     """
-    model_name = config.deduplicate.model_name
-    distance_metric = config.deduplicate.distance_metric
+    model_name = config.recognition_model
+    distance_metric = config.distance_metric
     confidence_threshold = config.duplicate_confidence_threshold
 
     distance_threshold = find_threshold(model_name, distance_metric)
@@ -197,9 +195,6 @@ def find_duplicate_pairs(  # noqa
             global_r = start + r
 
             if c < n_current and global_r >= c:
-                continue
-
-            if frozenset([all_filenames[global_r], all_filenames[c]]) in ignored_pairs:
                 continue
 
             distance = float(distances[r, c])
@@ -234,7 +229,6 @@ def dedupe_all(
     embedding_dim = len(first_embedding)
 
     approved_qs = Encoding.objects.filter(
-        state=Encoding.State.APPROVED,
         deduplication_set__state=DeduplicationSet.State.INACTIVE,
         deduplication_set__group=deduplication_set.group,
         embedding__isnull=False,
@@ -242,11 +236,10 @@ def dedupe_all(
 
     all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, embedding_dim, chunk_size)
 
-    ignored_pairs = deduplication_set.get_ignored_pairs()
-
-    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, ignored_pairs, config, chunk_size)
+    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, config, chunk_size)
 
     if duplicates:
+        config_snapshot = config.as_dict()
         findings = [
             Finding(
                 deduplication_set=deduplication_set,
@@ -254,6 +247,7 @@ def dedupe_all(
                 second_encoding_id=second_id,
                 score=confidence / 100,
                 status_code=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+                config=config_snapshot,
             )
             for first_id, second_id, confidence in duplicates
         ]
@@ -262,7 +256,7 @@ def dedupe_all(
             findings,
             update_conflicts=True,
             unique_fields=["deduplication_set", "first_encoding", "second_encoding"],
-            update_fields=["score", "status_code", "updated_at"],
+            update_fields=["score", "status_code", "config", "updated_at"],
         )
 
     return len(duplicates)

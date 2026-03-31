@@ -1,3 +1,8 @@
+from hope_dedup_engine.apps.api.const import (
+    DETECTOR_BACKEND_CHOICES,
+    DISTANCE_METRIC_CHOICES,
+    RECOGNITION_MODEL_CHOICES,
+)
 from hope_dedup_engine.apps.security.constants import DEFAULT_GROUP_NAME
 from .. import env
 
@@ -29,18 +34,42 @@ CONSTANCE_CONFIG = {
         "or partially visible faces to pass.",
         "bounded_confidence_0_1",
     ),
-    "DEFAULT_FACE_COVERAGE_THRESHOLD": (
-        0.25,
-        "Minimum ratio of the image area (0..1) that must be covered by the detected face bounding box. "
-        "Faces smaller than this ratio are rejected.",
-        "bounded_confidence_0_1",
-    ),
     "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD": (
         0.5,
         "Threshold on the face match confidence score (0..1). "
         "Only pairs with confidence at or above this value are treated as duplicates. "
         "Raising the threshold makes matching stricter (fewer false duplicates but more missed ones); "
         "lowering it makes matching more permissive (more potential duplicates and more false matches).",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_SHARPNESS_THRESHOLD": (
+        0.0,
+        "Minimum sharpness score (0-1). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_DYNAMIC_RANGE_THRESHOLD": (
+        0.0,
+        "Minimum dynamic range score (0-1). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_NO_HEAD_COVER_THRESHOLD": (
+        0.0,
+        "Minimum no-head-cover score (0-1). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_EYES_OPEN_THRESHOLD": (
+        0.0,
+        "Minimum eyes-open score (0-1). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_INTER_EYE_DISTANCE_THRESHOLD": (
+        0.0,
+        "Minimum inter-eye distance score (0-1). Images below this threshold are rejected. 0 = disabled.",
+        "bounded_confidence_0_1",
+    ),
+    "DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD": (
+        0.0,
+        "Minimum unified quality score (0-1). Images below this threshold are rejected. 0 = disabled.",
         "bounded_confidence_0_1",
     ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
@@ -65,8 +94,13 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "DEFAULT_DETECTOR_BACKEND",
             "DEFAULT_DISTANCE_METRIC",
             "DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD",
-            "DEFAULT_FACE_COVERAGE_THRESHOLD",
             "DEFAULT_DUPLICATE_CONFIDENCE_THRESHOLD",
+            "DEFAULT_SHARPNESS_THRESHOLD",
+            "DEFAULT_DYNAMIC_RANGE_THRESHOLD",
+            "DEFAULT_NO_HEAD_COVER_THRESHOLD",
+            "DEFAULT_EYES_OPEN_THRESHOLD",
+            "DEFAULT_INTER_EYE_DISTANCE_THRESHOLD",
+            "DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD",
         ),
         "collapse": False,
     },
@@ -97,57 +131,15 @@ CONSTANCE_ADDITIONAL_FIELDS = {
     ],
     "recognition_model": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("Facenet512", "FaceNet 512D"),
-                ("Facenet", "FaceNet 128D"),
-                ("VGG-Face", "VGG-Face"),
-                ("ArcFace", "ArcFace"),
-                # ("DeepFace", "DeepFace") Deepface model is commented out due to compatibility issues with TensorFlow
-                # versions. Requires LocallyConnected2D but it is no longer supported after tf 2.12 but you have 2.19.
-                ("OpenFace", "OpenFace"),
-                ("DeepID", "DeepID"),
-                ("Dlib", "Dlib"),
-                ("SFace", "SFace"),
-                ("GhostFaceNet", "GhostFaceNet"),
-            ),
-        },
+        {"choices": RECOGNITION_MODEL_CHOICES},
     ],
     "detector_backend": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("retinaface", "RetinaFace"),
-                ("mtcnn", "MTCNN"),
-                ("ssd", "SSD"),
-                ("dlib", "Dlib"),
-                ("mediapipe", "MediaPipe"),
-                ("opencv", "OpenCV"),
-                ("yolov8n", "YOLOv8n"),
-                ("yolov8m", "YOLOv8m"),
-                ("yolov8l", "YOLOv8l"),
-                ("yolov11n", "YOLOv11n"),
-                ("yolov11s", "YOLOv11s"),
-                ("yolov11m", "YOLOv11m"),
-                ("yolov11l", "YOLOv11l"),
-                ("yolov12n", "YOLOv12n"),
-                ("yolov12s", "YOLOv12s"),
-                ("yolov12m", "YOLOv12m"),
-                ("yolov12l", "YOLOv12l"),
-                ("centerface", "CenterFace"),
-            ),
-        },
+        {"choices": DETECTOR_BACKEND_CHOICES},
     ],
     "distance_metric": [
         "django.forms.ChoiceField",
-        {
-            "choices": (
-                ("cosine", "Cosine"),
-                ("euclidean", "Euclidean"),
-                ("euclidean_l2", "Euclidean L2"),
-                ("angular", "Angular"),
-            ),
-        },
+        {"choices": DISTANCE_METRIC_CHOICES},
     ],
     "write_only_text_input": [
         "django.forms.fields.CharField",

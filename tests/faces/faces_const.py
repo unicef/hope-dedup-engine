@@ -6,10 +6,6 @@ FILENAME: Final[str] = "test_file.jpg"
 FILENAME_ENCODED: Final[str] = "test_file.jpg.npy"
 FILENAME_ENCODED_FORMAT: Final[str] = "{}.npy"
 FILENAMES: Final[list[str]] = ["test_file.jpg", "test_file2.jpg", "test_file3.jpg"]
-IGNORE_PAIRS: Final[list[list[str, str]]] = [
-    ["ignore_file.jpg", "ignore_file2.jpg"],
-    ["ignore_file4.jpg", "ignore_file3.jpg"],
-]
 
 DS_CONFIG = {
     "detection": {"confidence": 0.5},

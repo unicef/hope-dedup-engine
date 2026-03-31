@@ -3,12 +3,10 @@ from typing import Any
 
 from django_celery_boost.models import CeleryTaskModel
 from rest_framework import serializers
-
+from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
-    IgnoredFilenamePair,
-    IgnoredReferencePkPair,
     Encoding,
     MainJob,
 )
@@ -55,12 +53,10 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", required=False, allow_null=True, allow_blank=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
-    settings = serializers.JSONField(default=dict)
 
     class Meta:
         model = DeduplicationSet
-        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state", "settings")
-        write_only_fields = ("settings",)
+        fields = ("id", "reference_pk", "name", "notification_url", "notify", "state")
 
 
 class EncodingSerializer(serializers.ModelSerializer):
@@ -129,41 +125,25 @@ class DuplicateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Finding
-        fields = "first", "second", "score", "status_code", "updated_at"
-
-
-CREATE_PAIR_FIELDS = "first", "second"
-PAIR_FIELDS = ("id", "deduplication_set") + CREATE_PAIR_FIELDS
-
-
-class IgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredReferencePkPair
-        fields = PAIR_FIELDS
-
-
-class CreateIgnoredReferencePkPairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredReferencePkPair
-        fields = CREATE_PAIR_FIELDS
-
-
-class IgnoredFilenamePairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredFilenamePair
-        fields = PAIR_FIELDS
-
-
-class CreateIgnoredFilenamePairSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IgnoredFilenamePair
-        fields = CREATE_PAIR_FIELDS
+        fields = "first", "second", "score", "status_code", "config", "updated_at"
 
 
 class EmptySerializer(serializers.Serializer):
     pass
 
 
-class EncodingReferencePks(serializers.Serializer):
+class ApproveOrRejectSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=("approve", "reject"), required=True)
-    reference_pks = serializers.ListField(child=serializers.CharField(), required=True)
+
+
+class GroupSettingsSerializer(serializers.Serializer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        for f in DeduplicationSetConfig.setting_fields(api=True):
+            meta = f.metadata
+            self.fields[f.name] = serializers.FloatField(
+                min_value=meta["min_value"],
+                max_value=meta["max_value"],
+                required=False,
+                help_text=meta["help_text"],
+            )

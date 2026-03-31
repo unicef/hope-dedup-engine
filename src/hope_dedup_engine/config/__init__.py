@@ -1,3 +1,4 @@
+import ofiq  # noqa Don't remove this!
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4

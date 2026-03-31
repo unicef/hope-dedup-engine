@@ -28,38 +28,6 @@ def test_duplicates_are_stored(
     assert deduplication_set.finding_set.count()
 
 
-def test_ignored_reference_pk_pairs(
-    main_job: MainJob,
-    deduplication_set: DeduplicationSet,
-    image: Encoding,
-    second_image: Encoding,
-) -> None:
-    assert not deduplication_set.finding_set.count()
-    ignored_reference_pk_pair = deduplication_set.ignoredreferencepkpair_set.create(
-        first=image.reference_pk,
-        second=second_image.reference_pk,
-    )
-    find_duplicates(main_job.pk, main_job.version)
-    ignored_reference_pk_pair.delete()
-    assert not deduplication_set.finding_set.count()
-
-
-def test_ignored_filename_pairs(
-    main_job: MainJob,
-    deduplication_set: DeduplicationSet,
-    image: Encoding,
-    second_image: Encoding,
-) -> None:
-    assert not deduplication_set.finding_set.count()
-    ignored_filename_pair = deduplication_set.ignoredfilenamepair_set.create(
-        first=image.filename,
-        second=second_image.filename,
-    )
-    find_duplicates(main_job.pk, main_job.version)
-    ignored_filename_pair.delete()
-    assert not deduplication_set.finding_set.count()
-
-
 def test_weight_is_taken_into_account(
     main_job: MainJob,
     deduplication_set: DeduplicationSet,
