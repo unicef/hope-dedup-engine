@@ -10,7 +10,6 @@ from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.api.utils.data_url import inline_label
 from hope_dedup_engine.apps.security.models import System
-from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
 from hope_dedup_engine.apps.api.models.jobs import MainJob
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -69,6 +68,8 @@ class DeduplicationSetGroup(models.Model):
             raise GroupSettingsError("Cannot change settings while approved deduplication sets exist.")
 
         if not self.settings:
+            from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings  # noqa
+
             self.settings = get_default_group_settings()
 
         for key, value in new_settings.items():
