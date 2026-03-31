@@ -53,7 +53,7 @@ def seeded_ds(deduplication_set_factory, encoding_factory, finding_factory):
 @pytest.fixture
 def seeded_group(deduplication_set_factory, encoding_factory, finding_factory):
     """Group with 2 sets; each set has (1 embedding) + (1 status_code) + (1 finding)."""
-    ds1 = deduplication_set_factory(state=DeduplicationSet.State.INACTIVE)
+    ds1 = deduplication_set_factory(state=DeduplicationSet.State.APPROVED)
     group = ds1.group
     ds2 = deduplication_set_factory(group=group)
 

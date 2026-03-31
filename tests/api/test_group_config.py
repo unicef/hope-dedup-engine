@@ -9,7 +9,7 @@ from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConf
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 
-URL_NAME = "deduplication_set_group_config"
+URL_NAME = "deduplication_set_groups-config"
 JSON = "json"
 
 
@@ -102,13 +102,13 @@ def test_post_anonymous_is_rejected(anonymous_api_client: APIClient):
 
 
 @pytest.mark.django_db
-def test_post_blocked_when_inactive_dedup_set_exists(
+def test_post_blocked_when_approved_dedup_set_exists(
     api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
 ):
     group = deduplication_set_group_factory(system=hde_token.system)
     group.settings = get_default_group_settings()
     group.save()
-    deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
+    deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
     assert response.status_code == status.HTTP_409_CONFLICT

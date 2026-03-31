@@ -5,7 +5,6 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     get_default_group_settings,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from testutils.factories.api import DeduplicationSetFactory
 
 
 @pytest.mark.django_db
@@ -16,8 +15,8 @@ def test_get_default_group_settings_contains_all_setting_fields():
 
 
 @pytest.fixture
-def ds_with_model_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(
+def ds_with_model_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(
         group__settings={
             "recognition_model": "ArcFace",
             "detector_backend": "ssd",
@@ -28,23 +27,23 @@ def ds_with_model_settings(db) -> DeduplicationSet:
 
 
 @pytest.fixture
-def ds_with_duplicate_confidence_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={"duplicate_confidence_threshold": 0.65})
+def ds_with_duplicate_confidence_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={"duplicate_confidence_threshold": 0.65})
 
 
 @pytest.fixture
-def ds_with_ofiq_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7})
+def ds_with_ofiq_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7})
 
 
 @pytest.fixture
-def ds_with_empty_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={})
+def ds_with_empty_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={})
 
 
 @pytest.fixture
-def ds_default(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create()
+def ds_default(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory()
 
 
 @pytest.mark.django_db

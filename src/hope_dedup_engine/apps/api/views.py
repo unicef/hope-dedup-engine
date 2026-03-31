@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet, Count
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -23,7 +24,7 @@ from hope_dedup_engine.apps.api.models import (
     Finding,
     Encoding,
 )
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup, GroupSettingsError
 from hope_dedup_engine.apps.api.models.jobs import MainJob
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
@@ -63,7 +64,7 @@ class DeduplicationSetViewSet(
         return (
             get_active_deduplication_sets(self.request)
             .select_related("group")
-            .annotate(duplicates_found=Count("finding"))
+            .annotate(findings_count=Count("finding"))
         )
 
     def get_serializer_class(self) -> type[Serializer]:
@@ -166,7 +167,7 @@ class BulkEncodingViewSet(
 
     def _get_deduplication_set(self) -> DeduplicationSet:
         ds_pk = self.kwargs["deduplication_set_pk"]
-        return get_active_deduplication_sets(self.request).get(pk=ds_pk)
+        return get_object_or_404(get_active_deduplication_sets(self.request), pk=ds_pk)
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
         return CreateEncodingSerializer(*args, **kwargs, many=True)
@@ -227,11 +228,23 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         )
 
     @extend_schema(
+        methods=["GET"],
         responses=GroupSettingsSerializer,
         description="Get quality threshold settings for a deduplication set group.",
     )
-    @action(detail=True, methods=(HTTPMethod.GET,), url_path="config")
-    def config_retrieve(self, request: Request, reference_pk: str) -> Response:
+    @extend_schema(
+        methods=["POST"],
+        request=GroupSettingsSerializer,
+        responses=GroupSettingsSerializer,
+        description="Create or update quality threshold settings for a deduplication set group.",
+    )
+    @action(detail=True, methods=(HTTPMethod.GET, HTTPMethod.POST), url_path="config")
+    def config(self, request: Request, reference_pk: str) -> Response:
+        if request.method == "GET":
+            return self._config_retrieve(request, reference_pk)
+        return self._config_update(request, reference_pk)
+
+    def _config_retrieve(self, request: Request, reference_pk: str) -> Response:
         group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, system=request.auth.system).first()
         defaults = get_default_group_settings()
         if group and group.settings:
@@ -239,59 +252,24 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: defaults[k] for k in api_fields if k in defaults})
 
-    @extend_schema(
-        request=GroupSettingsSerializer,
-        responses=GroupSettingsSerializer,
-        description="Create or update quality threshold settings for a deduplication set group.",
-    )
     @transaction.atomic
-    @action(detail=True, methods=(HTTPMethod.POST,), url_path="config")
-    def config_update(self, request: Request, reference_pk: str) -> Response:
+    def _config_update(self, request: Request, reference_pk: str) -> Response:
         serializer = GroupSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        group, created = DeduplicationSetGroup.objects.get_or_create(
+        group, _ = DeduplicationSetGroup.objects.get_or_create(
             reference_pk=reference_pk,
             system=request.auth.system,
             defaults={"settings": get_default_group_settings()},
         )
 
-        if not created and group.has_approved_deduplication_sets():
-            return Response(
-                {"detail": "Cannot change settings while approved deduplication sets exist."},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        if not group.settings:
-            group.settings = get_default_group_settings()
-
-        for key, value in serializer.validated_data.items():
-            group.settings[key] = value
-
-        group.save(update_fields=["settings"])
-
-        if not created:
-            ds = (
-                group.deduplicationset_set.exclude(state=DeduplicationSet.State.APPROVED)
-                .order_by("-created_at")
-                .first()
-            )
-            if ds and ds.encodings_with_embeddings().exists():
-                ds.encoding_set.update(embedding=None, embedding_status_code=None)
-                ds.finding_set.all().delete()
-                if group.acquire_processing_lock():
-                    ds.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
-                    ds.error = None
-                    ds.save(update_fields=["state", "error"])
-                    MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
-                else:
-                    ds.state = DeduplicationSet.State.READY
-                    ds.error = None
-                    ds.save(update_fields=["state", "error"])
+        try:
+            group.update_settings(serializer.validated_data)
+        except GroupSettingsError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
-        settings_response = {k: group.settings[k] for k in api_fields if k in group.settings}
-        return Response(settings_response)
+        return Response({k: group.settings[k] for k in api_fields if k in group.settings})
 
     @extend_schema(
         request=EmptySerializer,

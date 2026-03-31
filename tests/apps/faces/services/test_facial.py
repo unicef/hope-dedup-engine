@@ -370,10 +370,10 @@ def test_dedupe_all_with_inactive_set_encodings(
 
     group = deduplication_set_group_factory()
 
-    inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    inactive_enc = encoding_factory(
-        deduplication_set=inactive_ds,
-        filename="inactive.jpg",
+    approved_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
+    approved_enc = encoding_factory(
+        deduplication_set=approved_ds,
+        filename="approved.jpg",
         embedding=[0.1] * 512,
     )
 
@@ -386,7 +386,7 @@ def test_dedupe_all_with_inactive_set_encodings(
 
     mock_find_distance.return_value = np.array(
         [
-            [0.0, 0.2],  # current_enc vs [current, inactive]
+            [0.0, 0.2],  # current_enc vs [current, approved]
         ]
     )
 
@@ -396,7 +396,7 @@ def test_dedupe_all_with_inactive_set_encodings(
     assert current_ds.finding_set.count() == 1
     finding = current_ds.finding_set.first()
     assert finding.first_encoding_id == current_enc.id
-    assert finding.second_encoding_id == inactive_enc.id
+    assert finding.second_encoding_id == approved_enc.id
     assert finding.score == 0.85
 
 
@@ -455,14 +455,14 @@ def test_load_encodings_current_only(deduplication_set_factory, encoding_factory
 
 
 @pytest.mark.django_db
-def test_load_encodings_with_inactive_set(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
-    """Test load_encodings includes encodings from inactive sets."""
+def test_load_encodings_with_approved_set(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
+    """Test load_encodings includes encodings from approved sets."""
     group = deduplication_set_group_factory()
 
-    inactive_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
-    inactive_enc = encoding_factory(
-        deduplication_set=inactive_ds,
-        filename="inactive.jpg",
+    approved_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
+    approved_enc = encoding_factory(
+        deduplication_set=approved_ds,
+        filename="approved.jpg",
         embedding=[0.3] * 512,
     )
 
@@ -474,20 +474,20 @@ def test_load_encodings_with_inactive_set(deduplication_set_group_factory, dedup
     )
 
     current_qs = current_ds.encoding_set.filter(embedding__isnull=False).order_by("id")
-    inactive_qs = Encoding.objects.filter(
-        deduplication_set__state=DeduplicationSet.State.INACTIVE,
+    approved_qs = Encoding.objects.filter(
+        deduplication_set__state=DeduplicationSet.State.APPROVED,
         deduplication_set__group=group,
         embedding__isnull=False,
     ).order_by("id")
 
-    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, inactive_qs, 512, 1000)
+    all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, 512, 1000)
 
     assert all_emb.shape == (2, 512)
     assert n_current == 1
     assert all_ids[0] == current_enc.id
-    assert all_ids[1] == inactive_enc.id
+    assert all_ids[1] == approved_enc.id
     assert all_filenames[0] == "current.jpg"
-    assert all_filenames[1] == "inactive.jpg"
+    assert all_filenames[1] == "approved.jpg"
 
 
 def make_config_with_ofiq(sharpness: int = 50, fc_th: float = 0.9) -> DeduplicationSetConfig:

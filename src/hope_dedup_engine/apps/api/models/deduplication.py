@@ -10,10 +10,16 @@ from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.api.utils.data_url import inline_label
 from hope_dedup_engine.apps.security.models import System
+from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
+from hope_dedup_engine.apps.api.models.jobs import MainJob
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
 MAX_ERROR_LENGTH: Final[int] = 255
+
+
+class GroupSettingsError(Exception):
+    pass
 
 
 class DeduplicationSetGroup(models.Model):
@@ -58,6 +64,36 @@ class DeduplicationSetGroup(models.Model):
         self.processing_locked = False
         self.save(update_fields=["processing_locked"])
 
+    def update_settings(self, new_settings: dict) -> None:
+        if self.has_approved_deduplication_sets():
+            raise GroupSettingsError("Cannot change settings while approved deduplication sets exist.")
+
+        if not self.settings:
+            self.settings = get_default_group_settings()
+
+        for key, value in new_settings.items():
+            self.settings[key] = value
+        self.save(update_fields=["settings"])
+
+        self._trigger_re_encoding()
+
+    def _trigger_re_encoding(self) -> None:
+        ds = self.deduplicationset_set.exclude(state=DeduplicationSet.State.APPROVED).order_by("-created_at").first()
+        if not ds or not ds.encodings_with_embeddings().exists():
+            return
+
+        ds.encoding_set.update(embedding=None, embedding_status_code=None)
+        ds.finding_set.all().delete()
+        if self.acquire_processing_lock():
+            ds.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
+            ds.error = None
+            ds.save(update_fields=["state", "error"])
+            MainJob.objects.create(deduplication_set=ds, encode_only=True).queue()
+        else:
+            ds.state = DeduplicationSet.State.READY
+            ds.error = None
+            ds.save(update_fields=["state", "error"])
+
 
 ENCODING_FAILED_STATE: Final[int] = 5
 DEDUPLICATION_FAILED_STATE: Final[int] = 8
@@ -82,11 +118,11 @@ class DeduplicationSet(models.Model):
         REJECTED = REJECTED_STATE, "Rejected"
 
     VALID_TRANSITIONS: Final[dict[int, tuple[int, ...]]] = {
-        State.EMPTY: (State.UPLOADING_IN_PROGRESS,),
+        State.EMPTY: (State.UPLOADING_IN_PROGRESS, State.READY),
         State.UPLOADING_IN_PROGRESS: (State.UPLOADING_IN_PROGRESS, State.READY),
         State.READY: (State.ENCODING_IN_PROGRESS,),
         State.ENCODING_IN_PROGRESS: (State.ENCODED, State.ENCODING_FAILED),
-        State.ENCODED: (State.DEDUPLICATION_IN_PROGRESS,),
+        State.ENCODED: (State.DEDUPLICATION_IN_PROGRESS, State.ENCODING_IN_PROGRESS),
         State.ENCODING_FAILED: (State.ENCODING_IN_PROGRESS,),
         State.DEDUPLICATION_IN_PROGRESS: (State.DEDUPLICATED, State.DEDUPLICATION_FAILED),
         State.DEDUPLICATED: (State.APPROVED, State.REJECTED),
