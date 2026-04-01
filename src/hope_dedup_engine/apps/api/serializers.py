@@ -82,7 +82,6 @@ class CreateEncodingSerializer(serializers.ModelSerializer):
 
 class EntrySerializer(serializers.Serializer):
     reference_pk = serializers.SerializerMethodField()
-    filename = serializers.SerializerMethodField()
 
     def __init__(self, prefix: str, *args: Any, **kwargs: Any) -> None:
         self._prefix = prefix
@@ -91,10 +90,6 @@ class EntrySerializer(serializers.Serializer):
     def get_reference_pk(self, duplicate: Finding) -> int:
         encoding = getattr(duplicate, f"{self._prefix}_encoding", None)
         return encoding.reference_pk if encoding else ""
-
-    def get_filename(self, duplicate: Finding) -> str:
-        encoding = getattr(duplicate, f"{self._prefix}_encoding", None)
-        return encoding.filename if encoding else ""
 
 
 class DuplicateSerializer(serializers.ModelSerializer):
