@@ -4,11 +4,11 @@ source "$(dirname "0")/.common"
 
 echo Process deduplication set >&2
 
-call_api POST "deduplication_sets/$DEDUPLICATION_SET_REFERENCE_PK/process"
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/process"
 
 ./show_deduplication_set
 
-until [ "$(./show_deduplication_set | jq -r ".state")" == "Ready" ]
+until [ "$(./show_deduplication_set | jq -r ".state")" == "Deduplicated" ]
 do
   sleep 0.5
 done
