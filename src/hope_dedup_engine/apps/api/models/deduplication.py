@@ -139,6 +139,16 @@ class DeduplicationSet(models.Model):
         State.DEDUPLICATION_FAILED,
     )
 
+    BLOCKING_STATES: Final[tuple[int, ...]] = (
+        State.EMPTY,
+        State.UPLOADING_IN_PROGRESS,
+        State.READY,
+        State.ENCODING_IN_PROGRESS,
+        State.ENCODED,
+        State.DEDUPLICATION_IN_PROGRESS,
+        State.DEDUPLICATED,
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Deduplication set id.")
     group = models.ForeignKey(DeduplicationSetGroup, on_delete=models.CASCADE, help_text="Deduplication set group.")
     name = models.CharField(

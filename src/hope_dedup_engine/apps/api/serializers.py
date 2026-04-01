@@ -110,6 +110,10 @@ class EmptySerializer(serializers.Serializer):
     pass
 
 
+class GroupStatusSerializer(serializers.Serializer):
+    can_create = serializers.BooleanField()
+
+
 class GroupSettingsSerializer(serializers.Serializer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

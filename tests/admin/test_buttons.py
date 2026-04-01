@@ -145,6 +145,28 @@ def test_ds_findings_export_csv(app, seeded_ds) -> None:
     assert "findings.csv" in res.headers["Content-Disposition"]
 
 
+def test_ds_encode_blocked_when_locked(confirm, seeded_ds):
+    seeded_ds.group.processing_locked = True
+    seeded_ds.group.save(update_fields=["processing_locked"])
+
+    assert confirm(reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk])).status_code == 200
+
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
+    assert seeded_ds.finding_set.count() == 1
+
+
+def test_ds_deduplicate_blocked_when_locked(confirm, seeded_ds):
+    seeded_ds.group.processing_locked = True
+    seeded_ds.group.save(update_fields=["processing_locked"])
+
+    assert confirm(reverse("admin:api_deduplicationset_deduplicate", args=[seeded_ds.pk])).status_code == 200
+
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
+    assert seeded_ds.finding_set.count() == 1
+
+
 def test_ds_encode(confirm, seeded_ds, mocker):
     create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
     job = mocker.Mock()

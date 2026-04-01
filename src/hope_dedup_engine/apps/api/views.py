@@ -34,6 +34,7 @@ from hope_dedup_engine.apps.api.serializers import (
     DuplicateSerializer,
     EmptySerializer,
     GroupSettingsSerializer,
+    GroupStatusSerializer,
 )
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
@@ -296,6 +297,20 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         deduplication_set.updated_by = request.user
         deduplication_set.save(update_fields=["updated_by"])
         return Response({"message": "ok"})
+
+    @extend_schema(
+        responses=GroupStatusSerializer,
+        description="Check whether a new deduplication set can be created in this group.",
+    )
+    @action(detail=True, methods=(HTTPMethod.GET,), url_path="status")
+    def status(self, request: Request, reference_pk: str) -> Response:
+        has_active = DeduplicationSet.objects.filter(
+            group__reference_pk=reference_pk,
+            group__system=request.auth.system,
+            group__deleted=False,
+            state__in=DeduplicationSet.BLOCKING_STATES,
+        ).exists()
+        return Response(GroupStatusSerializer({"can_create": not has_active}).data)
 
 
 class GroupFindingsViewSet(

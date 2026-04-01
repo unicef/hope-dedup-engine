@@ -68,7 +68,7 @@ def test_find_duplicates_encode_only(
 
 @patch("sentry_sdk.capture_exception")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-def test_find_duplicates_exception(
+def test_find_duplicates_encoding_failure(
     mock_send_notification,
     mock_capture_exception,
     job_with_encodings,
@@ -87,5 +87,33 @@ def test_find_duplicates_exception(
     log_entry = dedup_set.log[0]
     assert "error" in log_entry
     assert log_entry["config"] is None
+
+    assert not dedup_set.group.processing_locked
+
+
+@patch("sentry_sdk.capture_exception")
+@patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
+@patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
+@patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+def test_find_duplicates_deduplication_failure(
+    mock_send_notification,
+    mock_encode_faces,
+    mock_dedupe_all,
+    mock_capture_exception,
+    job_with_encodings,
+):
+    mock_dedupe_all.side_effect = Exception("Dedup Error")
+    dedup_set = job_with_encodings.deduplication_set
+
+    with pytest.raises(Exception, match="Dedup Error"):
+        find_duplicates(job_with_encodings.id, job_with_encodings.version)
+
+    dedup_set.refresh_from_db()
+    assert dedup_set.state == DeduplicationSet.State.DEDUPLICATION_FAILED
+    assert dedup_set.error is not None
+    mock_capture_exception.assert_called()
+
+    assert len(dedup_set.log) == 1
+    assert "error" in dedup_set.log[0]
 
     assert not dedup_set.group.processing_locked
