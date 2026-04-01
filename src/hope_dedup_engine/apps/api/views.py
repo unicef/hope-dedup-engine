@@ -37,6 +37,7 @@ from hope_dedup_engine.apps.api.serializers import (
     GroupStatusSerializer,
 )
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
+from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
@@ -83,6 +84,8 @@ class DeduplicationSetViewSet(
         if created:
             group.settings = get_default_group_settings()
             group.save(update_fields=["settings"])
+        elif group.deduplicationset_set.filter(state__in=DeduplicationSet.BLOCKING_STATES).exists():
+            raise ConflictError("A deduplication set is already active in this group.")
         serializer.save(group=group, created_by=self.request.user)
 
     def perform_destroy(self, instance: DeduplicationSet) -> None:
@@ -100,17 +103,11 @@ class DeduplicationSetViewSet(
         deduplication_set = self.get_object()
 
         if deduplication_set.state not in DeduplicationSet.PROCESSABLE_STATES:
-            return Response(
-                {"detail": f"Cannot process set in '{deduplication_set.get_state_display()}' state."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise ConflictError(f"Cannot process set in '{deduplication_set.get_state_display()}' state.")
 
         group = deduplication_set.group
         if not group.acquire_processing_lock():
-            return Response(
-                {"detail": "Another task is already running for this group."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise ConflictError("Another task is already running for this group.")
 
         deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS)
         job = MainJob.objects.create(deduplication_set=deduplication_set)
@@ -127,10 +124,7 @@ class DeduplicationSetViewSet(
         deduplication_set = self.get_object()
 
         if deduplication_set.state != DeduplicationSet.State.DEDUPLICATED:
-            return Response(
-                {"detail": f"Cannot reject set in '{deduplication_set.get_state_display()}' state."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise ConflictError(f"Cannot reject set in '{deduplication_set.get_state_display()}' state.")
 
         deduplication_set.set_state(DeduplicationSet.State.REJECTED)
         deduplication_set.updated_by = self.request.user
@@ -178,10 +172,7 @@ class BulkEncodingViewSet(
 
         allowed = (DeduplicationSet.State.EMPTY, DeduplicationSet.State.UPLOADING_IN_PROGRESS)
         if deduplication_set.state not in allowed:
-            return Response(
-                {"detail": f"Cannot upload images in '{deduplication_set.get_state_display()}' state."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise ConflictError(f"Cannot upload images in '{deduplication_set.get_state_display()}' state.")
 
         if isinstance(request.data, list):
             for item in request.data:
@@ -267,10 +258,7 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         try:
             group.update_settings(serializer.validated_data)
         except GroupSettingsError:
-            return Response(
-                {"detail": "The provided group settings are invalid."},
-                status=status.HTTP_409_CONFLICT,
-            )
+            raise ConflictError("The provided group settings are invalid.")
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})
