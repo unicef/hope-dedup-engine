@@ -15,6 +15,13 @@ class FindingAdmin(BaseModelAdmin):
     list_display = (
         "id",
         "score",
+        "deduplication_set",
+        "status_code",
+        "created_at",
+    )
+    readonly_fields = (
+        "id",
+        "score",
         "first_encoding",
         "second_encoding",
         "deduplication_set",

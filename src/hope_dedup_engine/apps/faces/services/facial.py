@@ -34,7 +34,7 @@ def encode_face(
     face_confidence_threshold: float,
     model_name: str,
     detector_backend: str,
-    align: bool,
+    align: bool = True,
 ) -> tuple[Embedding | None, Encoding.StatusCode | None]:
     result = DeepFace.represent(
         data,
@@ -102,7 +102,6 @@ def encode_faces(
                         config.face_detection_confidence_threshold,
                         config.recognition_model,
                         config.detector_backend,
-                        config.align,
                     )
 
             except (TypeError, DataTypeError) as e:

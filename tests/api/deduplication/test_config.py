@@ -87,6 +87,30 @@ def test_from_deduplication_set_stores_pk(ds_default: DeduplicationSet):
     assert config.deduplication_set_id == ds_default.pk
 
 
+def test_as_dict_scales_user_thresholds_to_unit_interval():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=50.0,
+        dynamic_range_threshold=0.0,
+        face_detection_confidence_threshold=0.82,
+    )
+    d = cfg.as_dict()
+    assert d["duplicate_confidence_threshold"] == pytest.approx(0.65)
+    assert d["sharpness_threshold"] == pytest.approx(0.5)
+    assert d["dynamic_range_threshold"] == pytest.approx(0.0)
+    assert d["face_detection_confidence_threshold"] == pytest.approx(0.82)
+
+
+def test_as_dict_internal_scale_preserves_values():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=50.0,
+    )
+    d = cfg.as_dict(internal_scale=True)
+    assert d["duplicate_confidence_threshold"] == pytest.approx(65.0)
+    assert d["sharpness_threshold"] == pytest.approx(50.0)
+
+
 def test_setting_fields_filters_by_metadata():
     api_fields = DeduplicationSetConfig.setting_fields(api=True)
     admin_fields = DeduplicationSetConfig.setting_fields(admin=True)

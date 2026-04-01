@@ -35,7 +35,6 @@ def make_encode_config(
         eyes_open_threshold=0,
         inter_eye_distance_threshold=0,
         unified_quality_score_threshold=0,
-        align=ALIGN,
     )
 
 
@@ -229,7 +228,7 @@ def mock_dedup_config():
     config.as_dict.return_value = {
         "recognition_model": "Facenet512",
         "distance_metric": "cosine",
-        "duplicate_confidence_threshold": 50.0,
+        "duplicate_confidence_threshold": 0.5,
     }
     return config
 

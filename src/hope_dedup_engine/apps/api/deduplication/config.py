@@ -139,12 +139,22 @@ class DeduplicationSetConfig:
         ),
     )
 
-    align: bool = True
+    def as_dict(self, *, internal_scale: bool = False) -> dict[str, Any]:
+        """Serialize config to a dict.
 
-    def as_dict(self) -> dict[str, Any]:
+        By default values are in the user-facing 0-1 range.
+        Pass ``internal_scale=True`` to keep the internal 0-100 range used
+        by DeepFace / OFIQ comparisons.
+        """
         d = dataclasses.asdict(self)
         if isinstance(d.get("deduplication_set_id"), UUID):
             d["deduplication_set_id"] = str(d["deduplication_set_id"])
+        if not internal_scale:
+            for f in dataclasses.fields(self):
+                if f.name == "duplicate_confidence_threshold" or f.metadata.get("ofiq_metric"):
+                    v = d.get(f.name)
+                    if isinstance(v, (int, float)):
+                        d[f.name] = v / 100
         return d
 
     @classmethod
