@@ -8,6 +8,7 @@ from adminfilters.filters import AutoCompleteFilter, ChoicesFieldComboFilter, Dj
 
 from django.contrib import messages
 from django.contrib.admin import register
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect
@@ -71,12 +72,20 @@ class DeduplicationSetAdmin(BaseModelAdmin):
                 self.message_user(request, "Another task is already running for this group.", messages.ERROR)
                 return None
 
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
-            deduplication_set.finding_set.all().delete()
-            deduplication_set.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
-            deduplication_set.error = None
-            deduplication_set.save(update_fields=["state", "error"])
-            job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
+            try:
+                with transaction.atomic():
+                    deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+                    deduplication_set.finding_set.all().delete()
+                    deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS, force=True)
+                    job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=True)
+            except IntegrityError:
+                group.release_processing_lock()
+                self.message_user(
+                    request,
+                    "Cannot start encoding: another active set already exists in this group.",
+                    messages.ERROR,
+                )
+                return None
             job.queue()
 
         findings_count = deduplication_set.finding_set.count()
@@ -101,17 +110,30 @@ class DeduplicationSetAdmin(BaseModelAdmin):
                 self.message_user(request, "Another task is already running for this group.", messages.ERROR)
                 return None
 
-            deduplication_set.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
-            deduplication_set.error = None
-            deduplication_set.save(update_fields=["state", "error"])
-            job = MainJob.objects.create(deduplication_set=deduplication_set)
+            try:
+                with transaction.atomic():
+                    deduplication_set.finding_set.filter(second_encoding__isnull=False).delete()
+                    deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS, force=True)
+                    job = MainJob.objects.create(deduplication_set=deduplication_set)
+            except IntegrityError:
+                group.release_processing_lock()
+                self.message_user(
+                    request,
+                    "Cannot start deduplication: another active set already exists in this group.",
+                    messages.ERROR,
+                )
+                return None
             job.queue()
 
+        findings_count = deduplication_set.finding_set.filter(second_encoding__isnull=False).count()
+        message = "Do you confirm to start deduplication job for this Deduplication Set?"
+        if findings_count:
+            message += f" WARNING: {findings_count} existing finding(s) will also be deleted."
         return confirm_action(
             modeladmin=self,
             request=request,
             action=_action,
-            message="Do you confirm to start deduplication job for this Deduplication Set?",
+            message=message,
         )
 
     @choice(
@@ -138,13 +160,22 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
-            deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
-            deduplication_set.finding_set.all().delete()
+            try:
+                with transaction.atomic():
+                    deduplication_set.encoding_set.update(embedding=None, embedding_status_code=None)
+                    deduplication_set.finding_set.all().delete()
+                    deduplication_set.set_state(DeduplicationSet.State.READY, force=True)
+            except IntegrityError:
+                self.message_user(
+                    request,
+                    "Cannot set to READY: another active set already exists in this group.",
+                    messages.ERROR,
+                )
 
         findings_count = deduplication_set.finding_set.count()
         message = "Do you confirm to clear all embeddings for this Deduplication Set?"
         if findings_count:
-            message += f"\n\nWARNING: {findings_count} existing finding(s) will also be deleted."
+            message += f" WARNING: {findings_count} existing finding(s) will also be deleted."
 
         return confirm_action(
             modeladmin=self,
@@ -187,16 +218,29 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     @view(label="Remove", permission=can.api.remove_findings)
     def findings_remove(self, request: HttpRequest, pk: str) -> HttpResponse:
         """Clear all Findings for this Deduplication Set."""
-        ds = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
 
         def _action(_: HttpRequest) -> HttpResponse:
-            ds.finding_set.all().delete()
+            try:
+                with transaction.atomic():
+                    deduplication_set.finding_set.filter(second_encoding__isnull=False).delete()
+                    deduplication_set.set_state(DeduplicationSet.State.ENCODED, force=True)
+            except IntegrityError:
+                self.message_user(
+                    request,
+                    "Cannot set to READY: another active set already exists in this group.",
+                    messages.ERROR,
+                )
 
+        findings_count = deduplication_set.finding_set.filter(second_encoding__isnull=False).count()
+        message = "Do you confirm to clear all the duplicate findings for this Deduplication Set?"
+        if findings_count:
+            message += f" WARNING: {findings_count} existing finding(s) will also be deleted."
         return confirm_action(
             modeladmin=self,
             request=request,
             action=_action,
-            message="Do you confirm to clear all findings for this Deduplication Set?",
+            message=message,
         )
 
     @view(label="Export to CSV", permission=can.api.export_findings)

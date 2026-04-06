@@ -44,6 +44,13 @@ class DeduplicationSetGroup(models.Model):
         return Encoding.objects.filter(
             deduplication_set__group=self,
             embedding__isnull=False,
+            deduplication_set__state__in=[
+                DeduplicationSet.State.ENCODED,
+                DeduplicationSet.State.DEDUPLICATED,
+                DeduplicationSet.State.APPROVED,
+                DeduplicationSet.State.ENCODING_FAILED,
+                DeduplicationSet.State.DEDUPLICATION_FAILED,
+            ],
         ).exists()
 
     def has_approved_deduplication_sets(self) -> bool:
@@ -64,8 +71,12 @@ class DeduplicationSetGroup(models.Model):
         self.save(update_fields=["processing_locked"])
 
     def update_settings(self, new_settings: dict) -> None:
-        if self.has_approved_deduplication_sets():
-            raise GroupSettingsError("Cannot change settings while approved deduplication sets exist.")
+        if self.deduplicationset_set.filter(
+            state__in=[DeduplicationSet.State.APPROVED, DeduplicationSet.State.DEDUPLICATED]
+        ).exists():
+            raise GroupSettingsError(
+                "Cannot change settings while the deduplication sets in APPROVED or DEDUPLICATED state exist."
+            )
 
         if not self.settings:
             from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings  # noqa
@@ -223,10 +234,11 @@ class DeduplicationSet(models.Model):
             embedding_status_code__in=EncodingErrorGroup.FACE_DETECT + EncodingErrorGroup.IMAGE_QUALITY
         )
 
-    def set_state(self, state: State, error: Exception | None = None) -> None:
-        allowed = self.VALID_TRANSITIONS.get(self.state, ())
-        if state not in allowed:
-            raise ValueError(f"Invalid state transition: {self.State(self.state).label} -> {state.label}")
+    def set_state(self, state: State, error: Exception | None = None, force: bool = False) -> None:
+        if not force:
+            allowed = self.VALID_TRANSITIONS.get(self.state, ())
+            if state not in allowed:
+                raise ValueError(f"Invalid state transition: {self.State(self.state).label} -> {state.label}")
         self.state = state.value
         if error:
             formatted_error = "".join(traceback.format_exception(error))

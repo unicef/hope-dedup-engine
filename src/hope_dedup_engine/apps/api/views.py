@@ -4,7 +4,7 @@ from typing import Any, cast
 from django.db import transaction
 from django.db.models import QuerySet, Count
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -167,6 +167,19 @@ class BulkEncodingViewSet(
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
         return CreateEncodingSerializer(*args, **kwargs, many=True)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="last",
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Set to true to indicate this is the last batch of images. "
+                "Transitions the deduplication set to READY state.",
+            ),
+        ],
+    )
+    @transaction.atomic
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         deduplication_set = self._get_deduplication_set()
 
@@ -257,8 +270,8 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
 
         try:
             group.update_settings(serializer.validated_data)
-        except GroupSettingsError:
-            raise ConflictError("The provided group settings are invalid.")
+        except GroupSettingsError as e:
+            raise ConflictError(str(e))
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})

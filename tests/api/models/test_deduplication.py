@@ -54,6 +54,23 @@ def test_deduplicationset_set_state_invalid_transition(deduplication_set_factory
         ds.set_state(to_state)
 
 
+@pytest.mark.parametrize(
+    ("from_state", "to_state"),
+    [
+        (DeduplicationSet.State.APPROVED, DeduplicationSet.State.READY),
+        (DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.READY),
+        (DeduplicationSet.State.ENCODING_IN_PROGRESS, DeduplicationSet.State.READY),
+    ],
+)
+def test_deduplicationset_set_state_force_bypasses_validation(deduplication_set_factory, from_state, to_state):
+    ds = deduplication_set_factory(state=from_state)
+    ds.set_state(to_state, force=True)
+
+    ds.refresh_from_db()
+    assert ds.state == to_state
+    assert ds.error is None
+
+
 def test_encoding_error_groups_are_non_overlapping():
     all_groups = [EncodingErrorGroup.FACE_DETECT, EncodingErrorGroup.IMAGE_QUALITY, EncodingErrorGroup.SYSTEM]
     all_codes = [code for group in all_groups for code in group]

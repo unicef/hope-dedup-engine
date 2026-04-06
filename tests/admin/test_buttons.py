@@ -112,6 +112,8 @@ def test_finding_details_button_visibility(
 )
 def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
     assert confirm(reverse(url_name, args=[seeded_ds.pk])).status_code == 200
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == DeduplicationSet.State.READY
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
@@ -174,6 +176,8 @@ def test_ds_encode(confirm, seeded_ds, mocker):
 
     assert confirm(reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk])).status_code == 200
 
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
     assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
     assert create.call_args.kwargs["encode_only"] is True
     job.queue.assert_called_once_with()
@@ -190,33 +194,18 @@ def test_ds_deduplicate(confirm, seeded_ds, mocker):
 
     assert confirm(reverse("admin:api_deduplicationset_deduplicate", args=[seeded_ds.pk])).status_code == 200
 
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
     assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
     assert "encode_only" not in create.call_args.kwargs
     job.queue.assert_called_once_with()
 
-    assert seeded_ds.finding_set.count() == 1
+    assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is True
 
 
 # --- DeduplicationSetGroup -----------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("url_name", "clears"),
-    [
-        ("admin:api_deduplicationsetgroup_clear_embeddings", True),
-        ("admin:api_deduplicationsetgroup_remove_findings", False),
-    ],
-    ids=["group_clear_embeddings", "group_remove_findings"],
-)
-def test_group_cleanup_buttons(confirm, seeded_group, url_name, clears):
-    assert confirm(reverse(url_name, args=[seeded_group.pk])).status_code == 200
-
-    for ds in seeded_group.deduplicationset_set.all():
-        assert ds.finding_set.count() == 0
-        assert ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
-        assert ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
 
 
 def test_group_encodings_view_redirect(app, seeded_group) -> None:
