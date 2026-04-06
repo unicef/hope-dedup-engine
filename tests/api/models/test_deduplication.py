@@ -120,7 +120,7 @@ def test_update_settings_raises_when_approved_sets_exist(deduplication_set_group
     group.save()
     deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
 
-    with pytest.raises(GroupSettingsError, match="approved deduplication sets"):
+    with pytest.raises(GroupSettingsError, match="APPROVED or DEDUPLICATED"):
         group.update_settings({"sharpness_threshold": 0.5})
 
 

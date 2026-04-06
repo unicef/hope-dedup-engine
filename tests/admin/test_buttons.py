@@ -103,17 +103,17 @@ def test_finding_details_button_visibility(
 
 
 @pytest.mark.parametrize(
-    ("url_name", "clears"),
+    ("url_name", "clears", "expected_state"),
     [
-        ("admin:api_deduplicationset_clear_embeddings", True),
-        ("admin:api_deduplicationset_findings_remove", False),
+        ("admin:api_deduplicationset_clear_embeddings", True, DeduplicationSet.State.READY),
+        ("admin:api_deduplicationset_findings_remove", False, DeduplicationSet.State.ENCODED),
     ],
     ids=["clear_embeddings", "findings_remove"],
 )
-def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
+def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears, expected_state):
     assert confirm(reverse(url_name, args=[seeded_ds.pk])).status_code == 200
     seeded_ds.refresh_from_db()
-    assert seeded_ds.state == DeduplicationSet.State.READY
+    assert seeded_ds.state == expected_state
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
