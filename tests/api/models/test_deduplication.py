@@ -11,7 +11,6 @@ from hope_dedup_engine.apps.api.models.deduplication import EncodingErrorGroup, 
     ("from_state", "to_state"),
     [
         (DeduplicationSet.State.EMPTY, DeduplicationSet.State.UPLOADING_IN_PROGRESS),
-        (DeduplicationSet.State.EMPTY, DeduplicationSet.State.READY),
         (DeduplicationSet.State.UPLOADING_IN_PROGRESS, DeduplicationSet.State.READY),
         (DeduplicationSet.State.READY, DeduplicationSet.State.ENCODING_IN_PROGRESS),
         (DeduplicationSet.State.ENCODING_IN_PROGRESS, DeduplicationSet.State.ENCODED),

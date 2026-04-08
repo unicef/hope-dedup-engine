@@ -36,16 +36,19 @@ def test_bulk_create_sets_uploading_in_progress(api_client: APIClient, deduplica
     assert deduplication_set.state == DeduplicationSet.State.UPLOADING_IN_PROGRESS
 
 
-def test_bulk_create_last_sets_ready(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
-    deduplication_set.state = DeduplicationSet.State.EMPTY
+def test_bulk_create_stays_uploading_in_progress(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    deduplication_set.state = DeduplicationSet.State.UPLOADING_IN_PROGRESS
     deduplication_set.save(update_fields=["state"])
 
     data = [{"reference_pk": "ref_1", "filename": "file_1.jpg"}]
-    url = reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk})
-    response = api_client.post(f"{url}?last=true", data=data, format=JSON)
+    response = api_client.post(
+        reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
+        data=data,
+        format=JSON,
+    )
     assert response.status_code == status.HTTP_201_CREATED
     deduplication_set.refresh_from_db()
-    assert deduplication_set.state == DeduplicationSet.State.READY
+    assert deduplication_set.state == DeduplicationSet.State.UPLOADING_IN_PROGRESS
 
 
 def test_cannot_upload_in_non_uploadable_state(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:

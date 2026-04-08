@@ -96,7 +96,19 @@ class DeduplicationSetViewSet(
     @extend_schema(
         request=EmptySerializer,
         responses=EmptySerializer,
-        description="Run encoding and/or deduplication for the deduplication set",
+        parameters=[
+            OpenApiParameter(
+                name="encode_only",
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="If true, only run encoding without deduplication.",
+            ),
+        ],
+        description="Start encoding and deduplication for the deduplication set. "
+        "Pass encode_only=true to run encoding without deduplication. "
+        "Allowed in Ready, Encoded, Encoding failed, or Deduplication failed states. "
+        "Returns 409 if the set is in a non-processable state or another task is already running for the group.",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def process(self, request: Request, pk: str | None = None) -> Response:
@@ -109,15 +121,25 @@ class DeduplicationSetViewSet(
         if not group.acquire_processing_lock():
             raise ConflictError("Another task is already running for this group.")
 
-        deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS)
-        job = MainJob.objects.create(deduplication_set=deduplication_set)
+        encode_only = request.query_params.get("encode_only", "").lower() in ("true", "1")
+
+        try:
+            with transaction.atomic():
+                deduplication_set.set_state(DeduplicationSet.State.ENCODING_IN_PROGRESS)
+                job = MainJob.objects.create(deduplication_set=deduplication_set, encode_only=encode_only)
+        except Exception:
+            group.release_processing_lock()
+            raise
+
         job.queue()
         return Response({"message": "started"})
 
     @extend_schema(
         request=EmptySerializer,
         responses=EmptySerializer,
-        description="Reject the deduplication set findings",
+        description="Reject the deduplication set findings and move the set back to a state "
+        "where it can be reprocessed or deleted. "
+        "Only allowed when the set is in 'Deduplicated' state.",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def reject(self, request: Request, pk: str | None = None) -> Response:
@@ -131,24 +153,47 @@ class DeduplicationSetViewSet(
         deduplication_set.save(update_fields=["updated_by"])
         return Response({"message": "ok"})
 
-    @extend_schema(description="List all deduplication sets available to the user")
+    @extend_schema(
+        description="List all non-approved deduplication sets belonging to the authenticated system.",
+    )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         request=CreateDeduplicationSetSerializer,
-        description="Create new deduplication set",
+        description="Create a new deduplication set within a group. "
+        "The group is identified by reference_pk and created automatically if it does not exist. "
+        "Returns 409 if an active deduplication set already exists in the group.",
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(description="Retrieve specific deduplication set")
+    @extend_schema(
+        description="Retrieve a specific deduplication set by ID, including its current state and findings count.",
+    )
     def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().retrieve(request, *args, **kwargs)
 
-    @extend_schema(description="Delete specific deduplication set")
+    @extend_schema(
+        description="Delete a specific deduplication set and all its associated images, encodings, and findings.",
+    )
     def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().destroy(request, *args, **kwargs)
+
+    @extend_schema(
+        request=EmptySerializer,
+        responses=EmptySerializer,
+        description="Mark the deduplication set as ready for processing. "
+        "Call this after all image upload batches have completed. "
+        "Only allowed when the set is in 'Uploading in progress' state.",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def ready(self, request: Request, pk: str | None = None) -> Response:
+        deduplication_set = self.get_object()
+        if deduplication_set.state != DeduplicationSet.State.UPLOADING_IN_PROGRESS:
+            raise ConflictError(f"Cannot mark as ready in '{deduplication_set.get_state_display()}' state.")
+        deduplication_set.set_state(DeduplicationSet.State.READY)
+        return Response(status=status.HTTP_200_OK)
 
 
 class BulkEncodingViewSet(
@@ -168,16 +213,9 @@ class BulkEncodingViewSet(
         return CreateEncodingSerializer(*args, **kwargs, many=True)
 
     @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name="last",
-                type=bool,
-                location=OpenApiParameter.QUERY,
-                required=False,
-                description="Set to true to indicate this is the last batch of images. "
-                "Transitions the deduplication set to READY state.",
-            ),
-        ],
+        description="Register a batch of images in the deduplication set. "
+        "Can be called multiple times in parallel. "
+        "After all batches are uploaded, call the 'ready' endpoint to finalize.",
     )
     @transaction.atomic
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -187,26 +225,21 @@ class BulkEncodingViewSet(
         if deduplication_set.state not in allowed:
             raise ConflictError(f"Cannot upload images in '{deduplication_set.get_state_display()}' state.")
 
-        if isinstance(request.data, list):
-            for item in request.data:
-                item["deduplication_set"] = deduplication_set.pk
-        else:
-            request.data["deduplication_set"] = deduplication_set.pk
+        for item in request.data:
+            item["deduplication_set"] = deduplication_set.pk
 
         response = super().create(request, *args, **kwargs)
 
-        is_last = request.query_params.get("last", "").lower() in ("true", "1")
         if deduplication_set.state == DeduplicationSet.State.EMPTY:
-            target_state = DeduplicationSet.State.READY if is_last else DeduplicationSet.State.UPLOADING_IN_PROGRESS
-            deduplication_set.set_state(target_state)
-        elif is_last:
-            deduplication_set.set_state(DeduplicationSet.State.READY)
+            deduplication_set.set_state(DeduplicationSet.State.UPLOADING_IN_PROGRESS)
 
         deduplication_set.updated_by = request.user
         deduplication_set.save(update_fields=["updated_by"])
         return response
 
-    @extend_schema(description="Delete all images from deduplication set")
+    @extend_schema(
+        description="Delete all registered images from the deduplication set and reset its state to Empty.",
+    )
     @action(detail=False, methods=(HTTPMethod.DELETE,))
     def clear(self, request: Request, deduplication_set_pk: str) -> Response:
         deduplication_set = self._get_deduplication_set()
@@ -235,13 +268,16 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
     @extend_schema(
         methods=["GET"],
         responses=GroupSettingsSerializer,
-        description="Get quality threshold settings for a deduplication set group.",
+        description="Get quality threshold settings for a deduplication set group. "
+        "Returns default values if the group does not exist or has no custom settings.",
     )
     @extend_schema(
         methods=["POST"],
         request=GroupSettingsSerializer,
         responses=GroupSettingsSerializer,
-        description="Create or update quality threshold settings for a deduplication set group.",
+        description="Create or update quality threshold settings for a deduplication set group. "
+        "Creates the group if it does not exist. "
+        "Returns 409 if the group has an approved or deduplicated set (settings are locked).",
     )
     @action(detail=True, methods=(HTTPMethod.GET, HTTPMethod.POST), url_path="config")
     def config(self, request: Request, reference_pk: str) -> Response:
@@ -279,7 +315,8 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
     @extend_schema(
         request=EmptySerializer,
         responses=EmptySerializer,
-        description="Approve the deduplicated set in this group (used by HOPE).",
+        description="Approve the deduplicated set in this group, marking it as final. "
+        "Returns 404 if no set in 'Deduplicated' state exists in the group.",
     )
     @action(detail=True, methods=(HTTPMethod.POST,))
     def approve(self, request: Request, reference_pk: str) -> Response:
@@ -301,7 +338,9 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
 
     @extend_schema(
         responses=GroupStatusSerializer,
-        description="Check whether a new deduplication set can be created in this group.",
+        description="Check whether a new deduplication set can be created in this group. "
+        "Returns can_create=false if a set that is currently being uploaded, "
+        "processed, or awaiting approval already exists in the group.",
     )
     @action(detail=True, methods=(HTTPMethod.GET,), url_path="status")
     def status(self, request: Request, reference_pk: str) -> Response:

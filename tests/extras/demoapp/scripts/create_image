@@ -9,10 +9,9 @@ if [[ $# -lt 2 ]] ; then
   exit 1
 fi
 
-args=()
-if [[ "$3" == "--last" ]]; then
-  args+=(last==true)
-fi
-
 printf '[{"reference_pk": "%s", "filename": "%s"}]' "$1" "$2" \
-  | call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" Content-Type:application/json "${args[@]}"
+  | call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" Content-Type:application/json
+
+if [[ "$3" == "--last" ]]; then
+  call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/ready"
+fi

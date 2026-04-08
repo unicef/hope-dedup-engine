@@ -6,6 +6,7 @@ DEDUPLICATION_SET_LIST_VIEW = "deduplication_sets-list"
 DEDUPLICATION_SET_DETAIL_VIEW = "deduplication_sets-detail"
 DEDUPLICATION_SET_PROCESS_VIEW = "deduplication_sets-process"
 DEDUPLICATION_SET_REJECT_VIEW = "deduplication_sets-reject"
+DEDUPLICATION_SET_READY_VIEW = "deduplication_sets-ready"
 
 GROUP_APPROVE_VIEW = "deduplication_set_groups-approve"
 GROUP_CONFIG_VIEW = "deduplication_set_groups-config"

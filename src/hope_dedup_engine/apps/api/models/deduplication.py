@@ -130,7 +130,7 @@ class DeduplicationSet(models.Model):
         REJECTED = REJECTED_STATE, "Rejected"
 
     VALID_TRANSITIONS: Final[dict[int, tuple[int, ...]]] = {
-        State.EMPTY: (State.UPLOADING_IN_PROGRESS, State.READY),
+        State.EMPTY: (State.UPLOADING_IN_PROGRESS,),
         State.UPLOADING_IN_PROGRESS: (State.UPLOADING_IN_PROGRESS, State.READY),
         State.READY: (State.ENCODING_IN_PROGRESS,),
         State.ENCODING_IN_PROGRESS: (State.ENCODED, State.ENCODING_FAILED),

@@ -29,7 +29,9 @@ done
 payload+="]"
 
 printf '%s' "$payload" \
-  | call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" Content-Type:application/json last==true
+  | call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" Content-Type:application/json
+
+call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/ready"
 
 
 ./process_deduplication_set
