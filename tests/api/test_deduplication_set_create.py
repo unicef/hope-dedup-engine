@@ -33,6 +33,22 @@ def test_missing_fields_handling(api_client: APIClient, deduplication_set_factor
     assert "reference_pk" in errors
 
 
+@pytest.fixture
+def active_ds_in_group(deduplication_set):
+    """A dedup set in READY state whose group belongs to the api_client's system."""
+    deduplication_set.state = DeduplicationSet.State.READY
+    deduplication_set.save(update_fields=["state"])
+    return deduplication_set
+
+
+def test_create_conflict_when_active_set_exists(api_client: APIClient, active_ds_in_group) -> None:
+    data = {"reference_pk": active_ds_in_group.group.reference_pk}
+
+    response = api_client.post(reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON)
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
 @pytest.mark.parametrize("field", ["reference_pk"])
 def test_invalid_values_handling(field: str, api_client: APIClient, deduplication_set_factory) -> None:
     data = CreateDeduplicationSetSerializer(deduplication_set_factory.build()).data

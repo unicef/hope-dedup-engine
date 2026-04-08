@@ -40,6 +40,21 @@ def test_get_returns_group_settings(api_client: APIClient, hde_token, deduplicat
     assert data["sharpness_threshold"] == 0.5
 
 
+@pytest.fixture
+def group_with_null_settings(deduplication_set_group):
+    deduplication_set_group.settings = None
+    deduplication_set_group.save(update_fields=["settings"])
+    return deduplication_set_group
+
+
+@pytest.mark.django_db
+def test_get_returns_defaults_when_group_settings_is_null(api_client: APIClient, group_with_null_settings):
+    response = api_client.get(config_url(group_with_null_settings.reference_pk))
+    assert response.status_code == status.HTTP_200_OK
+    api_field_names = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+    assert set(response.json().keys()) == set(api_field_names)
+
+
 @pytest.mark.django_db
 def test_get_anonymous_is_rejected(anonymous_api_client: APIClient):
     response = anonymous_api_client.get(config_url("any-ref"))

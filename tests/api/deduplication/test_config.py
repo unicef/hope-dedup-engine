@@ -111,6 +111,16 @@ def test_as_dict_internal_scale_preserves_values():
     assert d["sharpness_threshold"] == pytest.approx(50.0)
 
 
+def test_as_dict_skips_non_numeric_threshold():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=None,
+    )
+    d = cfg.as_dict()
+    assert d["duplicate_confidence_threshold"] == pytest.approx(0.65)
+    assert d["sharpness_threshold"] is None
+
+
 def test_setting_fields_filters_by_metadata():
     api_fields = DeduplicationSetConfig.setting_fields(api=True)
     admin_fields = DeduplicationSetConfig.setting_fields(admin=True)

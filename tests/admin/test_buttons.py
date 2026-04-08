@@ -205,6 +205,52 @@ def test_ds_deduplicate(confirm, seeded_ds, mocker):
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is True
 
 
+@pytest.fixture
+def ds_with_constraint_conflict(deduplication_set, encoding, deduplication_set_factory):
+    """A dedup set in a non-active state whose group already has an active set (constraint conflict)."""
+    deduplication_set.state = DeduplicationSet.State.ENCODING_FAILED
+    deduplication_set.save(update_fields=["state"])
+    deduplication_set_factory(group=deduplication_set.group, state=DeduplicationSet.State.READY)
+    return deduplication_set
+
+
+@pytest.mark.parametrize(
+    "url_name",
+    [
+        "admin:api_deduplicationset_encode",
+        "admin:api_deduplicationset_deduplicate",
+    ],
+    ids=["encode", "deduplicate"],
+)
+def test_ds_process_integrity_error_releases_lock(confirm, ds_with_constraint_conflict, url_name, mocker):
+    mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
+    ds = ds_with_constraint_conflict
+
+    assert confirm(reverse(url_name, args=[ds.pk])).status_code == 200
+
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.ENCODING_FAILED
+    ds.group.refresh_from_db()
+    assert ds.group.processing_locked is False
+
+
+@pytest.mark.parametrize(
+    "url_name",
+    [
+        "admin:api_deduplicationset_clear_embeddings",
+        "admin:api_deduplicationset_findings_remove",
+    ],
+    ids=["clear_embeddings", "findings_remove"],
+)
+def test_ds_cleanup_integrity_error_rolls_back(confirm, ds_with_constraint_conflict, url_name):
+    ds = ds_with_constraint_conflict
+
+    assert confirm(reverse(url_name, args=[ds.pk])).status_code == 200
+
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.ENCODING_FAILED
+
+
 # --- DeduplicationSetGroup -----------------------------------------------------------------
 
 
