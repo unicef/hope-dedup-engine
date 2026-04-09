@@ -73,7 +73,7 @@ runs:
         key: ${{ runner.os }}-regclient
 
     - name: DockerHub login
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
@@ -95,7 +95,7 @@ runs:
       uses: ./.github/actions/last_commit
     - name: Docker meta
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: ${{ inputs.image }}
         flavor: |

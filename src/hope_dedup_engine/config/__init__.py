@@ -64,7 +64,7 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "AZURE_CLIENT_SECRET": (str, ""),
     "AZURE_TENANT_ID": (str, ""),
-    "AZURE_CLIENT_KEY": (str, ""),
+    "AZURE_CLIENT_ID": (str, ""),
     "CACHE_URL": (
         str,
         SmartEnv.NOTSET,
