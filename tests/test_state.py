@@ -52,6 +52,7 @@ def test_add_cookies(state):
         "expires": "Sat, 01 Jan 2000 01:00:00 GMT",
         "httponly": True,
         "max-age": 3600,
+        "partitioned": "",
         "path": "/path/",
         "samesite": "lax",
         "secure": True,
