@@ -12,6 +12,8 @@ from hope_dedup_engine.apps.api.const import (
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
+DUPLICATE_CONFIDENCE_THRESHOLD = "duplicate_confidence_threshold"
+
 
 def _meta(  # noqa
     *,
@@ -151,7 +153,7 @@ class DeduplicationSetConfig:
             d["deduplication_set_id"] = str(d["deduplication_set_id"])
         if not internal_scale:
             for f in dataclasses.fields(self):
-                if f.name == "duplicate_confidence_threshold" or f.metadata.get("ofiq_metric"):
+                if f.name == DUPLICATE_CONFIDENCE_THRESHOLD or f.metadata.get("ofiq_metric"):
                     v = d.get(f.name)
                     if isinstance(v, (int, float)):
                         d[f.name] = v / 100
@@ -171,7 +173,7 @@ class DeduplicationSetConfig:
         for f in cls.setting_fields():
             if f.name in settings:
                 value = settings[f.name]
-                if f.name == "duplicate_confidence_threshold" or f.metadata.get("ofiq_metric"):
+                if f.name == DUPLICATE_CONFIDENCE_THRESHOLD or f.metadata.get("ofiq_metric"):
                     value = value * 100
                 kwargs[f.name] = value
         return cls(**kwargs)

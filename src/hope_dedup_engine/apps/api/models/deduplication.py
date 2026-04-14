@@ -94,8 +94,7 @@ class DeduplicationSetGroup(models.Model):
         if not ds or not ds.encodings_with_embeddings().exists():
             return
 
-        ds.encoding_set.update(embedding=None, embedding_status_code=None)
-        ds.finding_set.all().delete()
+        ds.clear_embeddings_data()
         if self.acquire_processing_lock():
             ds.state = DeduplicationSet.State.ENCODING_IN_PROGRESS
             ds.error = None
@@ -225,6 +224,13 @@ class DeduplicationSet(models.Model):
 
     def __str__(self) -> str:
         return self.name or f"ID: {self.pk}"
+
+    def duplicate_findings(self) -> QuerySet["Finding"]:
+        return self.finding_set.filter(second_encoding__isnull=False)
+
+    def clear_embeddings_data(self) -> None:
+        self.encoding_set.update(embedding=None, embedding_status_code=None)
+        self.finding_set.all().delete()
 
     def encodings_with_embeddings(self) -> QuerySet["Encoding"]:
         return self.encoding_set.filter(embedding__isnull=False)

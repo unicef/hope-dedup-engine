@@ -197,7 +197,7 @@ def test_ds_deduplicate(confirm, seeded_ds, mocker):
     seeded_ds.refresh_from_db()
     assert seeded_ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
     assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
-    assert "encode_only" not in create.call_args.kwargs
+    assert create.call_args.kwargs["encode_only"] is False
     job.queue.assert_called_once_with()
 
     assert seeded_ds.finding_set.count() == 0
