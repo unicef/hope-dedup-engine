@@ -59,13 +59,13 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         )
 
     @button(label="Encodings", change_form=True, change_list=False, permission=can.api.view_encodings)
-    def encodings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
+    def encodings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
         url = reverse("admin:api_encoding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)
 
     @button(label="Findings", change_form=True, change_list=False, permission=can.api.view_findings)
-    def findings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
+    def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
         url = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)

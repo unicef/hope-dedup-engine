@@ -256,7 +256,7 @@ def test_ds_cleanup_integrity_error_rolls_back(confirm, ds_with_constraint_confl
 
 def test_group_encodings_view_redirect(app, seeded_group) -> None:
     res = app.get(
-        reverse("admin:api_deduplicationsetgroup_encodings_view", args=[seeded_group.pk]),
+        reverse("admin:api_deduplicationsetgroup_encodings", args=[seeded_group.pk]),
         expect_errors=True,
     )
     assert res.status_code == 302
@@ -267,7 +267,7 @@ def test_group_encodings_view_redirect(app, seeded_group) -> None:
 
 def test_group_findings_view_redirect(app, seeded_group) -> None:
     res = app.get(
-        reverse("admin:api_deduplicationsetgroup_findings_view", args=[seeded_group.pk]),
+        reverse("admin:api_deduplicationsetgroup_findings", args=[seeded_group.pk]),
         expect_errors=True,
     )
     assert res.status_code == 302
