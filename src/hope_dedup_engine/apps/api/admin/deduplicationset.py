@@ -14,6 +14,8 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.text import format_lazy
+from django.utils.translation import gettext_lazy as _
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
@@ -22,14 +24,15 @@ from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.utils.export import export_as_csv
 
 
-NOTIFICATION_SENT = "Notification sent."
-ERR_GROUP_LOCKED = "Another task is already running for this group."
-ERR_ACTIVE_SET_EXISTS = "Cannot start job: another active set already exists in this group."
-ERR_STATE_ACTIVE_SET_EXISTS = "Cannot change state: another active set already exists in this group."
-CONFIRM_ENCODE = "Do you confirm to start encoding job for this Deduplication Set?"
-CONFIRM_DEDUPLICATE = "Do you confirm to start deduplication job for this Deduplication Set?"
-CONFIRM_CLEAR_EMBEDDINGS = "Do you confirm to clear all embeddings for this Deduplication Set?"
-CONFIRM_REMOVE_FINDINGS = "Do you confirm to clear all the duplicate findings for this Deduplication Set?"
+NOTIFICATION_SENT = _("Notification sent.")
+ERR_GROUP_LOCKED = _("Another task is already running for this group.")
+ERR_ACTIVE_SET_EXISTS = _("Cannot start job: another active set already exists in this group.")
+ERR_STATE_ACTIVE_SET_EXISTS = _("Cannot change state: another active set already exists in this group.")
+CONFIRM_ENCODE = _("Do you confirm to start encoding job for this Deduplication Set?")
+CONFIRM_DEDUPLICATE = _("Do you confirm to start deduplication job for this Deduplication Set?")
+CONFIRM_CLEAR_EMBEDDINGS = _("Do you confirm to clear all embeddings for this Deduplication Set?")
+CONFIRM_REMOVE_FINDINGS = _("Do you confirm to clear all the duplicate findings for this Deduplication Set?")
+WARN_FINDINGS_DELETED = _(" WARNING: {count} existing finding(s) will be deleted.")
 
 
 @register(DeduplicationSet)
@@ -105,7 +108,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         findings_count = findings_qs.count()
         message = base_message
         if findings_count:
-            message += f" WARNING: {findings_count} existing finding(s) will be deleted."
+            message = format_lazy("{}{}", base_message, format_lazy(WARN_FINDINGS_DELETED, count=findings_count))
         return confirm_action(modeladmin=self, request=request, action=action, message=message)
 
     def _make_state_change_action(
