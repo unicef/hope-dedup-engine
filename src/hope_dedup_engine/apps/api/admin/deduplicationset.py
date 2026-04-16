@@ -66,12 +66,13 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         ("updated_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
+    list_select_related = ("group",)
 
     def has_add_permission(self, request):
         return False
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
-        return DeduplicationSet.objects.only(*self.get_list_display(request))
+        return super().get_queryset(request).defer("log", "error")
 
     def _make_job_action(
         self,

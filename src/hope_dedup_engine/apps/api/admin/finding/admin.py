@@ -37,7 +37,7 @@ class FindingAdmin(BaseModelAdmin):
         "status_code",
         DjangoLookupFilter,
     )
-    list_select_related = ("deduplication_set", "first_encoding", "second_encoding")
+    list_select_related = ("deduplication_set",)
     search_fields = (
         "first_encoding__reference_pk",
         "second_encoding__reference_pk",
