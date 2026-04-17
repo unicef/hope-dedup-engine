@@ -5,7 +5,6 @@ from hope_dedup_engine.apps.api.deduplication.config import (
     get_default_group_settings,
 )
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from testutils.factories.api import DeduplicationSetFactory
 
 
 @pytest.mark.django_db
@@ -16,8 +15,8 @@ def test_get_default_group_settings_contains_all_setting_fields():
 
 
 @pytest.fixture
-def ds_with_model_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(
+def ds_with_model_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(
         group__settings={
             "recognition_model": "ArcFace",
             "detector_backend": "ssd",
@@ -28,23 +27,23 @@ def ds_with_model_settings(db) -> DeduplicationSet:
 
 
 @pytest.fixture
-def ds_with_duplicate_confidence_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={"duplicate_confidence_threshold": 0.65})
+def ds_with_duplicate_confidence_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={"duplicate_confidence_threshold": 0.65})
 
 
 @pytest.fixture
-def ds_with_ofiq_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7})
+def ds_with_ofiq_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={"sharpness_threshold": 0.5, "eyes_open_threshold": 0.7})
 
 
 @pytest.fixture
-def ds_with_empty_settings(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create(group__settings={})
+def ds_with_empty_settings(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory(group__settings={})
 
 
 @pytest.fixture
-def ds_default(db) -> DeduplicationSet:
-    return DeduplicationSetFactory.create()
+def ds_default(deduplication_set_factory) -> DeduplicationSet:
+    return deduplication_set_factory()
 
 
 @pytest.mark.django_db
@@ -86,6 +85,40 @@ def test_from_deduplication_set_falls_back_to_constance_defaults(ds_with_empty_s
 def test_from_deduplication_set_stores_pk(ds_default: DeduplicationSet):
     config = DeduplicationSetConfig.from_deduplication_set(ds_default)
     assert config.deduplication_set_id == ds_default.pk
+
+
+def test_as_dict_scales_user_thresholds_to_unit_interval():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=50.0,
+        dynamic_range_threshold=0.0,
+        face_detection_confidence_threshold=0.82,
+    )
+    d = cfg.as_dict()
+    assert d["duplicate_confidence_threshold"] == pytest.approx(0.65)
+    assert d["sharpness_threshold"] == pytest.approx(0.5)
+    assert d["dynamic_range_threshold"] == pytest.approx(0.0)
+    assert d["face_detection_confidence_threshold"] == pytest.approx(0.82)
+
+
+def test_as_dict_internal_scale_preserves_values():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=50.0,
+    )
+    d = cfg.as_dict(internal_scale=True)
+    assert d["duplicate_confidence_threshold"] == pytest.approx(65.0)
+    assert d["sharpness_threshold"] == pytest.approx(50.0)
+
+
+def test_as_dict_skips_non_numeric_threshold():
+    cfg = DeduplicationSetConfig(
+        duplicate_confidence_threshold=65.0,
+        sharpness_threshold=None,
+    )
+    d = cfg.as_dict()
+    assert d["duplicate_confidence_threshold"] == pytest.approx(0.65)
+    assert d["sharpness_threshold"] is None
 
 
 def test_setting_fields_filters_by_metadata():

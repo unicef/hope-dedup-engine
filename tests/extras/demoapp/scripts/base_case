@@ -11,10 +11,20 @@ fi
 
 ./create_deduplication_set "$1"
 
+files=()
 for path in ../demo_images/*.{jpg,png}; do
   file=$(basename $path)
   if [[ -f "$path" ]] && [ "$file" != "too_small.jpg" ] && [ "$file" != "without_face.jpg" ]; then
-    ./create_image "$file" "$file"
+    files+=("$file")
+  fi
+done
+
+last_idx=$(( ${#files[@]} - 1 ))
+for i in "${!files[@]}"; do
+  if [[ $i -eq $last_idx ]]; then
+    ./create_image "${files[$i]}" "${files[$i]}" --last
+  else
+    ./create_image "${files[$i]}" "${files[$i]}"
   fi
 done
 

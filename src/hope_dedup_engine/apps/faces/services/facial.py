@@ -8,7 +8,6 @@ from ofiq import OFIQ
 from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.commons.image_utils import load_image_from_base64
-from deepface.modules.exceptions import DataTypeError
 from deepface.modules.verification import find_confidence, find_distance, find_threshold
 from django.db import transaction
 from numpy import ndarray
@@ -34,7 +33,7 @@ def encode_face(
     face_confidence_threshold: float,
     model_name: str,
     detector_backend: str,
-    align: bool,
+    align: bool = True,
 ) -> tuple[Embedding | None, Encoding.StatusCode | None]:
     result = DeepFace.represent(
         data,
@@ -102,14 +101,13 @@ def encode_faces(
                         config.face_detection_confidence_threshold,
                         config.recognition_model,
                         config.detector_backend,
-                        config.align,
                     )
 
-            except (TypeError, DataTypeError) as e:
-                logger.exception(e)
-                encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
             except ResourceNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
+            except Exception as e:
+                logger.exception(e)
+                encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
 
             encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
 
@@ -229,7 +227,7 @@ def dedupe_all(
     embedding_dim = len(first_embedding)
 
     approved_qs = Encoding.objects.filter(
-        deduplication_set__state=DeduplicationSet.State.INACTIVE,
+        deduplication_set__state=DeduplicationSet.State.APPROVED,
         deduplication_set__group=deduplication_set.group,
         embedding__isnull=False,
     ).order_by("id")

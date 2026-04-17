@@ -1,6 +1,7 @@
 import pytest
 
 from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
+from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 VALID_FORM_DATA = {
     "recognition_model": "Facenet512",
@@ -84,7 +85,7 @@ def test_form_rejects_changes_when_embeddings_exist(
     group.settings = dict(VALID_FORM_DATA)
     group.save()
 
-    ds = deduplication_set_factory(group=group)
+    ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.ENCODED)
     encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
 
     changed_data = {**VALID_FORM_DATA, "sharpness_threshold": 0.9}

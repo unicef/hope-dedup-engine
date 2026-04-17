@@ -57,6 +57,42 @@ def make_findings(ds):
     return make
 
 
+@pytest.fixture
+def ds_with_pair_and_single_finding(ds, encoding_factory, finding_factory):
+    e1, e2, e3 = (encoding_factory(deduplication_set=ds) for _ in range(3))
+    pair_finding = finding_factory(deduplication_set=ds, first_encoding=e1, second_encoding=e2)
+    finding_factory(deduplication_set=ds, first_encoding=e3, second_encoding=None)
+    return ds, pair_finding
+
+
+@pytest.fixture
+def ds_with_single_encoding_finding(ds, encoding_factory, finding_factory):
+    e1 = encoding_factory(deduplication_set=ds)
+    finding_factory(deduplication_set=ds, first_encoding=e1, second_encoding=None)
+    return ds
+
+
+@pytest.fixture
+def ds_with_mixed_embeddings(ds, encoding_factory):
+    encoding_factory(deduplication_set=ds, embedding=[0.1, 0.2], embedding_status_code=None)
+    encoding_factory(deduplication_set=ds, embedding=None, embedding_status_code=200)
+    return ds
+
+
+@pytest.fixture
+def ds_with_findings(ds, finding_factory):
+    finding_factory(deduplication_set=ds)
+    finding_factory(deduplication_set=ds)
+    return ds
+
+
+@pytest.fixture
+def ds_with_encodings(ds, encoding_factory):
+    encoding_factory(deduplication_set=ds)
+    encoding_factory(deduplication_set=ds)
+    return ds
+
+
 @pytest.mark.parametrize(
     ("filenames", "filenames_with_embeddings", "expected"),
     [
@@ -101,3 +137,46 @@ def test_encodings_without_embeddings_includes_missing_and_system_excludes_face(
         "sys_err.jpg",
         "missing_filename.jpg",
     }
+
+
+def test_duplicate_findings_returns_only_findings_with_second_encoding(ds_with_pair_and_single_finding):
+    ds, pair_finding = ds_with_pair_and_single_finding
+
+    assert list(ds.duplicate_findings()) == [pair_finding]
+
+
+def test_duplicate_findings_returns_empty_when_no_findings(ds):
+    assert ds.duplicate_findings().count() == 0
+
+
+def test_duplicate_findings_returns_empty_when_only_single_encoding_findings(ds_with_single_encoding_finding):
+    assert ds_with_single_encoding_finding.duplicate_findings().count() == 0
+
+
+def test_clear_embeddings_data_clears_embeddings_and_status_codes(ds_with_mixed_embeddings):
+    ds_with_mixed_embeddings.clear_embeddings_data()
+
+    for enc in ds_with_mixed_embeddings.encoding_set.all():
+        assert enc.embedding is None
+        assert enc.embedding_status_code is None
+
+
+def test_clear_embeddings_data_deletes_all_findings(ds_with_findings):
+    assert ds_with_findings.finding_set.count() == 2
+
+    ds_with_findings.clear_embeddings_data()
+
+    assert ds_with_findings.finding_set.count() == 0
+
+
+def test_clear_embeddings_data_preserves_encodings(ds_with_encodings):
+    ds_with_encodings.clear_embeddings_data()
+
+    assert ds_with_encodings.encoding_set.count() == 2
+
+
+def test_clear_embeddings_data_no_op_on_empty_set(ds):
+    ds.clear_embeddings_data()
+
+    assert ds.encoding_set.count() == 0
+    assert ds.finding_set.count() == 0

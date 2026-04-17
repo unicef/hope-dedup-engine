@@ -3,6 +3,11 @@ from rest_framework.exceptions import APIException
 from constance import config
 
 
+class ConflictError(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Conflict."
+
+
 class TooManyReferencePksException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
 

@@ -9,7 +9,7 @@ from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConf
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 
-URL_NAME = "deduplication_set_group_config"
+URL_NAME = "deduplication_set_groups-config"
 JSON = "json"
 
 
@@ -38,6 +38,21 @@ def test_get_returns_group_settings(api_client: APIClient, hde_token, deduplicat
     data = response.json()
     assert data["face_detection_confidence_threshold"] == 0.75
     assert data["sharpness_threshold"] == 0.5
+
+
+@pytest.fixture
+def group_with_null_settings(deduplication_set_group):
+    deduplication_set_group.settings = None
+    deduplication_set_group.save(update_fields=["settings"])
+    return deduplication_set_group
+
+
+@pytest.mark.django_db
+def test_get_returns_defaults_when_group_settings_is_null(api_client: APIClient, group_with_null_settings):
+    response = api_client.get(config_url(group_with_null_settings.reference_pk))
+    assert response.status_code == status.HTTP_200_OK
+    api_field_names = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+    assert set(response.json().keys()) == set(api_field_names)
 
 
 @pytest.mark.django_db
@@ -102,13 +117,13 @@ def test_post_anonymous_is_rejected(anonymous_api_client: APIClient):
 
 
 @pytest.mark.django_db
-def test_post_blocked_when_inactive_dedup_set_exists(
+def test_post_blocked_when_approved_dedup_set_exists(
     api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
 ):
     group = deduplication_set_group_factory(system=hde_token.system)
     group.settings = get_default_group_settings()
     group.save()
-    deduplication_set_factory(group=group, state=DeduplicationSet.State.INACTIVE)
+    deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
     assert response.status_code == status.HTTP_409_CONFLICT

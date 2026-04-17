@@ -15,8 +15,6 @@ from api.api_const import (
     BULK_IMAGE_LIST_VIEW,
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
-    ENCODING_DETAIL_VIEW,
-    ENCODING_LIST_VIEW,
     JSON,
 )
 from api.utils import get_auth_headers
@@ -28,16 +26,18 @@ REQUESTS = (
     (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
     (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
     (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
-    (ENCODING_LIST_VIEW, HTTPMethod.GET, (PK,)),
-    (ENCODING_LIST_VIEW, HTTPMethod.POST, (PK,)),
     (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
-    (ENCODING_DETAIL_VIEW, HTTPMethod.DELETE, (PK, PK)),
     (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
 )
 
 
 def preprocess_args(deduplication_set: DeduplicationSet, args: tuple[Any, ...]) -> tuple[Any, ...]:
-    return tuple(deduplication_set.group.reference_pk if arg == PK else arg for arg in args)
+    return tuple(str(deduplication_set.pk) if arg == PK else arg for arg in args)
+
+
+def preprocess_kwargs(deduplication_set: DeduplicationSet, args: tuple[Any, ...]) -> dict[str, Any]:
+    """For nested routes that use kwargs instead of positional args."""
+    return {}
 
 
 @pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
@@ -48,9 +48,12 @@ def test_anonymous_cannot_access(
     method: HTTPMethod,
     args: tuple[Any, ...],
 ) -> None:
-    response = getattr(anonymous_api_client, method.lower())(
-        reverse(view_name, preprocess_args(deduplication_set, args))
-    )
+    processed = preprocess_args(deduplication_set, args)
+    if view_name in (BULK_IMAGE_LIST_VIEW, BULK_IMAGE_CLEAR_VIEW):
+        url = reverse(view_name, kwargs={"deduplication_set_pk": deduplication_set.pk})
+    else:
+        url = reverse(view_name, processed)
+    response = getattr(anonymous_api_client, method.lower())(url)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -62,9 +65,12 @@ def test_authenticated_can_access(
     method: HTTPMethod,
     args: tuple[Any, ...],
 ) -> None:
-    response = getattr(api_client, method.lower())(
-        reverse(view_name, preprocess_args(deduplication_set, args)), format=JSON
-    )
+    processed = preprocess_args(deduplication_set, args)
+    if view_name in (BULK_IMAGE_LIST_VIEW, BULK_IMAGE_CLEAR_VIEW):
+        url = reverse(view_name, kwargs={"deduplication_set_pk": deduplication_set.pk})
+    else:
+        url = reverse(view_name, processed)
+    response = getattr(api_client, method.lower())(url, format=JSON)
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 

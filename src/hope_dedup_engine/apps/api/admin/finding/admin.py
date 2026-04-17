@@ -15,6 +15,13 @@ class FindingAdmin(BaseModelAdmin):
     list_display = (
         "id",
         "score",
+        "deduplication_set",
+        "status_code",
+        "created_at",
+    )
+    readonly_fields = (
+        "id",
+        "score",
         "first_encoding",
         "second_encoding",
         "deduplication_set",
@@ -30,7 +37,7 @@ class FindingAdmin(BaseModelAdmin):
         "status_code",
         DjangoLookupFilter,
     )
-    list_select_related = ("deduplication_set", "first_encoding", "second_encoding")
+    list_select_related = ("deduplication_set",)
     search_fields = (
         "first_encoding__reference_pk",
         "second_encoding__reference_pk",

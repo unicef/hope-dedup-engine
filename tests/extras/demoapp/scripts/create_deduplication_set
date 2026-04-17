@@ -9,6 +9,8 @@ if [[ $# -ne 1 ]] ; then
   exit 1
 fi
 
-call_api POST deduplication_sets reference_pk="$1" settings="{}"
+response=$(call_api POST deduplication_sets reference_pk="$1")
+echo "$response"
 
 set_variable DEDUPLICATION_SET_REFERENCE_PK "$1"
+set_variable DEDUPLICATION_SET_ID "$(echo "$response" | jq -r '.id')"

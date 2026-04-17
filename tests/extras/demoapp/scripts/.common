@@ -3,7 +3,7 @@
 source "$(dirname "0")/.vars"
 
 call_api() {
-  http "$1" "$BASE_URL/$2/" Authorization:"Token $AUTH_TOKEN" "${@:3}"
+  http "$1" "${BASE_URL%/}/${2%/}/" Authorization:"Token $AUTH_TOKEN" "${@:3}"
 }
 
 set_variable() {

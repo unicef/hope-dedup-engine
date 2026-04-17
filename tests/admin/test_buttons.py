@@ -53,7 +53,7 @@ def seeded_ds(deduplication_set_factory, encoding_factory, finding_factory):
 @pytest.fixture
 def seeded_group(deduplication_set_factory, encoding_factory, finding_factory):
     """Group with 2 sets; each set has (1 embedding) + (1 status_code) + (1 finding)."""
-    ds1 = deduplication_set_factory(state=DeduplicationSet.State.INACTIVE)
+    ds1 = deduplication_set_factory(state=DeduplicationSet.State.APPROVED)
     group = ds1.group
     ds2 = deduplication_set_factory(group=group)
 
@@ -103,15 +103,17 @@ def test_finding_details_button_visibility(
 
 
 @pytest.mark.parametrize(
-    ("url_name", "clears"),
+    ("url_name", "clears", "expected_state"),
     [
-        ("admin:api_deduplicationset_clear_embeddings", True),
-        ("admin:api_deduplicationset_findings_remove", False),
+        ("admin:api_deduplicationset_clear_embeddings", True, DeduplicationSet.State.READY),
+        ("admin:api_deduplicationset_findings_remove", False, DeduplicationSet.State.ENCODED),
     ],
     ids=["clear_embeddings", "findings_remove"],
 )
-def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears):
+def test_ds_cleanup_buttons(confirm, seeded_ds, url_name, clears, expected_state):
     assert confirm(reverse(url_name, args=[seeded_ds.pk])).status_code == 200
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == expected_state
     assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
@@ -145,6 +147,28 @@ def test_ds_findings_export_csv(app, seeded_ds) -> None:
     assert "findings.csv" in res.headers["Content-Disposition"]
 
 
+def test_ds_encode_blocked_when_locked(confirm, seeded_ds):
+    seeded_ds.group.processing_locked = True
+    seeded_ds.group.save(update_fields=["processing_locked"])
+
+    assert confirm(reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk])).status_code == 200
+
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
+    assert seeded_ds.finding_set.count() == 1
+
+
+def test_ds_deduplicate_blocked_when_locked(confirm, seeded_ds):
+    seeded_ds.group.processing_locked = True
+    seeded_ds.group.save(update_fields=["processing_locked"])
+
+    assert confirm(reverse("admin:api_deduplicationset_deduplicate", args=[seeded_ds.pk])).status_code == 200
+
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
+    assert seeded_ds.finding_set.count() == 1
+
+
 def test_ds_encode(confirm, seeded_ds, mocker):
     create = mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
     job = mocker.Mock()
@@ -152,6 +176,8 @@ def test_ds_encode(confirm, seeded_ds, mocker):
 
     assert confirm(reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk])).status_code == 200
 
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
     assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
     assert create.call_args.kwargs["encode_only"] is True
     job.queue.assert_called_once_with()
@@ -168,38 +194,69 @@ def test_ds_deduplicate(confirm, seeded_ds, mocker):
 
     assert confirm(reverse("admin:api_deduplicationset_deduplicate", args=[seeded_ds.pk])).status_code == 200
 
+    seeded_ds.refresh_from_db()
+    assert seeded_ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
     assert create.call_args.kwargs["deduplication_set"].pk == seeded_ds.pk
-    assert "encode_only" not in create.call_args.kwargs
+    assert create.call_args.kwargs["encode_only"] is False
     job.queue.assert_called_once_with()
 
-    assert seeded_ds.finding_set.count() == 1
+    assert seeded_ds.finding_set.count() == 0
     assert seeded_ds.encoding_set.filter(embedding__isnull=False).exists() is True
     assert seeded_ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is True
+
+
+@pytest.fixture
+def ds_with_constraint_conflict(deduplication_set, encoding, deduplication_set_factory):
+    """A dedup set in a non-active state whose group already has an active set (constraint conflict)."""
+    deduplication_set.state = DeduplicationSet.State.ENCODING_FAILED
+    deduplication_set.save(update_fields=["state"])
+    deduplication_set_factory(group=deduplication_set.group, state=DeduplicationSet.State.READY)
+    return deduplication_set
+
+
+@pytest.mark.parametrize(
+    "url_name",
+    [
+        "admin:api_deduplicationset_encode",
+        "admin:api_deduplicationset_deduplicate",
+    ],
+    ids=["encode", "deduplicate"],
+)
+def test_ds_process_integrity_error_releases_lock(confirm, ds_with_constraint_conflict, url_name, mocker):
+    mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.MainJob.objects.create")
+    ds = ds_with_constraint_conflict
+
+    assert confirm(reverse(url_name, args=[ds.pk])).status_code == 200
+
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.ENCODING_FAILED
+    ds.group.refresh_from_db()
+    assert ds.group.processing_locked is False
+
+
+@pytest.mark.parametrize(
+    "url_name",
+    [
+        "admin:api_deduplicationset_clear_embeddings",
+        "admin:api_deduplicationset_findings_remove",
+    ],
+    ids=["clear_embeddings", "findings_remove"],
+)
+def test_ds_cleanup_integrity_error_rolls_back(confirm, ds_with_constraint_conflict, url_name):
+    ds = ds_with_constraint_conflict
+
+    assert confirm(reverse(url_name, args=[ds.pk])).status_code == 200
+
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.ENCODING_FAILED
 
 
 # --- DeduplicationSetGroup -----------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("url_name", "clears"),
-    [
-        ("admin:api_deduplicationsetgroup_clear_embeddings", True),
-        ("admin:api_deduplicationsetgroup_remove_findings", False),
-    ],
-    ids=["group_clear_embeddings", "group_remove_findings"],
-)
-def test_group_cleanup_buttons(confirm, seeded_group, url_name, clears):
-    assert confirm(reverse(url_name, args=[seeded_group.pk])).status_code == 200
-
-    for ds in seeded_group.deduplicationset_set.all():
-        assert ds.finding_set.count() == 0
-        assert ds.encoding_set.filter(embedding__isnull=False).exists() is (not clears)
-        assert ds.encoding_set.filter(embedding_status_code__isnull=False).exists() is (not clears)
-
-
 def test_group_encodings_view_redirect(app, seeded_group) -> None:
     res = app.get(
-        reverse("admin:api_deduplicationsetgroup_encodings_view", args=[seeded_group.pk]),
+        reverse("admin:api_deduplicationsetgroup_encodings", args=[seeded_group.pk]),
         expect_errors=True,
     )
     assert res.status_code == 302
@@ -210,7 +267,7 @@ def test_group_encodings_view_redirect(app, seeded_group) -> None:
 
 def test_group_findings_view_redirect(app, seeded_group) -> None:
     res = app.get(
-        reverse("admin:api_deduplicationsetgroup_findings_view", args=[seeded_group.pk]),
+        reverse("admin:api_deduplicationsetgroup_findings", args=[seeded_group.pk]),
         expect_errors=True,
     )
     assert res.status_code == 302

@@ -38,11 +38,11 @@ class DeduplicationSetFactory(DjangoModelFactory):
     group = SubFactory(DeduplicationSetGroupFactory)
     state = DeduplicationSet.State.READY
     notification_url = fuzzy.FuzzyText(prefix="https://")
-    duplicates_found = 0
+    findings_count = 0
 
     class Meta:
         model = DeduplicationSet
-        exclude = ("duplicates_found",)
+        exclude = ("findings_count",)
 
 
 class EncodingFactory(DjangoModelFactory):

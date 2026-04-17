@@ -1,45 +1,67 @@
-import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
-from api.api_const import DEDUPLICATION_SET_APPROVE_OR_REJECT, DEDUPLICATION_SET_DETAIL_VIEW, JSON
+from api.api_const import DEDUPLICATION_SET_DETAIL_VIEW, DEDUPLICATION_SET_REJECT_VIEW, GROUP_APPROVE_VIEW
 from hope_dedup_engine.apps.api.models import DeduplicationSet
-from testutils.factories.api import EncodingFactory
 
 
-@pytest.fixture
-def deduplication_set_with_encodings(
-    deduplication_set: DeduplicationSet, encoding_factory: EncodingFactory
-) -> DeduplicationSet:
-    encoding_factory(deduplication_set=deduplication_set)
-    encoding_factory(deduplication_set=deduplication_set)
-    return deduplication_set
-
-
-@pytest.mark.parametrize(
-    ("action", "expected_dedup_set_state"),
-    [
-        pytest.param("approve", DeduplicationSet.State.INACTIVE, id="approve"),
-        pytest.param("reject", DeduplicationSet.State.REJECTED, id="reject"),
-    ],
-)
-def test_approve_or_reject_success(
+def test_approve_success(
     api_client: APIClient,
-    deduplication_set_with_encodings: DeduplicationSet,
-    action: str,
-    expected_dedup_set_state: DeduplicationSet.State,
+    deduplication_set: DeduplicationSet,
 ) -> None:
-    data = {"action": action}
+    deduplication_set.state = DeduplicationSet.State.DEDUPLICATED
+    deduplication_set.save(update_fields=["state"])
+
     response = api_client.post(
-        reverse(DEDUPLICATION_SET_APPROVE_OR_REJECT, (deduplication_set_with_encodings.group.reference_pk,)),
-        data=data,
-        format=JSON,
+        reverse(GROUP_APPROVE_VIEW, (deduplication_set.group.reference_pk,)),
     )
     assert response.status_code == status.HTTP_200_OK
-    deduplication_set_with_encodings.refresh_from_db()
-    assert deduplication_set_with_encodings.state == expected_dedup_set_state
-    response = api_client.get(
-        reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set_with_encodings.group.reference_pk,))
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.state == DeduplicationSet.State.APPROVED
+
+
+def test_approve_fails_when_no_deduplicated_set(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    response = api_client.post(
+        reverse(GROUP_APPROVE_VIEW, (deduplication_set.group.reference_pk,)),
     )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_reject_success(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    deduplication_set.state = DeduplicationSet.State.DEDUPLICATED
+    deduplication_set.save(update_fields=["state"])
+
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_REJECT_VIEW, (deduplication_set.pk,)),
+    )
+    assert response.status_code == status.HTTP_200_OK
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.state == DeduplicationSet.State.REJECTED
+
+
+def test_reject_fails_when_not_deduplicated(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_REJECT_VIEW, (deduplication_set.pk,)),
+    )
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_approved_set_not_visible_in_api(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    deduplication_set.state = DeduplicationSet.State.APPROVED
+    deduplication_set.save(update_fields=["state"])
+
+    response = api_client.get(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
     assert response.status_code == status.HTTP_404_NOT_FOUND

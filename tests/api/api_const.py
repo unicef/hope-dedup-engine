@@ -1,19 +1,17 @@
-from hope_dedup_engine.apps.api.const import (
-    BULK_ENCODING_LIST,
-    DEDUPLICATION_SET_LIST,
-    DUPLICATE_LIST,
-    ENCODING_LIST,
-)
-
 JSON = "json"
 LIST = "list"
 DETAIL = "detail"
-DEDUPLICATION_SET_LIST_VIEW = f"{DEDUPLICATION_SET_LIST}-{LIST}"
-DEDUPLICATION_SET_DETAIL_VIEW = f"{DEDUPLICATION_SET_LIST}-{DETAIL}"
-DEDUPLICATION_SET_PROCESS_VIEW = f"{DEDUPLICATION_SET_LIST}-process"
-DEDUPLICATION_SET_APPROVE_OR_REJECT = f"{DEDUPLICATION_SET_LIST}-approve-or-reject"
-ENCODING_LIST_VIEW = f"{ENCODING_LIST}-{LIST}"
-ENCODING_DETAIL_VIEW = f"{ENCODING_LIST}-{DETAIL}"
-BULK_IMAGE_LIST_VIEW = f"{BULK_ENCODING_LIST}-{LIST}"
-BULK_IMAGE_CLEAR_VIEW = f"{BULK_ENCODING_LIST}-clear"
-DUPLICATE_LIST_VIEW = f"{DUPLICATE_LIST}-{LIST}"
+
+DEDUPLICATION_SET_LIST_VIEW = "deduplication_sets-list"
+DEDUPLICATION_SET_DETAIL_VIEW = "deduplication_sets-detail"
+DEDUPLICATION_SET_PROCESS_VIEW = "deduplication_sets-process"
+DEDUPLICATION_SET_REJECT_VIEW = "deduplication_sets-reject"
+DEDUPLICATION_SET_READY_VIEW = "deduplication_sets-ready"
+
+GROUP_APPROVE_VIEW = "deduplication_set_groups-approve"
+GROUP_CONFIG_VIEW = "deduplication_set_groups-config"
+GROUP_STATUS_VIEW = "deduplication_set_groups-status"
+GROUP_FINDINGS_VIEW = "group_findings-list"
+
+BULK_IMAGE_LIST_VIEW = "images-list"
+BULK_IMAGE_CLEAR_VIEW = "images-clear"

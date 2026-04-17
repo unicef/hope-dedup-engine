@@ -88,10 +88,14 @@ class EncodingAdmin(BaseModelAdmin):
         ("created_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
+    list_select_related = ("deduplication_set",)
 
     search_fields = ("reference_pk",)
 
     actions = ["deduplicate_selected_encodings"]
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Encoding]:
+        return super().get_queryset(request).defer("embedding")
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
