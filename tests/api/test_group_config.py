@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -130,9 +128,7 @@ def test_post_blocked_when_approved_dedup_set_exists(
 
 
 @pytest.mark.django_db
-@patch("hope_dedup_engine.apps.api.views.MainJob.objects.create")
-def test_post_clears_embeddings_and_triggers_reencoding(
-    mock_create,
+def test_post_clears_deduplicated_set_data(
     api_client: APIClient,
     hde_token,
     deduplication_set_group_factory,
@@ -140,12 +136,11 @@ def test_post_clears_embeddings_and_triggers_reencoding(
     encoding_factory,
     finding_factory,
 ):
-    mock_job = mock_create.return_value
     group = deduplication_set_group_factory(system=hde_token.system)
     group.settings = get_default_group_settings()
     group.save()
 
-    ds = deduplication_set_factory(group=group)
+    ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.DEDUPLICATED)
     encoding = encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
     finding_factory(deduplication_set=ds, first_encoding=encoding)
 
@@ -155,7 +150,30 @@ def test_post_clears_embeddings_and_triggers_reencoding(
     encoding.refresh_from_db()
     assert encoding.embedding is None
     assert ds.finding_set.count() == 0
+    ds.refresh_from_db()
+    assert ds.state == DeduplicationSet.State.READY
 
-    mock_create.assert_called_once()
-    assert mock_create.call_args.kwargs["encode_only"] is True
-    mock_job.queue.assert_called_once()
+
+@pytest.mark.django_db
+def test_post_allowed_when_only_ready_set_exists(
+    api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
+):
+    """READY set has no embeddings to clean; settings change is allowed."""
+    group = deduplication_set_group_factory(system=hde_token.system)
+    group.settings = get_default_group_settings()
+    group.save()
+    deduplication_set_factory(group=group, state=DeduplicationSet.State.READY)
+
+    response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+    assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_post_blocked_when_processing_locked(api_client: APIClient, hde_token, deduplication_set_group_factory):
+    group = deduplication_set_group_factory(system=hde_token.system)
+    group.settings = get_default_group_settings()
+    group.processing_locked = True
+    group.save()
+
+    response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+    assert response.status_code == status.HTTP_409_CONFLICT
