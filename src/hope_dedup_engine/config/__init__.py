@@ -181,6 +181,7 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "HOPE_API_TOKEN": (str, "", "", False, "Hope API token"),
     "LOG_LEVEL": (str, "CRITICAL", "DEBUG", False, setting("logging-level")),
+    "LOGIN_ENABLED": (bool, False, True, False, "show/hide the login form in the admin"),
     "MEDIA_ROOT": (
         str,
         "/var/media/",

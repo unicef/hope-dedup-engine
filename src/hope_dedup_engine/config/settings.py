@@ -185,6 +185,7 @@ LOGGING = {
 
 AUTH_USER_MODEL = "security.User"
 SUPERUSERS = env("SUPERUSERS")
+LOGIN_ENABLED = env("LOGIN_ENABLED")
 
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
