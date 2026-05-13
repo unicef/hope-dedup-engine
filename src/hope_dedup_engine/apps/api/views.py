@@ -277,7 +277,9 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         responses=GroupSettingsSerializer,
         description="Create or update quality threshold settings for a deduplication set group. "
         "Creates the group if it does not exist. "
-        "Returns 409 if the group has an approved or deduplicated set (settings are locked).",
+        "Returns 409 if the group has an approved set or a processing job is running. "
+        "If a deduplicated or encoded set exists, its embeddings and findings are cleared "
+        "so new settings take effect on the next processing.",
     )
     @action(detail=True, methods=(HTTPMethod.GET, HTTPMethod.POST), url_path="config")
     def config(self, request: Request, reference_pk: str) -> Response:

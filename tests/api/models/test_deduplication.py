@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 
 from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
@@ -39,31 +37,11 @@ def group_with_approved_ds(group_with_settings, deduplication_set_factory):
 
 
 @pytest.fixture
-def group_ds_no_embeddings(group_with_settings, deduplication_set_factory, encoding_factory):
-    ds = deduplication_set_factory(group=group_with_settings)
-    encoding_factory(deduplication_set=ds, embedding=None, embedding_status_code=None)
-    return group_with_settings, ds
-
-
-@pytest.fixture
-def group_ds_with_embedding(group_with_settings, deduplication_set_factory, encoding_factory):
-    ds = deduplication_set_factory(group=group_with_settings)
+def group_ds_deduplicated_with_data(group_with_settings, deduplication_set_factory, encoding_factory, finding_factory):
+    ds = deduplication_set_factory(group=group_with_settings, state=DeduplicationSet.State.DEDUPLICATED)
     enc = encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
-    return group_with_settings, ds, enc
-
-
-@pytest.fixture
-def group_ds_with_embedding_and_finding(group_ds_with_embedding, finding_factory):
-    group, ds, enc = group_ds_with_embedding
     finding_factory(deduplication_set=ds, first_encoding=enc)
-    return group, ds, enc
-
-
-@pytest.fixture
-def locked_group_ds_with_embedding(group_with_settings_locked, deduplication_set_factory, encoding_factory):
-    ds = deduplication_set_factory(group=group_with_settings_locked)
-    encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
-    return group_with_settings_locked, ds
+    return group_with_settings, ds, enc
 
 
 @pytest.mark.parametrize(
@@ -79,6 +57,8 @@ def locked_group_ds_with_embedding(group_with_settings_locked, deduplication_set
         (DeduplicationSet.State.DEDUPLICATION_IN_PROGRESS, DeduplicationSet.State.DEDUPLICATION_FAILED),
         (DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.APPROVED),
         (DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.REJECTED),
+        (DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.READY),
+        (DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.ENCODED),
     ],
 )
 @pytest.mark.parametrize(
@@ -173,8 +153,37 @@ def test_encodings_without_embeddings_exclusion(
 
 @pytest.mark.django_db
 def test_update_settings_raises_when_approved_sets_exist(group_with_approved_ds):
-    with pytest.raises(GroupSettingsError, match="APPROVED or DEDUPLICATED"):
+    with pytest.raises(GroupSettingsError, match="approved"):
         group_with_approved_ds.update_settings({"sharpness_threshold": 0.5})
+
+
+@pytest.mark.django_db
+def test_update_settings_raises_when_processing_locked(group_with_settings_locked):
+    with pytest.raises(GroupSettingsError, match="processing job is running"):
+        group_with_settings_locked.update_settings({"sharpness_threshold": 0.5})
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "state",
+    [
+        DeduplicationSet.State.EMPTY,
+        DeduplicationSet.State.UPLOADING_IN_PROGRESS,
+        DeduplicationSet.State.READY,
+        DeduplicationSet.State.REJECTED,
+        DeduplicationSet.State.ENCODING_FAILED,
+        DeduplicationSet.State.DEDUPLICATION_FAILED,
+    ],
+)
+def test_update_settings_allowed_for_states_without_data_to_clean(
+    group_with_settings, deduplication_set_factory, state
+):
+    """Settings change is allowed for states with no embeddings to clean."""
+    deduplication_set_factory(group=group_with_settings, state=state)
+    group_with_settings.update_settings({"sharpness_threshold": 0.7})
+
+    group_with_settings.refresh_from_db()
+    assert group_with_settings.settings["sharpness_threshold"] == 0.7
 
 
 @pytest.mark.django_db
@@ -200,51 +209,65 @@ def test_update_settings_initializes_defaults_when_settings_is_none(group_with_s
 
 
 @pytest.mark.django_db
-def test_trigger_re_encoding_noop_when_no_dedup_sets(group_with_settings):
-    group_with_settings._trigger_re_encoding()
-
+def test_clear_active_set_noop_when_no_dedup_sets(group_with_settings):
+    group_with_settings._clear_active_set_on_settings_change()
     assert not group_with_settings.processing_locked
 
 
 @pytest.mark.django_db
-def test_trigger_re_encoding_noop_when_no_embeddings(group_ds_no_embeddings):
-    group, ds = group_ds_no_embeddings
-
-    group._trigger_re_encoding()
+@pytest.mark.parametrize(
+    "state",
+    [
+        DeduplicationSet.State.EMPTY,
+        DeduplicationSet.State.UPLOADING_IN_PROGRESS,
+        DeduplicationSet.State.READY,
+        DeduplicationSet.State.REJECTED,
+        DeduplicationSet.State.ENCODING_FAILED,
+        DeduplicationSet.State.DEDUPLICATION_FAILED,
+    ],
+)
+def test_clear_active_set_noop_for_non_cleanable_states(group_with_settings, deduplication_set_factory, state):
+    """Cleanup only targets ENCODED/DEDUPLICATED sets; other states are left alone."""
+    ds = deduplication_set_factory(group=group_with_settings, state=state)
+    group_with_settings._clear_active_set_on_settings_change()
 
     ds.refresh_from_db()
-    assert ds.state == DeduplicationSet.State.READY
-    assert not group.processing_locked
+    assert ds.state == state
 
 
 @pytest.mark.django_db
-@patch("hope_dedup_engine.apps.api.models.jobs.MainJob.objects.create")
-def test_trigger_re_encoding_clears_data_and_queues_job_when_lock_acquired(
-    mock_create, group_ds_with_embedding_and_finding
+@pytest.mark.parametrize(
+    "state",
+    [
+        DeduplicationSet.State.ENCODED,
+        DeduplicationSet.State.DEDUPLICATED,
+    ],
+)
+def test_clear_active_set_clears_data_and_transitions_to_ready(
+    group_with_settings, deduplication_set_factory, encoding_factory, finding_factory, state
 ):
-    mock_job = mock_create.return_value
-    group, ds, enc = group_ds_with_embedding_and_finding
+    ds = deduplication_set_factory(group=group_with_settings, state=state)
+    enc = encoding_factory(deduplication_set=ds, embedding=[0.1] * 8)
+    if state == DeduplicationSet.State.DEDUPLICATED:
+        finding_factory(deduplication_set=ds, first_encoding=enc)
 
-    group._trigger_re_encoding()
+    group_with_settings._clear_active_set_on_settings_change()
 
     enc.refresh_from_db()
     assert enc.embedding is None
     assert ds.finding_set.count() == 0
     ds.refresh_from_db()
-    assert ds.state == DeduplicationSet.State.ENCODING_IN_PROGRESS
-    mock_create.assert_called_once()
-    assert mock_create.call_args.kwargs["encode_only"] is True
-    mock_job.queue.assert_called_once()
+    assert ds.state == DeduplicationSet.State.READY
 
 
 @pytest.mark.django_db
-@patch("hope_dedup_engine.apps.api.models.jobs.MainJob.objects.create")
-def test_trigger_re_encoding_resets_to_ready_when_lock_not_acquired(mock_create, locked_group_ds_with_embedding):
-    group, ds = locked_group_ds_with_embedding
+def test_update_settings_full_flow_clears_deduplicated_set(group_ds_deduplicated_with_data):
+    group, ds, enc = group_ds_deduplicated_with_data
 
-    group._trigger_re_encoding()
+    group.update_settings({"sharpness_threshold": 0.4})
 
+    enc.refresh_from_db()
+    assert enc.embedding is None
+    assert ds.finding_set.count() == 0
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.READY
-    assert ds.error is None
-    mock_create.assert_not_called()
