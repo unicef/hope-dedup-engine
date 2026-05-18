@@ -6,7 +6,8 @@ from adminfilters.filters import LinkedAutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
 from django.contrib.admin import register, display
-from django.db.models import QuerySet
+from django.db.models import Case, F, QuerySet, TextField, When
+from django.db.models.functions import Substr
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -95,11 +96,22 @@ class EncodingAdmin(BaseModelAdmin):
     actions = ["deduplicate_selected_encodings"]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Encoding]:
-        return super().get_queryset(request).defer("embedding")
+        return (
+            super()
+            .get_queryset(request)
+            .defer("embedding", "filename")
+            .annotate(
+                _filename_label=Case(
+                    When(filename__startswith="data:", then=Substr("filename", 1, 200)),
+                    default=F("filename"),
+                    output_field=TextField(),
+                )
+            )
+        )
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
-        return inline_label(obj.filename)
+        return inline_label(getattr(obj, "_filename_label", obj.filename))
 
     @display(description="Image quality scores")
     def image_quality_scores_sorted(self, obj: Encoding) -> str:

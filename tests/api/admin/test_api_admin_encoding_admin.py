@@ -17,6 +17,33 @@ from hope_dedup_engine.apps.api.models import Encoding
 
 
 @pytest.mark.parametrize(
+    "filename_label, filename, expected",
+    [
+        (
+            "data:image/jpeg;base64,/9j/4AAQ...",
+            "data:image/jpeg;base64,/9j/4AAQ...(megabytes)",
+            "image/jpeg:<binary-data>",
+        ),
+        (None, "photos/face.jpg", "photos/face.jpg"),
+        ("photos/face.jpg", "ignored", "photos/face.jpg"),
+    ],
+    ids=[
+        "annotation_present_data_url",
+        "annotation_missing_falls_back_to_filename",
+        "annotation_present_regular_path",
+    ],
+)
+def test_filename_pretty(filename_label: str | None, filename: str, expected: str, mocker: MockerFixture) -> None:
+    encoding = mocker.Mock(spec=Encoding, filename=filename)
+    if filename_label is not None:
+        encoding._filename_label = filename_label
+    else:
+        del encoding._filename_label
+    admin = EncodingAdmin(Encoding, AdminSite())
+    assert admin.filename_pretty(encoding) == expected
+
+
+@pytest.mark.parametrize(
     "scores, expected",
     [
         (None, "N/A"),
