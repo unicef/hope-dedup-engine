@@ -111,10 +111,7 @@ class EncodingAdmin(BaseModelAdmin):
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
-        label = getattr(obj, "_filename_label", None)
-        if label is None:
-            label = obj.filename
-        return inline_label(label)
+        return inline_label(getattr(obj, "_filename_label", obj.filename))
 
     @display(description="Image quality scores")
     def image_quality_scores_sorted(self, obj: Encoding) -> str:
