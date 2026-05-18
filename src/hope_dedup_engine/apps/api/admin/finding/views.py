@@ -50,7 +50,10 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         finding = get_object_or_404(
-            Finding.objects.select_related("first_encoding", "second_encoding"),
+            Finding.objects.select_related("first_encoding", "second_encoding").defer(
+                "first_encoding__embedding",
+                "second_encoding__embedding",
+            ),
             pk=self.kwargs["pk"],
         )
         first, second = finding.first_encoding, finding.second_encoding

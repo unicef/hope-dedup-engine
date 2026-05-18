@@ -55,6 +55,19 @@ class FindingAdmin(BaseModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return obj is not None
 
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("first_encoding", "second_encoding")
+            .defer(
+                "first_encoding__embedding",
+                "first_encoding__filename",
+                "second_encoding__embedding",
+                "second_encoding__filename",
+            )
+        )
+
     def get_urls(self):
         return [
             path(
