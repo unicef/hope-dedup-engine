@@ -3,24 +3,23 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import cv2
 import numpy as np
 from ofiq import OFIQ
-from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
-from deepface.commons.image_utils import load_image_from_base64
 from deepface.modules.verification import find_confidence, find_distance, find_threshold
 from django.db import transaction
+from django.db.models.fields.files import FieldFile
 from numpy import ndarray
 
 
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
-from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
-from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.services.quality import get_active_thresholds, check_image_quality
 
 if TYPE_CHECKING:
     from uuid import UUID
     from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+    from django.db.models.fields.files import FieldFile
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +60,17 @@ def encode_face(
     return None, Encoding.StatusCode.GENERIC_ERROR
 
 
+def _load_image(file: FieldFile) -> ndarray:
+    with file.open("rb") as fh:
+        buf = np.frombuffer(fh.read(), dtype=np.uint8)
+    return cv2.imdecode(buf, cv2.IMREAD_COLOR)
+
+
 def encode_faces(
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
     config: DeduplicationSetConfig,
 ) -> None:
-    storage = ImagesStorageManager()
     active_thresholds = get_active_thresholds(config)
     config_snapshot = config.as_dict()
 
@@ -80,11 +84,7 @@ def encode_faces(
             try:
                 encoding.embedding_status_code = None
                 encoding.image_quality_scores = None
-                image_data = (
-                    load_image_from_base64(encoding.filename)
-                    if parse_data_url(encoding.filename)
-                    else storage.load_image(encoding.filename)
-                )
+                image_data = _load_image(encoding.filename)
 
                 if ofiq is not None:
                     qr = check_image_quality(ofiq, image_data, active_thresholds)
@@ -103,7 +103,7 @@ def encode_faces(
                         config.detector_backend,
                     )
 
-            except ResourceNotFoundError:
+            except FileNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
             except Exception as e:
                 logger.exception(e)

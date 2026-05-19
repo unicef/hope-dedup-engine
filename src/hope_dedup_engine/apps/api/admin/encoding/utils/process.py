@@ -2,13 +2,21 @@ import contextlib
 from itertools import combinations
 from typing import NamedTuple
 
+import cv2
+import numpy as np
 from constance import config
 from deepface import DeepFace
 from django.db.models import QuerySet
+from django.db.models.fields.files import FieldFile
 from numpy import ndarray
 
 from hope_dedup_engine.apps.api.models import Encoding
-from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
+
+
+def _load_image(file: FieldFile) -> ndarray:
+    with file.open("rb") as fh:
+        buf = np.frombuffer(fh.read(), dtype=np.uint8)
+    return cv2.imdecode(buf, cv2.IMREAD_COLOR)
 
 
 class Detection(NamedTuple):
@@ -17,13 +25,10 @@ class Detection(NamedTuple):
     embedding: ndarray
 
 
-def detect_face(encoding: Encoding, image_storage_manager: ImagesStorageManager | None = None) -> Detection | None:
-    if image_storage_manager is None:
-        image_storage_manager = ImagesStorageManager()
-
+def detect_face(encoding: Encoding) -> Detection | None:
     with contextlib.suppress(Exception):
         representation = DeepFace.represent(
-            image_storage_manager.load_image(encoding.filename),
+            _load_image(encoding.filename),
             model_name=config.DEFAULT_RECOGNITION_MODEL,
             detector_backend=config.DEFAULT_DETECTOR_BACKEND,
             max_faces=2,
@@ -46,11 +51,10 @@ class Finding(NamedTuple):
 
 
 def deduplicate(queryset: QuerySet[Encoding]) -> list[Finding]:
-    image_storage_manager = ImagesStorageManager()
     detections = [
         detection
         for encoding in queryset
-        if (detection := detect_face(encoding, image_storage_manager))
+        if (detection := detect_face(encoding))
         and detection.confidence >= config.DEFAULT_FACE_DETECTION_CONFIDENCE_THRESHOLD
     ]
 

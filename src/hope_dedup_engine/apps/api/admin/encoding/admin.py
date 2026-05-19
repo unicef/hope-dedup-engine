@@ -1,4 +1,5 @@
 from operator import attrgetter
+from pathlib import PurePosixPath
 from typing import cast, NamedTuple
 
 from admin_extra_buttons.decorators import button
@@ -6,8 +7,7 @@ from adminfilters.filters import LinkedAutoCompleteFilter
 from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import DjangoLookupFilter
 from django.contrib.admin import register, display
-from django.db.models import Case, F, QuerySet, TextField, When
-from django.db.models.functions import Substr
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -18,7 +18,6 @@ from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face,
 from hope_dedup_engine.apps.api.admin.encoding.utils.threshold import calculate_thresholds, group_by_thresholds
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.models import Encoding
-from hope_dedup_engine.apps.api.utils.data_url import inline_label, parse_data_url
 from hope_dedup_engine.apps.core.permissions import can
 
 
@@ -42,9 +41,12 @@ def prepare_detection_results(thresholds: list[float], confidence: float) -> lis
     ]
 
 
-def file_link(filename: str) -> str:
+def file_link(file_field) -> str:
+    key = file_field.name if hasattr(file_field, "name") else str(file_field)
     return format_html(
-        FILE_LINK, filename=filename, link=reverse("admin:api_finding_image", kwargs={"filename": filename})
+        FILE_LINK,
+        filename=PurePosixPath(key).name,
+        link=reverse("admin:api_finding_image", kwargs={"filename": key}),
     )
 
 
@@ -96,22 +98,11 @@ class EncodingAdmin(BaseModelAdmin):
     actions = ["deduplicate_selected_encodings"]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Encoding]:
-        return (
-            super()
-            .get_queryset(request)
-            .defer("embedding", "filename")
-            .annotate(
-                _filename_label=Case(
-                    When(filename__startswith="data:", then=Substr("filename", 1, 200)),
-                    default=F("filename"),
-                    output_field=TextField(),
-                )
-            )
-        )
+        return super().get_queryset(request).defer("embedding")
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
-        return inline_label(getattr(obj, "_filename_label", obj.filename))
+        return PurePosixPath(obj.filename.name).name if obj.filename else ""
 
     @display(description="Image quality scores")
     def image_quality_scores_sorted(self, obj: Encoding) -> str:
@@ -129,12 +120,9 @@ class EncodingAdmin(BaseModelAdmin):
     @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
         encoding = cast("Encoding", self.get_object(request, pk))
-        label = inline_label(encoding.filename)
-        image_url = (
-            encoding.filename
-            if parse_data_url(encoding.filename)
-            else reverse("admin:api_finding_image", kwargs={"filename": encoding.filename})
-        )
+        key = encoding.filename.name if encoding.filename else ""
+        label = PurePosixPath(key).name
+        image_url = reverse("admin:api_finding_image", kwargs={"filename": key})
 
         context = {
             "page_title": f"Detect face on {label}",

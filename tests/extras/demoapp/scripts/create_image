@@ -9,7 +9,19 @@ if [[ $# -lt 2 ]] ; then
   exit 1
 fi
 
-printf '[{"reference_pk": "%s", "filename": "%s"}]' "$1" "$2" \
+reference_pk="$1"
+filename="$2"
+path="../demo_images/$filename"
+
+if [[ ! -f "$path" ]]; then
+  echo "File not found: $path" >&2
+  exit 1
+fi
+
+mime=$(mimetype -b "$path")
+encoded="data:${mime};base64,$(base64 -w0 "$path")"
+
+printf '[{"reference_pk": "%s", "filename": "%s"}]' "$reference_pk" "$encoded" \
   | call_api POST "deduplication_sets/$DEDUPLICATION_SET_ID/images" Content-Type:application/json
 
 if [[ "$3" == "--last" ]]; then

@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from PIL import Image
 from django.contrib.auth import get_user_model
-from django.core.files.storage import FileSystemStorage
 from django.test import Client
 from docker import from_env
 from freezegun import freeze_time
@@ -21,28 +20,10 @@ from faces_const import (
     IMAGE_SIZE,
     RESIZED_IMAGE_SIZE,
 )
-from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.faces.managers.file_sync import (
     AzureFileDownloader,
     GithubFileDownloader,
 )
-
-
-@pytest.fixture
-def mock_storage_manager(mocker: MockerFixture) -> ImagesStorageManager:
-    mocker.patch.object(FileSystemStorage, "exists", return_value=True)
-    mocker.patch.object(AzureStorage, "exists", return_value=True)
-    return ImagesStorageManager()
-
-
-@pytest.fixture
-def mock_encoded_azure_storage(mocker: MockerFixture):
-    return MagicMock(spec=AzureStorage)
-
-
-@pytest.fixture
-def mock_hope_azure_storage(mocker: MockerFixture):
-    return MagicMock(spec=AzureStorage)
 
 
 @pytest.fixture

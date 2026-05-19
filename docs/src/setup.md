@@ -40,7 +40,8 @@ Ensure the following environment variables are properly configured:
     CSRF_COOKIE_SECURE
     DATABASE_URL
     DEEPFACE_HOME
-    FILE_STORAGE_HOPE
+    IMAGES_ROOT
+    FILE_STORAGE_IMAGES
     FILE_STORAGE_STATIC
     FILE_STORAGE_MEDIA
     MEDIA_ROOT
@@ -104,11 +105,28 @@ The root directory for static files. *Example:* `/var/hope_dedupe_engine/static`
 
 #### Storage backends
 
-##### FILE_STORAGE_HOPE
-This backend is used for storing HOPE dataset images. It should be configured as read-only for the service.
-    ```
-    FILE_STORAGE_HOPE="storages.backends.azure_storage.AzureStorage?account_name=<account_name>&account_key=<account_key>&azure_container=hope"
-    ```
+##### FILE_STORAGE_IMAGES
+This backend is used to persist images uploaded via the deduplication API
+(decoded from base64 on ingest). By default it is a local `FileSystemStorage`
+rooted at `IMAGES_ROOT`; it can be swapped to any django-storages backend
+(e.g. AzureStorage) by changing only this env var. Switching backends requires
+wiping existing rows and files first.
+
+```
+FILE_STORAGE_IMAGES="django.core.files.storage.FileSystemStorage"
+```
+
+Or, to use Azure:
+
+```
+FILE_STORAGE_IMAGES="storages.backends.azure_storage.AzureStorage?account_name=<account_name>&account_key=<account_key>&azure_container=images&overwrite_files=True"
+```
+
+##### IMAGES_ROOT
+Filesystem path used by `FILE_STORAGE_IMAGES` when it is a `FileSystemStorage`.
+Bind-mount this path into the backend, celery-worker and celery-beat
+containers. Ignored for object-store backends.
+
 ##### FILE_STORAGE_MEDIA
 This backend is used for storing media files.
 

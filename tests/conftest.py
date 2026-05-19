@@ -40,7 +40,8 @@ def pytest_configure(config):
     os.environ["FILE_STORAGE_DEFAULT"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
     os.environ["FILE_STORAGE_STATIC"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/static/"
     os.environ["FILE_STORAGE_MEDIA"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
-    os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+    os.environ["FILE_STORAGE_IMAGES"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/images/"
+    os.environ.setdefault("IMAGES_ROOT", "/tmp/hde/images/")
     os.environ["SOCIAL_AUTH_REDIRECT_IS_HTTPS"] = "0"
     os.environ["CELERY_TASK_ALWAYS_EAGER"] = "0"
     os.environ["SECURE_HSTS_PRELOAD"] = "0"

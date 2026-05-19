@@ -69,7 +69,6 @@ class Command(BaseCommand):
 
         """
         storages = (
-            Storage(name="hope", src=Path(options["demo_images"])),
             Storage(name="media"),
             Storage(name="staticfiles", options={"public_access": "blob"}),
         )

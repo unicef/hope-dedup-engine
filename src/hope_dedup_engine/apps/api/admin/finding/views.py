@@ -1,18 +1,17 @@
 import mimetypes
+from pathlib import PurePosixPath
 from typing import Any
-from azure.core.exceptions import ResourceNotFoundError
+
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import TemplateView
-from django.urls import reverse
 
 from hope_dedup_engine.apps.api.models import Finding, Encoding
-from hope_dedup_engine.apps.api.utils.data_url import parse_data_url, inline_label
-from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 
 
 @method_decorator(staff_member_required, name="dispatch")
@@ -21,16 +20,13 @@ class FindingDetailsPermissionMixin(PermissionRequiredMixin):
 
 
 class FindingImageView(FindingDetailsPermissionMixin, View):
-    """Serve image files from hope storage to the browser."""
-
-    def setup(self, request: HttpRequest, *args, **kwargs) -> None:
-        super().setup(request, *args, **kwargs)
-        self.storage_manager = ImagesStorageManager()
+    """Serve encoded image files to the browser."""
 
     def get(self, request: HttpRequest, filename: str, *args, **kwargs) -> HttpResponse:
+        storage = Encoding.filename.field.storage
         try:
-            file_obj = self.storage_manager.storage.open(filename, "rb")
-        except (ResourceNotFoundError, FileNotFoundError) as exc:
+            file_obj = storage.open(filename, "rb")
+        except FileNotFoundError as exc:
             raise Http404("Image not found") from exc
 
         content_type, _ = mimetypes.guess_type(filename)
@@ -38,7 +34,7 @@ class FindingImageView(FindingDetailsPermissionMixin, View):
             file_obj,
             content_type=content_type or "application/octet-stream",
             as_attachment=False,
-            filename=filename,
+            filename=PurePosixPath(filename).name,
         )
 
 
@@ -63,10 +59,10 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
             opts=Finding._meta,
             finding=finding,
             status_label=Encoding.StatusCode(finding.status_code).label,
-            first_image_url=self._image_url(first.filename),
-            second_image_url=self._image_url(second.filename if second else None),
-            first_filename=inline_label(finding.first_encoding.filename),
-            second_filename=inline_label(finding.second_encoding.filename) if finding.second_encoding else None,
+            first_image_url=self._image_url(first.filename.name if first.filename else None),
+            second_image_url=self._image_url(second.filename.name if second and second.filename else None),
+            first_filename=PurePosixPath(first.filename.name).name if first.filename else None,
+            second_filename=PurePosixPath(second.filename.name).name if second and second.filename else None,
         )
         return context
 
@@ -74,6 +70,4 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
     def _image_url(filename: str | None) -> str | None:
         if not filename:
             return None
-        if parse_data_url(filename):
-            return filename
         return reverse("admin:api_finding_image", kwargs={"filename": filename})
