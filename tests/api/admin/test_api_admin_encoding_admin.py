@@ -1,3 +1,5 @@
+from pathlib import PurePosixPath
+
 import pytest
 from django.contrib.admin import AdminSite
 from django.test import RequestFactory
@@ -17,30 +19,30 @@ from hope_dedup_engine.apps.api.models import Encoding
 
 
 @pytest.mark.parametrize(
-    "filename_label, filename, expected",
+    "storage_name, expected",
     [
-        (
-            "data:image/jpeg;base64,/9j/4AAQ...",
-            "data:image/jpeg;base64,/9j/4AAQ...(megabytes)",
-            "image/jpeg:<binary-data>",
-        ),
-        (None, "photos/face.jpg", "photos/face.jpg"),
-        ("photos/face.jpg", "ignored", "photos/face.jpg"),
+        ("images/group/set/photo.jpg", "photo.jpg"),
+        ("photos/face.jpg", "face.jpg"),
+        ("face.jpg", "face.jpg"),
     ],
     ids=[
-        "annotation_present_data_url",
-        "annotation_missing_falls_back_to_filename",
-        "annotation_present_regular_path",
+        "nested_storage_key",
+        "path_with_directory",
+        "basename_only",
     ],
 )
-def test_filename_pretty(filename_label: str | None, filename: str, expected: str, mocker: MockerFixture) -> None:
-    encoding = mocker.Mock(spec=Encoding, filename=filename)
-    if filename_label is not None:
-        encoding._filename_label = filename_label
-    else:
-        del encoding._filename_label
+def test_filename_pretty(storage_name: str, expected: str, mocker: MockerFixture) -> None:
+    field_file = mocker.Mock()
+    field_file.name = storage_name
+    encoding = mocker.Mock(spec=Encoding, filename=field_file)
     admin = EncodingAdmin(Encoding, AdminSite())
     assert admin.filename_pretty(encoding) == expected
+
+
+def test_filename_pretty_empty(mocker: MockerFixture) -> None:
+    encoding = mocker.Mock(spec=Encoding, filename="")
+    admin = EncodingAdmin(Encoding, AdminSite())
+    assert admin.filename_pretty(encoding) == ""
 
 
 @pytest.mark.parametrize(
@@ -135,9 +137,10 @@ def test_encoding_admin_detect_face_initial(mocker: MockerFixture, rf: RequestFa
     format_html_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.format_html")
 
     encoding_admin = EncodingAdmin(Encoding, admin_site)
+    label = PurePosixPath(encoding.filename.name).name if encoding.filename else ""
     expected_context = {
-        "page_title": f"Detect face on {encoding.filename}",
-        "title": f"Detect face on {encoding.filename}",
+        "page_title": f"Detect face on {label}",
+        "title": f"Detect face on {label}",
         "opts": Encoding._meta,
         "encoding": encoding,
         "value_title": "Face detected",
@@ -168,9 +171,10 @@ def test_encoding_admin_detect_face_submit(mocker: MockerFixture, rf: RequestFac
     )
 
     encoding_admin = EncodingAdmin(Encoding, admin_site)
+    label = PurePosixPath(encoding.filename.name).name if encoding.filename else ""
     expected_context = {
-        "page_title": f"Detect face on {encoding.filename}",
-        "title": f"Detect face on {encoding.filename}",
+        "page_title": f"Detect face on {label}",
+        "title": f"Detect face on {label}",
         "opts": Encoding._meta,
         "encoding": encoding,
         "value_title": "Face detected",

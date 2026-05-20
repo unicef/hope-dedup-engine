@@ -1,8 +1,11 @@
+from pathlib import PurePosixPath
+
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from api.api_const import BULK_IMAGE_LIST_VIEW, JSON
+from api.utils import jpeg_data_url
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
 from hope_dedup_engine.apps.security.models import User
@@ -12,7 +15,7 @@ def test_can_bulk_create_images(api_client: APIClient, deduplication_set: Dedupl
     deduplication_set.state = DeduplicationSet.State.EMPTY
     deduplication_set.save(update_fields=["state"])
 
-    data = [{"reference_pk": f"ref_{i}", "filename": f"file_{i}.jpg"} for i in range(10)]
+    data = [{"reference_pk": f"ref_{i}", "filename": jpeg_data_url(f"payload-{i}".encode())} for i in range(10)]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -25,7 +28,7 @@ def test_bulk_create_sets_uploading_in_progress(api_client: APIClient, deduplica
     deduplication_set.state = DeduplicationSet.State.EMPTY
     deduplication_set.save(update_fields=["state"])
 
-    data = [{"reference_pk": "ref_1", "filename": "file_1.jpg"}]
+    data = [{"reference_pk": "ref_1", "filename": jpeg_data_url()}]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -40,7 +43,7 @@ def test_bulk_create_stays_uploading_in_progress(api_client: APIClient, deduplic
     deduplication_set.state = DeduplicationSet.State.UPLOADING_IN_PROGRESS
     deduplication_set.save(update_fields=["state"])
 
-    data = [{"reference_pk": "ref_1", "filename": "file_1.jpg"}]
+    data = [{"reference_pk": "ref_1", "filename": jpeg_data_url()}]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -52,7 +55,7 @@ def test_bulk_create_stays_uploading_in_progress(api_client: APIClient, deduplic
 
 
 def test_cannot_upload_in_non_uploadable_state(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
-    data = [{"reference_pk": "ref_1", "filename": "file_1.jpg"}]
+    data = [{"reference_pk": "ref_1", "filename": jpeg_data_url()}]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -66,7 +69,7 @@ def test_deduplication_set_is_updated(api_client: APIClient, user: User, dedupli
     deduplication_set.save(update_fields=["state"])
     assert deduplication_set.updated_by is None
 
-    data = [{"reference_pk": "ref_1", "filename": "file_1.jpg"}]
+    data = [{"reference_pk": "ref_1", "filename": jpeg_data_url()}]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -86,8 +89,10 @@ def test_images_with_same_reference_pk_is_updated(
     number_of_images = 10
     images = encoding_factory.create_batch(number_of_images, deduplication_set=deduplication_set)
 
-    data = [{"reference_pk": img.reference_pk, "filename": f"new_filename_{i}.jpg"} for i, img in enumerate(images)]
-    new_filenames = {item["filename"] for item in data}
+    data = [
+        {"reference_pk": img.reference_pk, "filename": jpeg_data_url(f"updated-{i}".encode())}
+        for i, img in enumerate(images)
+    ]
     response = api_client.post(
         reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
         data=data,
@@ -98,5 +103,5 @@ def test_images_with_same_reference_pk_is_updated(
     assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == number_of_images
     for image in images:
         image.refresh_from_db()
-    filenames = {image.filename for image in images}
-    assert filenames == new_filenames
+        assert image.filename.name.startswith(f"images/{deduplication_set.group.reference_pk}/{deduplication_set.pk}/")
+        assert PurePosixPath(image.filename.name).name.startswith(image.reference_pk)
