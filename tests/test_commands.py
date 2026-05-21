@@ -26,6 +26,7 @@ def environment():
         "DEFAULT_ROOT": "/tmp/default",
         "MEDIA_ROOT": "/tmp/media",
         "STATIC_ROOT": "/tmp/static",
+        "IMAGES_ROOT": "/tmp/hde",
         "SECURE_SSL_REDIRECT": "1",
         "SESSION_COOKIE_SECURE": "1",
         "DJANGO_SETTINGS_MODULE": "hope_dedup_engine.config.settings",

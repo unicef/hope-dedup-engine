@@ -176,11 +176,12 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "IMAGES_ROOT": (
         str,
-        "/var/data/images",
-        "/tmp/images",  # noqa: S108
+        "/var/data",
+        "/tmp/hde",  # noqa: S108
         True,
-        "Local filesystem root for images uploaded via the deduplication API (used when "
-        "FILE_STORAGE_IMAGES is FileSystemStorage). Ignored for object-store backends.",
+        "Local filesystem root for the images storage backend (used when "
+        "FILE_STORAGE_IMAGES is FileSystemStorage). The `images/` subdirectory "
+        "is created by the upload_to function. Ignored for object-store backends.",
     ),
     "FILE_STORAGE_DNN": (
         str,

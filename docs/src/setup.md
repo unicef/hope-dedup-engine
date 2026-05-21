@@ -123,9 +123,10 @@ FILE_STORAGE_IMAGES="storages.backends.azure_storage.AzureStorage?account_name=<
 ```
 
 ##### IMAGES_ROOT
-Filesystem path used by `FILE_STORAGE_IMAGES` when it is a `FileSystemStorage`.
+Filesystem mount point used by `FILE_STORAGE_IMAGES` when it is a `FileSystemStorage`.
+Images are stored under `<IMAGES_ROOT>/images/{group}/{set}/{file}`.
 Bind-mount this path into the backend, celery-worker and celery-beat
-containers. Ignored for object-store backends.
+containers. Ignored for object-store backends. *Example:* `/var/data`
 
 ##### FILE_STORAGE_MEDIA
 This backend is used for storing media files.
