@@ -90,8 +90,7 @@ DEFAULT_ROOT = env("DEFAULT_ROOT")
 STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 
 IMAGES_ROOT = env("IMAGES_ROOT")
-if STORAGES["images"]["BACKEND"] == "django.core.files.storage.FileSystemStorage":
-    STORAGES["images"].setdefault("OPTIONS", {}).update({"location": IMAGES_ROOT})
+STORAGES["images"].setdefault("OPTIONS", {}).update({"location": IMAGES_ROOT})
 
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
