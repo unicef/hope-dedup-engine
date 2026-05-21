@@ -55,9 +55,9 @@ def sample_image() -> np.ndarray:
 
 @pytest.fixture
 def mock_storage(mocker, sample_image):
-    """Fixture that bypasses storage I/O by stubbing the local _load_image helper."""
+    """Fixture that bypasses storage I/O by stubbing load_image."""
     return mocker.patch(
-        "hope_dedup_engine.apps.faces.services.facial._load_image",
+        "hope_dedup_engine.apps.faces.services.facial.load_image",
         return_value=sample_image,
     )
 

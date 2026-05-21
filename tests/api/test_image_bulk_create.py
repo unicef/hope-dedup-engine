@@ -105,3 +105,64 @@ def test_images_with_same_reference_pk_is_updated(
         image.refresh_from_db()
         assert image.filename.name.startswith(f"images/{deduplication_set.group.reference_pk}/{deduplication_set.pk}/")
         assert PurePosixPath(image.filename.name).name.startswith(image.reference_pk)
+
+
+def test_bulk_create_rejects_non_data_url_filename(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    deduplication_set.state = DeduplicationSet.State.EMPTY
+    deduplication_set.save(update_fields=["state"])
+
+    response = api_client.post(
+        reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
+        data=[{"reference_pk": "ref_1", "filename": "plain-text.jpg"}],
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "filename must be a base64 data URL" in str(response.data)
+
+
+def test_bulk_create_rejects_invalid_base64_payload(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    deduplication_set.state = DeduplicationSet.State.EMPTY
+    deduplication_set.save(update_fields=["state"])
+
+    response = api_client.post(
+        reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
+        data=[{"reference_pk": "ref_1", "filename": "data:image/jpeg;base64,!!!not-valid!!!"}],
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "filename payload is not valid base64" in str(response.data)
+
+
+def test_reupload_replaces_existing_storage_file(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    deduplication_set.state = DeduplicationSet.State.EMPTY
+    deduplication_set.save(update_fields=["state"])
+    reference_pk = "ref-reupload"
+    first_payload = b"first-image-bytes"
+    second_payload = b"second-image-bytes-replacement"
+
+    first_response = api_client.post(
+        reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
+        data=[{"reference_pk": reference_pk, "filename": jpeg_data_url(first_payload)}],
+        format=JSON,
+    )
+    assert first_response.status_code == status.HTTP_201_CREATED
+
+    encoding = Encoding.objects.get(deduplication_set=deduplication_set, reference_pk=reference_pk)
+    storage_path = encoding.filename.name
+    storage = encoding.filename.storage
+    with storage.open(storage_path, "rb") as fh:
+        assert fh.read() == first_payload
+
+    second_response = api_client.post(
+        reverse(BULK_IMAGE_LIST_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}),
+        data=[{"reference_pk": reference_pk, "filename": jpeg_data_url(second_payload)}],
+        format=JSON,
+    )
+    assert second_response.status_code == status.HTTP_201_CREATED
+
+    encoding.refresh_from_db()
+    assert encoding.filename.name == storage_path
+    with storage.open(storage_path, "rb") as fh:
+        assert fh.read() == second_payload

@@ -33,7 +33,7 @@ pytestmark = pytest.mark.override_config(
 @pytest.fixture
 def load_image_mock(mocker: MockerFixture) -> Mock:
     return mocker.patch(
-        "hope_dedup_engine.apps.api.admin.encoding.utils.process._load_image",
+        "hope_dedup_engine.apps.api.admin.encoding.utils.process.load_image",
         return_value=Mock(name="image-array"),
     )
 

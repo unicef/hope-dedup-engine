@@ -12,7 +12,7 @@ from hope_dedup_engine.apps.api.models import (
     Finding,
     Encoding,
 )
-from hope_dedup_engine.apps.api.models.deduplication import encoding_image_upload_to
+from hope_dedup_engine.apps.api.utils.image import encoding_image_key
 from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 
 
@@ -112,15 +112,9 @@ class CreateEncodingSerializer(serializers.ModelSerializer):
         ext = mimetypes.guess_extension(parsed.mimetype or "") or ".bin"
         basename = f"{reference_pk}{ext}"
 
-        target_key = encoding_image_upload_to(
-            type(
-                "EncodingProxy",
-                (),
-                {
-                    "deduplication_set_id": deduplication_set.id,
-                    "deduplication_set": deduplication_set,
-                },
-            )(),
+        target_key = encoding_image_key(
+            deduplication_set.group.reference_pk,
+            deduplication_set.id,
             basename,
         )
         storage = Encoding.filename.field.storage

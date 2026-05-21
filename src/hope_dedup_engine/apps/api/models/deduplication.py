@@ -9,6 +9,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
+from hope_dedup_engine.apps.api.utils.image import encoding_image_key
 from hope_dedup_engine.apps.security.models import System
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -34,7 +35,7 @@ def encoding_image_upload_to(instance: "Encoding", filename: str) -> str:
       existing object instead of orphaning it.
     """
     group_ref = instance.deduplication_set.group.reference_pk
-    return f"images/{group_ref}/{instance.deduplication_set_id}/{filename}"
+    return encoding_image_key(group_ref, instance.deduplication_set_id, filename)
 
 
 class GroupSettingsError(Exception):
