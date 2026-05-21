@@ -41,7 +41,7 @@ def pytest_configure(config):
     os.environ["FILE_STORAGE_STATIC"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/static/"
     os.environ["FILE_STORAGE_MEDIA"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
     os.environ["FILE_STORAGE_IMAGES"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/"
-    os.environ.setdefault("IMAGES_ROOT", "/tmp/hde/")
+    os.environ["IMAGES_ROOT"] = "/tmp/hde"
     os.environ["SOCIAL_AUTH_REDIRECT_IS_HTTPS"] = "0"
     os.environ["CELERY_TASK_ALWAYS_EAGER"] = "0"
     os.environ["SECURE_HSTS_PRELOAD"] = "0"
@@ -53,8 +53,11 @@ def pytest_configure(config):
     settings.ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
     settings.MEDIA_ROOT = "/tmp/media"
     settings.STATIC_ROOT = "/tmp/static"
+    settings.IMAGES_ROOT = "/tmp/hde"
+    settings.STORAGES["images"].setdefault("OPTIONS", {})["location"] = "/tmp/hde"
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.STATIC_ROOT, exist_ok=True)
+    os.makedirs("/tmp/hde", exist_ok=True)
 
     django.setup()
 
