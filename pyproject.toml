@@ -48,7 +48,7 @@ dependencies = [
   "drf-spectacular[sidecar]",
   "flower",
   "mediapipe",
-  "numpy<2",
+  "numpy<3",
   "psycopg[binary]",
   "psycopg-pool",
   "python-ofiq",
