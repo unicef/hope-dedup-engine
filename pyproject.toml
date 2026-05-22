@@ -25,7 +25,7 @@ dependencies = [
   "celery-types",
   "deepface",
   "django<6",
-  "django-admin-extra-buttons<2.2",
+  "django-admin-extra-buttons<2.3",
   "django-adminactions",
   "django-adminfilters",
   "django-celery-beat",
