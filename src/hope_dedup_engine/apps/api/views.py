@@ -154,6 +154,24 @@ class DeduplicationSetViewSet(
         return Response({"message": "ok"})
 
     @extend_schema(
+        request=EmptySerializer,
+        responses=EmptySerializer,
+        description="Approve the deduplication set, marking it as final. "
+        "Only allowed when the set is in 'Deduplicated' state.",
+    )
+    @action(detail=True, methods=(HTTPMethod.POST,))
+    def approve(self, request: Request, pk: str | None = None) -> Response:
+        deduplication_set = self.get_object()
+
+        if deduplication_set.state != DeduplicationSet.State.DEDUPLICATED:
+            raise ConflictError(f"Cannot approve set in '{deduplication_set.get_state_display()}' state.")
+
+        deduplication_set.set_state(DeduplicationSet.State.APPROVED)
+        deduplication_set.updated_by = request.user
+        deduplication_set.save(update_fields=["updated_by"])
+        return Response({"message": "ok"})
+
+    @extend_schema(
         description="List all non-approved deduplication sets belonging to the authenticated system.",
     )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -315,30 +333,6 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})
 
     @extend_schema(
-        request=EmptySerializer,
-        responses=EmptySerializer,
-        description="Approve the deduplicated set in this group, marking it as final. "
-        "Returns 404 if no set in 'Deduplicated' state exists in the group.",
-    )
-    @action(detail=True, methods=(HTTPMethod.POST,))
-    def approve(self, request: Request, reference_pk: str) -> Response:
-        group = self._get_group(request, reference_pk)
-        deduplication_set = group.deduplicationset_set.filter(
-            state=DeduplicationSet.State.DEDUPLICATED,
-        ).first()
-
-        if deduplication_set is None:
-            return Response(
-                {"detail": "No deduplicated set found in this group."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        deduplication_set.set_state(DeduplicationSet.State.APPROVED)
-        deduplication_set.updated_by = request.user
-        deduplication_set.save(update_fields=["updated_by"])
-        return Response({"message": "ok"})
-
-    @extend_schema(
         responses=GroupStatusSerializer,
         description="Check whether a new deduplication set can be created in this group. "
         "Returns can_create=false if a set that is currently being uploaded, "
@@ -355,11 +349,11 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
         return Response(GroupStatusSerializer({"can_create": not has_active}).data)
 
 
-class GroupFindingsViewSet(
+class FindingsViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Paginated, filterable findings for a deduplication set group (used by HOPE)."""
+    """Paginated, filterable findings for a deduplication set (used by HOPE)."""
 
     authentication_classes = (HDETokenAuthentication,)
     permission_classes = (IsAuthenticated, CanUseApi)
@@ -372,7 +366,7 @@ class GroupFindingsViewSet(
     def get_queryset(self) -> QuerySet[Finding]:
         return (
             Finding.objects.filter(
-                deduplication_set__group__reference_pk=self.kwargs["reference_pk"],
+                deduplication_set__pk=self.kwargs["deduplication_set_pk"],
                 deduplication_set__group__system=self.request.auth.system,
                 deduplication_set__group__deleted=False,
                 deduplication_set__state=DeduplicationSet.State.DEDUPLICATED,

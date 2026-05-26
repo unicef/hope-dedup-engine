@@ -11,7 +11,7 @@ from hope_dedup_engine.apps.api.views import (
     BulkEncodingViewSet,
     DeduplicationSetGroupView,
     DeduplicationSetViewSet,
-    GroupFindingsViewSet,
+    FindingsViewSet,
 )
 
 router = routers.SimpleRouter()
@@ -22,7 +22,7 @@ images_router = routers.SimpleRouter()
 images_router.register("images", BulkEncodingViewSet, basename="images")
 
 findings_router = routers.SimpleRouter()
-findings_router.register("findings", GroupFindingsViewSet, basename="group_findings")
+findings_router.register("findings", FindingsViewSet, basename="findings")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -31,7 +31,7 @@ urlpatterns = [
         include(images_router.urls),
     ),
     path(
-        "deduplication_set_groups/<str:reference_pk>/",
+        "deduplication_sets/<uuid:deduplication_set_pk>/",
         include(findings_router.urls),
     ),
     path("api/rest/", SpectacularAPIView.as_view(), name="schema"),

@@ -28,6 +28,7 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", required=False, allow_null=True, allow_blank=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
