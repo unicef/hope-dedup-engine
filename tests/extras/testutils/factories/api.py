@@ -47,6 +47,8 @@ class DeduplicationSetFactory(DjangoModelFactory):
 
 class EncodingFactory(DjangoModelFactory):
     deduplication_set = SubFactory(DeduplicationSetFactory)
+    # `filename` is a FileField; assigning a plain string sets the underlying DB value
+    # without touching storage (sufficient for tests that mock _load_image).
     filename = fuzzy.FuzzyText()
     reference_pk = fuzzy.FuzzyText()
     embedding = fuzzy.FuzzyAttribute(lambda: [fuzzy.FuzzyFloat(0.0, 1.0).fuzz() for _ in range(8)])

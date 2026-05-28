@@ -2,27 +2,18 @@ from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
-from azure.core.exceptions import ResourceNotFoundError
-from storages.backends.azure_storage import AzureStorage
 from django.urls import reverse
+from pytest_mock import MockerFixture
 
-from hope_dedup_engine.apps.faces.managers import ImagesStorageManager
 from hope_dedup_engine.apps.api.models import Encoding
-from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def finding_image_storage(mocker: MockerFixture) -> AzureStorage:
-    storage = MagicMock(spec=AzureStorage)
-    manager = ImagesStorageManager()
-    manager.storage = storage
-    mocker.patch(
-        "hope_dedup_engine.apps.api.admin.finding.views.ImagesStorageManager",
-        return_value=manager,
-    )
+def finding_image_storage(mocker: MockerFixture) -> MagicMock:
+    storage = MagicMock()
+    mocker.patch.object(Encoding._meta.get_field("filename"), "storage", storage)
     return storage
 
 
@@ -40,9 +31,9 @@ def test_finding_image_requires_staff(client: MagicMock) -> None:
 
 def test_finding_image_serves_file(
     admin_client: MagicMock,
-    finding_image_storage: AzureStorage,
+    finding_image_storage: MagicMock,
 ) -> None:
-    filename = "image.jpg"
+    filename = "images/abc/image.jpg"
     url = reverse("admin:api_finding_image", kwargs={"filename": filename})
     finding_image_storage.open.return_value = BytesIO(b"image-bytes")
 
@@ -53,7 +44,7 @@ def test_finding_image_serves_file(
 
     cd = response["Content-Disposition"]
     assert "inline;" in cd
-    assert f'filename="{filename}"' in cd
+    assert 'filename="image.jpg"' in cd
 
     body = b"".join(response.streaming_content)
     assert body == b"image-bytes"
@@ -61,10 +52,10 @@ def test_finding_image_serves_file(
 
 def test_finding_image_missing_returns_404(
     admin_client: MagicMock,
-    finding_image_storage: AzureStorage,
+    finding_image_storage: MagicMock,
 ) -> None:
     url = reverse("admin:api_finding_image", kwargs={"filename": "missing.jpg"})
-    finding_image_storage.open.side_effect = ResourceNotFoundError("missing")
+    finding_image_storage.open.side_effect = FileNotFoundError("missing")
 
     response = admin_client.get(url)
 
@@ -86,9 +77,8 @@ def test_finding_preview_requires_staff(client: MagicMock, finding: MagicMock) -
 @pytest.mark.parametrize(
     ("first_filename", "second_filename"),
     [
-        ("first.jpg", ""),
-        ("first.jpg", "second.jpg"),
-        ("data:image/png;base64,AAAA", ""),
+        ("images/ds-1/first.jpg", ""),
+        ("images/ds-1/first.jpg", "images/ds-1/second.jpg"),
     ],
 )
 def test_finding_preview_context(
@@ -117,15 +107,9 @@ def test_finding_preview_context(
     assert ctx["finding"].pk == finding.pk
     assert ctx["status_label"] == Encoding.StatusCode(finding.status_code).label
 
-    if parse_data_url(first_filename):
-        assert ctx["first_image_url"] == first_filename
-    else:
-        assert ctx["first_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": first_filename})
+    assert ctx["first_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": first_filename})
 
     if second_filename:
-        if parse_data_url(second_filename):
-            assert ctx["second_image_url"] == second_filename
-        else:
-            assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
+        assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
     else:
         assert ctx["second_image_url"] is None

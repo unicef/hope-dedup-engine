@@ -13,6 +13,10 @@ if [ -d "${DEFAULT_ROOT}" ];then
   chown -R hope:unicef ${DEFAULT_ROOT}
 fi
 
+if [ -d "${IMAGES_ROOT}" ];then
+  chown -R hope:unicef ${IMAGES_ROOT}
+fi
+
 if [ -d "${DEEPFACE_HOME}" ];then
   chown -R hope:unicef ${DEEPFACE_HOME}
 fi
@@ -20,6 +24,7 @@ fi
 echo "MEDIA_ROOT  ${MEDIA_ROOT}"
 echo "STATIC_ROOT ${STATIC_ROOT}"
 echo "DEFAULT_ROOT ${DEFAULT_ROOT}"
+echo "IMAGES_ROOT ${IMAGES_ROOT}"
 echo "DEEPFACE_HOME ${DEEPFACE_HOME}"
 echo "Docker run command: $1"
 

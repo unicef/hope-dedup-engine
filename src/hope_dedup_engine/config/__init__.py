@@ -169,10 +169,19 @@ CONFIG: "dict[str, ConfigItem]" = {
         "django.contrib.staticfiles.storage.StaticFilesStorage",
         setting("storages"),
     ),
-    "FILE_STORAGE_HOPE": (
+    "FILE_STORAGE_IMAGES": (
         str,
-        "storages.backends.azure_storage.AzureStorage",
+        "django.core.files.storage.FileSystemStorage",
         setting("storages"),
+    ),
+    "IMAGES_ROOT": (
+        str,
+        "/var/data",
+        "/tmp/hde",  # noqa: S108
+        True,
+        "Local filesystem root for the images storage backend (used when "
+        "FILE_STORAGE_IMAGES is FileSystemStorage). The `images/` subdirectory "
+        "is created by the upload_to function. Ignored for object-store backends.",
     ),
     "FILE_STORAGE_DNN": (
         str,

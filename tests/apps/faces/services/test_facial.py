@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
-from azure.core.exceptions import ResourceNotFoundError
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
@@ -56,10 +55,11 @@ def sample_image() -> np.ndarray:
 
 @pytest.fixture
 def mock_storage(mocker, sample_image):
-    """Fixture to mock ImagesStorageManager and return a numpy image by default."""
-    storage_mock = mocker.patch("hope_dedup_engine.apps.faces.services.facial.ImagesStorageManager").return_value
-    storage_mock.load_image.return_value = sample_image
-    return storage_mock
+    """Fixture that bypasses storage I/O by stubbing load_image."""
+    return mocker.patch(
+        "hope_dedup_engine.apps.faces.services.facial.load_image",
+        return_value=sample_image,
+    )
 
 
 @pytest.fixture
@@ -195,9 +195,9 @@ def test_encode_faces_deepface_outcomes(
 
 @pytest.mark.django_db
 def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_factory):
-    """Test handling of ResourceNotFoundError from storage."""
+    """Test handling of FileNotFoundError from storage."""
     encoding = encoding_factory(filename="file1.jpg", embedding=None)
-    mock_storage.load_image.side_effect = ResourceNotFoundError("File not found")
+    mock_storage.side_effect = FileNotFoundError("File not found")
 
     encode_faces(encoding.deduplication_set, [encoding.id], make_encode_config(fc_th=0.9))
 
