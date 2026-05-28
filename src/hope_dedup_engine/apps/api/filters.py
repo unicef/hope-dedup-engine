@@ -1,17 +1,9 @@
 from django_filters import rest_framework as filters
-from django.db.models import Q, QuerySet
-from constance import config
 
-from hope_dedup_engine.apps.api.exceptions import TooManyReferencePksException
 from hope_dedup_engine.apps.api.models import Encoding, Finding
 
 
-class CharInFilter(filters.BaseInFilter, filters.CharFilter):
-    pass
-
-
 class FindingFilter(filters.FilterSet):
-    reference_pk = CharInFilter(method="filter_by_references", help_text="Filter by one or more reference pks")
     status_code = filters.ChoiceFilter(
         field_name="status_code",
         choices=Encoding.StatusCode.choices,
@@ -31,12 +23,3 @@ class FindingFilter(filters.FilterSet):
     class Meta:
         model = Finding
         fields = []
-
-    def filter_by_references(self, qs: QuerySet[Finding], name: str, values: list[str]) -> QuerySet[Finding]:
-        if not values:
-            return qs
-
-        if len(values) > config.MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS:
-            raise TooManyReferencePksException()
-
-        return qs.filter(Q(first_encoding__reference_pk__in=values) | Q(second_encoding__reference_pk__in=values))

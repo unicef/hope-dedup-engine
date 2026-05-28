@@ -4,4 +4,4 @@ source "$(dirname "0")/.common"
 
 echo Show duplicates >&2
 
-call_api GET "deduplication_set_groups/$DEDUPLICATION_SET_REFERENCE_PK/findings"
+call_api GET "deduplication_sets/$DEDUPLICATION_SET_ID/findings"

@@ -78,11 +78,6 @@ CONSTANCE_CONFIG = {
         "Group to assign to any new user",
         str,
     ),
-    "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS": (
-        1000,
-        "Set count of allowed reference pks as query params",
-        int,
-    ),
     "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_text_input"),
 }
 
@@ -109,10 +104,7 @@ CONSTANCE_CONFIG_FIELDSETS = {
         "collapse": False,
     },
     "API settings": {
-        "fields": (
-            "MAX_REFERENCE_PKS_ALLOWED_FOR_FINDINGS",
-            "HOPE_API_TOKEN",
-        ),
+        "fields": ("HOPE_API_TOKEN",),
         "collapse": False,
     },
 }

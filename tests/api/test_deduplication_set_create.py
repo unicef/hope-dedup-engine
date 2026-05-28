@@ -60,3 +60,12 @@ def test_invalid_values_handling(field: str, api_client: APIClient, deduplicatio
     errors = response.json()
     assert len(errors) == 1
     assert field in errors
+
+
+def test_create_with_duplicate_id_returns_400(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    data = {"id": str(deduplication_set.pk), "reference_pk": "new-unique-ref"}
+
+    response = api_client.post(reverse(DEDUPLICATION_SET_LIST_VIEW), data=data, format=JSON)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "id" in response.json()
