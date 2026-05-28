@@ -2,6 +2,7 @@ from itertools import filterfalse
 from typing import Any
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
@@ -28,7 +29,10 @@ class DeduplicationSetSerializer(serializers.ModelSerializer):
 
 
 class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(required=False)
+    id = serializers.UUIDField(
+        required=False,
+        validators=[UniqueValidator(queryset=DeduplicationSet.objects.all())],
+    )
     reference_pk = serializers.CharField(source="group.reference_pk")
     name = serializers.CharField(source="group.name", required=False, allow_null=True, allow_blank=True)
     state = serializers.CharField(source="get_state_display", read_only=True)
