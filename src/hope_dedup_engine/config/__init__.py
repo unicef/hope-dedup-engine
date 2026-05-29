@@ -178,7 +178,7 @@ CONFIG: "dict[str, ConfigItem]" = {
         str,
         "/var/data",
         "/tmp/hde",  # noqa: S108
-        True,
+        False,
         "Local filesystem root for the images storage backend (used when "
         "FILE_STORAGE_IMAGES is FileSystemStorage). The `images/` subdirectory "
         "is created by the upload_to function. Ignored for object-store backends.",
