@@ -12,7 +12,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - AZURE_CLIENT_SECRET=
       - AZURE_TENANT_ID=
-      - AZURE_CLIENT_KEY=
+      - AZURE_CLIENT_ID=
     ports:
       - 8000:8000
     volumes:
