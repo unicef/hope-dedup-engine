@@ -92,6 +92,12 @@ STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 IMAGES_ROOT = env("IMAGES_ROOT")
 STORAGES["images"].setdefault("OPTIONS", {}).update({"location": IMAGES_ROOT})
 
+# Azure Files (SMB) mounts do not support chmod/chown syscalls.  Setting
+# FILE_UPLOAD_PERMISSIONS to None tells Django's FileSystemStorage to skip
+# the os.chmod() call after saving a file.  The other storage backends
+# (Azure Blob) ignore this setting entirely.
+FILE_UPLOAD_PERMISSIONS = None
+
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
