@@ -14,7 +14,7 @@ if [ -d "${DEFAULT_ROOT}" ];then
 fi
 
 if [ -d "${IMAGES_ROOT}" ];then
-  chown -R hope:unicef ${IMAGES_ROOT} 2>/dev/null || true
+  chown -R hope:unicef ${IMAGES_ROOT} 2>/dev/null || echo "WARNING: Skipping chown for ${IMAGES_ROOT}; Azure Files SMB does not support ownership changes."
 fi
 
 if [ -d "${DEEPFACE_HOME}" ];then
