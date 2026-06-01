@@ -14,7 +14,7 @@ if [ -d "${DEFAULT_ROOT}" ];then
 fi
 
 if [ -d "${IMAGES_ROOT}" ];then
-  chown -R hope:unicef ${IMAGES_ROOT}
+  chown -R hope:unicef ${IMAGES_ROOT} 2>/dev/null || true
 fi
 
 if [ -d "${DEEPFACE_HOME}" ];then
