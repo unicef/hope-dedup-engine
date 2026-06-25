@@ -13,7 +13,7 @@ from numpy import ndarray
 
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
 from hope_dedup_engine.apps.api.utils.image import load_image
-from hope_dedup_engine.apps.faces.services.quality import get_active_thresholds, check_image_quality
+from hope_dedup_engine.apps.faces.services.quality import check_image_quality, get_active_thresholds
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -58,6 +58,45 @@ def encode_face(
     return None, Encoding.StatusCode.GENERIC_ERROR
 
 
+def process_encoding(
+    encoding: Encoding,
+    ofiq: OFIQ | None,
+    config: DeduplicationSetConfig,
+    active_thresholds: dict[str, float],
+) -> Encoding:
+    encoding.embedding_status_code = None
+    image_data = None
+
+    if active_thresholds:
+        if encoding.image_quality_scores is None:
+            image_data = load_image(encoding.filename)
+
+        qr = check_image_quality(
+            ofiq,
+            image_data,
+            active_thresholds,
+            cached_scores=encoding.image_quality_scores,
+        )
+        encoding.image_quality_scores = qr.scores
+
+        if not qr.face_detected:
+            encoding.embedding_status_code = Encoding.StatusCode.NO_FACE_DETECTED
+        elif not qr.passed:
+            encoding.embedding_status_code = Encoding.StatusCode.BAD_IMAGE_QUALITY
+
+    if encoding.embedding_status_code is None:
+        if image_data is None:
+            image_data = load_image(encoding.filename)
+        encoding.embedding, encoding.embedding_status_code = encode_face(
+            image_data,
+            config.face_detection_confidence_threshold,
+            config.recognition_model,
+            config.detector_backend,
+        )
+
+    return encoding
+
+
 def encode_faces(
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
@@ -74,27 +113,7 @@ def encode_faces(
     for encoding in encodings:
         with transaction.atomic():
             try:
-                encoding.embedding_status_code = None
-                encoding.image_quality_scores = None
-                image_data = load_image(encoding.filename)
-
-                if ofiq is not None:
-                    qr = check_image_quality(ofiq, image_data, active_thresholds)
-                    encoding.image_quality_scores = qr.scores
-
-                    if not qr.face_detected:
-                        encoding.embedding_status_code = Encoding.StatusCode.NO_FACE_DETECTED
-                    elif not qr.passed:
-                        encoding.embedding_status_code = Encoding.StatusCode.BAD_IMAGE_QUALITY
-
-                if encoding.embedding_status_code is None:
-                    encoding.embedding, encoding.embedding_status_code = encode_face(
-                        image_data,
-                        config.face_detection_confidence_threshold,
-                        config.recognition_model,
-                        config.detector_backend,
-                    )
-
+                process_encoding(encoding, ofiq, config, active_thresholds)
             except FileNotFoundError:
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
             except Exception as e:
