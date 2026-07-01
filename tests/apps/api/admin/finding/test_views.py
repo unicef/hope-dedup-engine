@@ -13,7 +13,8 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def finding_image_storage(mocker: MockerFixture) -> MagicMock:
     storage = MagicMock()
-    mocker.patch.object(Encoding._meta.get_field("filename"), "storage", storage)
+    storages_mock = mocker.patch("hope_dedup_engine.apps.api.admin.finding.views.storages")
+    storages_mock.__getitem__.return_value = storage
     return storage
 
 
@@ -34,7 +35,7 @@ def test_finding_image_serves_file(
     finding_image_storage: MagicMock,
     encoding_factory,
 ) -> None:
-    filename = "images/abc/image.jpg"
+    filename = "hope/abc/image.jpg"
     encoding_factory(filename=filename)
     finding_image_storage.open.return_value = BytesIO(b"image-bytes")
     url = reverse("admin:api_finding_image", kwargs={"filename": filename})
@@ -100,8 +101,8 @@ def test_finding_preview_requires_staff(client: MagicMock, finding: MagicMock) -
 @pytest.mark.parametrize(
     ("first_filename", "second_filename"),
     [
-        ("images/ds-1/first.jpg", ""),
-        ("images/ds-1/first.jpg", "images/ds-1/second.jpg"),
+        ("hope/ds-1/first.jpg", ""),
+        ("hope/ds-1/first.jpg", "hope/ds-1/second.jpg"),
     ],
 )
 def test_finding_preview_context(
