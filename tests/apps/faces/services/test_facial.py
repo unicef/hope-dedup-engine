@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
@@ -211,9 +212,14 @@ def test_encode_faces_deepface_outcomes(
 
 
 @pytest.mark.django_db
-def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_no_scores):
-    """Test handling of FileNotFoundError from storage."""
-    mock_storage.side_effect = FileNotFoundError("File not found")
+@pytest.mark.parametrize(
+    "exc",
+    [FileNotFoundError("File not found"), ResourceNotFoundError("File not found")],
+    ids=["file_not_found", "azure_resource_not_found"],
+)
+def test_encode_faces_file_not_found(mock_deepface, mock_storage, encoding_no_scores, exc):
+    """Test handling of missing files from the shared HOPE storage."""
+    mock_storage.side_effect = exc
 
     encode_faces(encoding_no_scores.deduplication_set, [encoding_no_scores.id], make_encode_config(fc_th=0.9))
 

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from ofiq import OFIQ
+from azure.core.exceptions import ResourceNotFoundError
 from deepface import DeepFace
 from deepface.modules.verification import find_confidence, find_distance, find_threshold
 from django.db import transaction
@@ -114,7 +115,7 @@ def encode_faces(
         with transaction.atomic():
             try:
                 process_encoding(encoding, ofiq, config, active_thresholds)
-            except FileNotFoundError:
+            except (ResourceNotFoundError, FileNotFoundError):
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
             except Exception as e:
                 logger.exception(e)
