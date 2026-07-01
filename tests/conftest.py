@@ -2,6 +2,11 @@ import os
 import sys
 from pathlib import Path
 
+# HOPE storage defaults to bare AzureStorage; pytest-django loads settings before
+# pytest_configure, so FILE_STORAGE_HOPE must be set at import time.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hope_dedup_engine.config.settings")
+os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+
 import django
 import pytest
 import responses
@@ -56,6 +61,14 @@ def pytest_configure(config):
     os.makedirs(settings.STATIC_ROOT, exist_ok=True)
 
     django.setup()
+
+    from django.core.files.storage import storages as django_storages
+
+    from hope_dedup_engine.config import env
+
+    settings.STORAGES["hope"] = env.storage("FILE_STORAGE_HOPE")
+    os.makedirs("/tmp/hde/hope", exist_ok=True)
+    django_storages._storages.pop("hope", None)
 
     try:
         call_command("env", check=True)
