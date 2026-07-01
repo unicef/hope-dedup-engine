@@ -1,9 +1,6 @@
-import base64
-import mimetypes
 from itertools import filterfalse
 from typing import Any
 
-from django.core.files.base import ContentFile
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
@@ -12,8 +9,6 @@ from hope_dedup_engine.apps.api.models import (
     Finding,
     Encoding,
 )
-from hope_dedup_engine.apps.api.utils.image import encoding_image_key
-from hope_dedup_engine.apps.api.utils.data_url import parse_data_url
 
 
 class DeduplicationSetSerializer(serializers.ModelSerializer):
@@ -49,7 +44,6 @@ class CreateDeduplicationSetSerializer(serializers.ModelSerializer):
 
 class EncodingSerializer(serializers.ModelSerializer):
     deduplication_set = DeduplicationSetSerializer(read_only=True)
-    filename = serializers.CharField(source="filename.name", read_only=True)
 
     class Meta:
         model = Encoding
@@ -77,7 +71,6 @@ class CreateEncodingSerializer(serializers.ModelSerializer):
         ),
         write_only=True,
     )
-    filename = serializers.CharField(write_only=True)
 
     class Meta:
         model = Encoding
@@ -90,39 +83,6 @@ class CreateEncodingSerializer(serializers.ModelSerializer):
         yield from filterfalse(
             is_deduplication_set_reference_pk_constraint, super().get_unique_together_constraints(model)
         )
-
-    def validate_filename(self, value: str) -> str:
-        parsed = parse_data_url(value)
-        if not parsed or parsed.encoding != "base64" or not parsed.content:
-            raise serializers.ValidationError("filename must be a base64 data URL (data:<mimetype>;base64,<payload>).")
-        try:
-            base64.b64decode(parsed.content, validate=True)
-        except (ValueError, base64.binascii.Error) as exc:
-            raise serializers.ValidationError("filename payload is not valid base64.") from exc
-        return value
-
-    def create(self, validated_data: dict[str, Any]) -> Encoding:
-        deduplication_set: DeduplicationSet = validated_data["deduplication_set"]
-        reference_pk: str = validated_data["reference_pk"]
-        data_url: str = validated_data["filename"]
-
-        parsed = parse_data_url(data_url)
-        # validate_filename guarantees parsed and base64 encoding
-        payload = base64.b64decode(parsed.content)
-        ext = mimetypes.guess_extension(parsed.mimetype or "") or ".bin"
-        basename = f"{reference_pk}{ext}"
-
-        target_key = encoding_image_key(
-            deduplication_set.group.reference_pk,
-            deduplication_set.id,
-            basename,
-        )
-        storage = Encoding.filename.field.storage
-        if storage.exists(target_key):
-            storage.delete(target_key)
-
-        validated_data["filename"] = ContentFile(payload, name=basename)
-        return super().create(validated_data)
 
 
 class EntrySerializer(serializers.Serializer):

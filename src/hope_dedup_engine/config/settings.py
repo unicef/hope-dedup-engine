@@ -81,16 +81,13 @@ STORAGES = {
     "default": env.storage("FILE_STORAGE_DEFAULT"),
     "staticfiles": env.storage("FILE_STORAGE_STATIC"),
     "media": env.storage("FILE_STORAGE_MEDIA"),
-    "images": env.storage("FILE_STORAGE_IMAGES"),
+    "hope": env.storage("FILE_STORAGE_HOPE"),
     # Azure BLOB. Example in case use Azurite:
     # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
     "dnn": env.storage("FILE_STORAGE_DNN"),
 }
 DEFAULT_ROOT = env("DEFAULT_ROOT")
 STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
-
-IMAGES_ROOT = env("IMAGES_ROOT")
-STORAGES["images"].setdefault("OPTIONS", {}).update({"location": IMAGES_ROOT})
 
 # Azure Files (SMB) mounts do not support chmod/chown syscalls.  Setting
 # FILE_UPLOAD_PERMISSIONS to None tells Django's FileSystemStorage to skip

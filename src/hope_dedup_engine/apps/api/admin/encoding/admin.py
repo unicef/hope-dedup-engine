@@ -1,5 +1,4 @@
 from operator import attrgetter
-from pathlib import PurePosixPath
 from typing import cast, NamedTuple
 
 from admin_extra_buttons.decorators import button
@@ -41,12 +40,9 @@ def prepare_detection_results(thresholds: list[float], confidence: float) -> lis
     ]
 
 
-def file_link(file_field) -> str:
-    key = file_field.name if hasattr(file_field, "name") else str(file_field)
+def file_link(filename: str) -> str:
     return format_html(
-        FILE_LINK,
-        filename=PurePosixPath(key).name,
-        link=reverse("admin:api_finding_image", kwargs={"filename": key}),
+        FILE_LINK, filename=filename, link=reverse("admin:api_finding_image", kwargs={"filename": filename})
     )
 
 
@@ -102,7 +98,7 @@ class EncodingAdmin(BaseModelAdmin):
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
-        return PurePosixPath(obj.filename.name).name if obj.filename else ""
+        return obj.filename
 
     @display(description="Image quality scores")
     def image_quality_scores_sorted(self, obj: Encoding) -> str:
@@ -120,9 +116,8 @@ class EncodingAdmin(BaseModelAdmin):
     @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
         encoding = cast("Encoding", self.get_object(request, pk))
-        key = encoding.filename.name if encoding.filename else ""
-        label = PurePosixPath(key).name
-        image_url = reverse("admin:api_finding_image", kwargs={"filename": key})
+        label = encoding.filename
+        image_url = reverse("admin:api_finding_image", kwargs={"filename": encoding.filename})
 
         context = {
             "page_title": f"Detect face on {label}",
