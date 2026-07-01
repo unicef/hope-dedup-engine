@@ -1,5 +1,3 @@
-from pathlib import PurePosixPath
-
 import pytest
 from django.contrib.admin import AdminSite
 from django.test import RequestFactory
@@ -19,24 +17,22 @@ from hope_dedup_engine.apps.api.models import Encoding
 
 
 @pytest.mark.parametrize(
-    "storage_name, expected",
+    "filename",
     [
-        ("images/group/set/photo.jpg", "photo.jpg"),
-        ("photos/face.jpg", "face.jpg"),
-        ("face.jpg", "face.jpg"),
+        "hope/group/set/photo.jpg",
+        "photos/face.jpg",
+        "face.jpg",
     ],
     ids=[
-        "nested_storage_key",
+        "nested_blob_key",
         "path_with_directory",
         "basename_only",
     ],
 )
-def test_filename_pretty(storage_name: str, expected: str, mocker: MockerFixture) -> None:
-    field_file = mocker.Mock()
-    field_file.name = storage_name
-    encoding = mocker.Mock(spec=Encoding, filename=field_file)
+def test_filename_pretty(filename: str, mocker: MockerFixture) -> None:
+    encoding = mocker.Mock(spec=Encoding, filename=filename)
     admin = EncodingAdmin(Encoding, AdminSite())
-    assert admin.filename_pretty(encoding) == expected
+    assert admin.filename_pretty(encoding) == filename
 
 
 def test_filename_pretty_empty(mocker: MockerFixture) -> None:
@@ -137,7 +133,7 @@ def test_encoding_admin_detect_face_initial(mocker: MockerFixture, rf: RequestFa
     format_html_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.format_html")
 
     encoding_admin = EncodingAdmin(Encoding, admin_site)
-    label = PurePosixPath(encoding.filename.name).name if encoding.filename else ""
+    label = encoding.filename
     expected_context = {
         "page_title": f"Detect face on {label}",
         "title": f"Detect face on {label}",
@@ -171,7 +167,7 @@ def test_encoding_admin_detect_face_submit(mocker: MockerFixture, rf: RequestFac
     )
 
     encoding_admin = EncodingAdmin(Encoding, admin_site)
-    label = PurePosixPath(encoding.filename.name).name if encoding.filename else ""
+    label = encoding.filename
     expected_context = {
         "page_title": f"Detect face on {label}",
         "title": f"Detect face on {label}",

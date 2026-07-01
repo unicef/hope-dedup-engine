@@ -66,6 +66,7 @@ def storages_check(app_configs: Any, **kwargs: Any) -> list[Error]:  # pragma: n
 
     """
     storages = (
+        "FILE_STORAGE_HOPE",
         "FILE_STORAGE_STATIC",
         "FILE_STORAGE_MEDIA",
     )
