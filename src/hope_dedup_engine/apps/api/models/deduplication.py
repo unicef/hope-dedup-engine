@@ -9,7 +9,7 @@ from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
 REFERENCE_PK_LENGTH: Final[int] = 100
-FILENAME_LENGTH: Final[int] = 255
+FILENAME_LENGTH: Final[int] = 1024
 MAX_ERROR_LENGTH: Final[int] = 255
 
 
@@ -285,7 +285,10 @@ class Encoding(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
-    filename = models.TextField(help_text="Filename (path/key) in the shared HOPE blob storage.")
+    filename = models.CharField(
+        max_length=FILENAME_LENGTH,
+        help_text="Filename (path/key) in the shared HOPE blob storage.",
+    )
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
         choices=get_encoding_status_choices, null=True, blank=True, help_text="Embedding status code."
