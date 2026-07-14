@@ -12,33 +12,32 @@ These scripts use `httpie` and `jq`, so make sure they are installed.
 
 These scripts hold configuration and common functionality
 
-| Name                  | Arguments | Description                                     |
-|-----------------------|-----------|-------------------------------------------------|
-| .vars                 | -         | Contains configuration variables                |
-| .common               | -         | Contains common functions used by other scripts |
+| Name    | Arguments | Description                                     |
+|---------|-----------|-------------------------------------------------|
+| .vars   | -         | Contains configuration variables (base URL, token, current set id) |
+| .common | -         | Contains common functions used by other scripts |
 
 #### Public
 
-| Name                  | Arguments            | Description               |
-|-----------------------|----------------------|---------------------------|
-| use_base_url          | base url             | Sets base url             |
-| use_auth_token        | auth token           | Sets authentication token |
-| use_deduplication_set | deduplication set id | Sets deduplication set id |
+| Name           | Arguments  | Description               |
+|----------------|------------|---------------------------|
+| use_base_url   | base url   | Sets base url             |
+| use_auth_token | auth token | Sets authentication token |
 
 ### API interaction
 
-| Name                      | Arguments                               | Description                                 |
-|---------------------------|-----------------------------------------|---------------------------------------------|
-| create_deduplication_set  | reference_pk                            | Creates new deduplication set               |
-| create_image              | filename                                | Creates image in deduplication set          |
-| ignore                    | first reference pk, second reference pk | Makes API ignore specific reference pk pair |
-| process_deduplication_set | -                                       | Starts deduplication process                |
-| show_deduplication_set    | -                                       | Shows deduplication set data                |
-| show_duplicates           | -                                       | Shows duplicates found in deduplication set |
+| Name                      | Arguments                            | Description                                                              |
+|---------------------------|--------------------------------------|--------------------------------------------------------------------------|
+| create_deduplication_set  | reference_pk                         | Creates a new deduplication set and stores its id for following commands |
+| create_image              | reference_pk, filename, [`--last`]   | Registers an image; with `--last` also calls the `ready` endpoint        |
+| process_deduplication_set | -                                    | Starts processing and polls until the set state is `Deduplicated`        |
+| show_deduplication_set    | -                                    | Shows deduplication set data (including state)                           |
+| show_duplicates           | -                                    | Shows findings for the deduplication set                                 |
+| approve                   | -                                    | Approves the deduplication set                                           |
 
 ### Test cases
 
-| Name             | Arguments    | Description                                                                                                                    |
-|------------------|--------------|--------------------------------------------------------------------------------------------------------------------------------|
-| base_case        | reference pk | Creates deduplication set, adds images to it and runs deduplication process                                                    |
-| all_ignored_case | reference pk | Creates deduplication set, adds images to it, adds all possible reference pk pairs to ignored pairs and shows duplicates found |
+| Name          | Arguments    | Description                                                                                                             |
+|---------------|--------------|--------------------------------------------------------------------------------------------------------------------------|
+| base_case     | reference pk | Creates a deduplication set, registers all demo images, runs processing, and shows duplicates                            |
+| two_sets_case | reference pk | Runs and approves a first set, then processes a second set in the same group to demonstrate matching against approved data |

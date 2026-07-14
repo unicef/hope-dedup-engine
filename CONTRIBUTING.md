@@ -1,50 +1,33 @@
-# Contributing to HOPE Deduplication Engine
+# How to Contribute
 
-First off, thank you for considering contributing to the HOPE Dedup Engine. It's people like you that make this project such a great tool.
+Always happy to get issues identified and pull requests!
 
-## System Requirements
+The full contributor documentation lives at
+<https://unicef.github.io/hope-dedup-engine/development/contributing/>
+(and in this repo under `docs/src/development/`). The short version:
 
-- python 3.12
-- [direnv](https://direnv.net/) - not mandatory but strongly recommended
+## General considerations
 
-## Where do I start?
+1. Keep it small. The smaller the change, the more likely we are to accept it.
+2. Changes that fix a current issue get priority for review.
+3. Check out the [GitHub guide](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) if you've never created a pull request before.
 
-If you have an idea for a new feature or have found a bug, please open an issue on GitHub. This allows us to track the work and discuss the best way to implement it.
+## Getting started
 
-### Reporting Bugs
+1. Fork the repo and clone your fork.
+2. Set up your environment — see the [getting started guide](https://unicef.github.io/hope-dedup-engine/development/getting-started/). In short: `uv venv .venv && uv sync`, then either `docker compose up --build` or a local Postgres/Redis with `./manage.py env --develop > .envrc`.
+3. Create a branch for your changes (`feature/...` or `bugfix/...`) — don't develop on `main`/`develop` directly.
 
-When reporting a bug, please include as much detail as possible. This should include:
+## Before you submit
 
-*   A clear and descriptive title.
-*   A step-by-step description of how to reproduce the bug.
-*   The expected behavior and what actually happened.
-*   Any error messages or stack traces.
-*   The version of the project you are using.
+Run the checks CI will run:
 
-### Suggesting Enhancements
+```bash
+uv run pre-commit run --all-files   # lint
+uv run pytest tests                 # test suite
+uv run tox -e mypy                  # type check
+```
 
-When suggesting an enhancement, please include:
+## Submitting a pull request
 
-*   A clear and descriptive title.
-*   A detailed description of the enhancement.
-*   Any mockups or screenshots that might help explain the enhancement.
-*   An explanation of why this enhancement would be useful.
-
-## Pull Requests
-
-We welcome pull requests. When you are ready to submit a pull request, please ensure that:
-
-1.  You have opened an issue for the change and it has been approved.
-2.  Your code follows the project's coding style.
-3.  You have added or updated any relevant documentation.
-4.  You have added or updated tests to cover your changes.
-5.  Your pull request has a clear and descriptive title.
-6.  Your pull request has a detailed description of the changes.
-
-## Development Setup
-
-Please refer to the `README.md` file for instructions on how to set up your development environment.
-
-## Code of Conduct
-
-This project and everyone participating in it is governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
+Push your branch and open a pull request against `develop`. GitHub Actions will run tests, lint, and the docs build; fix any failures. A maintainer will review your change and give feedback or merge it.
