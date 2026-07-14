@@ -42,7 +42,7 @@ flowchart LR
 
 ## Key design points
 
-- **Images are stored, not just referenced.** The API accepts a `filename` and registers it as a `FileField` backed by the `images` Django storage. The engine reads the bytes from that storage when processing.
+- **Images are uploaded as base64 data URLs.** The API accepts a `filename` field containing a base64-encoded image (`data:<mimetype>;base64,...`). The engine decodes it, stores the file via the `images` Django storage backend, and reads it back when processing.
 - **Everything asynchronous happens through jobs.** The `process` endpoint creates a `MainJob` and queues a Celery task. Clients follow progress via the set's `state` (polling) or via webhook notifications.
 - **Multi-tenancy through Systems.** Every API token belongs to a user linked to an external *System*. All data is partitioned by system: a client can only see groups and sets belonging to its own system.
 - **One active set per group.** A group (e.g. a HOPE program) can have only one deduplication set "in flight" at a time; previously approved sets stay in the group and are used as reference data for future runs. See [Lifecycle](lifecycle.md).

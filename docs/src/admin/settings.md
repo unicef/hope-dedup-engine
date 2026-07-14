@@ -28,7 +28,6 @@ These values are managed with [django-constance](https://django-constance.readth
 
 | Key | Description |
 |-----|-------------|
-| `HOPE_API_TOKEN` | Token attached to outbound webhook notifications (masked in the UI). |
 | `NEW_USER_IS_STAFF` | Whether newly created users (e.g. via SSO) get staff status. |
 | `NEW_USER_DEFAULT_GROUP` | Permission group automatically assigned to new users. |
 

@@ -38,7 +38,7 @@ Each group has a `processing_locked` flag preventing concurrent runs. The worker
 | `process` always returns 409 "another task is already running" | Stale processing lock | See [releasing a stuck lock](#releasing-a-stuck-processing-lock). |
 | Encoding fails instantly | Missing model weights | Check the `DEEPFACE_HOME` volume is mounted and writable (weights are auto-downloaded on first use). |
 | Quality checks fail unexpectedly / OFIQ errors | OFIQ model data missing | Check `OFIQ_DATA_DIR` contents. |
-| Webhooks not arriving at the client | `notify=false` on the set, client URL unreachable, or missing `HOPE_API_TOKEN` on their side | Check the set's `notify`/`notification_url`; delivery failures are reported to Sentry. |
+| Webhooks not arriving at the client | `notify=false` on the set, or client URL unreachable | Check the set's `notify`/`notification_url`; delivery failures are reported to Sentry. |
 | API token rejected (401/403) | Token's user not linked to a System, or missing *Can use api* permission | See [creating API credentials](deployment.md#creating-api-credentials). |
 
 ## Sentry

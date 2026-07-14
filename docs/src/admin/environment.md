@@ -51,7 +51,6 @@ Storage backends use the smart-env URL syntax: `<backend.class>?option=value&...
 |----------|---------|-------------|
 | `SENTRY_DSN` | *(empty — disabled)* | Sentry error reporting DSN. |
 | `SENTRY_ENVIRONMENT` | `production` | Environment tag for Sentry events. |
-| `HOPE_API_TOKEN` | *(empty)* | Token sent in the `Authorization` header of outbound webhook notifications. Can also be set via Constance. |
 | `OFIQ_DATA_DIR` | `/root/.ofiq/data` | OFIQ model data directory. |
 | `OMP_NUM_THREADS`, `TF_NUM_INTRA_OP_THREADS`, `TF_NUM_INTER_OP_THREADS` | *(unset)* | Thread-pool limits for OpenMP/TensorFlow — tune to avoid oversubscription when running multiple worker processes on one host. |
 | `LOG_LEVEL` | `CRITICAL` | Root logging level. |

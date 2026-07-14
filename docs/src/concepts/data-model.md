@@ -64,7 +64,7 @@ Only one set per group can be *active* (not approved/rejected/failed) at a time 
 One registered image within a set. Despite the name, it starts as just a pair of identifiers:
 
 - `reference_pk` — the client's identifier for the individual/record (unique within the set; re-registering the same `reference_pk` updates the filename instead of duplicating).
-- `filename` — a `FileField` backed by the `images` Django storage. The image is stored at a deterministic path (`images/{group_reference_pk}/{set_id}/{filename}`) and read from there at processing time.
+- `filename` — a `FileField` backed by the `images` Django storage. The client sends the image as a base64 data URL; the engine decodes and stores it at a deterministic path (`images/{group_reference_pk}/{set_id}/{reference_pk}.{ext}`) and reads it from there at processing time.
 
 During processing the worker fills in:
 

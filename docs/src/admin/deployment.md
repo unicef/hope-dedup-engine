@@ -35,7 +35,7 @@ $ docker run -it -t <env...> unicef/hope-dedup-engine:<tag> setup
 This also creates the initial superuser from `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 
 !!! note "Model weights"
-    Face recognition models need pre-trained weight files under `DEEPFACE_HOME`. These are downloaded automatically on first use by DeepFace. `DEEPFACE_HOME` must be a volume shared between containers (writable for the backend, read-only is sufficient for the Celery workers). OFIQ model data is looked up under `OFIQ_DATA_DIR` and ships with the image.
+    Face recognition models need pre-trained weight files under `DEEPFACE_HOME`. These are downloaded automatically on first use by DeepFace. `DEEPFACE_HOME` must be a volume shared between containers (writable for the backend, read-only is sufficient for the Celery workers). OFIQ model data under `OFIQ_DATA_DIR` is also downloaded automatically via OFIQ's own initialization method on first use.
 
 ### 3. Start the services
 
@@ -58,10 +58,6 @@ Client systems authenticate with tokens scoped to an external *System*. To onboa
 
 !!! warning "The system link is mandatory"
     A token whose user is not linked to a system cannot access any data — all API queries are filtered by the token's system.
-
-## Outbound notifications
-
-If clients use webhook notifications, the engine calls their `notification_url` with an `Authorization: Token <HOPE_API_TOKEN>` header. Set the `HOPE_API_TOKEN` value either via the environment variable or at `Home › Constance › Config`.
 
 ## Error monitoring
 

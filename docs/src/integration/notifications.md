@@ -23,8 +23,6 @@ If you set a `notification_url` when [creating the set](workflow.md#1-create-a-d
 
 The notification is a plain **HTTP GET** to your URL, with **no payload** — it's a nudge, not a data delivery. On receiving it, call `GET /deduplication_sets/{id}/` to learn the new state. Encode any correlation data you need (e.g. your own set identifier) into the URL itself as query parameters.
 
-If the engine is configured with a HOPE API token, the callback carries an `Authorization: Token <token>` header your endpoint can use to authenticate the caller.
-
 Details worth knowing:
 
 - Notifications can be disabled per set by creating it with `"notify": false`; the `notification_url` is kept, so administrators can still trigger a manual notification from the admin panel.

@@ -64,18 +64,19 @@ Returns **409** if the group already has an active set.
 
 ## 2. Register images
 
-Send batches of `{reference_pk, filename}` pairs. `reference_pk` is your identifier for the individual; `filename` is the image file name.
+Send batches of `{reference_pk, filename}` pairs. `reference_pk` is your identifier for the individual; `filename` is the image as a **base64 data URL** (`data:<mimetype>;base64,<payload>`). The engine decodes the payload, stores the file on disk (via the `images` storage backend), and keeps the resulting path on the encoding record.
 
 ```console
 $ http POST $BASE/deduplication_sets/3fa85f64-.../images/ \
     Content-Type:application/json <<< '[
-        {"reference_pk": "IND-0001", "filename": "photos/ind-0001.jpg"},
-        {"reference_pk": "IND-0002", "filename": "photos/ind-0002.jpg"}
+        {"reference_pk": "IND-0001", "filename": "data:image/jpeg;base64,/9j/4AAQ..."},
+        {"reference_pk": "IND-0002", "filename": "data:image/png;base64,iVBORw0K..."}
     ]'
 ```
 
 - Batches can be sent **multiple times and in parallel**; the set moves to `Uploading in progress` after the first one.
-- Registration is **idempotent per `reference_pk`**: re-sending the same `reference_pk` updates the filename instead of creating a duplicate entry.
+- Registration is **idempotent per `reference_pk`**: re-sending the same `reference_pk` replaces the previously stored image file.
+- The file extension is derived from the MIME type in the data URL (e.g. `image/jpeg` → `.jpg`).
 - To discard everything and start over: `DELETE /deduplication_sets/{id}/images/clear/` (resets the set to `Empty`).
 
 Returns **409** once the set has left the `Empty`/`Uploading in progress` states.

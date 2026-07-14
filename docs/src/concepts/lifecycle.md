@@ -39,7 +39,7 @@ stateDiagram-v2
 ```
 
 !!! info "About the transitions"
-    - **`POST process`** always moves the set to `Encoding in progress`, regardless of the starting state (`Ready`, `Encoded`, `Encoding failed`, or `Deduplication failed`).
+    - **`POST process`** always moves the set to `Encoding in progress`, regardless of the starting state (`Ready`, `Encoded`, `Encoding failed`, or `Deduplication failed`). However, the encoding step **skips images that already have embeddings** — so retrying after a deduplication failure effectively only re-runs the deduplication, not the encoding.
     - **`Encoded → Deduplication in progress`** happens automatically within the same processing job (unless `encode_only=true` was requested).
     - **`settings change (internal)`** — when group settings are changed, an `Encoded` or `Deduplicated` set is moved back to `Ready` (embeddings and findings are cleared). This is not triggered by the client directly.
 
