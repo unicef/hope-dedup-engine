@@ -1,1 +1,0 @@
-This feature consists of several interconnected components that work together to process images, detect and recognize faces, and find duplicate images using deep learning techniques.

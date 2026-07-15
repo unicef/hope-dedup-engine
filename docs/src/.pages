@@ -1,9 +1,7 @@
 nav:
   - index.md
-  - docker.md
-  - Setup service: setup.md
-  - REST API: API.md
-  - Duplicated Image Detection: did
-  - Troubleshooting: troubleshooting.md
-  - Demo Application: demo.md
-  - Development: development.md
+  - Concepts: concepts
+  - Integration Guide: integration
+  - Administration: admin
+  - Development: development
+  - Settings Reference: settings.md
