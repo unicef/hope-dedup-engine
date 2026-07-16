@@ -7,7 +7,10 @@ $ docker run -it -t unicef/hope-dedup-engine:<tag> django-admin env          # c
 $ docker run -it -t unicef/hope-dedup-engine:<tag> django-admin env --check  # verify required ones
 ```
 
-An auto-generated reference of every known variable is on the [Settings](../settings.md) page; below are the ones that matter operationally, grouped by purpose.
+An auto-generated reference of every known variable is on the [Settings](settings.md) page; below are the ones that matter operationally, grouped by purpose.
+
+!!! note "Local development"
+    When running via the repository's `compose.yml`, all of these variables are read from a gitignored `.env` file (template: `env.sample`) — see [Getting Started](../development/getting-started.md#configuration) for a working development configuration.
 
 ## Required
 

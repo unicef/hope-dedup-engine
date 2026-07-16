@@ -1,26 +1,28 @@
 # Demo App and API Scripts
 
-A self-contained demo environment with sample images and helper scripts lets you exercise the whole system — including the REST API — without configuring anything.
+A self-contained demo environment with sample images and helper scripts lets you exercise the whole system — including the REST API.
 
 ## Running the demo server
 
+Use the root `compose.yml` — on startup the backend seeds the demo data via the `demo` management command. It needs a `.env` file first (see [Getting Started](getting-started.md#configuration) for a working development configuration):
+
 ```console
-$ docker compose -f tests/extras/demoapp/compose.yml up --build
+$ cp env.sample .env    # fill in the values from Getting Started
+$ docker compose up --build
 ```
 
-(The root `compose.yml` also seeds the same demo data via the `demo` management command.)
+(To demo a published release instead of building locally, follow the [deployment guide](../admin/deployment.md) with the desired image tag — but note the API scripts below track the current code, so they may not work against older releases.)
 
 Admin panel access:
 
 - URL: [http://localhost:8000/admin](http://localhost:8000/admin)
-- Username: `adm@hde.org`
-- Password: `123`
+- Username / password: the `ADMIN_EMAIL` / `ADMIN_PASSWORD` values from your `.env`
 
 The demo setup creates an external system and an API token you can find under `Home › Api › Tokens`.
 
 ## API interaction scripts
 
-Shell scripts in `tests/extras/demoapp/scripts/` drive the API end to end. They require [httpie](https://httpie.io/) and [jq](https://jqlang.github.io/jq/).
+Shell scripts in `tests/extras/demoapp/scripts/` drive the API end to end. They require [httpie](https://httpie.io/), [jq](https://jqlang.github.io/jq/), and the `mimetype` command (Debian/Ubuntu package `libfile-mimeinfo-perl`).
 
 ### Configuration
 
