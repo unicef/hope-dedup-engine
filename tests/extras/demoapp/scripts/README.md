@@ -2,7 +2,7 @@
 
 ## Requirements
 
-These scripts use `httpie` and `jq`, so make sure they are installed.
+These scripts use `httpie`, `jq`, and `mimetype` (Debian/Ubuntu package `libfile-mimeinfo-perl`), so make sure they are installed.
 
 ## Scripts
 

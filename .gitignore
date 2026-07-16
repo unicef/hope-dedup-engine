@@ -1,4 +1,5 @@
 .*
+.env
 ~*
 __pycache__
 !.dockerignore
@@ -14,6 +15,8 @@ __pycache__
 !.importlinter
 !tests/.coveragerc
 !docs/**/.pages
+
+var/
 
 junit.xml
 coverage.xml
