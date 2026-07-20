@@ -32,7 +32,7 @@ erDiagram
     Encoding {
         uuid id
         string reference_pk "external id, unique per set"
-        file filename "image file (images storage)"
+        string filename "path/key in the shared HOPE blob storage"
         float_array embedding
         int embedding_status_code
         json image_quality_scores "cached OFIQ scores"
@@ -64,7 +64,7 @@ Only one set per group can be *active* (not approved/rejected/failed) at a time 
 One registered image within a set. Despite the name, it starts as just a pair of identifiers:
 
 - `reference_pk` — the client's identifier for the individual/record (unique within the set; re-registering the same `reference_pk` updates the filename instead of duplicating).
-- `filename` — a `FileField` backed by the `images` Django storage. The client sends the image as a base64 data URL; the engine decodes and stores it at a deterministic path (`images/{group_reference_pk}/{set_id}/{reference_pk}.{ext}`) and reads it from there at processing time.
+- `filename` — a plain string: the path/key of the image within the shared HOPE blob storage (`FILE_STORAGE_HOPE`). The client sends the filename directly (no upload); the engine reads the image bytes from that storage at processing time.
 
 During processing the worker fills in:
 

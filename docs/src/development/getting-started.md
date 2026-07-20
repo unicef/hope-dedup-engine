@@ -22,7 +22,7 @@ On startup the backend seeds demo data, applies migrations, and serves at [http:
 
 ### Configuration
 
-`env.sample` lists every required key; `.env` is never committed, so real tokens and connection strings are safe there. This configuration works with the compose stack as-is (Azurite for blob storages, local filesystem for uploaded images):
+`env.sample` lists every required key; `.env` is never committed, so real tokens and connection strings are safe there. This configuration works with the compose stack as-is (Azurite for blob storages):
 
 ```bash
 # ── Django core ──────────────────────────────────────────────
@@ -48,14 +48,13 @@ SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
 
 # ── File storage backends ────────────────────────────────────
 FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage
-FILE_STORAGE_IMAGES=django.core.files.storage.FileSystemStorage
+FILE_STORAGE_HOPE=storages.backends.azure_storage.AzureStorage?azure_container=hope&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
 FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
 FILE_STORAGE_MEDIA=storages.backends.azure_storage.AzureStorage?azure_container=media&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
 FILE_STORAGE_STATIC=storages.backends.azure_storage.AzureStorage?azure_container=static&overwrite_files=True&custom_domain=localhost:10000/&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
 
 # ── Filesystem roots ─────────────────────────────────────────
 DEFAULT_ROOT=/var/hope_dedupe_engine/default
-IMAGES_ROOT=/var/data
 MEDIA_ROOT=/var/hope_dedupe_engine/media
 STATIC_ROOT=/var/hope_dedupe_engine/static
 
@@ -74,13 +73,12 @@ HOPE_API_TOKEN=
 
 (The `AccountKey` above is [Azurite's public well-known development key](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite#well-known-storage-account-and-key), not a secret.)
 
-Compose-level knobs (volume paths and port bindings) can also be set in `.env`: `IMAGES_HOST_PATH` (host directory for uploaded images, default `./var/data`), `DB_PORT`, `REDIS_PORT`, `CELERY_CONCURRENCY`.
+Compose-level knobs (volume paths and port bindings) can also be set in `.env`: `DB_PORT`, `REDIS_PORT`, `CELERY_CONCURRENCY`.
 
 ### Things to know
 
 - The repo is bind-mounted into the containers, so code changes are picked up by `runserver` automatically. The Celery worker does **not** auto-reload — restart it after changing task code.
 - Model weight files are mounted from `./weights` (DeepFace) and `./ofiq_omdels` (OFIQ). See the comments in `compose.yml` for debugging variants of the service commands (debugpy).
-- Uploaded images are stored under `./var/data` on the host — the same directory is mounted into the backend and the workers, mirroring the shared storage mount used in production.
 - Run any management command inside the stack with `docker compose run --rm backend django-admin <command>`.
 
 ## Option B: Native virtualenv
