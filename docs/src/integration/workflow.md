@@ -64,19 +64,19 @@ Returns **409** if the group already has an active set.
 
 ## 2. Register images
 
-Send batches of `{reference_pk, filename}` pairs. `reference_pk` is your identifier for the individual; `filename` is the image as a **base64 data URL** (`data:<mimetype>;base64,<payload>`). The engine decodes the payload, stores the file on disk (via the `images` storage backend), and keeps the resulting path on the encoding record.
+Send batches of `{reference_pk, filename}` pairs. `reference_pk` is your identifier for the individual; `filename` is the path/key of the image in the shared HOPE blob storage (`FILE_STORAGE_HOPE`) — no upload happens, the engine just records the reference and reads the bytes from that storage when processing.
 
 ```console
 $ http POST $BASE/deduplication_sets/3fa85f64-.../images/ \
     Content-Type:application/json <<< '[
-        {"reference_pk": "IND-0001", "filename": "data:image/jpeg;base64,/9j/4AAQ..."},
-        {"reference_pk": "IND-0002", "filename": "data:image/png;base64,iVBORw0K..."}
+        {"reference_pk": "IND-0001", "filename": "hope/program-x/IND-0001.jpg"},
+        {"reference_pk": "IND-0002", "filename": "hope/program-x/IND-0002.jpg"}
     ]'
 ```
 
 - Batches can be sent **multiple times and in parallel**; the set moves to `Uploading in progress` after the first one.
-- Registration is **idempotent per `reference_pk`**: re-sending the same `reference_pk` replaces the previously stored image file.
-- The file extension is derived from the MIME type in the data URL (e.g. `image/jpeg` → `.jpg`).
+- Registration is **idempotent per `reference_pk`**: re-sending the same `reference_pk` replaces the previously stored filename.
+- The filename must already exist in the HOPE storage; encoding fails with a `FILE_NOT_FOUND` status if it doesn't.
 - To discard everything and start over: `DELETE /deduplication_sets/{id}/images/clear/` (resets the set to `Empty`).
 
 Returns **409** once the set has left the `Empty`/`Uploading in progress` states.

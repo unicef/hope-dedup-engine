@@ -34,7 +34,7 @@ Each group has a `processing_locked` flag preventing concurrent runs. The worker
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| All findings have status 404 | Wrong `FILE_STORAGE_IMAGES` configuration, or image files missing from storage | Verify the storage configuration and that registered images exist at the expected paths. |
+| All findings have status 404 | Wrong `FILE_STORAGE_HOPE` configuration, or image files missing from storage | Verify the storage configuration and that the filenames sent to the API exist at those paths in the HOPE storage. |
 | `process` always returns 409 "another task is already running" | Stale processing lock | See [releasing a stuck lock](#releasing-a-stuck-processing-lock). |
 | Encoding fails instantly | Missing model weights | Check the `DEEPFACE_HOME` volume is mounted and writable (weights are auto-downloaded on first use). |
 | Quality checks fail unexpectedly / OFIQ errors | OFIQ model data missing | Check `OFIQ_DATA_DIR` contents. |
