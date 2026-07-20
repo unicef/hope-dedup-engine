@@ -369,7 +369,7 @@ class FindingsViewSet(
                 deduplication_set__pk=self.kwargs["deduplication_set_pk"],
                 deduplication_set__group__system=self.request.auth.system,
                 deduplication_set__group__deleted=False,
-                deduplication_set__state=DeduplicationSet.State.DEDUPLICATED,
+                deduplication_set__state__in=[DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.APPROVED],
             )
             .select_related("first_encoding", "second_encoding")
             .order_by("-updated_at", "-id")

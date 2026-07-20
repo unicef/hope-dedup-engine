@@ -15,8 +15,15 @@ UPDATED_BEFORE = "updated_before"
 
 
 @pytest.fixture
-def deduplicated_set(deduplication_set: DeduplicationSet) -> DeduplicationSet:
-    deduplication_set.state = DeduplicationSet.State.DEDUPLICATED
+def deduplicated_set(
+    request: pytest.FixtureRequest,
+    deduplication_set: DeduplicationSet,
+) -> DeduplicationSet:
+    deduplication_set.state = getattr(
+        request,
+        "param",
+        DeduplicationSet.State.DEDUPLICATED,
+    )
     deduplication_set.save(update_fields=["state"])
     return deduplication_set
 
@@ -25,6 +32,14 @@ def findings_url(deduplication_set_pk: str) -> str:
     return reverse(FINDINGS_VIEW, kwargs={"deduplication_set_pk": deduplication_set_pk})
 
 
+@pytest.mark.parametrize(
+    "deduplicated_set",
+    [
+        DeduplicationSet.State.DEDUPLICATED,
+        DeduplicationSet.State.APPROVED,
+    ],
+    indirect=True,
+)
 def test_can_list_duplicates(api_client: APIClient, deduplicated_set: DeduplicationSet, finding: Finding) -> None:
     response = api_client.get(findings_url(deduplicated_set.pk))
     assert response.status_code == status.HTTP_200_OK
@@ -33,7 +48,7 @@ def test_can_list_duplicates(api_client: APIClient, deduplicated_set: Deduplicat
     assert "config" in data["results"][0]
 
 
-def test_findings_only_visible_when_deduplicated(
+def test_findings_only_visible_when_deduplicated_or_approved(
     api_client: APIClient, deduplication_set: DeduplicationSet, finding: Finding
 ) -> None:
     response = api_client.get(findings_url(deduplication_set.pk))
