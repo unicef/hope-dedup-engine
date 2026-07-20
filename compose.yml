@@ -17,7 +17,6 @@ x-common: &common
     - /var/run/docker.sock:/var/run/docker.sock
     - ./weights:/var/run/app/deepface/.deepface/weights
     - ./ofiq_omdels:/root/.ofiq/data
-    - ${IMAGES_HOST_PATH:-./var/data}:/var/data
   restart: always
   depends_on:
     db:
