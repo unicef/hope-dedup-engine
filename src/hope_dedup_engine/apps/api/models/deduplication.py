@@ -275,6 +275,11 @@ class Encoding(models.Model):
         MULTIPLE_FACES_DETECTED = 429, "multiple faces detected"
         GENERIC_ERROR = 500, "generic error"
 
+        @classmethod
+        def field_choices(cls) -> list[tuple[int, str]]:
+            """Callable passed as `choices=` so adding/editing members doesn't require a migration."""
+            return cls.choices
+
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
@@ -284,7 +289,7 @@ class Encoding(models.Model):
     )
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
-        choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
+        choices=StatusCode.field_choices, null=True, blank=True, help_text="Embedding status code."
     )
     image_quality_scores = models.JSONField(
         null=True,
@@ -360,7 +365,9 @@ class Finding(models.Model):
         help_text="Similarity score between the two encodings.",
     )
     status_code = models.IntegerField(
-        choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS, help_text="Finding status code."
+        choices=Encoding.StatusCode.field_choices,
+        default=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+        help_text="Finding status code.",
     )
     config = models.JSONField(
         null=True,
