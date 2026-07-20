@@ -1,4 +1,4 @@
-import contextlib
+import logging
 from itertools import combinations
 from typing import NamedTuple
 
@@ -10,6 +10,8 @@ from numpy import ndarray
 from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.api.utils.image import load_image
 
+logger = logging.getLogger(__name__)
+
 
 class Detection(NamedTuple):
     encoding: Encoding
@@ -18,7 +20,7 @@ class Detection(NamedTuple):
 
 
 def detect_face(encoding: Encoding) -> Detection | None:
-    with contextlib.suppress(Exception):
+    try:
         representation = DeepFace.represent(
             load_image(encoding.filename),
             model_name=config.DEFAULT_RECOGNITION_MODEL,
@@ -26,12 +28,16 @@ def detect_face(encoding: Encoding) -> Detection | None:
             max_faces=2,
             enforce_detection=False,
         )
-        if len(representation) == 1:
-            return Detection(
-                encoding=encoding,
-                confidence=100 * float(representation[0]["face_confidence"]),
-                embedding=representation[0]["embedding"],
-            )
+    except Exception:
+        logger.exception("Failed to detect face for encoding %s", encoding.id)
+        return None
+
+    if len(representation) == 1:
+        return Detection(
+            encoding=encoding,
+            confidence=100 * float(representation[0]["face_confidence"]),
+            embedding=representation[0]["embedding"],
+        )
 
     return None
 
