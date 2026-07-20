@@ -117,8 +117,8 @@ def encode_faces(
                 process_encoding(encoding, ofiq, config, active_thresholds)
             except (ResourceNotFoundError, FileNotFoundError):
                 encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
-            except Exception as e:
-                logger.exception(e)
+            except Exception:
+                logger.exception("Failed to process encoding %s", encoding.id)
                 encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
 
             encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
