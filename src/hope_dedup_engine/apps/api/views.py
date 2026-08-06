@@ -1,12 +1,18 @@
+import json
+from datetime import timedelta
 from http import HTTPMethod
 from typing import Any, cast
+from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet, Count
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -30,13 +36,22 @@ from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
     CreateEncodingSerializer,
+    CreateEncodingsExportSerializer,
     DeduplicationSetSerializer,
     DuplicateSerializer,
     EmptySerializer,
+    EncodingsExportStatusSerializer,
     GroupSettingsSerializer,
     GroupStatusSerializer,
 )
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.export import (
+    build_export_key,
+    error_key,
+    export_encodings,
+    export_key_prefix,
+    get_embeddings_storage,
+)
 from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
@@ -374,3 +389,96 @@ class FindingsViewSet(
             .select_related("first_encoding", "second_encoding")
             .order_by("-updated_at", "-id")
         )
+
+
+class EncodingsExportViewSet(viewsets.ViewSet):
+    """Stateless zip export of embeddings to the shared `embeddings` storage (used by HOPE).
+
+    No DB state: the POST queues a celery task and returns the blob key; the
+    status endpoint infers pending/ready/failed from blob existence and hands
+    out a signed download URL.
+    """
+
+    authentication_classes = (HDETokenAuthentication,)
+    permission_classes = (IsAuthenticated, CanUseApi)
+
+    @extend_schema(
+        request=CreateEncodingsExportSerializer,
+        responses=EncodingsExportStatusSerializer,
+        description="Request an export of the given deduplication sets' embeddings into a single zip "
+        "on the embeddings storage. Format 'npy' (default) contains one float32 matrix "
+        "(embeddings.npy) plus a row index (index.jsonl); format 'jsonl' contains self-describing "
+        "lines with embeddings inline (encodings.jsonl); both include a manifest.json with per-set "
+        "boundaries and counts. "
+        "All sets must belong to the authenticated system and be in Encoded state or later; "
+        "returns 409 otherwise. "
+        "Returns the versioned blob key to poll on the status endpoint; the key must be treated as opaque. "
+        "Every call starts a fresh export with a new key.",
+    )
+    def create(self, request: Request) -> Response:
+        serializer = CreateEncodingsExportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reference_pk = serializer.validated_data["reference_pk"]
+        export_format = serializer.validated_data["format"]
+        set_ids = [str(set_id) for set_id in serializer.validated_data["deduplication_set_ids"]]
+
+        accessible = dict(
+            DeduplicationSet.objects.filter(
+                pk__in=set_ids,
+                group__system=request.auth.system,
+                group__deleted=False,
+            ).values_list("pk", "state")
+        )
+        if missing := [set_id for set_id in set_ids if UUID(set_id) not in accessible]:
+            raise ValidationError({"deduplication_set_ids": f"Unknown deduplication sets: {', '.join(missing)}."})
+        if not_encoded := [str(pk) for pk, state in accessible.items() if state not in DeduplicationSet.ENCODED_STATES]:
+            raise ConflictError(f"Deduplication sets not encoded yet: {', '.join(sorted(not_encoded))}.")
+
+        key = build_export_key(request.auth.system.pk, reference_pk, export_format)
+        export_encodings.delay(key, reference_pk, set_ids, export_format)
+        return Response({"key": key, "state": "pending"}, status=status.HTTP_202_ACCEPTED)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="key",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Export blob key returned when the export was requested.",
+            ),
+        ],
+        responses=EncodingsExportStatusSerializer,
+        description="Check an export by its blob key. "
+        "Returns state 'ready' with a signed download URL (re-signed on every call, so re-polling "
+        "renews an expired URL), 'failed' with the error message, or 'pending' while the zip is "
+        "being built. An unknown key is indistinguishable from a pending one: the caller owns the "
+        "bookkeeping and should re-request the export after a timeout.",
+    )
+    @action(detail=False, methods=(HTTPMethod.GET,), url_path="status")
+    def status(self, request: Request) -> Response:
+        key = request.query_params.get("key", "")
+        if not key.startswith(export_key_prefix(request.auth.system.pk)):
+            raise NotFound("Unknown export key.")
+
+        storage = get_embeddings_storage()
+        if storage.exists(key):
+            ttl = settings.EMBEDDINGS_EXPORT_URL_TTL
+            try:
+                url = storage.url(key, expire=ttl)
+            except TypeError:
+                # Storage backends without signed URL support (e.g. FileSystemStorage in dev).
+                url = storage.url(key)
+            return Response(
+                {
+                    "key": key,
+                    "state": "ready",
+                    "url": url,
+                    "expires_at": timezone.now() + timedelta(seconds=ttl),
+                }
+            )
+        if storage.exists(error_key(key)):
+            with storage.open(error_key(key)) as fh:
+                payload = json.load(fh)
+            return Response({"key": key, "state": "failed", "error": payload.get("error")})
+        return Response({"key": key, "state": "pending"})

@@ -147,6 +147,16 @@ class DeduplicationSet(models.Model):
         State.DEDUPLICATION_FAILED,
     )
 
+    # States in which encoding has completed, so embeddings are persisted and exportable.
+    ENCODED_STATES: Final[tuple[int, ...]] = (
+        State.ENCODED,
+        State.DEDUPLICATION_IN_PROGRESS,
+        State.DEDUPLICATED,
+        State.DEDUPLICATION_FAILED,
+        State.APPROVED,
+        State.REJECTED,
+    )
+
     BLOCKING_STATES: Final[tuple[int, ...]] = (
         State.EMPTY,
         State.UPLOADING_IN_PROGRESS,

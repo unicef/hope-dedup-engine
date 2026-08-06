@@ -35,6 +35,7 @@ If your token is missing or invalid you get **401**; if the user lacks the API p
 | Findings | `/deduplication_sets/{id}/findings/` | Read results (paginated, filterable) |
 | Group config | `/deduplication_set_groups/{reference_pk}/config/` | Read / update per-group thresholds |
 | Group status | `/deduplication_set_groups/{reference_pk}/status/` | Check whether a new set can be created |
+| Encodings exports | `/encodings_exports/` | Bundle embeddings of many sets into a zip; download via signed URL |
 
 Two identifiers appear throughout and are **yours to choose**:
 
@@ -50,4 +51,5 @@ You register images by providing a `reference_pk` (your identifier for the indiv
 - [End-to-end workflow](workflow.md) — the full request sequence with examples.
 - [Configuration](configuration.md) — tuning thresholds per group.
 - [Findings and statuses](findings-and-statuses.md) — interpreting results.
+- [Exporting embeddings](exporting-embeddings.md) — bulk export of embeddings via signed URLs.
 - [Notifications and polling](notifications.md) — tracking progress.

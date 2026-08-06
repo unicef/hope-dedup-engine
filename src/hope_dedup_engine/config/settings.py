@@ -82,6 +82,7 @@ STORAGES = {
     "staticfiles": env.storage("FILE_STORAGE_STATIC"),
     "media": env.storage("FILE_STORAGE_MEDIA"),
     "hope": env.storage("FILE_STORAGE_HOPE"),
+    "embeddings": env.storage("FILE_STORAGE_EMBEDDINGS"),
     # Azure BLOB. Example in case use Azurite:
     # FILE_STORAGE_DNN=storages.backends.azure_storage.AzureStorage?azure_container=dnn&overwrite_files=True&connection_string=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1; # noqa
     "dnn": env.storage("FILE_STORAGE_DNN"),
@@ -94,6 +95,9 @@ STORAGES["default"].get("OPTIONS", {}).update({"location": DEFAULT_ROOT})
 # the os.chmod() call after saving a file.  The other storage backends
 # (Azure Blob) ignore this setting entirely.
 FILE_UPLOAD_PERMISSIONS = None
+
+# Validity of signed URLs handed out for embeddings export zips.
+EMBEDDINGS_EXPORT_URL_TTL = env("EMBEDDINGS_EXPORT_URL_TTL")
 
 SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")

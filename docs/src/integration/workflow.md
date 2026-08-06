@@ -101,7 +101,7 @@ $ http POST $BASE/deduplication_sets/3fa85f64-.../process/
 ```
 
 - Allowed in `Ready`, `Encoded`, `Encoding failed`, and `Deduplication failed` states — so the same endpoint is also the **retry** mechanism after failures and the **re-run** mechanism after settings changes.
-- Pass `?encode_only=true` to stop after the encoding stage (the set ends in `Encoded` instead of `Deduplicated`). Useful for pre-computing embeddings before deciding on thresholds.
+- Pass `?encode_only=true` to stop after the encoding stage (the set ends in `Encoded` instead of `Deduplicated`). Useful for pre-computing embeddings before deciding on thresholds, or for [exporting embeddings](exporting-embeddings.md) in bulk.
 - Returns **409** if the set is in a non-processable state or another job is already running in the group.
 
 Processing is asynchronous. Track progress by [polling the set or receiving webhook notifications](notifications.md):

@@ -72,6 +72,7 @@ class Command(BaseCommand):
             Storage(name="hope", src=Path(options["demo_images"])),
             Storage(name="media"),
             Storage(name="staticfiles", options={"public_access": "blob"}),
+            Storage(name="embeddings"),
         )
         self.stdout.write(self.style.WARNING(MESSAGES["upload"]))
         logger.info(MESSAGES["upload"])

@@ -149,6 +149,13 @@ CONFIG: "dict[str, ConfigItem]" = {
     "EMAIL_USE_TLS": (bool, False, False, False, setting("email-use-tls")),
     "EMAIL_USE_SSL": (bool, False, False, False, setting("email-use-ssl")),
     "EMAIL_TIMEOUT": (str, None, None, False, setting("email-timeout")),
+    "EMBEDDINGS_EXPORT_URL_TTL": (
+        int,
+        7 * 24 * 3600,
+        7 * 24 * 3600,
+        False,
+        "Validity (seconds) of the signed URLs returned by the encodings export status endpoint.",
+    ),
     "FILE_STORAGE_DEEPFACE": (
         str,
         "django.core.files.storage.FileSystemStorage",
@@ -175,6 +182,11 @@ CONFIG: "dict[str, ConfigItem]" = {
         setting("storages"),
     ),
     "FILE_STORAGE_DNN": (
+        str,
+        "storages.backends.azure_storage.AzureStorage",
+        setting("storages"),
+    ),
+    "FILE_STORAGE_EMBEDDINGS": (
         str,
         "storages.backends.azure_storage.AzureStorage",
         setting("storages"),

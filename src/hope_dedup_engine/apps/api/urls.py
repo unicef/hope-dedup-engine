@@ -11,12 +11,14 @@ from hope_dedup_engine.apps.api.views import (
     BulkEncodingViewSet,
     DeduplicationSetGroupView,
     DeduplicationSetViewSet,
+    EncodingsExportViewSet,
     FindingsViewSet,
 )
 
 router = routers.SimpleRouter()
 router.register("deduplication_sets", DeduplicationSetViewSet, basename="deduplication_sets")
 router.register("deduplication_set_groups", DeduplicationSetGroupView, basename="deduplication_set_groups")
+router.register("encodings_exports", EncodingsExportViewSet, basename="encodings_exports")
 
 images_router = routers.SimpleRouter()
 images_router.register("images", BulkEncodingViewSet, basename="images")

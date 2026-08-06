@@ -4,6 +4,7 @@ from typing import Any
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+from hope_dedup_engine.apps.api.deduplication.export import EXPORT_FORMAT_NPY, EXPORT_FORMATS
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
     Finding,
@@ -104,6 +105,32 @@ class DuplicateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Finding
         fields = "first", "second", "score", "status_code", "config", "updated_at"
+
+
+class CreateEncodingsExportSerializer(serializers.Serializer):
+    reference_pk = serializers.SlugField(
+        max_length=100,
+        help_text="External reference (e.g. country office slug) used in the export blob key.",
+    )
+    deduplication_set_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        allow_empty=False,
+        help_text="Deduplication sets whose encodings are bundled into the zip.",
+    )
+    format = serializers.ChoiceField(
+        choices=EXPORT_FORMATS,
+        default=EXPORT_FORMAT_NPY,
+        help_text="Zip payload format: 'npy' (single float32 matrix + index, compact) "
+        "or 'jsonl' (self-describing lines with embeddings inline).",
+    )
+
+
+class EncodingsExportStatusSerializer(serializers.Serializer):
+    key = serializers.CharField(help_text="Export blob key (opaque; returned when the export was requested).")
+    state = serializers.ChoiceField(choices=("pending", "ready", "failed"))
+    url = serializers.CharField(required=False, help_text="Signed download URL (only when state is ready).")
+    expires_at = serializers.DateTimeField(required=False, help_text="Signed URL expiry (only when state is ready).")
+    error = serializers.CharField(required=False, help_text="Failure message (only when state is failed).")
 
 
 class EmptySerializer(serializers.Serializer):

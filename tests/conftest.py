@@ -2,10 +2,13 @@ import os
 import sys
 from pathlib import Path
 
-# HOPE storage defaults to bare AzureStorage; pytest-django loads settings before
-# pytest_configure, so FILE_STORAGE_HOPE must be set at import time.
+# HOPE/embeddings storages default to bare AzureStorage; pytest-django loads settings
+# before pytest_configure, so these must be set at import time.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hope_dedup_engine.config.settings")
 os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+os.environ["FILE_STORAGE_EMBEDDINGS"] = (
+    "django.core.files.storage.FileSystemStorage?location=/tmp/hde/embeddings/&base_url=/embeddings/"
+)
 
 import django
 import pytest
@@ -46,6 +49,9 @@ def pytest_configure(config):
     os.environ["FILE_STORAGE_STATIC"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/static/"
     os.environ["FILE_STORAGE_MEDIA"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/storage/"
     os.environ["FILE_STORAGE_HOPE"] = "django.core.files.storage.FileSystemStorage?location=/tmp/hde/hope/"
+    os.environ["FILE_STORAGE_EMBEDDINGS"] = (
+        "django.core.files.storage.FileSystemStorage?location=/tmp/hde/embeddings/&base_url=/embeddings/"
+    )
     os.environ["SOCIAL_AUTH_REDIRECT_IS_HTTPS"] = "0"
     os.environ["CELERY_TASK_ALWAYS_EAGER"] = "0"
     os.environ["SECURE_HSTS_PRELOAD"] = "0"
@@ -69,6 +75,10 @@ def pytest_configure(config):
     settings.STORAGES["hope"] = env.storage("FILE_STORAGE_HOPE")
     os.makedirs("/tmp/hde/hope", exist_ok=True)
     django_storages._storages.pop("hope", None)
+
+    settings.STORAGES["embeddings"] = env.storage("FILE_STORAGE_EMBEDDINGS")
+    os.makedirs("/tmp/hde/embeddings", exist_ok=True)
+    django_storages._storages.pop("embeddings", None)
 
     try:
         call_command("env", check=True)
