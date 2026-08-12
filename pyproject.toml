@@ -47,6 +47,7 @@ dependencies = [
   "drf-nested-routers",
   "drf-spectacular[sidecar]",
   "flower",
+  "hope-api-auth",
   "mediapipe",
   "numpy",
   "psycopg[binary]",

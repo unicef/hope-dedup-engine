@@ -18,6 +18,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.apps.core.apps.Config",
     "unicef_security",
     "hope_dedup_engine.apps.security.apps.Config",
+    "hope_api_auth",
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.humanize",
@@ -194,6 +195,7 @@ AUTH_USER_MODEL = "security.User"
 SUPERUSERS = env("SUPERUSERS")
 LOGIN_ENABLED = env("LOGIN_ENABLED")
 
+from .fragments.auth import *  # noqa
 from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
