@@ -14,7 +14,7 @@ from hope_dedup_engine.apps.api.models.jobs import (
     SyncDnnFilesJob,
     DedupJob,
 )
-from testutils.factories import SystemFactory, UserFactory
+from .user import SystemFactory, UserFactory
 
 
 class HDETokenFactory(DjangoModelFactory):

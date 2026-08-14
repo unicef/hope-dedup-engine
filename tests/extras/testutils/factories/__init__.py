@@ -10,6 +10,7 @@ from .base import (
     TAutoRegisterModelFactory,
     factories_registry,
 )
+from .auth import *  # noqa
 from .django_celery_beat import PeriodicTaskFactory  # noqa
 from .social import SocialAuthUserFactory  # noqa
 from .user import (  # noqa
