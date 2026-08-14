@@ -4,7 +4,8 @@ from factory import fuzzy
 from hope_api_auth.models import APIToken, APILogEntry
 from hope_dedup_engine.apps.api.grant import Grant
 
-from testutils.factories import AutoRegisterModelFactory, UserFactory
+from .base import AutoRegisterModelFactory
+from .user import UserFactory
 
 
 class APITokenFactory(AutoRegisterModelFactory):
