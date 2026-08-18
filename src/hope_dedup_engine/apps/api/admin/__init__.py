@@ -1,7 +1,18 @@
-from .constance import ConstanceAdmin  # noqa
-from .deduplicationset import DeduplicationSetAdmin  # noqa
-from .finding import FindingAdmin  # noqa
-from .hdetoken import HDETokenAdmin  # noqa
-from .encoding import EncodingAdmin  # noqa
-from .jobs import DedupJobAdmin  # noqa
-from .deduplicationsetgroup import DeduplicationSetGroupAdmin  # noqa
+from .constance import ConstanceAdmin
+from .deduplicationset import DeduplicationSetAdmin
+from .finding.admin import FindingAdmin
+from .apitoken import APITokenAdmin
+from .encoding.admin import EncodingAdmin
+from .jobs import DedupJobAdmin
+from .deduplicationsetgroup import DeduplicationSetGroupAdmin
+
+
+__all__ = [
+    "APITokenAdmin",
+    "ConstanceAdmin",
+    "DedupJobAdmin",
+    "DeduplicationSetAdmin",
+    "DeduplicationSetGroupAdmin",
+    "EncodingAdmin",
+    "FindingAdmin",
+]

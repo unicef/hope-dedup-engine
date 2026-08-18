@@ -10,7 +10,6 @@ from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
 from hope_dedup_engine.apps.api.utils.image import encoding_image_key
-from hope_dedup_engine.apps.security.models import System
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -49,7 +48,6 @@ class DeduplicationSetGroup(models.Model):
     name = models.CharField(
         max_length=128, null=True, blank=True, db_index=True, help_text="Deduplication set group name."
     )
-    system = models.ForeignKey(System, on_delete=models.CASCADE, help_text="System API user belongs to.")
     settings = models.JSONField(
         default=dict, null=True, blank=True, help_text="Settings common for all deduplication sets in this group."
     )

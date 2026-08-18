@@ -1,37 +1,6 @@
-from django.contrib.auth.models import Group
-from django.db import models
-
 from unicef_security.models import AbstractUser, SecurityMixin
-
-
-class System(models.Model):
-    name = models.CharField(max_length=255)
-
-    def __str__(self) -> str:
-        return f"{self.name} system"
 
 
 class User(SecurityMixin, AbstractUser):
     class Meta:
         abstract = False
-
-    @property
-    def system(self) -> System | None:
-        return (role := self.userrole_set.first()) and role.system
-
-
-class UserRole(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    system = models.ForeignKey(System, on_delete=models.CASCADE)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE)
-
-    class Meta:
-        constraints = (
-            models.UniqueConstraint(
-                name="%(app_label)s_%(class)s_unique_role",
-                fields=["user", "system", "group"],
-            ),
-        )
-
-    def __str__(self) -> str:
-        return f"{self.user} {self.system} {self.group} role"

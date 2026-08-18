@@ -3,21 +3,17 @@ from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet, Count
+from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
+from hope_api_auth.auth import GrantedPermission, LoggingTokenAuthentication
 
-from hope_dedup_engine.apps.api.auth import (
-    CanUseApi,
-    HDETokenAuthentication,
-)
-from django_filters.rest_framework import DjangoFilterBackend
-
+from hope_dedup_engine.apps.api.grant import Grant
 from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
@@ -41,12 +37,10 @@ from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.utils.process import delete_model_data
 
 
-def get_active_deduplication_sets(request: Request) -> QuerySet[DeduplicationSet]:
+def get_active_deduplication_sets() -> QuerySet[DeduplicationSet]:
     return cast(
         "QuerySet[DeduplicationSet]",
-        DeduplicationSet.objects.filter(group__system=request.auth.system, group__deleted=False).exclude(
-            state=DeduplicationSet.State.APPROVED,
-        ),
+        DeduplicationSet.objects.filter(group__deleted=False).exclude(state=DeduplicationSet.State.APPROVED),
     )
 
 
@@ -57,17 +51,14 @@ class DeduplicationSetViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (IsAuthenticated, CanUseApi)
+    authentication_classes = (LoggingTokenAuthentication,)
+    permission_classes = (GrantedPermission,)
+    permission = Grant.API_DEDUP
     serializer_class = DeduplicationSetSerializer
     lookup_field = "pk"
 
     def get_queryset(self) -> QuerySet["DeduplicationSet"]:
-        return (
-            get_active_deduplication_sets(self.request)
-            .select_related("group")
-            .annotate(findings_count=Count("finding"))
-        )
+        return get_active_deduplication_sets().select_related("group").annotate(findings_count=Count("finding"))
 
     def get_serializer_class(self) -> type[Serializer]:
         if self.action == "create":
@@ -77,7 +68,6 @@ class DeduplicationSetViewSet(
     def perform_create(self, serializer: Serializer) -> None:
         group_data = serializer.validated_data["group"]
         group, created = DeduplicationSetGroup.objects.update_or_create(
-            system=self.request.auth.system,
             reference_pk=group_data["reference_pk"],
             defaults={"name": group_data.get("name")},
         )
@@ -171,9 +161,7 @@ class DeduplicationSetViewSet(
         deduplication_set.save(update_fields=["updated_by"])
         return Response({"message": "ok"})
 
-    @extend_schema(
-        description="List all non-approved deduplication sets belonging to the authenticated system.",
-    )
+    @extend_schema(description="List all non-approved deduplication sets.")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)
 
@@ -218,14 +206,15 @@ class BulkEncodingViewSet(
     mixins.CreateModelMixin,
     viewsets.GenericViewSet,
 ):
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (IsAuthenticated, CanUseApi)
+    authentication_classes = (LoggingTokenAuthentication,)
+    permission_classes = (GrantedPermission,)
+    permission = Grant.API_DEDUP
     serializer_class = CreateEncodingSerializer
     queryset = Encoding.objects.all()
 
     def _get_deduplication_set(self) -> DeduplicationSet:
         ds_pk = self.kwargs["deduplication_set_pk"]
-        return get_object_or_404(get_active_deduplication_sets(self.request), pk=ds_pk)
+        return get_object_or_404(get_active_deduplication_sets(), pk=ds_pk)
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> Serializer:
         return CreateEncodingSerializer(*args, **kwargs, many=True)
@@ -272,16 +261,10 @@ class BulkEncodingViewSet(
 class DeduplicationSetGroupView(viewsets.ViewSet):
     """Group-level endpoints used by HOPE (by group reference_pk) and for config management."""
 
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (IsAuthenticated, CanUseApi)
+    authentication_classes = (LoggingTokenAuthentication,)
+    permission_classes = (GrantedPermission,)
+    permission = Grant.API_DEDUP
     lookup_field = "reference_pk"
-
-    def _get_group(self, request: Request, reference_pk: str) -> DeduplicationSetGroup:
-        return DeduplicationSetGroup.objects.get(
-            reference_pk=reference_pk,
-            system=request.auth.system,
-            deleted=False,
-        )
 
     @extend_schema(
         methods=["GET"],
@@ -302,11 +285,11 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
     @action(detail=True, methods=(HTTPMethod.GET, HTTPMethod.POST), url_path="config")
     def config(self, request: Request, reference_pk: str) -> Response:
         if request.method == "GET":
-            return self._config_retrieve(request, reference_pk)
+            return self._config_retrieve(reference_pk)
         return self._config_update(request, reference_pk)
 
-    def _config_retrieve(self, request: Request, reference_pk: str) -> Response:
-        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, system=request.auth.system).first()
+    def _config_retrieve(self, reference_pk: str) -> Response:
+        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk).first()
         defaults = get_default_group_settings()
         if group and group.settings:
             defaults.update(group.settings)
@@ -320,7 +303,6 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
 
         group, _ = DeduplicationSetGroup.objects.get_or_create(
             reference_pk=reference_pk,
-            system=request.auth.system,
             defaults={"settings": get_default_group_settings()},
         )
 
@@ -342,7 +324,6 @@ class DeduplicationSetGroupView(viewsets.ViewSet):
     def status(self, request: Request, reference_pk: str) -> Response:
         has_active = DeduplicationSet.objects.filter(
             group__reference_pk=reference_pk,
-            group__system=request.auth.system,
             group__deleted=False,
             state__in=DeduplicationSet.BLOCKING_STATES,
         ).exists()
@@ -355,8 +336,9 @@ class FindingsViewSet(
 ):
     """Paginated, filterable findings for a deduplication set (used by HOPE)."""
 
-    authentication_classes = (HDETokenAuthentication,)
-    permission_classes = (IsAuthenticated, CanUseApi)
+    authentication_classes = (LoggingTokenAuthentication,)
+    permission_classes = (GrantedPermission,)
+    permission = Grant.API_READ_ONLY
     serializer_class = DuplicateSerializer
     queryset = Finding.objects.none()
     filter_backends = (DjangoFilterBackend,)
@@ -367,7 +349,6 @@ class FindingsViewSet(
         return (
             Finding.objects.filter(
                 deduplication_set__pk=self.kwargs["deduplication_set_pk"],
-                deduplication_set__group__system=self.request.auth.system,
                 deduplication_set__group__deleted=False,
                 deduplication_set__state__in=[DeduplicationSet.State.DEDUPLICATED, DeduplicationSet.State.APPROVED],
             )
