@@ -57,6 +57,7 @@ dependencies = [
   "setuptools",
   "social-auth-app-django",
   "social-auth-core",
+  "tensorflow[and-cuda]>=2.21",
   "tf-keras",
   "ultralytics",
   "unicef-security",
