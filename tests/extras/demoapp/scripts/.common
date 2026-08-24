@@ -7,7 +7,8 @@ call_api() {
 }
 
 set_variable() {
-  sed -i "s/$1=.*$/$1=$2/" .vars
+  # Use | as delimiter so values like URLs (with /) do not break sed.
+  sed -i "s|$1=.*$|$1=$2|" .vars
 }
 
 show_required_args() {

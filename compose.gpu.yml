@@ -1,0 +1,27 @@
+# GPU overlay for local DeepFace / TensorFlow experiments.
+#
+#   docker compose -f compose.yml -f compose.gpu.yml up --build
+#
+# Or set COMPOSE_FILE=compose.yml:compose.gpu.yml in .env and run
+# `docker compose up --build` as usual.
+#
+# Only the Celery worker gets a GPU: that is where encode/detect run.
+# This host's Docker daemon needs `runtime: nvidia` (plain `gpus: all`
+# fails in CDI mode). Keep concurrency at 1 on a 4 GB laptop GPU.
+
+services:
+  celery-worker:
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      CUDA_VISIBLE_DEVICES: "0"
+      TF_FORCE_GPU_ALLOW_GROWTH: "true"
+      TF_GPU_ALLOCATOR: cuda_malloc_async
+    command: >
+      sh -c '
+      mkdir -p /var/hope_dedupe_engine/default &&
+      export C_FORCE_ROOT=1 &&
+      . /app/docker/bin/tf-gpu-env.sh &&
+      celery -A hope_dedup_engine.config.celery worker -E --loglevel=WARNING --pool=prefork --concurrency=${CELERY_CONCURRENCY:-1}
+      '

@@ -1,6 +1,10 @@
 # Requires a .env file next to this compose.yml (gitignored):
 #   cp env.sample .env   # then fill in the values — a working development
 # configuration is in docs/src/development/getting-started.md.
+#
+# GPU (local experiment): also load compose.gpu.yml, either with
+#   docker compose -f compose.yml -f compose.gpu.yml up
+# or by setting COMPOSE_FILE=compose.yml:compose.gpu.yml in .env.
 
 x-common: &common
   build:
