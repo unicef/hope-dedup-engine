@@ -30,8 +30,9 @@ case "$1" in
       exit 0
       ;;
     worker)
+      . /usr/local/bin/tf-gpu-env.sh
 	    set -- tini -- "$@"
-      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=DEBUG --concurrency=2
+      set -- gosu hope:unicef celery -A hope_dedup_engine.config.celery worker -E --loglevel=DEBUG --concurrency=${CELERY_CONCURRENCY:-2}
       ;;
     beat)
 	    set -- tini -- "$@"

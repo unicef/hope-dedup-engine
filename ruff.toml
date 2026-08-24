@@ -80,6 +80,7 @@ line-ending = "auto"
 
 [lint.per-file-ignores]
 ".semgrep/**/*.py" = ["ALL"]
+"docker/bin/*.py" = ["T20"]
 "docs/**.py" = ["TC002", "U"]
 "tests/**.py" = ["S101", "PLR2004", "S", "SIM117", "D", "UP", "PLR0913", "ANN", "N999", "PT006", "PLC0415", "TC002"]
 "src/hope_dedup_engine/migrations/*.py" = ["ALL", ]
