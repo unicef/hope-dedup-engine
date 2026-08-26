@@ -274,3 +274,29 @@ def test_group_findings_view_redirect(app, seeded_group) -> None:
 
     expected = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={seeded_group.pk}"
     assert res.location.endswith(expected)
+
+
+@pytest.fixture
+def locked_group(seeded_group):
+    seeded_group.processing_locked = True
+    seeded_group.save(update_fields=["processing_locked"])
+    return seeded_group
+
+
+def test_group_release_processing_lock_asks_confirmation(app, locked_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_release_processing_lock", args=[locked_group.pk])
+
+    res = app.get(url, expect_errors=True)
+
+    assert res.status_code == 200
+    locked_group.refresh_from_db()
+    assert locked_group.processing_locked is True
+
+
+def test_group_release_processing_lock(confirm, locked_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_release_processing_lock", args=[locked_group.pk])
+
+    assert confirm(url).status_code == 200
+
+    locked_group.refresh_from_db()
+    assert locked_group.processing_locked is False
