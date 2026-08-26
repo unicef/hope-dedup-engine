@@ -69,3 +69,16 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
         url = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)
+
+    @button(
+        label="Unlock processing",
+        change_form=True,
+        change_list=False,
+        permission=can.api.release_processing_lock,
+        visible=lambda button: button.original.processing_locked,
+    )
+    def release_processing_lock(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        group.release_processing_lock()
+        self.message_user(request, "Processing lock released.")
+        return redirect("admin:api_deduplicationsetgroup_change", group.pk)

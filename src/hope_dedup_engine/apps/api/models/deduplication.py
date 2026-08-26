@@ -35,6 +35,11 @@ class DeduplicationSetGroup(models.Model):
         default=False, help_text="Whether any deduplication task is currently running for this group."
     )
 
+    class Meta:
+        permissions = [
+            ("release_processing_lock", "Can release processing lock"),
+        ]
+
     def __str__(self) -> str:
         return f"{self.name} ({self.reference_pk})"
 
