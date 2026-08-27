@@ -1,17 +1,25 @@
 from typing import cast
 
 from admin_extra_buttons.api import button
+from admin_extra_buttons.mixins import confirm_action
 from django.contrib.admin import register, display
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
 from hope_dedup_engine.apps.core.permissions import can
+
+CONFIRM_RELEASE_LOCK = _(
+    "Do you confirm to release the processing lock for this Deduplication Set Group? "
+    "Release the lock only if you are sure that no task is currently running for this group."
+)
+LOCK_RELEASED = _("Processing lock released.")
 
 CATEGORY_LABELS = {
     "detection": "Face Detection Settings",
@@ -69,3 +77,27 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         group = cast("DeduplicationSetGroup", self.get_object(request, pk))
         url = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)
+
+    @button(
+        label="Unlock processing",
+        change_form=True,
+        change_list=False,
+        permission=can.api.release_processing_lock,
+        visible=lambda button: button.original.processing_locked,
+    )
+    def release_processing_lock(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+
+        def action(_: HttpRequest) -> HttpResponse:
+            group.release_processing_lock()
+            return redirect("admin:api_deduplicationsetgroup_change", group.pk)
+
+        return confirm_action(
+            modeladmin=self,
+            request=request,
+            action=action,
+            message=CONFIRM_RELEASE_LOCK,
+            success_message=LOCK_RELEASED,
+            description=str(group),
+            pk=pk,
+        )
