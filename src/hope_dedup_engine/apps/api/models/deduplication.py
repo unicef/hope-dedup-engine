@@ -38,6 +38,11 @@ def encoding_image_upload_to(instance: "Encoding", filename: str) -> str:
     return encoding_image_key(group_ref, instance.deduplication_set_id, filename)
 
 
+# Do not rename: migrations reference this callable by dotted path.
+def get_encoding_status_choices() -> list[tuple[int, str]]:
+    return list(Encoding.StatusCode.choices)
+
+
 class GroupSettingsError(Exception):
     pass
 
@@ -57,6 +62,11 @@ class DeduplicationSetGroup(models.Model):
     processing_locked = models.BooleanField(
         default=False, help_text="Whether any deduplication task is currently running for this group."
     )
+
+    class Meta:
+        permissions = [
+            ("release_processing_lock", "Can release processing lock"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.name} ({self.reference_pk})"
@@ -309,7 +319,7 @@ class Encoding(models.Model):
     )
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(
-        choices=StatusCode, null=True, blank=True, help_text="Embedding status code."
+        choices=get_encoding_status_choices, null=True, blank=True, help_text="Embedding status code."
     )
     image_quality_scores = models.JSONField(
         null=True,
@@ -385,7 +395,9 @@ class Finding(models.Model):
         help_text="Similarity score between the two encodings.",
     )
     status_code = models.IntegerField(
-        choices=Encoding.StatusCode, default=Encoding.StatusCode.DEDUPLICATE_SUCCESS, help_text="Finding status code."
+        choices=get_encoding_status_choices,
+        default=Encoding.StatusCode.DEDUPLICATE_SUCCESS,
+        help_text="Finding status code.",
     )
     config = models.JSONField(
         null=True,
