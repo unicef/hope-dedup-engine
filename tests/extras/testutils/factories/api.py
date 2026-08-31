@@ -4,7 +4,7 @@ from factory import Factory, SubFactory, fuzzy, lazy_attribute, Trait, SelfAttri
 from factory.django import DjangoModelFactory
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
-from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet, HDEToken
+from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import (
     Finding,
     Encoding,
@@ -14,21 +14,11 @@ from hope_dedup_engine.apps.api.models.jobs import (
     SyncDnnFilesJob,
     DedupJob,
 )
-from .user import SystemFactory, UserFactory
-
-
-class HDETokenFactory(DjangoModelFactory):
-    user = SubFactory(UserFactory)
-    system = SubFactory(SystemFactory)
-
-    class Meta:
-        model = HDEToken
 
 
 class DeduplicationSetGroupFactory(DjangoModelFactory):
     reference_pk = fuzzy.FuzzyText()
     name = None
-    system = SubFactory(SystemFactory)
 
     class Meta:
         model = DeduplicationSetGroup

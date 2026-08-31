@@ -14,16 +14,17 @@ here = Path(__file__).parent
 sys.path.insert(0, str(here / "../src"))
 sys.path.insert(0, str(here / "extras"))
 
+
 from testutils.factories.api import (  # noqa: E402
     DeduplicationSetFactory,
-    FindingFactory,
-    EncodingFactory,
-    HDETokenFactory,
     DeduplicationSetGroupFactory,
-    SyncDnnFilesJobFactory,
+    EncodingFactory,
+    FindingFactory,
     MainJobFactory,
+    SyncDnnFilesJobFactory,
 )
-from testutils.factories.user import SystemFactory, UserFactory  # noqa: E402
+from testutils.factories.auth import APITokenFactory  # noqa: E402
+from testutils.factories.user import UserFactory  # noqa: E402
 
 
 def pytest_configure(config):
@@ -81,9 +82,8 @@ def mocked_responses():
         yield rsps
 
 
-register(SystemFactory)
 register(UserFactory)
-register(DeduplicationSetGroupFactory, system=LazyFixture("system"))
+register(DeduplicationSetGroupFactory)
 register(DeduplicationSetFactory, group=LazyFixture("deduplication_set_group"))
 register(EncodingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(
@@ -94,4 +94,4 @@ register(
 register(FindingFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(MainJobFactory, deduplication_set=LazyFixture("deduplication_set"))
 register(SyncDnnFilesJobFactory)
-register(HDETokenFactory, user=LazyFixture("user"), system=LazyFixture("system"))
+register(APITokenFactory, user=LazyFixture("user"))

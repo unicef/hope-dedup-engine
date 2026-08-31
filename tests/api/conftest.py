@@ -1,16 +1,11 @@
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from hope_api_auth.models import APIToken
 from pytest_mock import MockerFixture
 from rest_framework.test import APIClient
 
 from api.utils import create_api_client
-from hope_dedup_engine.apps.api.models import HDEToken
-from testutils.factories.api import (
-    HDETokenFactory,
-)
-from testutils.factories.user import SystemFactory, UserFactory
 
 
 @pytest.fixture
@@ -19,14 +14,8 @@ def anonymous_api_client() -> APIClient:
 
 
 @pytest.fixture
-def api_client(hde_token: HDEToken) -> APIClient:
-    return create_api_client(hde_token)
-
-
-@pytest.fixture
-def another_system_api_client(db: Any) -> APIClient:
-    token = HDETokenFactory(user=UserFactory(), system=SystemFactory())
-    return create_api_client(token)
+def api_client(api_token: APIToken) -> APIClient:
+    return create_api_client(api_token)
 
 
 @pytest.fixture

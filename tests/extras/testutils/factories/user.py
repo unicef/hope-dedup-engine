@@ -2,16 +2,9 @@ from django.contrib.auth.models import Group
 
 import factory
 
-from hope_dedup_engine.apps.security.models import System, User, UserRole
+from hope_dedup_engine.apps.security.models import User
 
 from .base import AutoRegisterModelFactory
-
-
-class SystemFactory(AutoRegisterModelFactory):
-    name = factory.fuzzy.FuzzyText()
-
-    class Meta:
-        model = System
 
 
 class UserFactory(AutoRegisterModelFactory):
@@ -56,12 +49,3 @@ class GroupFactory(AutoRegisterModelFactory):
     class Meta:
         model = Group
         django_get_or_create = ("name",)
-
-
-class UserRoleFactory(AutoRegisterModelFactory):
-    user = factory.SubFactory(UserFactory)
-    group = factory.SubFactory(GroupFactory)
-    system = factory.SubFactory(SystemFactory)
-
-    class Meta:
-        model = UserRole

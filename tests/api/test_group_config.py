@@ -24,8 +24,8 @@ def test_get_returns_defaults_when_group_does_not_exist(api_client: APIClient):
 
 
 @pytest.mark.django_db
-def test_get_returns_group_settings(api_client: APIClient, hde_token, deduplication_set_group_factory):
-    group = deduplication_set_group_factory(system=hde_token.system)
+def test_get_returns_group_settings(api_client: APIClient, deduplication_set_group_factory):
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.settings["face_detection_confidence_threshold"] = 0.75
     group.settings["sharpness_threshold"] = 0.5
@@ -60,21 +60,7 @@ def test_get_anonymous_is_rejected(anonymous_api_client: APIClient):
 
 
 @pytest.mark.django_db
-def test_get_another_system_does_not_see_group(
-    another_system_api_client: APIClient, hde_token, deduplication_set_group_factory
-):
-    group = deduplication_set_group_factory(system=hde_token.system)
-    group.settings = get_default_group_settings()
-    group.settings["sharpness_threshold"] = 0.9
-    group.save()
-
-    response = another_system_api_client.get(config_url(group.reference_pk))
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["sharpness_threshold"] != 0.9
-
-
-@pytest.mark.django_db
-def test_post_creates_group_with_settings(api_client: APIClient, hde_token):
+def test_post_creates_group_with_settings(api_client: APIClient):
     ref_pk = "new-group-ref"
     payload = {"sharpness_threshold": 0.6, "eyes_open_threshold": 0.7}
     response = api_client.post(config_url(ref_pk), data=payload, format=JSON)
@@ -84,13 +70,13 @@ def test_post_creates_group_with_settings(api_client: APIClient, hde_token):
     assert data["sharpness_threshold"] == 0.6
     assert data["eyes_open_threshold"] == 0.7
 
-    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk, system=hde_token.system)
+    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk)
     assert group.settings["sharpness_threshold"] == 0.6
 
 
 @pytest.mark.django_db
-def test_post_updates_existing_group(api_client: APIClient, hde_token, deduplication_set_group_factory):
-    group = deduplication_set_group_factory(system=hde_token.system)
+def test_post_updates_existing_group(api_client: APIClient, deduplication_set_group_factory):
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.save()
 
@@ -116,9 +102,9 @@ def test_post_anonymous_is_rejected(anonymous_api_client: APIClient):
 
 @pytest.mark.django_db
 def test_post_blocked_when_approved_dedup_set_exists(
-    api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
+    api_client: APIClient, deduplication_set_group_factory, deduplication_set_factory
 ):
-    group = deduplication_set_group_factory(system=hde_token.system)
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.save()
     deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
@@ -130,13 +116,12 @@ def test_post_blocked_when_approved_dedup_set_exists(
 @pytest.mark.django_db
 def test_post_clears_deduplicated_set_data(
     api_client: APIClient,
-    hde_token,
     deduplication_set_group_factory,
     deduplication_set_factory,
     encoding_factory,
     finding_factory,
 ):
-    group = deduplication_set_group_factory(system=hde_token.system)
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.save()
 
@@ -156,10 +141,10 @@ def test_post_clears_deduplicated_set_data(
 
 @pytest.mark.django_db
 def test_post_allowed_when_only_ready_set_exists(
-    api_client: APIClient, hde_token, deduplication_set_group_factory, deduplication_set_factory
+    api_client: APIClient, deduplication_set_group_factory, deduplication_set_factory
 ):
     """READY set has no embeddings to clean; settings change is allowed."""
-    group = deduplication_set_group_factory(system=hde_token.system)
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.save()
     deduplication_set_factory(group=group, state=DeduplicationSet.State.READY)
@@ -169,8 +154,8 @@ def test_post_allowed_when_only_ready_set_exists(
 
 
 @pytest.mark.django_db
-def test_post_blocked_when_processing_locked(api_client: APIClient, hde_token, deduplication_set_group_factory):
-    group = deduplication_set_group_factory(system=hde_token.system)
+def test_post_blocked_when_processing_locked(api_client: APIClient, deduplication_set_group_factory):
+    group = deduplication_set_group_factory()
     group.settings = get_default_group_settings()
     group.processing_locked = True
     group.save()

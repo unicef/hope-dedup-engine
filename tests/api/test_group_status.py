@@ -12,7 +12,7 @@ def status_url(reference_pk: str) -> str:
 
 
 @pytest.mark.django_db
-def test_can_create_when_no_sets_exist(api_client: APIClient, hde_token) -> None:
+def test_can_create_when_no_sets_exist(api_client: APIClient) -> None:
     response = api_client.get(status_url("nonexistent-group"))
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["can_create"] is True

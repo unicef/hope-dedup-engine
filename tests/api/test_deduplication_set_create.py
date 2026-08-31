@@ -35,7 +35,6 @@ def test_missing_fields_handling(api_client: APIClient, deduplication_set_factor
 
 @pytest.fixture
 def active_ds_in_group(deduplication_set):
-    """A dedup set in READY state whose group belongs to the api_client's system."""
     deduplication_set.state = DeduplicationSet.State.READY
     deduplication_set.save(update_fields=["state"])
     return deduplication_set

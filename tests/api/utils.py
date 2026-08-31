@@ -2,7 +2,7 @@ import base64
 
 from rest_framework.test import APIClient
 
-from hope_dedup_engine.apps.api.models import HDEToken
+from hope_api_auth.models import APIToken
 
 
 def jpeg_data_url(payload: bytes = b"fake-jpeg-bytes") -> str:
@@ -10,11 +10,11 @@ def jpeg_data_url(payload: bytes = b"fake-jpeg-bytes") -> str:
     return f"data:image/jpeg;base64,{base64.b64encode(payload).decode()}"
 
 
-def get_auth_headers(token: HDEToken) -> dict[str, str]:
+def get_auth_headers(token: APIToken) -> dict[str, str]:
     return {"HTTP_AUTHORIZATION": f"Token {token.key}"}
 
 
-def create_api_client(token: HDEToken) -> APIClient:
+def create_api_client(token: APIToken) -> APIClient:
     client = APIClient()
     client.credentials(**get_auth_headers(token))
     return client

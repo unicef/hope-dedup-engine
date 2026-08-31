@@ -15,19 +15,6 @@ def test_can_delete_all_images(api_client: APIClient, deduplication_set: Dedupli
     assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == image_count - 1
 
 
-def test_cannot_delete_images_between_systems(
-    another_system_api_client: APIClient,
-    deduplication_set: DeduplicationSet,
-    encoding: Encoding,
-) -> None:
-    image_count = Encoding.objects.filter(deduplication_set=deduplication_set).count()
-    response = another_system_api_client.delete(
-        reverse(BULK_IMAGE_CLEAR_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk})
-    )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert Encoding.objects.filter(deduplication_set=deduplication_set).count() == image_count
-
-
 def test_deduplication_set_is_updated(
     api_client: APIClient, user: User, deduplication_set: DeduplicationSet, encoding: Encoding
 ) -> None:
