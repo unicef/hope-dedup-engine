@@ -1,7 +1,18 @@
-from django.db import migrations
+from django.db import migrations, models
 
 
 API_DEDUP_GRANT = "API_DEDUP"
+
+
+def remove_legacy_user_unique(apps, schema_editor) -> None:
+    APIToken = apps.get_model("hope_api_auth", "APIToken")
+
+    with schema_editor.connection.cursor() as cursor:
+        constraints = schema_editor.connection.introspection.get_constraints(cursor, APIToken._meta.db_table)
+
+    for name, constraint in constraints.items():
+        if constraint["unique"] and constraint["columns"] == ["user_id"]:
+            schema_editor.remove_constraint(APIToken, models.UniqueConstraint(fields=["user"], name=name))
 
 
 def migrate_hde_tokens(apps, schema_editor) -> None:
@@ -35,6 +46,7 @@ class Migration(migrations.Migration):
             model_name="deduplicationsetgroup",
             name="system",
         ),
+        migrations.RunPython(remove_legacy_user_unique),
         migrations.RunPython(migrate_hde_tokens),
         migrations.DeleteModel(
             name="HDEToken",
