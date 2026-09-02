@@ -2,19 +2,9 @@ from django.contrib import admin
 
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from hope_dedup_engine.apps.security.models import System, User, UserRole
+from hope_dedup_engine.apps.security.models import User
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    pass
-
-
-@admin.register(UserRole)
-class UserRoleAdmin(admin.ModelAdmin):
-    list_display = ("user", "system", "group")
-
-
-@admin.register(System)
-class SystemAdmin(admin.ModelAdmin):
     pass

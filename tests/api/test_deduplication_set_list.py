@@ -11,12 +11,3 @@ def test_can_list_deduplication_sets(api_client: APIClient, deduplication_set: D
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data) == 1
-
-
-def test_cannot_list_deduplication_sets_between_systems(
-    another_system_api_client: APIClient, deduplication_set: DeduplicationSet
-) -> None:
-    response = another_system_api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert len(data) == 0

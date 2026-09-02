@@ -13,14 +13,7 @@ from .base import (
 from .auth import *  # noqa
 from .django_celery_beat import PeriodicTaskFactory  # noqa
 from .social import SocialAuthUserFactory  # noqa
-from .user import (  # noqa
-    GroupFactory,
-    SuperUserFactory,
-    SystemFactory,
-    User,
-    UserFactory,
-)
-from .userrole import UserRole, UserRoleFactory  # noqa
+from .user import GroupFactory, SuperUserFactory, User, UserFactory  # noqa
 
 for _, name, _ in pkgutil.iter_modules([str(Path(__file__).parent)]):
     importlib.import_module(f".{name}", __package__)

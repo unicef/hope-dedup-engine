@@ -1,6 +1,5 @@
 from pytest_factoryboy import register
-from testutils.factories import GroupFactory, SystemFactory, UserFactory
+from testutils.factories import GroupFactory, UserFactory
 
-register(SystemFactory)
 register(UserFactory)
 register(GroupFactory)
