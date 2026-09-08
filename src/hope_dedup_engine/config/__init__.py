@@ -215,7 +215,7 @@ CONFIG: "dict[str, ConfigItem]" = {
         setting("secret-key"),
     ),
     "SECURE_HSTS_PRELOAD": (bool, True, False, False, setting("secure-hsts-preload")),
-    "SECURE_HSTS_SECONDS": (int, 60, 0, False, setting("secure-hsts-seconds")),
+    "SECURE_HSTS_SECONDS": (int, 31536000, 0, False, setting("secure-hsts-seconds")),
     "SECURE_SSL_REDIRECT": (bool, True, False, False, setting("secure-ssl-redirect")),
     "SENTRY_DSN": (str, "", "", False, "Sentry DSN"),
     "SENTRY_ENVIRONMENT": (str, "production", "develop", False, "Sentry Environment"),
