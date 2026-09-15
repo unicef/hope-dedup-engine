@@ -18,6 +18,7 @@ from hope_dedup_engine.apps.faces.services.quality import check_image_quality, g
 if TYPE_CHECKING:
     from uuid import UUID
     from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+    from hope_dedup_engine.apps.api.models.jobs import MainJob
 
 logger = logging.getLogger(__name__)
 
@@ -97,42 +98,69 @@ def process_encoding(
     return encoding
 
 
+def _init_progress(job: MainJob | None, total: int) -> None:
+    if job is None:
+        return
+    job.set_total(total)
+    job.set_progress(0)
+
+
+def _check_cancelled(job: MainJob | None) -> None:
+    if job is not None:
+        job.ensure_not_cancelled()
+
+
+def _set_progress(job: MainJob | None, processed: int) -> None:
+    if job is not None:
+        job.set_progress(processed)
+
+
 def encode_faces(
     ds: DeduplicationSet,
     encoding_ids: list[UUID],
     config: DeduplicationSetConfig,
-) -> None:
+    job: MainJob | None = None,
+) -> int:
     active_thresholds = get_active_thresholds(config)
     config_snapshot = config.as_dict()
 
     ofiq = None
     if active_thresholds:
         ofiq = OFIQ()
-    encodings = Encoding.objects.filter(id__in=encoding_ids).iterator(chunk_size=25)
+    encodings_iter = Encoding.objects.filter(id__in=encoding_ids).iterator(chunk_size=25)
 
-    for encoding in encodings:
-        with transaction.atomic():
-            try:
-                process_encoding(encoding, ofiq, config, active_thresholds)
-            except FileNotFoundError:
-                encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
-            except Exception as e:
-                logger.exception(e)
-                encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
+    processed = 0
+    _init_progress(job, len(encoding_ids))
+    try:
+        for encoding in encodings_iter:
+            _check_cancelled(job)
+            with transaction.atomic():
+                try:
+                    process_encoding(encoding, ofiq, config, active_thresholds)
+                except FileNotFoundError:
+                    encoding.embedding_status_code = Encoding.StatusCode.FILE_NOT_FOUND.value
+                except Exception as e:
+                    logger.exception(e)
+                    encoding.embedding_status_code = Encoding.StatusCode.GENERIC_ERROR.value
 
-            encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
+                encoding.save(update_fields=["embedding", "embedding_status_code", "image_quality_scores"])
 
-            if encoding.embedding_status_code is not None:
-                Finding.objects.update_or_create(
-                    deduplication_set=ds,
-                    first_encoding=encoding,
-                    second_encoding=None,
-                    defaults={
-                        "score": 0,
-                        "status_code": encoding.embedding_status_code,
-                        "config": config_snapshot,
-                    },
-                )
+                if encoding.embedding_status_code is not None:
+                    Finding.objects.update_or_create(
+                        deduplication_set=ds,
+                        first_encoding=encoding,
+                        second_encoding=None,
+                        defaults={
+                            "score": 0,
+                            "status_code": encoding.embedding_status_code,
+                            "config": config_snapshot,
+                        },
+                    )
+            processed += 1
+            _set_progress(job, processed)
+    finally:
+        encodings_iter.close()
+    return processed
 
 
 def load_encodings(
@@ -180,6 +208,7 @@ def find_duplicate_pairs(  # noqa
     n_current: int,
     config: DeduplicationSetConfig,
     chunk_size: int,
+    job: MainJob | None = None,
 ) -> list[tuple[int, int, float]]:
     """
     Find duplicate pairs using chunked matrix distance calculations.
@@ -194,7 +223,9 @@ def find_duplicate_pairs(  # noqa
     distance_threshold = find_threshold(model_name, distance_metric)
     duplicates = []
 
+    _init_progress(job, n_current)
     for start in range(0, n_current, chunk_size):
+        _check_cancelled(job)
         chunk_emb = all_emb[start : start + chunk_size]
         distances = find_distance(all_emb, chunk_emb, distance_metric)
 
@@ -212,6 +243,8 @@ def find_duplicate_pairs(  # noqa
             if confidence >= confidence_threshold:
                 duplicates.append((all_ids[global_r], all_ids[c], confidence))
 
+        _set_progress(job, min(start + chunk_size, n_current))
+
     return duplicates
 
 
@@ -219,6 +252,7 @@ def dedupe_all(
     deduplication_set: DeduplicationSet,
     config: DeduplicationSetConfig,
     chunk_size: int = 1000,
+    job: MainJob | None = None,
 ) -> int:
     """
     Deduplicate all encodings in a deduplication set using matrix operations.
@@ -245,7 +279,7 @@ def dedupe_all(
 
     all_emb, all_ids, all_filenames, n_current = load_encodings(current_qs, approved_qs, embedding_dim, chunk_size)
 
-    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, config, chunk_size)
+    duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, config, chunk_size, job=job)
 
     if duplicates:
         config_snapshot = config.as_dict()
