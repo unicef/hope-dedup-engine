@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0073_encoding_filename_filefield"),
+        ("api", "0075_remove_deduplicationsetgroup_system_delete_hdetoken"),
     ]
 
     operations = [
