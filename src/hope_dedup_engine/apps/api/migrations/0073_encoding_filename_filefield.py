@@ -5,7 +5,7 @@ safely alter the column type to varchar(255) with FileField semantics.
 
 The storage/upload_to callables are defined locally so this historical
 migration stays importable after the model reverts `filename` back to a
-TextField in 0074 (the model module no longer exposes these helpers).
+TextField in 0076 (the model module no longer exposes these helpers).
 """
 
 from django.core.files.storage import FileSystemStorage, InvalidStorageError, storages
@@ -17,7 +17,7 @@ def _images_storage():
     # disk. It has since been removed (images are read from the shared HOPE blob
     # again), so fall back to a plain FileSystemStorage to keep this historical
     # migration importable/runnable. The storage is never used for file I/O here
-    # since 0074 immediately reverts `filename` back to a TextField.
+    # since 0076 immediately reverts `filename` back to a TextField.
     try:
         return storages["images"]
     except InvalidStorageError:
