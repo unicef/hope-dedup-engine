@@ -4,37 +4,13 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
-from django.core.files.storage import storages
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
-from hope_dedup_engine.apps.api.utils.image import encoding_image_key
-
 REFERENCE_PK_LENGTH: Final[int] = 100
-FILENAME_LENGTH: Final[int] = 255
+FILENAME_LENGTH: Final[int] = 1024
 MAX_ERROR_LENGTH: Final[int] = 255
-
-
-def _images_storage():
-    """Resolve the `images` storage lazily so test settings overrides take effect."""
-    return storages["images"]
-
-
-def encoding_image_upload_to(instance: "Encoding", filename: str) -> str:
-    """Build the deterministic storage key for an Encoding image.
-
-    `filename` is the basename (with extension) supplied by the caller via
-    ContentFile(payload, name=...). We embed the group's reference_pk and the
-    deduplication set id so that:
-
-    - files belonging to the same external group are co-located on disk,
-      making manual inspection / per-tenant cleanup easier; and
-    - re-uploading the same (deduplication_set, reference_pk) overwrites the
-      existing object instead of orphaning it.
-    """
-    group_ref = instance.deduplication_set.group.reference_pk
-    return encoding_image_key(group_ref, instance.deduplication_set_id, filename)
 
 
 # Do not rename: migrations reference this callable by dotted path.
@@ -309,11 +285,9 @@ class Encoding(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, help_text="Encoding id.")
     deduplication_set = models.ForeignKey(DeduplicationSet, on_delete=models.CASCADE, help_text="Deduplication set.")
     reference_pk = models.CharField(max_length=REFERENCE_PK_LENGTH, help_text="External id of the encoding.")
-    filename = models.FileField(
-        storage=_images_storage,
-        upload_to=encoding_image_upload_to,
+    filename = models.CharField(
         max_length=FILENAME_LENGTH,
-        help_text="Image file backing this encoding (stored via the `images` Django storage alias).",
+        help_text="Filename (path/key) in the shared HOPE blob storage.",
     )
     embedding = ArrayField(models.FloatField(), null=True, blank=True, help_text="Embedding vector.")
     embedding_status_code = models.IntegerField(

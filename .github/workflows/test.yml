@@ -59,7 +59,6 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/dedup_engine
       CELERY_BROKER_URL: redis://localhost:6379/1
       CACHE_URL: redis://localhost:6379/2
-      IMAGES_ROOT: /tmp/hde
       DOCKER_BUILDKIT: 1
     steps:
       - uses: actions/checkout@v7
