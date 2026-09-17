@@ -27,26 +27,18 @@ def _log_entry_summary(entry: dict[str, Any]) -> str:
     return summary or "entry"
 
 
-def _log_entry_html(entry: Any, *, opened: bool) -> str:
+def _log_entry_args(entry: Any, *, opened: bool) -> tuple[str, str, str, str]:
     if isinstance(entry, dict):
         summary = _log_entry_summary(entry)
         css = " hde-json-log-entry-error" if "error" in entry else ""
     else:
         summary = str(entry)
         css = ""
-    body = json.dumps(entry, indent=2, ensure_ascii=False, default=str)
-    if opened:
-        return format_html(
-            '<details class="hde-json-log-entry{}" open><summary>{}</summary><pre class="hde-json">{}</pre></details>',
-            css,
-            summary,
-            body,
-        )
-    return format_html(
-        '<details class="hde-json-log-entry{}"><summary>{}</summary><pre class="hde-json">{}</pre></details>',
+    return (
         css,
+        " open" if opened else "",
         summary,
-        body,
+        json.dumps(entry, indent=2, ensure_ascii=False, default=str),
     )
 
 
@@ -57,10 +49,14 @@ def format_log(entries: Any) -> str:
     if not isinstance(entries, list):
         return pretty_json(entries)
 
-    html = format_html("")
-    for index, entry in enumerate(reversed(entries)):
-        html += _log_entry_html(entry, opened=index == 0)
-    return format_html('<div class="hde-json-log">{}</div>', html)
+    return format_html(
+        '<div class="hde-json-log">{}</div>',
+        format_html_join(
+            "",
+            '<details class="hde-json-log-entry{}"{}><summary>{}</summary><pre class="hde-json">{}</pre></details>',
+            (_log_entry_args(entry, opened=index == 0) for index, entry in enumerate(reversed(entries))),
+        ),
+    )
 
 
 def _format_number(value: float) -> str:

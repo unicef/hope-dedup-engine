@@ -41,6 +41,13 @@ def test_format_log_non_list() -> None:
     assert "<details" not in html
 
 
+def test_format_log_non_dict_and_sparse_entries() -> None:
+    html = format_log(["plain-text-entry", {"error": "only-error"}, {}])
+    assert "plain-text-entry" in html
+    assert ">error</summary>" in html
+    assert ">entry</summary>" in html
+
+
 def test_format_log_collapsible_newest_first() -> None:
     html = format_log(
         [
@@ -94,6 +101,16 @@ def test_format_quality_scores_highlights_failures() -> None:
 def test_quality_thresholds_for_encoding_ignores_non_dict_settings(mocker) -> None:
     encoding = mocker.Mock(spec=Encoding, image_quality_scores={"Sharpness": 0.2})
     assert quality_thresholds_for_encoding(encoding) == {}
+
+
+def test_quality_thresholds_for_encoding_missing_relations() -> None:
+    assert quality_thresholds_for_encoding(type("Encoding", (), {"deduplication_set": None})()) == {}
+    assert (
+        quality_thresholds_for_encoding(
+            type("Encoding", (), {"deduplication_set": type("DS", (), {"group": None})()})()
+        )
+        == {}
+    )
 
 
 def test_deduplication_set_change_form_renders_collapsible_log(
