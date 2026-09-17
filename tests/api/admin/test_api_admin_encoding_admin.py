@@ -46,40 +46,45 @@ def test_filename_pretty_empty(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.parametrize(
-    "scores, expected",
+    "scores",
+    [None, {}],
+    ids=["none_scores", "empty_scores"],
+)
+def test_image_quality_scores_sorted_empty(scores: dict | None, mocker: MockerFixture) -> None:
+    encoding = mocker.Mock(spec=Encoding, image_quality_scores=scores)
+    admin = EncodingAdmin(Encoding, AdminSite())
+    assert admin.image_quality_scores_sorted(encoding) == "N/A"
+
+
+@pytest.mark.parametrize(
+    "scores, expected_order",
     [
-        (None, "N/A"),
-        ({}, "N/A"),
         (
             {"Sharpness": 80.0, "DynamicRange": 50.0, "Contrast": 90.0},
-            str({"DynamicRange": 50.0, "Sharpness": 80.0, "Contrast": 90.0}),
+            ["DynamicRange", "Sharpness", "Contrast"],
         ),
         (
             {"Sharpness": 80.0, "DynamicRange": None, "Contrast": 90.0},
-            str({"DynamicRange": None, "Sharpness": 80.0, "Contrast": 90.0}),
+            ["DynamicRange", "Sharpness", "Contrast"],
         ),
-        (
-            {"Only": 42.0},
-            str({"Only": 42.0}),
-        ),
-        (
-            {"A": None, "B": None},
-            str({"A": None, "B": None}),
-        ),
+        ({"Only": 42.0}, ["Only"]),
+        ({"A": None, "B": None}, ["A", "B"]),
     ],
     ids=[
-        "none_scores",
-        "empty_scores",
         "sorted_by_value_ascending",
         "none_values_sorted_first",
         "single_score",
         "all_none_values",
     ],
 )
-def test_image_quality_scores_sorted(scores: dict | None, expected: str, mocker: MockerFixture) -> None:
+def test_image_quality_scores_sorted(scores: dict, expected_order: list[str], mocker: MockerFixture) -> None:
     encoding = mocker.Mock(spec=Encoding, image_quality_scores=scores)
     admin = EncodingAdmin(Encoding, AdminSite())
-    assert admin.image_quality_scores_sorted(encoding) == expected
+    html = admin.image_quality_scores_sorted(encoding)
+    assert "hde-quality-scores" in html
+    assert "hde-quality-score-fail" not in html
+    positions = [html.index(f">{metric}</td>") for metric in expected_order]
+    assert positions == sorted(positions)
 
 
 def test_prepare_detection_results() -> None:
