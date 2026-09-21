@@ -1,15 +1,25 @@
+import logging
 import traceback
 from typing import Any
 
 from django.utils import timezone
 
 import sentry_sdk
-from celery import shared_task
+from celery import shared_task, states
+from celery.exceptions import Ignore
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
+from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.api.utils.notification import send_notification
 from hope_dedup_engine.apps.faces.services.facial import dedupe_all, encode_faces
+
+logger = logging.getLogger(__name__)
+
+_CANCELLED_STATES = {
+    DeduplicationSet.State.ENCODING_IN_PROGRESS: DeduplicationSet.State.ENCODING_FAILED,
+    DeduplicationSet.State.DEDUPLICATION_IN_PROGRESS: DeduplicationSet.State.DEDUPLICATION_FAILED,
+}
 
 
 def _append_log(  # noqa
@@ -35,6 +45,24 @@ def _append_log(  # noqa
     ds.save(update_fields=["log"])
 
 
+def _apply_cancelled_state(ds: DeduplicationSet, error: Exception) -> None:
+    failed_state = _CANCELLED_STATES.get(ds.state)
+    if failed_state is not None:
+        ds.set_state(failed_state, error)
+
+
+def _revoke_cancelled_task(task: Any, job: MainJob, error: GracefulJobCancellationError) -> None:
+    job.cancel()
+    task.update_state(
+        state=states.REVOKED,
+        meta={
+            "exc_type": type(error).__name__,
+            "exc_module": type(error).__module__,
+            "exc_message": str(error),
+        },
+    )
+
+
 @shared_task(bind=True)
 def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     """
@@ -43,6 +71,9 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     State transitions:
         ENCODING_IN_PROGRESS -> ENCODED -> DEDUPLICATION_IN_PROGRESS -> DEDUPLICATED
     On failure:
+        ENCODING_IN_PROGRESS -> ENCODING_FAILED
+        DEDUPLICATION_IN_PROGRESS -> DEDUPLICATION_FAILED
+    On graceful cancellation:
         ENCODING_IN_PROGRESS -> ENCODING_FAILED
         DEDUPLICATION_IN_PROGRESS -> DEDUPLICATION_FAILED
 
@@ -57,15 +88,16 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     encodings_count = 0
     findings_count = 0
     try:
+        main_job.ensure_not_cancelled()
         send_notification(deduplication_set)
         config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
 
         encoding_ids = list(deduplication_set.encodings_without_embeddings().values_list("id", flat=True))
-        encodings_count = len(encoding_ids)
-
+        encodings_count = 0
         if encoding_ids:
-            encode_faces(deduplication_set, encoding_ids, config)
+            encodings_count = encode_faces(deduplication_set, encoding_ids, config, job=main_job)
 
+        main_job.ensure_not_cancelled()
         deduplication_set.set_state(DeduplicationSet.State.ENCODED)
         send_notification(deduplication_set)
 
@@ -73,7 +105,7 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATION_IN_PROGRESS)
             send_notification(deduplication_set)
 
-            findings_count = dedupe_all(deduplication_set, config)
+            findings_count = dedupe_all(deduplication_set, config, job=main_job)
 
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATED)
             send_notification(deduplication_set)
@@ -85,6 +117,15 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             "encodings_processed": encodings_count,
             "findings_created": findings_count,
         }
+    except GracefulJobCancellationError as e:
+        logger.info("Task cancelled gracefully for MainJob #%s", main_job.pk)
+        if e.processed is not None:
+            encodings_count = e.processed
+        _apply_cancelled_state(deduplication_set, e)
+        send_notification(deduplication_set)
+        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, error=e)
+        _revoke_cancelled_task(self, main_job, e)
+        raise Ignore from e
     except Exception as e:
         if deduplication_set.state == DeduplicationSet.State.DEDUPLICATION_IN_PROGRESS:
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATION_FAILED, e)

@@ -1,10 +1,11 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import numpy as np
 import pytest
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
+from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.faces.services.facial import (
     dedupe_all,
     encode_face,
@@ -161,6 +162,52 @@ def test_encode_faces_success(mock_deepface, mock_storage, deduplication_set_fac
     assert encoding0.embedding == [1.0]
     assert encoding1.embedding == [2.0]
     assert mock_deepface.represent.call_count == 2
+
+
+@pytest.mark.django_db
+def test_encode_faces_tracks_progress(mock_deepface, mock_storage, deduplication_set_factory, encoding_factory):
+    deduplication_set = deduplication_set_factory()
+    encoding0 = encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=None)
+    encoding1 = encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=None)
+    mock_deepface.represent.side_effect = [
+        [{"embedding": [1.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}],
+        [{"embedding": [2.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}],
+    ]
+    job = Mock()
+
+    processed = encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1), job=job)
+
+    assert processed == 2
+    job.set_total.assert_called_once_with(2)
+    assert job.set_progress.call_args_list == [call(0), call(1), call(2)]
+    job.ensure_not_cancelled.assert_called()
+
+
+@pytest.mark.django_db
+def test_encode_faces_stops_when_cancellation_requested(
+    mock_deepface, mock_storage, deduplication_set_factory, encoding_factory
+):
+    deduplication_set = deduplication_set_factory()
+    encoding0 = encoding_factory(deduplication_set=deduplication_set, filename="file1.jpg", embedding=None)
+    encoding1 = encoding_factory(deduplication_set=deduplication_set, filename="file2.jpg", embedding=None)
+    mock_deepface.represent.return_value = [
+        {"embedding": [1.0], "face_confidence": 0.1, "facial_area": fa(w=120, h=170)}
+    ]
+    job = Mock()
+    job.ensure_not_cancelled.side_effect = [None, GracefulJobCancellationError("cancel requested")]
+
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested") as exc_info:
+        encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1), job=job)
+
+    assert exc_info.value.processed == 1
+    encoding0.refresh_from_db()
+    encoding1.refresh_from_db()
+    assert mock_deepface.represent.call_count == 1
+    encoded = [encoding0.embedding, encoding1.embedding]
+    assert sum(emb is not None for emb in encoded) == 1
+    assert sum(emb is None for emb in encoded) == 1
+    job.set_total.assert_called_once_with(2)
+    job.set_progress.assert_has_calls([call(0), call(1)])
 
 
 @pytest.mark.parametrize(
@@ -673,3 +720,91 @@ def test_find_duplicate_pairs_skips_below_confidence(mock_deepface_verification,
     )
 
     assert len(duplicates) == 0
+
+
+@pytest.mark.django_db
+def test_find_duplicate_pairs_tracks_progress(mock_deepface_verification, mock_dedup_config):
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 30.0
+    all_emb = np.array([[0.1] * 512, [0.2] * 512], dtype=np.float32)
+    mock_find_distance.return_value = np.array([[0.0, 0.9], [0.9, 0.0]])
+    job = Mock()
+
+    find_duplicate_pairs(
+        all_emb,
+        [1, 2],
+        ["file1.jpg", "file2.jpg"],
+        n_current=2,
+        config=mock_dedup_config,
+        chunk_size=1,
+        job=job,
+    )
+
+    job.set_total.assert_called_once_with(2)
+    assert job.set_progress.call_args_list == [call(0), call(1), call(2)]
+    assert job.ensure_not_cancelled.call_count == 2
+
+
+@pytest.mark.django_db
+def test_find_duplicate_pairs_stops_when_cancellation_requested(mock_deepface_verification, mock_dedup_config):
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 75.0
+    all_emb = np.array([[0.1] * 512, [0.2] * 512, [0.3] * 512], dtype=np.float32)
+    mock_find_distance.return_value = np.array([[0.0, 0.3, 0.3]])
+    job = Mock()
+    job.ensure_not_cancelled.side_effect = [None, GracefulJobCancellationError("cancel requested")]
+
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
+        find_duplicate_pairs(
+            all_emb,
+            [1, 2, 3],
+            ["file1.jpg", "file2.jpg", "file3.jpg"],
+            n_current=3,
+            config=mock_dedup_config,
+            chunk_size=1,
+            job=job,
+        )
+
+    assert mock_find_distance.call_count == 1
+
+
+@pytest.mark.django_db
+def test_dedupe_all_does_not_persist_findings_when_cancelled(
+    deduplication_set_factory, encoding_factory, mock_deepface_verification, mock_dedup_config
+):
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 75.0
+    mock_find_distance.return_value = np.array([[0.0, 0.3], [0.3, 0.0]])
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.2] * 512)
+    job = Mock()
+    job.ensure_not_cancelled.side_effect = GracefulJobCancellationError("cancel requested")
+
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
+        dedupe_all(ds, mock_dedup_config, chunk_size=1, job=job)
+
+    assert ds.finding_set.count() == 0
+
+
+@pytest.mark.django_db
+def test_dedupe_all_does_not_persist_findings_when_cancelled_after_last_chunk(
+    deduplication_set_factory, encoding_factory, mock_deepface_verification, mock_dedup_config
+):
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 75.0
+    mock_find_distance.return_value = np.array([[0.0, 0.3]])
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.2] * 512)
+    job = Mock()
+    job.ensure_not_cancelled.side_effect = [None, None, GracefulJobCancellationError("cancel requested")]
+
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
+        dedupe_all(ds, mock_dedup_config, chunk_size=1, job=job)
+
+    assert ds.finding_set.count() == 0

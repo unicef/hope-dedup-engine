@@ -11,7 +11,7 @@ from hope_dedup_engine.apps.api.models.jobs import (
 
 @admin.register(DedupJob)
 class DedupJobAdmin(AdminFiltersMixin, CeleryTaskModelAdmin):
-    list_display = ["pk", "deduplication_set_id", "datetime_created", "datetime_queued"]
+    list_display = ["pk", "deduplication_set_id", "progress_info", "datetime_created", "datetime_queued"]
     list_filter = (
         ("deduplication_set", AutoCompleteFilter),
         ("deduplication_set__group", AutoCompleteFilter),
