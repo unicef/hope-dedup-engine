@@ -8,7 +8,7 @@ from adminfilters.dates import DateInDateRangeFilter
 from adminfilters.filters import AutoCompleteFilter, ChoicesFieldComboFilter, DjangoLookupFilter
 
 from django.contrib import messages
-from django.contrib.admin import register
+from django.contrib.admin import display, register
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
@@ -19,6 +19,7 @@ from django.utils.translation import gettext_lazy as _
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.api.admin.json_display import format_log
 from hope_dedup_engine.apps.api.utils.notification import send_notification, WarningMessage, ErrorMessage
 from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.utils.export import export_as_csv
@@ -53,8 +54,9 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         "created_by",
         "updated_at",
         "updated_by",
-        "log",
+        "formatted_log",
     )
+    exclude = ("log",)
     search_fields = (
         "name",
         "id",
@@ -73,6 +75,10 @@ class DeduplicationSetAdmin(BaseModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
         return super().get_queryset(request).defer("log", "error")
+
+    @display(description="Log")
+    def formatted_log(self, obj: DeduplicationSet) -> str:
+        return format_log(obj.log)
 
     def _make_job_action(
         self,

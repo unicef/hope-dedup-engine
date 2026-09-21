@@ -1,4 +1,4 @@
-from django.contrib.admin import register
+from django.contrib.admin import display, register
 from django.urls import path, reverse
 from adminfilters.autocomplete import LinkedAutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
@@ -8,6 +8,7 @@ from hope_dedup_engine.apps.api.models import Finding
 from hope_dedup_engine.apps.api.admin.finding.views import FindingImageView, FindingPreviewView
 from hope_dedup_engine.apps.core.permissions import can
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.api.admin.json_display import pretty_json
 
 
 @register(Finding)
@@ -26,10 +27,11 @@ class FindingAdmin(BaseModelAdmin):
         "second_encoding",
         "deduplication_set",
         "status_code",
-        "config",
+        "formatted_config",
         "created_at",
         "updated_at",
     )
+    exclude = ("config",)
     list_filter = (
         ("deduplication_set__group", LinkedAutoCompleteFilter.factory(parent=None)),
         ("deduplication_set", LinkedAutoCompleteFilter.factory(parent="deduplication_set__group")),
@@ -45,6 +47,10 @@ class FindingAdmin(BaseModelAdmin):
         "deduplication_set__group__pk",
         "deduplication_set__group__name",
     )
+
+    @display(description="Config")
+    def formatted_config(self, obj: Finding) -> str:
+        return pretty_json(obj.config)
 
     def has_add_permission(self, request):
         return False

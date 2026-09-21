@@ -17,6 +17,7 @@ from hope_dedup_engine.apps.api.admin.encoding.forms import FindFaceForm, Dedupl
 from hope_dedup_engine.apps.api.admin.encoding.utils.process import detect_face, deduplicate, Finding
 from hope_dedup_engine.apps.api.admin.encoding.utils.threshold import calculate_thresholds, group_by_thresholds
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
+from hope_dedup_engine.apps.api.admin.json_display import format_quality_scores, quality_thresholds_for_encoding
 from hope_dedup_engine.apps.api.models import Encoding
 from hope_dedup_engine.apps.core.permissions import can
 
@@ -91,7 +92,7 @@ class EncodingAdmin(BaseModelAdmin):
         ("created_at", DateInDateRangeFilter),
         DjangoLookupFilter,
     )
-    list_select_related = ("deduplication_set",)
+    list_select_related = ("deduplication_set__group",)
 
     search_fields = ("reference_pk",)
 
@@ -106,10 +107,7 @@ class EncodingAdmin(BaseModelAdmin):
 
     @display(description="Image quality scores")
     def image_quality_scores_sorted(self, obj: Encoding) -> str:
-        if not obj.image_quality_scores:
-            return "N/A"
-        sorted_scores = dict(sorted(obj.image_quality_scores.items(), key=lambda x: x[1] if x[1] is not None else -1))
-        return str(sorted_scores)
+        return format_quality_scores(obj.image_quality_scores, quality_thresholds_for_encoding(obj))
 
     def has_add_permission(self, request):
         return False
