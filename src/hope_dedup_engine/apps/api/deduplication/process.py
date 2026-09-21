@@ -93,10 +93,9 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
 
         encoding_ids = list(deduplication_set.encodings_without_embeddings().values_list("id", flat=True))
-        encodings_count = len(encoding_ids)
-
+        encodings_count = 0
         if encoding_ids:
-            encode_faces(deduplication_set, encoding_ids, config, job=main_job)
+            encodings_count = encode_faces(deduplication_set, encoding_ids, config, job=main_job)
 
         main_job.ensure_not_cancelled()
         deduplication_set.set_state(DeduplicationSet.State.ENCODED)
@@ -120,6 +119,8 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         }
     except GracefulJobCancellationError as e:
         logger.info("Task cancelled gracefully for MainJob #%s", main_job.pk)
+        if e.processed is not None:
+            encodings_count = e.processed
         _apply_cancelled_state(deduplication_set, e)
         send_notification(deduplication_set)
         _append_log(deduplication_set, config, main_job, encodings_count, findings_count, error=e)

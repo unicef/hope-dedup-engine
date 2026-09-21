@@ -12,6 +12,7 @@ from numpy import ndarray
 
 
 from hope_dedup_engine.apps.api.models import Encoding, Finding, DeduplicationSet
+from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.api.utils.image import load_image
 from hope_dedup_engine.apps.faces.services.quality import check_image_quality, get_active_thresholds
 
@@ -158,6 +159,9 @@ def encode_faces(
                     )
             processed += 1
             _set_progress(job, processed)
+    except GracefulJobCancellationError as exc:
+        exc.processed = processed
+        raise
     finally:
         encodings_iter.close()
     return processed
@@ -281,6 +285,7 @@ def dedupe_all(
 
     duplicates = find_duplicate_pairs(all_emb, all_ids, all_filenames, n_current, config, chunk_size, job=job)
 
+    _check_cancelled(job)
     if duplicates:
         config_snapshot = config.as_dict()
         findings = [

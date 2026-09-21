@@ -20,6 +20,7 @@ def test_find_duplicates_full_process(
     job_with_encodings,
 ):
     dedup_set = job_with_encodings.deduplication_set
+    mock_encode_faces.return_value = 2
     mock_dedupe_all.return_value = 5
 
     result = find_duplicates(job_with_encodings.id, job_with_encodings.version)
@@ -54,6 +55,7 @@ def test_find_duplicates_encode_only(
     encode_only_job,
 ):
     dedup_set = encode_only_job.deduplication_set
+    mock_encode_faces.return_value = 1
 
     result = find_duplicates(encode_only_job.id, encode_only_job.version)
 
@@ -107,6 +109,7 @@ def test_find_duplicates_deduplication_failure(
     job_with_encodings,
 ):
     mock_dedupe_all.side_effect = Exception("Dedup Error")
+    mock_encode_faces.return_value = 2
     dedup_set = job_with_encodings.deduplication_set
 
     with pytest.raises(Exception, match="Dedup Error"):
@@ -127,7 +130,7 @@ def test_find_duplicates_deduplication_failure(
 @patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-def test_find_duplicates_cancelled_before_encoding(
+def test_find_duplicates_cancelled_before_encoding(  # noqa: PLR0917
     mock_send_notification,
     mock_encode_faces,
     mock_dedupe_all,
@@ -158,6 +161,7 @@ def test_find_duplicates_cancelled_before_encoding(
         },
     )
     assert "error" in dedup_set.log[0]
+    assert dedup_set.log[0]["encodings_processed"] == 0
     assert not dedup_set.group.processing_locked
 
 
@@ -165,7 +169,7 @@ def test_find_duplicates_cancelled_before_encoding(
 @patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-def test_find_duplicates_cancelled_during_encoding(
+def test_find_duplicates_cancelled_during_encoding(  # noqa: PLR0917
     mock_send_notification,
     mock_encode_faces,
     mock_dedupe_all,
@@ -173,7 +177,7 @@ def test_find_duplicates_cancelled_during_encoding(
     job_with_encodings,
     mocker,
 ):
-    mock_encode_faces.side_effect = GracefulJobCancellationError("cancel requested")
+    mock_encode_faces.side_effect = GracefulJobCancellationError("cancel requested", processed=1)
     cancel_mock = mocker.patch.object(MainJob, "cancel")
     update_state_mock = mocker.patch.object(find_duplicates, "update_state")
     dedup_set = job_with_encodings.deduplication_set
@@ -194,6 +198,7 @@ def test_find_duplicates_cancelled_during_encoding(
             "exc_message": "cancel requested",
         },
     )
+    assert dedup_set.log[0]["encodings_processed"] == 1
     assert not dedup_set.group.processing_locked
 
 
@@ -201,7 +206,7 @@ def test_find_duplicates_cancelled_during_encoding(
 @patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
 @patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
 @patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
-def test_find_duplicates_cancelled_during_deduplication(
+def test_find_duplicates_cancelled_during_deduplication(  # noqa: PLR0917
     mock_send_notification,
     mock_encode_faces,
     mock_dedupe_all,
@@ -210,6 +215,7 @@ def test_find_duplicates_cancelled_during_deduplication(
     mocker,
 ):
     mock_dedupe_all.side_effect = GracefulJobCancellationError("cancel requested")
+    mock_encode_faces.return_value = 2
     mocker.patch.object(MainJob, "cancel")
     mocker.patch.object(find_duplicates, "update_state")
     dedup_set = job_with_encodings.deduplication_set
@@ -221,4 +227,5 @@ def test_find_duplicates_cancelled_during_deduplication(
     assert dedup_set.state == DeduplicationSet.State.DEDUPLICATION_FAILED
     mock_encode_faces.assert_called_once()
     mock_capture_exception.assert_not_called()
+    assert dedup_set.log[0]["encodings_processed"] == 2
     assert not dedup_set.group.processing_locked

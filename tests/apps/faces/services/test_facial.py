@@ -196,9 +196,10 @@ def test_encode_faces_stops_when_cancellation_requested(
     job = Mock()
     job.ensure_not_cancelled.side_effect = [None, GracefulJobCancellationError("cancel requested")]
 
-    with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested") as exc_info:
         encode_faces(deduplication_set, [encoding0.id, encoding1.id], make_encode_config(fc_th=0.1), job=job)
 
+    assert exc_info.value.processed == 1
     encoding0.refresh_from_db()
     encoding1.refresh_from_db()
     assert mock_deepface.represent.call_count == 1
@@ -782,6 +783,26 @@ def test_dedupe_all_does_not_persist_findings_when_cancelled(
     encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.2] * 512)
     job = Mock()
     job.ensure_not_cancelled.side_effect = GracefulJobCancellationError("cancel requested")
+
+    with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
+        dedupe_all(ds, mock_dedup_config, chunk_size=1, job=job)
+
+    assert ds.finding_set.count() == 0
+
+
+@pytest.mark.django_db
+def test_dedupe_all_does_not_persist_findings_when_cancelled_after_last_chunk(
+    deduplication_set_factory, encoding_factory, mock_deepface_verification, mock_dedup_config
+):
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 75.0
+    mock_find_distance.return_value = np.array([[0.0, 0.3]])
+    ds = deduplication_set_factory()
+    encoding_factory(deduplication_set=ds, filename="file1.jpg", embedding=[0.1] * 512)
+    encoding_factory(deduplication_set=ds, filename="file2.jpg", embedding=[0.2] * 512)
+    job = Mock()
+    job.ensure_not_cancelled.side_effect = [None, None, GracefulJobCancellationError("cancel requested")]
 
     with pytest.raises(GracefulJobCancellationError, match="cancel requested"):
         dedupe_all(ds, mock_dedup_config, chunk_size=1, job=job)

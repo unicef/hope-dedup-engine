@@ -15,7 +15,7 @@ def test_ensure_not_cancelled_raises_when_termination_requested(main_job_factory
     with pytest.raises(GracefulJobCancellationError, match=f"Cancellation requested for job #{job.pk}"):
         job.ensure_not_cancelled()
 
-    cancel_mock.assert_called_once()
+    cancel_mock.assert_not_called()
 
 
 def test_ensure_not_cancelled_noop_when_not_requested(main_job_factory, mocker):

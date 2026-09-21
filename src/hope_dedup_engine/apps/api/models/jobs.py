@@ -6,6 +6,10 @@ from django_celery_boost.models import CeleryTaskModel
 class GracefulJobCancellationError(Exception):
     """Raised when a running job cooperatively stops after cancellation was requested."""
 
+    def __init__(self, *args: object, processed: int | None = None) -> None:
+        super().__init__(*args)
+        self.processed = processed
+
 
 class DedupJob(CeleryTaskModel):
     deduplication_set = models.ForeignKey(
@@ -18,7 +22,6 @@ class DedupJob(CeleryTaskModel):
 
     def ensure_not_cancelled(self) -> None:
         if self.is_termination_requested:
-            self.cancel()
             raise GracefulJobCancellationError(f"Cancellation requested for job #{self.pk}")
 
 
