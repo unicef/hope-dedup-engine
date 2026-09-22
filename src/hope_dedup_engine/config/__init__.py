@@ -250,6 +250,20 @@ CONFIG: "dict[str, ConfigItem]" = {
         False,
         setting("session-cookie-httponly"),
     ),
+    "SESSION_COOKIE_AGE": (
+        int,
+        86400,
+        86400,
+        False,
+        setting("std-setting-SESSION_COOKIE_AGE"),
+    ),
+    "SESSION_EXPIRE_AT_BROWSER_CLOSE": (
+        bool,
+        True,
+        True,
+        False,
+        setting("std-setting-SESSION_EXPIRE_AT_BROWSER_CLOSE"),
+    ),
     "SESSION_COOKIE_NAME": (str, "dedupe_session", setting("session-cookie-name")),
     "SESSION_COOKIE_PATH": (str, "/", setting("session-cookie-path")),
     "SESSION_COOKIE_SECURE": (
