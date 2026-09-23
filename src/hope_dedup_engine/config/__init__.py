@@ -259,8 +259,8 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "SESSION_EXPIRE_AT_BROWSER_CLOSE": (
         bool,
-        True,
-        True,
+        False,
+        False,
         False,
         setting("std-setting-SESSION_EXPIRE_AT_BROWSER_CLOSE"),
     ),
