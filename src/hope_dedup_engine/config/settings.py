@@ -17,6 +17,7 @@ INSTALLED_APPS = (
     "hope_dedup_engine.web",
     "hope_dedup_engine.apps.core.apps.Config",
     "unicef_security",
+    "csp",
     "hope_dedup_engine.apps.security.apps.Config",
     "hope_api_auth",
     "django.contrib.contenttypes",
