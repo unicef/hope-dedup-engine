@@ -214,6 +214,17 @@ CONFIG: "dict[str, ConfigItem]" = {
         True,
         setting("secret-key"),
     ),
+    "CSP_ASSET_HOSTS": (
+        list,
+        ["http://localhost:10000", "https://*.blob.core.windows.net"],
+        ["http://localhost:10000", "https://*.blob.core.windows.net"],
+        False,
+        (
+            "Comma-separated origins allowed to serve static assets (CSS, JS, images, fonts). "
+            "Scheme, host, and port only. "
+            "Defaults to local Azurite and any Azure Blob account."
+        ),
+    ),
     "SECURE_CONTENT_TYPE_NOSNIFF": (bool, True, True, False, setting("secure-content-type-nosniff")),
     "SECURE_HSTS_INCLUDE_SUBDOMAINS": (bool, True, True, False, setting("secure-hsts-include-subdomains")),
     "SECURE_HSTS_PRELOAD": (bool, True, False, False, setting("secure-hsts-preload")),

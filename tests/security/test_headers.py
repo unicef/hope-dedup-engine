@@ -2,6 +2,8 @@ import pytest
 from django.test import Client
 from django.test.utils import override_settings
 
+from hope_dedup_engine.config.fragments.csp import ASSET_HOSTS
+
 
 @pytest.fixture
 def anon_client():
@@ -37,6 +39,14 @@ def test_content_security_policy(anon_client):
     assert "default-src" in csp
     assert "object-src 'none'" in csp
     assert "base-uri 'self'" in csp
+    style_src = csp.split("style-src", 1)[1].split(";", 1)[0]
+    script_src = csp.split("script-src", 1)[1].split(";", 1)[0]
+    assert "'self'" in style_src
+    assert "'self'" in script_src
+    assert "same-origin" not in csp
+    for host in ASSET_HOSTS:
+        assert host in style_src
+        assert host in script_src
 
 
 @pytest.mark.django_db
