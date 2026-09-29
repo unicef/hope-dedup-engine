@@ -59,7 +59,7 @@ Storage backends use the smart-env URL syntax: `<backend.class>?option=value&...
 | `LOG_LEVEL` | `CRITICAL` | Root logging level. |
 | `DEBUG` | `False` | Never enable in production. |
 | `SUPERUSERS` | *(empty)* | Emails/usernames auto-granted superuser at first creation (CI/dev environments). |
-| `CSP_ASSET_HOSTS` | `http://localhost:10000,https://*.blob.core.windows.net` | Comma-separated origins allowed to serve static CSS, JS, images, and fonts. |
+| `CSP_ASSET_HOSTS` | `https://*.blob.core.windows.net` | Comma-separated origins allowed to serve static CSS, JS, images, and fonts. Add `http://localhost:10000` when static files come from a local Azurite. |
 
 ## Azure AD login (admin panel SSO)
 

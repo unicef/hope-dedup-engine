@@ -216,13 +216,13 @@ CONFIG: "dict[str, ConfigItem]" = {
     ),
     "CSP_ASSET_HOSTS": (
         list,
-        ["http://localhost:10000", "https://*.blob.core.windows.net"],
+        ["https://*.blob.core.windows.net"],
         ["http://localhost:10000", "https://*.blob.core.windows.net"],
         False,
         (
             "Comma-separated origins allowed to serve static assets (CSS, JS, images, fonts). "
             "Scheme, host, and port only. "
-            "Defaults to local Azurite and any Azure Blob account."
+            "Add http://localhost:10000 when static files are served by a local Azurite."
         ),
     ),
     "SECURE_CONTENT_TYPE_NOSNIFF": (bool, True, True, False, setting("secure-content-type-nosniff")),
