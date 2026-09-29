@@ -214,8 +214,35 @@ CONFIG: "dict[str, ConfigItem]" = {
         True,
         setting("secret-key"),
     ),
+    "CSP_ASSET_HOSTS": (
+        list,
+        ["https://*.blob.core.windows.net"],
+        ["http://localhost:10000", "https://*.blob.core.windows.net"],
+        False,
+        (
+            "Comma-separated origins allowed to serve static assets (CSS, JS, images, fonts). "
+            "Scheme, host, and port only. "
+            "Add http://localhost:10000 when static files are served by a local Azurite."
+        ),
+    ),
+    "SECURE_CONTENT_TYPE_NOSNIFF": (bool, True, True, False, setting("secure-content-type-nosniff")),
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS": (bool, True, True, False, setting("secure-hsts-include-subdomains")),
     "SECURE_HSTS_PRELOAD": (bool, True, False, False, setting("secure-hsts-preload")),
     "SECURE_HSTS_SECONDS": (int, 31536000, 0, False, setting("secure-hsts-seconds")),
+    "SECURE_PROXY_SSL_HEADER": (
+        tuple,
+        ("HTTP_X_FORWARDED_PROTO", "https"),
+        ("HTTP_X_FORWARDED_PROTO", "https"),
+        False,
+        setting("secure-proxy-ssl-header"),
+    ),
+    "SECURE_REFERRER_POLICY": (
+        str,
+        "strict-origin-when-cross-origin",
+        "strict-origin-when-cross-origin",
+        False,
+        setting("secure-referrer-policy"),
+    ),
     "SECURE_SSL_REDIRECT": (bool, True, False, False, setting("secure-ssl-redirect")),
     "SENTRY_DSN": (str, "", "", False, "Sentry DSN"),
     "SENTRY_ENVIRONMENT": (str, "production", "develop", False, "Sentry Environment"),
@@ -233,6 +260,20 @@ CONFIG: "dict[str, ConfigItem]" = {
         False,
         False,
         setting("session-cookie-httponly"),
+    ),
+    "SESSION_COOKIE_AGE": (
+        int,
+        86400,
+        86400,
+        False,
+        setting("std-setting-SESSION_COOKIE_AGE"),
+    ),
+    "SESSION_EXPIRE_AT_BROWSER_CLOSE": (
+        bool,
+        False,
+        False,
+        False,
+        setting("std-setting-SESSION_EXPIRE_AT_BROWSER_CLOSE"),
     ),
     "SESSION_COOKIE_NAME": (str, "dedupe_session", setting("session-cookie-name")),
     "SESSION_COOKIE_PATH": (str, "/", setting("session-cookie-path")),

@@ -45,6 +45,7 @@ SECURE_SSL_REDIRECT=False
 SESSION_COOKIE_DOMAIN=
 SESSION_COOKIE_SECURE=False
 SOCIAL_AUTH_REDIRECT_IS_HTTPS=False
+CSP_ASSET_HOSTS=http://localhost:10000,https://*.blob.core.windows.net
 
 # ── File storage backends ────────────────────────────────────
 FILE_STORAGE_DEFAULT=django.core.files.storage.FileSystemStorage
