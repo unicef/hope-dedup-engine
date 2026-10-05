@@ -200,6 +200,7 @@ from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.email import *  # noqa
+from .fragments.es_biographic import *  # noqa
 from .fragments.flags import *  # noqa
 from .fragments.models import *  # noqa
 from .fragments.rest_framework import *  # noqa
