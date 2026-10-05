@@ -52,6 +52,7 @@ def pytest_configure(config):
     settings.ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
     settings.MEDIA_ROOT = "/tmp/media"
     settings.STATIC_ROOT = "/tmp/static"
+    settings.SECURE_SSL_REDIRECT = False
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.STATIC_ROOT, exist_ok=True)
 
