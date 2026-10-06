@@ -1,9 +1,14 @@
-"""Shared contract between the biographic orchestration layer and the search library.
+"""The interface the biographic service calls, and the search library implements.
+
+A `Protocol` rather than a base class: `ElasticsearchBiographicSearch` satisfies it
+structurally, without inheriting, and so does any in-memory fake the service wants
+to test against. It lives here, above both, so that annotating a service attribute
+does not drag the Elasticsearch adapter into the import graph.
 
 Frozen: changing anything here needs the agreement of every assignee on the
 biographic deduplication issues, because both sides of the split depend on it.
 
-Settled with the contract:
+Settled with the interface:
 
 * a ``BiographicGroup`` is one business area plus one program. It owns the config,
   the processing lock, and maps 1:1 onto an Elasticsearch index
@@ -17,66 +22,11 @@ Settled with the contract:
   within-batch duplicates are a filter on the result, not a second search
 * classification lives in the service, not in the search library. The library
   returns scored hits and has no opinion on what a duplicate is
-* identity documents are not part of the payload. Matching them is exact, not
-  fuzzy, so it belongs in Postgres, which is where HOPE does it too
-  (``HardDocumentDeduplication``, a separate task from the Elasticsearch pass)
 """
 
-from dataclasses import dataclass
 from typing import Protocol
 
-# The authoritative list of scoreable fields. The API serializer validates
-# against this, and the ES mapping mirrors it. Neither may drift from it.
-PAYLOAD_FIELDS = (
-    "given_name",
-    "family_name",
-    "full_name",
-    "middle_name",
-    "birth_date",
-    "phone_no",
-    "phone_no_alternative",
-    "sex",
-    "relationship",
-)
-
-PAYLOAD_VERSION = 1
-
-
-@dataclass(frozen=True)
-class BiographicPayload:
-    """One person's scoreable fields.
-
-    Mirrors the subset of HOPE's IndividualDocument that actually contributes to a
-    similarity score.
-    """
-
-    reference_pk: str
-    given_name: str | None
-    family_name: str | None
-    full_name: str | None
-    middle_name: str | None
-    birth_date: str | None  # ISO 8601
-    phone_no: str | None
-    phone_no_alternative: str | None
-    sex: str | None
-    relationship: str | None
-
-
-@dataclass(frozen=True)
-class Hit:
-    """A scored match.
-
-    Carries no business meaning - the service decides whether this is a duplicate.
-    `dataset_id` and `status` say where the match came from, so a caller that
-    wants only within-batch duplicates filters on them rather than searching again.
-    """
-
-    reference_pk: str
-    score: float
-    dataset_id: int
-    status: str
-    full_name: str | None
-    birth_date: str | None
+from hope_dedup_engine.apps.biographic.schemas import BiographicPayload, Hit
 
 
 class BiographicSearch(Protocol):

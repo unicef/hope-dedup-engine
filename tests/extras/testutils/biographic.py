@@ -1,4 +1,4 @@
-from hope_dedup_engine.apps.biographic.contracts import PAYLOAD_FIELDS, BiographicPayload
+from hope_dedup_engine.apps.biographic.schemas import PAYLOAD_FIELDS, BiographicPayload
 
 
 def make_payload(reference_pk: str, **fields) -> BiographicPayload:

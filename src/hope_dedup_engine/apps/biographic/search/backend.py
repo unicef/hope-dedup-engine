@@ -1,4 +1,4 @@
-"""Implementation of the `BiographicSearch` contract.
+"""Implementation of the `BiographicSearch` protocol.
 
 The whole public surface of this library. It indexes records, searches them with
 HOPE's scoring, and maintains their lifecycle status. It has no opinion on what a
@@ -10,7 +10,7 @@ from typing import Any
 from elasticsearch import BadRequestError, Elasticsearch
 from elasticsearch.helpers import bulk
 
-from hope_dedup_engine.apps.biographic import contracts
+from hope_dedup_engine.apps.biographic import schemas
 from hope_dedup_engine.apps.biographic.search import client, index, query
 
 INDEX_EXISTS_ERROR = "resource_already_exists_exception"
@@ -53,7 +53,7 @@ class ElasticsearchBiographicSearch:
         business_area: str,
         program_code: str,
         dataset_id: int,
-        records: list[contracts.BiographicPayload],
+        records: list[schemas.BiographicPayload],
     ) -> int:
         """Bulk index a dataset's records as `pending`. Returns the number indexed."""
         if not records:
@@ -79,11 +79,11 @@ class ElasticsearchBiographicSearch:
         self,
         business_area: str,
         program_code: str,
-        payload: contracts.BiographicPayload,
+        payload: schemas.BiographicPayload,
         min_score: float,
         dataset_id: int,
         size: int = 100,
-    ) -> list[contracts.Hit]:
+    ) -> list[schemas.Hit]:
         """Return scored matches for one record, best first.
 
         One search spans the caller's pending dataset and the approved
@@ -147,9 +147,9 @@ class ElasticsearchBiographicSearch:
         return deleted
 
     @staticmethod
-    def _to_hit(hit: dict[str, Any]) -> contracts.Hit:
+    def _to_hit(hit: dict[str, Any]) -> schemas.Hit:
         source = hit["_source"]
-        return contracts.Hit(
+        return schemas.Hit(
             reference_pk=source["reference_pk"],
             score=hit["_score"],
             dataset_id=source["dataset_id"],

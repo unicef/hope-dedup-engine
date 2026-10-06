@@ -15,7 +15,7 @@ there in `HardDocumentDeduplication` rather than through Elasticsearch.
 
 from typing import Any
 
-from hope_dedup_engine.apps.biographic import contracts
+from hope_dedup_engine.apps.biographic import schemas
 
 FUZZINESS = "AUTO:3,6"
 
@@ -35,7 +35,7 @@ SCALAR_BOOSTS = {
 
 
 def build_query(
-    payload: contracts.BiographicPayload,
+    payload: schemas.BiographicPayload,
     *,
     min_score: float,
     dataset_id: int,
@@ -65,7 +65,7 @@ def build_query(
     }
 
 
-def queries_for_names(payload: contracts.BiographicPayload) -> list[dict[str, Any]]:
+def queries_for_names(payload: schemas.BiographicPayload) -> list[dict[str, Any]]:
     """Build the name clause.
 
     Three branches:
@@ -153,7 +153,7 @@ def complex_query_for_name(name: str, field_name: str) -> dict[str, Any]:
     }
 
 
-def scalar_queries(payload: contracts.BiographicPayload) -> list[dict[str, Any]]:
+def scalar_queries(payload: schemas.BiographicPayload) -> list[dict[str, Any]]:
     """Match the single-value fields, each at HOPE's boost. Null and empty are skipped."""
     queries: list[dict[str, Any]] = []
     for field_name, boost in SCALAR_BOOSTS.items():

@@ -1,6 +1,6 @@
 import pytest
 
-from hope_dedup_engine.apps.biographic import contracts
+from hope_dedup_engine.apps.biographic import schemas
 from hope_dedup_engine.apps.biographic.search import client, index
 
 from testutils.biographic import make_payload
@@ -8,7 +8,7 @@ from testutils.biographic import make_payload
 
 def test_scoreable_mapping_matches_the_contract():
     """The serializer validates against PAYLOAD_FIELDS; the mapping may not drift from it."""
-    assert index.scoreable_fields() == set(contracts.PAYLOAD_FIELDS)
+    assert index.scoreable_fields() == set(schemas.PAYLOAD_FIELDS)
 
 
 def test_index_name_carries_business_area_and_program(es_settings):
@@ -51,7 +51,7 @@ def test_document_carries_metadata_and_payload(es_settings):
     assert document["program_code"] == "ab12"
     assert document["status"] == "pending"
     assert document["given_name"] == "Test"
-    assert set(document) == set(contracts.PAYLOAD_FIELDS) | index.METADATA_FIELDS
+    assert set(document) == set(schemas.PAYLOAD_FIELDS) | index.METADATA_FIELDS
 
 
 def test_document_id_pairs_dataset_and_reference():
