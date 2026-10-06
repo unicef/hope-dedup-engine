@@ -17,7 +17,7 @@ from typing import Any
 
 from django.conf import settings
 
-from hope_dedup_engine.apps.biographic import contracts
+from hope_dedup_engine.apps.biographic import schemas
 
 # HOPE replaces Elasticsearch's default BM25 relevance with this script, as an
 # index-level default. A matching text field then scores roughly
@@ -31,7 +31,7 @@ PHONETIC_PLUGIN = "analysis-phonetic"
 BUNDLED_SYNONYMS_FILE = Path(__file__).parent / "synonyms.txt"
 
 # Written by the library, not supplied by the caller, so they are not part of
-# `contracts.PAYLOAD_FIELDS`.
+# `schemas.PAYLOAD_FIELDS`.
 METADATA_FIELDS = frozenset(
     {
         "reference_pk",
@@ -138,7 +138,7 @@ def index_mapping() -> dict[str, Any]:
 
 
 def scoreable_fields() -> set[str]:
-    """Return the properties a caller supplies, which must equal `contracts.PAYLOAD_FIELDS`."""
+    """Return the properties a caller supplies, which must equal `schemas.PAYLOAD_FIELDS`."""
     return set(index_mapping()["properties"]) - set(METADATA_FIELDS)
 
 
@@ -147,7 +147,7 @@ def document_id(dataset_id: int, reference_pk: str) -> str:
 
 
 def to_document(
-    payload: contracts.BiographicPayload,
+    payload: schemas.BiographicPayload,
     business_area: str,
     program_code: str,
     dataset_id: int,
@@ -160,6 +160,6 @@ def to_document(
         "program_code": program_code,
         "status": status,
     }
-    for field in contracts.PAYLOAD_FIELDS:
+    for field in schemas.PAYLOAD_FIELDS:
         document[field] = getattr(payload, field)
     return document
