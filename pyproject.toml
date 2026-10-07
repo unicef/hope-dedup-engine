@@ -46,6 +46,7 @@ dependencies = [
   "dlib",
   "drf-nested-routers",
   "drf-spectacular[sidecar]",
+  "elasticsearch>=9.4.1,<10",
   "flower",
   "hope-api-auth>=0.3",
   "mediapipe",

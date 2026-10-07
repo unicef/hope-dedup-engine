@@ -61,10 +61,25 @@ jobs:
       CACHE_URL: redis://localhost:6379/2
       IMAGES_ROOT: /tmp/hde
       DOCKER_BUILDKIT: 1
+      ELASTICSEARCH_HOST: http://localhost:9200
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      # Not a `services:` block: that cannot override the container command, and
+      # the command is how the analysis-phonetic plugin gets installed. Started
+      # early so it boots while the Python toolchain installs.
+      - name: Start Elasticsearch
+        run: |
+          docker run -d --name elasticsearch -p 9200:9200 \
+            -e discovery.type=single-node \
+            -e xpack.security.enabled=false \
+            -e xpack.security.http.ssl.enabled=false \
+            -e cluster.routing.allocation.disk.threshold_enabled=false \
+            -e ES_JAVA_OPTS="-Xms1g -Xmx1g" \
+            docker.elastic.co/elasticsearch/elasticsearch:9.5.4 \
+            bash -c "bin/elasticsearch-plugin install analysis-phonetic --batch --silent && exec /usr/local/bin/docker-entrypoint.sh eswrapper"
 
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
@@ -83,6 +98,19 @@ jobs:
 
       - name: Setup test suite
         run: tox run -vv --notest --skip-missing-interpreters false -e tests
+
+      - name: Wait for Elasticsearch
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fs http://localhost:9200/_cluster/health > /dev/null; then
+              curl -fs http://localhost:9200/_cat/plugins?format=json
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Elasticsearch did not become healthy in time" >&2
+          docker logs elasticsearch
+          exit 1
 
       - name: Run test suite tests
         run: tox -e tests
