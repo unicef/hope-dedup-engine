@@ -6,6 +6,7 @@ from typing import Any
 from django.utils.html import format_html, format_html_join
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
+from hope_dedup_engine.apps.api.utils.notification import RESULT_SENT
 from hope_dedup_engine.apps.faces.services.quality import get_active_thresholds
 
 EMPTY = "-"
@@ -19,11 +20,20 @@ def pretty_json(value: Any) -> str:
     return format_html('<pre class="hde-json">{}</pre>', text)
 
 
+def _undelivered_notifications(entry: dict[str, Any]) -> int:
+    notifications = entry.get("notifications")
+    if not isinstance(notifications, list):
+        return 0
+    return sum(1 for item in notifications if isinstance(item, dict) and item.get("result") != RESULT_SENT)
+
+
 def _log_entry_summary(entry: dict[str, Any]) -> str:
     parts = [entry.get("timestamp"), entry.get("action"), entry.get("state")]
     summary = " · ".join(str(part) for part in parts if part)
     if "error" in entry:
         summary = f"{summary} · error" if summary else "error"
+    if undelivered := _undelivered_notifications(entry):
+        summary = f"{summary} · {undelivered} notification(s) not sent" if summary else "notifications not sent"
     return summary or "entry"
 
 

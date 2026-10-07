@@ -6,6 +6,12 @@ from celery.exceptions import Ignore
 from hope_dedup_engine.apps.api.deduplication.process import find_duplicates
 from hope_dedup_engine.apps.api.models import DeduplicationSet, MainJob
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
+from hope_dedup_engine.apps.api.utils.notification import (
+    FAILED_TO_NOTIFY,
+    NOTIFICATION_DISABLED,
+    ErrorMessage,
+    WarningMessage,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -41,8 +47,46 @@ def test_find_duplicates_full_process(
     assert log_entry["findings_created"] == 5
     assert log_entry["config"] is not None
     assert "error" not in log_entry
+    assert log_entry["notifications"] == [
+        {"state": "Encoding in progress", "result": "sent"},
+        {"state": "Encoded", "result": "sent"},
+        {"state": "Deduplication in progress", "result": "sent"},
+        {"state": "Deduplicated", "result": "sent"},
+    ]
 
     assert not dedup_set.group.processing_locked
+
+
+@patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
+@patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
+@patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+def test_find_duplicates_logs_undelivered_notifications(
+    mock_send_notification,
+    mock_encode_faces,
+    mock_dedupe_all,
+    job_with_encodings,
+):
+    """A skipped or failed notification must be visible in the run log, not silently dropped."""
+    mock_send_notification.side_effect = [
+        WarningMessage(NOTIFICATION_DISABLED),
+        ErrorMessage(FAILED_TO_NOTIFY.format(error="timeout")),
+        None,
+        None,
+    ]
+    mock_encode_faces.return_value = 2
+    mock_dedupe_all.return_value = 0
+    dedup_set = job_with_encodings.deduplication_set
+
+    find_duplicates(job_with_encodings.id, job_with_encodings.version)
+
+    dedup_set.refresh_from_db()
+    assert dedup_set.state == DeduplicationSet.State.DEDUPLICATED
+    assert [n["result"] for n in dedup_set.log[0]["notifications"]] == [
+        NOTIFICATION_DISABLED,
+        FAILED_TO_NOTIFY.format(error="timeout"),
+        "sent",
+        "sent",
+    ]
 
 
 @patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
