@@ -230,7 +230,7 @@ def find_duplicate_pairs(  # noqa
     _init_progress(job, n_current)
     for start in range(0, n_current, chunk_size):
         _check_cancelled(job)
-        chunk_emb = all_emb[start : start + chunk_size]
+        chunk_emb = all_emb[start : min(start + chunk_size, n_current)]
         distances = find_distance(all_emb, chunk_emb, distance_metric)
 
         rows, cols = np.where(distances <= distance_threshold)
