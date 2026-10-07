@@ -296,6 +296,23 @@ def mock_dedup_config():
     return config
 
 
+@pytest.fixture
+def current_and_approved_encodings(deduplication_set_group_factory, deduplication_set_factory, encoding_factory):
+    """One current encoding plus an approved set holding a near and a far match, same group.
+
+    Returns (current, approved_near, approved_far).
+    """
+    group = deduplication_set_group_factory()
+    approved_ds = deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
+    approved_near = encoding_factory(deduplication_set=approved_ds, filename="near.jpg", embedding=[0.1] * 512)
+    approved_far = encoding_factory(deduplication_set=approved_ds, filename="far.jpg", embedding=[0.9] * 512)
+
+    current_ds = deduplication_set_factory(group=group)
+    current = encoding_factory(deduplication_set=current_ds, filename="current.jpg", embedding=[0.11] * 512)
+
+    return current, approved_near, approved_far
+
+
 @pytest.mark.django_db
 def test_dedupe_all_no_encodings(deduplication_set_factory, mock_deepface_verification, mock_dedup_config):
     """Test dedupe_all returns 0 when no encodings exist."""
@@ -460,6 +477,56 @@ def test_dedupe_all_with_inactive_set_encodings(
     assert finding.first_encoding_id == current_enc.id
     assert finding.second_encoding_id == approved_enc.id
     assert finding.score == 0.85
+
+
+@pytest.mark.django_db
+def test_dedupe_all_does_not_pair_approved_encoding_with_itself(
+    current_and_approved_encodings, mock_deepface_verification, mock_dedup_config
+):
+    """Encodings of approved sets must never appear as the first side of a finding.
+
+    `all_emb` holds the current encodings followed by the approved ones, so a chunk
+    that is not clamped to `n_current` spills into the approved rows and pairs each
+    of them with itself at distance 0.
+    """
+    current, approved_near, _ = current_and_approved_encodings
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+    mock_find_confidence.return_value = 85.0
+    # Distances computed from the arguments, so an oversized chunk changes the result.
+    mock_find_distance.side_effect = lambda all_emb, chunk_emb, _metric: np.linalg.norm(
+        chunk_emb[:, None, :] - all_emb[None, :, :], axis=2
+    )
+
+    count = dedupe_all(current.deduplication_set, mock_dedup_config)
+
+    assert count == 1
+    findings = list(current.deduplication_set.finding_set.all())
+    assert [(f.first_encoding_id, f.second_encoding_id) for f in findings] == [(current.id, approved_near.id)]
+
+
+@pytest.mark.django_db
+def test_find_duplicate_pairs_chunks_only_current_encodings(mock_deepface_verification, mock_dedup_config):
+    """Each chunk must cover current encodings only, never the trailing approved ones."""
+    mock_find_distance, mock_find_threshold, mock_find_confidence = mock_deepface_verification
+    mock_find_threshold.return_value = 0.68
+
+    chunk_rows = []
+
+    def no_matches(all_emb, chunk_emb, _metric):
+        chunk_rows.append(chunk_emb.shape[0])
+        return np.full((chunk_emb.shape[0], all_emb.shape[0]), 1.0)
+
+    mock_find_distance.side_effect = no_matches
+
+    all_emb = np.array([[i / 10] * 512 for i in range(5)], dtype=np.float32)
+
+    duplicates = find_duplicate_pairs(
+        all_emb, [1, 2, 3, 4, 5], ["f.jpg"] * 5, n_current=3, config=mock_dedup_config, chunk_size=2
+    )
+
+    assert chunk_rows == [2, 1]
+    assert duplicates == []
 
 
 @pytest.mark.django_db
