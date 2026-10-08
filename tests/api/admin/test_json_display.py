@@ -70,6 +70,37 @@ def test_format_log_collapsible_newest_first() -> None:
     assert "encode" not in first_details
 
 
+def test_format_log_flags_undelivered_notifications() -> None:
+    html = format_log(
+        [
+            {
+                "timestamp": "2026-01-01T00:00:00",
+                "action": "deduplicate",
+                "state": "Deduplicated",
+                "notifications": [
+                    {"state": "Encoded", "result": "sent"},
+                    {"state": "Deduplicated", "result": "Notification disabled."},
+                ],
+            }
+        ]
+    )
+    assert "Deduplicated · 1 notification(s) not sent" in html
+
+
+def test_format_log_without_undelivered_notifications_is_unflagged() -> None:
+    html = format_log(
+        [
+            {
+                "timestamp": "2026-01-01T00:00:00",
+                "action": "deduplicate",
+                "state": "Deduplicated",
+                "notifications": [{"state": "Deduplicated", "result": "sent"}],
+            }
+        ]
+    )
+    assert "not sent" not in html
+
+
 def test_format_quality_scores_empty() -> None:
     assert format_quality_scores(None) == "N/A"
     assert format_quality_scores({}) == "N/A"

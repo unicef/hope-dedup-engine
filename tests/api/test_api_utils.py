@@ -3,11 +3,14 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockFixture
 from requests import RequestException
-from constance.test import override_config
 
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.utils.notification import (
+    REQUEST_RETRIES,
     REQUEST_TIMEOUT,
+    RETRY_BACKOFF_FACTOR,
+    RETRY_STATUSES,
+    notification_session,
     send_notification,
     WarningMessage,
     ErrorMessage,
@@ -20,7 +23,7 @@ from hope_dedup_engine.apps.api.utils.progress import callback_filter
 
 @pytest.fixture
 def requests_get(mocker: MockFixture) -> MagicMock:
-    return mocker.patch("hope_dedup_engine.apps.api.utils.notification.requests.get")
+    return mocker.patch("hope_dedup_engine.apps.api.utils.notification.requests.Session.get")
 
 
 @pytest.fixture
@@ -56,20 +59,38 @@ def test_send_notification(
     deduplication_set_mock.notification_url = url
     deduplication_set_mock.notify = notify
 
-    token = "very-secret-token"
-    with override_config(HOPE_API_TOKEN=token):
-        notification_result = send_notification(deduplication_set_mock, force=force)
+    notification_result = send_notification(deduplication_set_mock, force=force)
 
     assert notification_result == expected_notification_result
 
     if http_request_sent:
-        requests_get.assert_called_once_with(
-            url,
-            headers={"Authorization": f"Token {token}"},
-            timeout=REQUEST_TIMEOUT,
-        )
+        requests_get.assert_called_once_with(url, timeout=REQUEST_TIMEOUT)
     else:
         requests_get.assert_not_called()
+
+
+def test_send_notification_sends_no_credentials(
+    requests_get: MagicMock, deduplication_set_mock: DeduplicationSet
+) -> None:
+    """The notification url is caller-supplied, so no headers may be attached to it."""
+    deduplication_set_mock.notification_url = "https://example.com"
+    deduplication_set_mock.notify = True
+
+    send_notification(deduplication_set_mock)
+
+    assert "headers" not in requests_get.call_args.kwargs
+
+
+@pytest.mark.parametrize("scheme", ["http", "https"])
+def test_notification_session_retries_transient_failures(scheme: str) -> None:
+    """Transient failures are retried; permanent ones (other 4xx) are not."""
+    retries = notification_session().get_adapter(f"{scheme}://example.com").max_retries
+
+    assert retries.total == REQUEST_RETRIES
+    assert retries.backoff_factor == RETRY_BACKOFF_FACTOR
+    assert retries.status_forcelist == RETRY_STATUSES
+    assert retries.allowed_methods == frozenset({"GET"})
+    assert 404 not in retries.status_forcelist
 
 
 def test_exception_is_sent_to_sentry(
@@ -77,8 +98,7 @@ def test_exception_is_sent_to_sentry(
 ) -> None:
     exception = RequestException("Error")
     requests_get.side_effect = exception
-    with override_config(HOPE_API_TOKEN="any-token"):
-        assert send_notification(deduplication_set_mock) == ErrorMessage(FAILED_TO_NOTIFY.format(error=exception))
+    assert send_notification(deduplication_set_mock) == ErrorMessage(FAILED_TO_NOTIFY.format(error=exception))
     sentry_sdk_capture_exception.assert_called_once_with(exception)
 
 

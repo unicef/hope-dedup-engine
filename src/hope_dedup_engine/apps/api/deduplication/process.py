@@ -11,7 +11,12 @@ from celery.exceptions import Ignore
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
 from hope_dedup_engine.apps.api.models import MainJob, DeduplicationSet
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
-from hope_dedup_engine.apps.api.utils.notification import send_notification
+from hope_dedup_engine.apps.api.utils.notification import (
+    RESULT_SENT,
+    ErrorMessage,
+    WarningMessage,
+    send_notification,
+)
 from hope_dedup_engine.apps.faces.services.facial import dedupe_all, encode_faces
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,7 @@ def _append_log(  # noqa
     job: MainJob,
     encodings_count: int = 0,
     findings_count: int = 0,
+    notifications: list[dict[str, str]] | None = None,
     error: Exception | None = None,
 ) -> None:
     entry: dict[str, Any] = {
@@ -37,12 +43,33 @@ def _append_log(  # noqa
         "config": config.as_dict() if config else None,
         "encodings_processed": encodings_count,
         "findings_created": findings_count,
+        "notifications": notifications or [],
     }
     if error:
         entry["error"] = "".join(traceback.format_exception(error))
 
     ds.log.append(entry)
     ds.save(update_fields=["log"])
+
+
+def _notify(ds: DeduplicationSet, outcomes: list[dict[str, str]]) -> None:
+    """Notify HOPE about the current state and record whether it went through.
+
+    `send_notification` reports a skip (no url, notifications disabled) or a delivery
+    failure through its return value, which would otherwise be lost.
+    """
+    result = send_notification(ds)
+    if isinstance(result, ErrorMessage):
+        logger.error("Notification failed for deduplication set %s: %s", ds.pk, result)
+    elif isinstance(result, WarningMessage):
+        logger.warning("Notification skipped for deduplication set %s: %s", ds.pk, result)
+
+    outcomes.append(
+        {
+            "state": ds.get_state_display(),
+            "result": result if isinstance(result, str) else RESULT_SENT,
+        }
+    )
 
 
 def _apply_cancelled_state(ds: DeduplicationSet, error: Exception) -> None:
@@ -87,9 +114,10 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
     config = None
     encodings_count = 0
     findings_count = 0
+    notifications: list[dict[str, str]] = []
     try:
         main_job.ensure_not_cancelled()
-        send_notification(deduplication_set)
+        _notify(deduplication_set, notifications)
         config = DeduplicationSetConfig.from_deduplication_set(deduplication_set)
 
         encoding_ids = list(deduplication_set.encodings_without_embeddings().values_list("id", flat=True))
@@ -99,18 +127,18 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
 
         main_job.ensure_not_cancelled()
         deduplication_set.set_state(DeduplicationSet.State.ENCODED)
-        send_notification(deduplication_set)
+        _notify(deduplication_set, notifications)
 
         if not main_job.encode_only:
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATION_IN_PROGRESS)
-            send_notification(deduplication_set)
+            _notify(deduplication_set, notifications)
 
             findings_count = dedupe_all(deduplication_set, config, job=main_job)
 
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATED)
-            send_notification(deduplication_set)
+            _notify(deduplication_set, notifications)
 
-        _append_log(deduplication_set, config, main_job, encodings_count, findings_count)
+        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, notifications)
 
         return {
             "deduplication_set": str(deduplication_set),
@@ -122,8 +150,8 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
         if e.processed is not None:
             encodings_count = e.processed
         _apply_cancelled_state(deduplication_set, e)
-        send_notification(deduplication_set)
-        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, error=e)
+        _notify(deduplication_set, notifications)
+        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, notifications, error=e)
         _revoke_cancelled_task(self, main_job, e)
         raise Ignore from e
     except Exception as e:
@@ -131,8 +159,8 @@ def find_duplicates(self, dedup_job_id: int, version: int) -> dict[str, Any]:
             deduplication_set.set_state(DeduplicationSet.State.DEDUPLICATION_FAILED, e)
         else:
             deduplication_set.set_state(DeduplicationSet.State.ENCODING_FAILED, e)
-        send_notification(deduplication_set)
-        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, error=e)
+        _notify(deduplication_set, notifications)
+        _append_log(deduplication_set, config, main_job, encodings_count, findings_count, notifications, error=e)
         sentry_sdk.capture_exception(e)
         raise
     finally:
