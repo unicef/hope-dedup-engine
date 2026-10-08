@@ -11,7 +11,7 @@ DEDUPLICATION_SET_READY_VIEW = "deduplication_sets-ready"
 
 GROUP_CONFIG_VIEW = "deduplication_set_groups-config"
 GROUP_STATUS_VIEW = "deduplication_set_groups-status"
-FINDINGS_VIEW = "findings-list"
+FINDINGS_VIEW = "biometric_findings-list"
 
 BULK_IMAGE_LIST_VIEW = "images-list"
 BULK_IMAGE_CLEAR_VIEW = "images-clear"

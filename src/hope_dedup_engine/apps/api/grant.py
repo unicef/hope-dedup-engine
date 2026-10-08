@@ -9,6 +9,7 @@ class Grant(Enum):
 
     API_READ_ONLY = auto()
     API_DEDUP = auto()
+    API_BIOGRAPHIC = auto()
 
     @classmethod
     def choices(cls) -> tuple[tuple[str, str], ...]:

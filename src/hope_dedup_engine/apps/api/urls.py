@@ -22,7 +22,7 @@ images_router = routers.SimpleRouter()
 images_router.register("images", BulkEncodingViewSet, basename="images")
 
 findings_router = routers.SimpleRouter()
-findings_router.register("findings", FindingsViewSet, basename="findings")
+findings_router.register("biometric_findings", FindingsViewSet, basename="biometric_findings")
 
 urlpatterns = [
     path("", include(router.urls)),
