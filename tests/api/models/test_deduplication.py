@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 
 from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
@@ -107,6 +110,18 @@ def test_deduplicationset_set_state_force_bypasses_validation(deduplication_set_
     ds.refresh_from_db()
     assert ds.state == to_state
     assert ds.error is None
+
+
+def test_set_state_refreshes_updated_at(deduplication_set_factory) -> None:
+    deduplication_set = deduplication_set_factory(state=DeduplicationSet.State.DEDUPLICATED)
+    previous_updated_at = timezone.now() - timedelta(days=90)
+    DeduplicationSet.objects.filter(pk=deduplication_set.pk).update(updated_at=previous_updated_at)
+    deduplication_set.refresh_from_db()
+
+    deduplication_set.set_state(DeduplicationSet.State.APPROVED)
+
+    deduplication_set.refresh_from_db()
+    assert deduplication_set.updated_at > previous_updated_at
 
 
 def test_encoding_error_groups_are_non_overlapping():
