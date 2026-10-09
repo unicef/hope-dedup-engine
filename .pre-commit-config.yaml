@@ -15,6 +15,10 @@ repos:
     rev: v1.141.0
     hooks:
       - id: semgrep
+        # pydantic 2.14 removed eval_type_backport, which mcp 1.16 (required by
+        # semgrep 1.141) still imports. A fresh install otherwise fails to start.
+        additional_dependencies:
+          - "pydantic>=2.11,<2.14"
         exclude: '(\.semgrep/|docs/)'
         exclude_types:
           - yaml

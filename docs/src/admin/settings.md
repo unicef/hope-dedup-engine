@@ -30,6 +30,7 @@ These values are managed with [django-constance](https://django-constance.readth
 |-----|-------------|
 | `NEW_USER_IS_STAFF` | Whether newly created users (e.g. via SSO) get staff status. |
 | `NEW_USER_DEFAULT_GROUP` | Permission group automatically assigned to new users. |
+| `CLEANUP_RETENTION_DAYS` | How many days to keep findings HOPE already has, and rejected deduplication sets (with their findings and encodings). Default `60` (about two months). Approved-set encodings are never removed by this cleanup. |
 
 ## Per-group settings
 
