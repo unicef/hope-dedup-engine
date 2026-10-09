@@ -105,7 +105,7 @@ def stored_payload(payload: Any) -> dict[str, Any]:
         raise ValidationError(_PAYLOAD_OBJECT_MESSAGE)
     unknown = sorted(set(payload) - set(PAYLOAD_FIELDS))
     if unknown:
-        raise ValidationError({key: _UNKNOWN_FIELD_MESSAGE for key in unknown})
+        raise ValidationError(dict.fromkeys(unknown, _UNKNOWN_FIELD_MESSAGE))
     cleaned: dict[str, Any] = {}
     errors: dict[str, Any] = {}
     for name in payload:
