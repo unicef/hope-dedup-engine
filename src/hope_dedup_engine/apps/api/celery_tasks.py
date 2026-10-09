@@ -39,7 +39,7 @@ def cleanup_redundant_data(retention_days: int | None = None) -> dict[str, int]:
     kept, because later runs in the same group compare new images against them.
 
     Rejected sets are removed together with their findings and encodings. Image
-    files are removed by the encoding post_delete signal.
+    files are removed by the encoding post_delete signal after the transaction commits.
 
     Age comes from the deduplication set ``updated_at``, which changes when the
     set is approved or rejected. Anything updated more recently than

@@ -65,6 +65,7 @@ def test_deletes_old_rejected_sets_with_findings_encodings_and_files(
     deduplication_set_factory,
     deduplication_set_group_factory,
     main_job_factory,
+    django_capture_on_commit_callbacks,
 ) -> None:
     deduplication_set = deduplication_set_factory(
         group=deduplication_set_group_factory(),
@@ -86,7 +87,9 @@ def test_deletes_old_rejected_sets_with_findings_encodings_and_files(
     job = main_job_factory(deduplication_set=deduplication_set)
     _backdate(deduplication_set, days=90)
 
-    result = cleanup_redundant_data(retention_days=60)
+    with django_capture_on_commit_callbacks(execute=True):
+        result = cleanup_redundant_data(retention_days=60)
+        assert storage.exists(storage_path)
 
     assert result == {
         "findings_sent_to_hope": 0,
