@@ -41,7 +41,9 @@ def findings_url(deduplication_set_pk: str) -> str:
     indirect=True,
 )
 def test_can_list_duplicates(api_client: APIClient, deduplicated_set: DeduplicationSet, finding: Finding) -> None:
-    response = api_client.get(findings_url(deduplicated_set.pk))
+    url = findings_url(deduplicated_set.pk)
+    assert "/biometric_findings/" in url
+    response = api_client.get(url)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data.get("results")) == 1

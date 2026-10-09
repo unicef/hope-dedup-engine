@@ -44,6 +44,7 @@ INSTALLED_APPS = (
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
+    "hope_dedup_engine.apps.biographic",
     "hope_dedup_engine.apps.faces",
     "storages",
     "smart_env",
