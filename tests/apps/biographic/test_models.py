@@ -22,7 +22,13 @@ from hope_dedup_engine.apps.biographic.models import (
     BiographicRecord,
     BiographicSet,
 )
-from testutils.factories.biographic import BiographicGroupFactory, BiographicRecordFactory, BiographicSetFactory
+from hope_dedup_engine.apps.biographic.serializers import field_errors, message_from_detail
+from testutils.factories.biographic import (
+    BiographicFindingFactory,
+    BiographicGroupFactory,
+    BiographicRecordFactory,
+    BiographicSetFactory,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -216,6 +222,34 @@ def test_same_reference_pk_is_allowed_in_another_dataset() -> None:
     BiographicRecordFactory(reference_pk="cw-1")
     BiographicRecordFactory(reference_pk="cw-1")
     assert BiographicRecord.objects.filter(reference_pk="cw-1").count() == 2
+
+
+def test_validation_messages_flatten_empty_details() -> None:
+    assert message_from_detail([]) == "Invalid value."
+    assert message_from_detail({}) == "Invalid value."
+    assert message_from_detail([["nested"]]) == "nested"
+    assert field_errors(2, "bad payload") == [{"index": 2, "field": "payload", "message": "bad payload"}]
+
+
+def test_active_states_occupy_the_in_flight_slot() -> None:
+    assert BiographicSet.active_states() == (
+        BiographicSet.State.DEDUPLICATING.value,
+        BiographicSet.State.DEDUPLICATED.value,
+    )
+
+
+def test_string_forms_include_a_named_group_and_a_finding() -> None:
+    group = BiographicGroupFactory(name="Afghanistan program", business_area="afghanistan", program_id="prog")
+    unnamed = BiographicGroupFactory(name=None, business_area="ukraine", program_id="prog")
+    dataset = BiographicSetFactory(group=group)
+    record = BiographicRecordFactory(dataset=dataset, reference_pk="cw-1")
+    finding = BiographicFindingFactory(record=record, matched_reference_pk="cw-2")
+
+    assert str(group) == "Afghanistan program"
+    assert str(unnamed) == "ukraine:prog"
+    assert str(dataset) == f"Biographic set {dataset.pk} (pending)"
+    assert str(record) == "cw-1"
+    assert str(finding) == "cw-1 -> cw-2"
 
 
 def test_group_does_not_copy_business_area_onto_the_set() -> None:

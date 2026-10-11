@@ -8,6 +8,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.grant import Grant
+from hope_dedup_engine.apps.api.models.deduplication import REFERENCE_PK_LENGTH
 from hope_dedup_engine.apps.biographic.contracts import (
     BIRTH_DATE_FIELD,
     FULL_NAME_FIELD,
@@ -159,6 +160,46 @@ def test_oversized_program_id_is_400(biographic_client: APIClient) -> None:
     assert BiographicGroup.objects.count() == 0
 
 
+def test_oversized_business_area_is_400(biographic_client: APIClient) -> None:
+    response = biographic_client.post(datasets_url(business_area="a" * 101), {"records": [person()]}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert BiographicGroup.objects.count() == 0
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        [],
+        {},
+        {"records": {}},
+        {"records": []},
+        {"records": ["not-an-object"]},
+        {"records": [person(reference_pk="")]},
+        {"records": [person(reference_pk=12)]},
+        {"records": [{key: value for key, value in person().items() if key != "reference_pk"}]},
+        {"records": [person(reference_pk="x" * (REFERENCE_PK_LENGTH + 1))]},
+        {"records": [person(identities=[None])]},
+    ],
+)
+def test_create_rejects_malformed_bodies(biographic_client: APIClient, queued_tasks, body: object) -> None:
+    response = biographic_client.post(datasets_url(), body, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["errors"]
+    assert BiographicSet.objects.count() == 0
+    queued_tasks.assert_not_called()
+
+
+def test_create_database_duplicate_reference_pk_is_400(biographic_client: APIClient, queued_tasks, mocker) -> None:
+    mocker.patch(
+        "hope_dedup_engine.apps.biographic.views.service.create_dataset",
+        side_effect=IntegrityError,
+    )
+    response = biographic_client.post(datasets_url(), {"records": [person()]}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["errors"][0]["message"] == "Duplicate reference_pk."
+    queued_tasks.assert_not_called()
+
+
 def test_process_queues_task_and_second_call_in_the_same_group_is_409(
     biographic_client: APIClient,
     queued_tasks,
@@ -249,6 +290,66 @@ def test_process_rejects_unknown_config_without_locking(biographic_client: APICl
     assert BiographicGroup.objects.get().processing_locked is False
 
 
+def test_process_is_409_when_the_dataset_is_not_pending(biographic_client: APIClient, queued_tasks) -> None:
+    dataset = BiographicSetFactory(
+        group=BiographicGroupFactory(business_area="afghanistan", program_id="prog-1"),
+        state=BiographicSet.State.DEDUPLICATING,
+    )
+    response = biographic_client.post(action_url("biographic-dataset-process", dataset.pk))
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "deduplicating" in response.json()["detail"]
+    queued_tasks.assert_not_called()
+
+
+def test_process_rejects_a_non_object_config(biographic_client: APIClient, queued_tasks) -> None:
+    created = biographic_client.post(datasets_url(), {"records": [person()]}, format="json")
+    queued_tasks.reset_mock()
+    response = biographic_client.post(
+        action_url("biographic-dataset-process", created.json()["dataset_id"]),
+        {"config": ["max_hits"]},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Config must be an object."
+    queued_tasks.assert_not_called()
+    assert BiographicGroup.objects.get().processing_locked is False
+
+
+def test_process_accepts_a_non_object_body(biographic_client: APIClient, queued_tasks) -> None:
+    created = biographic_client.post(datasets_url(), {"records": [person()]}, format="json")
+    dataset_id = created.json()["dataset_id"]
+    queued_tasks.reset_mock()
+    response = biographic_client.post(action_url("biographic-dataset-process", dataset_id), [], format="json")
+    assert response.status_code == status.HTTP_200_OK
+    queued_tasks.assert_called_once_with(PROCESS_TASK, args=[dataset_id], kwargs={})
+
+
+def test_dataset_routes_reject_an_oversized_business_area(biographic_client: APIClient) -> None:
+    dataset = BiographicSetFactory(
+        group=BiographicGroupFactory(business_area="afghanistan", program_id="prog-1"),
+        state=BiographicSet.State.DEDUPLICATED,
+    )
+    business_area = "a" * 101
+    assert (
+        biographic_client.post(
+            action_url("biographic-dataset-process", dataset.pk, business_area=business_area),
+        ).status_code
+        == status.HTTP_400_BAD_REQUEST
+    )
+    assert (
+        biographic_client.get(
+            action_url("biographic-dataset-findings", dataset.pk, business_area=business_area),
+        ).status_code
+        == status.HTTP_400_BAD_REQUEST
+    )
+    assert (
+        biographic_client.post(
+            action_url("biographic-dataset-approve", dataset.pk, business_area=business_area),
+        ).status_code
+        == status.HTTP_400_BAD_REQUEST
+    )
+
+
 def test_process_wrong_program_is_404(biographic_client: APIClient, queued_tasks) -> None:
     created = biographic_client.post(datasets_url(program_id="one"), {"records": [person()]}, format="json")
     response = biographic_client.post(
@@ -304,9 +405,13 @@ def test_findings_filter_by_status_code_and_updated_at(biographic_client: APICli
 
     by_status = biographic_client.get(url, {"status_code": "duplicate"})
     by_after = biographic_client.get(url, {"updated_after": cutoff})
+    by_before = biographic_client.get(url, {"updated_before": cutoff})
+    blank_after = biographic_client.get(url, {"updated_after": ""})
 
     assert {row["second"]["reference_pk"] for row in by_status.json()["results"]} == {"cw-456", "cw-789"}
     assert [row["second"]["reference_pk"] for row in by_after.json()["results"]] == ["cw-456"]
+    assert [row["second"]["reference_pk"] for row in by_before.json()["results"]] == ["cw-789"]
+    assert {row["second"]["reference_pk"] for row in blank_after.json()["results"]} == {"cw-456", "cw-789"}
 
 
 @pytest.mark.parametrize(
