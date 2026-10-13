@@ -1389,7 +1389,6 @@ wheels = [
 
 [[package]]
 name = "hope-dedup-engine"
-version = "1.15.0"
 source = { editable = "." }
 dependencies = [
     { name = "celery", extra = ["redis"] },
