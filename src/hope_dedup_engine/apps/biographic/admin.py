@@ -1,4 +1,4 @@
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 
 from admin_extra_buttons.api import button
 from admin_extra_buttons.mixins import confirm_action
@@ -15,6 +15,8 @@ from django_celery_boost.admin import CeleryTaskModelAdmin
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.json_display import format_log, pretty_json
 from hope_dedup_engine.apps.api.utils.notification import ErrorMessage, WarningMessage, send_notification
+from hope_dedup_engine.apps.biographic.config import BiographicConfig
+from hope_dedup_engine.apps.biographic.forms import BiographicGroupSettingsForm
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
     BiographicGroup,
@@ -23,6 +25,9 @@ from hope_dedup_engine.apps.biographic.models import (
     BiographicSet,
 )
 from hope_dedup_engine.apps.core.permissions import can
+
+if TYPE_CHECKING:
+    from django import forms
 
 NOTIFICATION_SENT = _("Notification sent.")
 CONFIRM_RELEASE_LOCK = _(
@@ -50,16 +55,28 @@ class ReadOnlyAdmin(BaseModelAdmin):
 
 
 @register(BiographicGroup)
-class BiographicGroupAdmin(ReadOnlyAdmin):
+class BiographicGroupAdmin(BaseModelAdmin):
+    """A program's thresholds are edited here; the rest is read-only, as biometric does."""
+
+    form = BiographicGroupSettingsForm
     list_display = ("business_area", "program_code", "processing_locked", "deleted")
     search_fields = ("business_area", "program_code")
     list_filter = ("processing_locked", "deleted", DjangoLookupFilter)
-    readonly_fields = ("business_area", "program_code", "processing_locked", "deleted", "formatted_settings")
-    exclude = ("settings",)
+    readonly_fields = ("business_area", "program_code", "processing_locked", "deleted")
+    fieldsets = (
+        (None, {"fields": readonly_fields}),
+        ("Deduplication settings", {"fields": tuple(f.name for f in BiographicConfig.setting_fields())}),
+    )
 
-    @display(description="Settings")
-    def formatted_settings(self, obj: BiographicGroup) -> str:
-        return pretty_json(obj.settings)
+    def get_form(
+        self, request: HttpRequest, obj: BiographicGroup | None = None, change: bool = False, **kwargs: Any
+    ) -> "type[forms.ModelForm[BiographicGroup]]":
+        # The threshold fields are not model fields, so the default factory would
+        # reject them; the form builds them itself.
+        return BiographicGroupSettingsForm
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
 
 
 @register(BiographicSet)

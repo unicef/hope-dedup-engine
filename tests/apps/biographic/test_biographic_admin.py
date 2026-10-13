@@ -54,6 +54,21 @@ def test_a_stuck_set_can_be_marked_failed_and_then_retried(app, state):
     assert State.INDEXING in BiographicSet.VALID_TRANSITIONS[dataset.state]
 
 
+def test_group_admin_edits_the_programs_thresholds(app):
+    group = BiographicGroupFactory(settings={"duplicate_score": 6.0, "max_hits": 100})
+    page = app.get(reverse("admin:biographic_biographicgroup_change", args=[group.pk]))
+    form = page.forms[1]
+    assert form["duplicate_score"].value == "6.0"
+    assert "business_area" not in form.fields
+
+    form["duplicate_score"] = "8.5"
+    form["max_hits"] = "40"
+    form.submit().follow()
+
+    group.refresh_from_db()
+    assert group.settings == {"duplicate_score": 8.5, "max_hits": 40}
+
+
 def test_set_admin_renders_the_run_log(app):
     dataset = BiographicSetFactory(
         state=State.DEDUPLICATED,
