@@ -41,6 +41,8 @@ GLOBAL_EXCLUDED_MODELS = RegexList(
 GLOBAL_EXCLUDED_BUTTONS = RegexList(
     [
         r"social.SocialProviderAdmin:test",
+        # Reads the queue through a Redis-only channel API; CI's tox env falls back to an AMQP broker.
+        r"biographic.BiographicJobAdmin:celery_inspect",
     ]
 )
 
