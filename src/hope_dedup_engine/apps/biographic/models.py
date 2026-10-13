@@ -8,14 +8,18 @@ from typing import Any, Final
 
 from django.db import models, transaction
 from django.db.models import Q
+from django_celery_boost.models import CeleryTaskModel
 
 from hope_dedup_engine.apps.api.models.deduplication import MAX_ERROR_LENGTH, REFERENCE_PK_LENGTH
+from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
+from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK
 from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError
 from hope_dedup_engine.apps.biographic.schemas import PAYLOAD_VERSION
 
 BUSINESS_AREA_LENGTH: Final[int] = 100
 PROGRAM_CODE_LENGTH: Final[int] = 100
 FULL_NAME_LENGTH: Final[int] = 255
+NOTIFICATION_URL_LENGTH: Final[int] = 255
 SCOPE_LENGTH: Final[int] = 16
 STATE_LENGTH: Final[int] = 16
 
@@ -129,6 +133,16 @@ class BiographicSet(models.Model):
         help_text="Biographic set state.",
     )
     error = models.CharField(max_length=MAX_ERROR_LENGTH, null=True, blank=True, help_text="Why the last run failed.")
+    notification_url = models.CharField(
+        max_length=NOTIFICATION_URL_LENGTH, null=True, blank=True, help_text="Pinged on every state change a run makes."
+    )
+    notify = models.BooleanField(default=True, help_text="Whether to send notifications about state changes.")
+    log = models.JSONField(default=list, blank=True, help_text="Append-only audit log of processing attempts.")
+    # Set by approve, reject and cancel-from-failed; cleared when Elasticsearch has
+    # the matching status. Left set, the next run in the program reconciles it.
+    search_sync_pending = models.BooleanField(
+        default=False, help_text="Whether the set's decision still has to reach Elasticsearch."
+    )
     created_at = models.DateTimeField(auto_now_add=True, help_text="Date and time when this set was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="Date and time when this set was last updated.")
 
@@ -139,6 +153,9 @@ class BiographicSet(models.Model):
                 condition=Q(state__in=(INDEXING_STATE, INDEXED_STATE, DEDUPLICATING_STATE, DEDUPLICATED_STATE)),
                 name="unique_active_biographic_set_per_group",
             ),
+        ]
+        permissions = [
+            ("send_notification", "Can send notification"),
         ]
 
     def __str__(self) -> str:
@@ -153,18 +170,57 @@ class BiographicSet(models.Model):
         self.error = error[:MAX_ERROR_LENGTH] if error else None
         self.save(update_fields=["state", "error", "updated_at"])
 
-    def transition(self, allowed: tuple[str, ...], target: "BiographicSet.State", verb: str) -> None:
+    def transition(
+        self,
+        allowed: tuple[str, ...],
+        target: "BiographicSet.State",
+        verb: str,
+        *,
+        search_sync_pending: bool = False,
+    ) -> None:
         """Move to `target`, refusing unless the set is in one of `allowed`.
 
         The row is locked first, so two concurrent requests cannot both pass the
-        check. `verb` names the action in the error, for the client.
+        check. `verb` names the action in the error, for the client. A decision
+        passes `search_sync_pending=True` so the flag and the state commit together.
         """
         with transaction.atomic():
             locked = BiographicSet.objects.select_for_update().get(pk=self.pk)
             if locked.state not in allowed:
                 raise InvalidTransitionError(f"Cannot {verb} set in '{locked.get_state_display()}' state.")
+            if search_sync_pending:
+                locked.search_sync_pending = True
+                locked.save(update_fields=["search_sync_pending"])
             locked.set_state(target)
-        self.refresh_from_db(fields=["state", "error", "updated_at"])
+        self.refresh_from_db(fields=["state", "error", "search_sync_pending", "updated_at"])
+
+    def append_log(self, entry: dict[str, Any]) -> None:
+        self.log.append(entry)
+        self.save(update_fields=["log"])
+
+
+class BiographicJob(CeleryTaskModel):
+    """One processing run of a set, tracked by django-celery-boost.
+
+    The row is what the admin queues, watches and terminates. The set's state
+    machine, not the job, says whether a run may start.
+    """
+
+    dataset = models.ForeignKey(
+        BiographicSet, on_delete=models.CASCADE, related_name="jobs", help_text="Set this run processes."
+    )
+    config_overrides = models.JSONField(
+        default=dict, blank=True, help_text="Settings the client overrode for this run."
+    )
+
+    celery_task_name = PROCESS_DATASET_TASK
+
+    def __str__(self) -> str:
+        return f"Job {self.pk} for set {self.dataset_id}"
+
+    def ensure_not_cancelled(self) -> None:
+        if self.is_termination_requested:
+            raise GracefulJobCancellationError(f"Cancellation requested for job #{self.pk}")
 
 
 class BiographicRecordQuerySet(models.QuerySet["BiographicRecord"]):
@@ -272,8 +328,8 @@ class BiographicFinding(models.Model):
             models.Index(fields=["dataset", "-score", "-id"], name="biographic_finding_order_idx"),
         ]
         constraints = [
-            # Provisional, pending the deduplication loop: it lets a re-run upsert
-            # rather than append a second copy of every pair.
+            # A person indexed by two approved sets is two documents with one
+            # reference_pk; the run keeps the best hit per person and scope.
             models.UniqueConstraint(
                 fields=["record", "matched_reference_pk", "scope"],
                 name="unique_biographic_finding",

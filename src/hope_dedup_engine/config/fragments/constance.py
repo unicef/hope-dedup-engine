@@ -77,26 +77,6 @@ CONSTANCE_CONFIG = {
         "Biographic pairs scoring at or above this are duplicates. Also the Elasticsearch min_score. HOPE's default.",
         float,
     ),
-    "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_ALLOWED": (
-        5,
-        "Abort a biographic run when one record has more duplicates than this within its set.",
-        int,
-    ),
-    "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_PERCENTAGE": (
-        50,
-        "Abort a biographic run when at least this percentage of the set has a duplicate in the set.",
-        int,
-    ),
-    "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_ALLOWED": (
-        5,
-        "Abort a biographic run when one record has more duplicates than this in the approved population.",
-        int,
-    ),
-    "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_PERCENTAGE": (
-        50,
-        "Abort a biographic run when at least this percentage of the set has a duplicate in the population.",
-        int,
-    ),
     "DEFAULT_BIOGRAPHIC_MAX_HITS": (
         100,
         "Maximum matches Elasticsearch returns per biographic record.",
@@ -132,10 +112,6 @@ CONSTANCE_CONFIG_FIELDSETS = {
     "Biographic deduplication settings": {
         "fields": (
             "DEFAULT_BIOGRAPHIC_DUPLICATE_SCORE",
-            "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_ALLOWED",
-            "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_PERCENTAGE",
-            "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_ALLOWED",
-            "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_PERCENTAGE",
             "DEFAULT_BIOGRAPHIC_MAX_HITS",
         ),
         "collapse": False,

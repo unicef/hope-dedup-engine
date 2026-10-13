@@ -3,7 +3,8 @@ from contextlib import contextmanager
 from http import HTTPMethod
 from typing import Any
 
-from django.db.models import Count, QuerySet
+from django.db.models import Count, OuterRef, QuerySet, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
@@ -24,6 +25,7 @@ from hope_dedup_engine.apps.biographic.models import BiographicFinding, Biograph
 from hope_dedup_engine.apps.biographic.serializers import (
     MAX_RECORDS_PER_BATCH,
     BiographicPairSerializer,
+    BiographicSetCreateSerializer,
     BiographicSetSerializer,
     ProcessOverridesSerializer,
     RecordsBatchResultSerializer,
@@ -32,6 +34,22 @@ from hope_dedup_engine.apps.biographic.serializers import (
 from hope_dedup_engine.apps.biographic.services import lifecycle
 
 GROUP_DELETED = "Biographic deduplication was deleted for this program."
+
+
+def duplicates_in_scope(scope: BiographicFinding.Scope) -> Coalesce:
+    """Count the set's records with at least one finding in `scope`, as HOPE counts per individual.
+
+    A correlated subquery rather than a join: joined onto `records_count` it
+    would multiply the rows, and a set can have hundreds of thousands of findings.
+    """
+    findings = (
+        BiographicFinding.objects.filter(dataset=OuterRef("pk"), scope=scope)
+        .order_by()
+        .values("dataset")
+        .annotate(n=Count("record", distinct=True))
+        .values("n")
+    )
+    return Coalesce(Subquery(findings[:1]), 0)
 
 
 @contextmanager
@@ -75,7 +93,15 @@ class BiographicDatasetViewSet(
     lookup_value_regex = r"\d+"
 
     def get_queryset(self) -> QuerySet[BiographicSet]:
-        return self.program_sets().select_related("group").annotate(records_count=Count("records"))
+        return (
+            self.program_sets()
+            .select_related("group")
+            .annotate(
+                records_count=Count("records"),
+                batch_duplicates=duplicates_in_scope(BiographicFinding.Scope.BATCH),
+                population_duplicates=duplicates_in_scope(BiographicFinding.Scope.POPULATION),
+            )
+        )
 
     def _respond(self, dataset: BiographicSet, status_code: int = status.HTTP_200_OK) -> Response:
         return Response(self.get_serializer(self.get_queryset().get(pk=dataset.pk)).data, status=status_code)
@@ -87,13 +113,16 @@ class BiographicDatasetViewSet(
         return self._respond(dataset)
 
     @extend_schema(
-        request=EmptySerializer,
+        request=BiographicSetCreateSerializer,
         responses={status.HTTP_201_CREATED: BiographicSetSerializer},
         description="Create an empty set for this business area and program. "
         "The program is registered on first use. Creation is always allowed, even while "
-        "another set is being processed; add people with the records endpoint.",
+        "another set is being processed; add people with the records endpoint. "
+        "An optional notification_url is pinged with a GET on every state change a run makes.",
     )
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        serializer = BiographicSetCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         business_area, program_code = self.program_key()
         group, _ = BiographicGroup.objects.get_or_create(
             business_area=business_area,
@@ -102,7 +131,7 @@ class BiographicDatasetViewSet(
         )
         if group.deleted:
             raise ConflictError(GROUP_DELETED)
-        dataset = BiographicSet.objects.create(group=group)
+        dataset = BiographicSet.objects.create(group=group, **serializer.validated_data)
         return self._respond(dataset, status.HTTP_201_CREATED)
 
     @extend_schema(description="Current state of the set. Poll this after starting processing.")
@@ -138,7 +167,11 @@ class BiographicDatasetViewSet(
     def process(self, request: Request, **kwargs: Any) -> Response:
         overrides = ProcessOverridesSerializer(data=request.data)
         overrides.is_valid(raise_exception=True)
-        return self._apply(lambda dataset: lifecycle.start_processing(dataset, overrides.validated_data))
+
+        def start(dataset: BiographicSet) -> None:
+            lifecycle.start_processing(dataset, overrides.validated_data)
+
+        return self._apply(start)
 
     @extend_schema(
         request=EmptySerializer,

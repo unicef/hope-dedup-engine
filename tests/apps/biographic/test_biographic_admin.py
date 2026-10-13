@@ -1,6 +1,12 @@
 import pytest
+from django.contrib.messages import SUCCESS, WARNING, get_messages
 from django.urls import reverse
-from testutils.factories.biographic import BiographicGroupFactory, BiographicRecordFactory, BiographicSetFactory
+from testutils.factories.biographic import (
+    BiographicGroupFactory,
+    BiographicJobFactory,
+    BiographicRecordFactory,
+    BiographicSetFactory,
+)
 from testutils.factories.user import SuperUserFactory
 
 from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR
@@ -46,6 +52,41 @@ def test_a_stuck_set_can_be_marked_failed_and_then_retried(app, state):
     assert dataset.error == MARKED_FAILED_ERROR
     assert dataset.group.processing_locked is False
     assert State.INDEXING in BiographicSet.VALID_TRANSITIONS[dataset.state]
+
+
+def test_set_admin_renders_the_run_log(app):
+    dataset = BiographicSetFactory(
+        state=State.DEDUPLICATED,
+        log=[{"timestamp": "2026-10-13T10:00:00+00:00", "action": "deduplicate", "state": "Deduplicated"}],
+    )
+    page = app.get(reverse("admin:biographic_biographicset_change", args=[dataset.pk]))
+    assert "deduplicate" in page.text
+
+
+@pytest.mark.parametrize(
+    ("dataset_kwargs", "message", "level"),
+    [
+        ({"notification_url": "https://hope.example.org/cb/", "notify": False}, "Notification sent.", SUCCESS),
+        ({"notification_url": None}, "No notification URL configured.", WARNING),
+    ],
+)
+def test_send_notification_button_forces_a_ping(admin_client, mocked_responses, dataset_kwargs, message, level):
+    dataset = BiographicSetFactory(state=State.DEDUPLICATED, **dataset_kwargs)
+    if dataset.notification_url:
+        mocked_responses.add(mocked_responses.GET, dataset.notification_url, status=200)
+
+    response = admin_client.get(button_url("send_notification", dataset))
+
+    (sent,) = get_messages(response.wsgi_request)
+    assert (sent.message, sent.level) == (message, level)
+    assert len(mocked_responses.calls) == (1 if dataset.notification_url else 0)
+
+
+def test_job_admin_lists_the_jobs(app):
+    job = BiographicJobFactory()
+    page = app.get(reverse("admin:biographic_biographicjob_changelist"))
+    assert str(job.dataset_id) in page.text
+    assert app.get(reverse("admin:biographic_biographicjob_change", args=[job.pk])).status_code == 200
 
 
 def test_record_admin_renders_the_payload(app):

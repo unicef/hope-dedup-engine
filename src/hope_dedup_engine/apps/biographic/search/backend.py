@@ -17,6 +17,29 @@ INDEX_EXISTS_ERROR = "resource_already_exists_exception"
 
 SET_STATUS_SCRIPT = "ctx._source.status = params.status"
 
+# Searches per msearch request. Each one is a full HOPE query, so the body is
+# large; 200 keeps a request well under a megabyte while cutting the round trips
+# for a 10k set from 10k to 50.
+MSEARCH_CHUNK_SIZE = 200
+
+# Consistent scoring across shards. We use one shard, so this is belt and braces,
+# but HOPE sets it and parity is the goal.
+SEARCH_TYPE = "dfs_query_then_fetch"
+
+
+class SearchItemError(RuntimeError):
+    """One search inside an msearch request failed.
+
+    Elasticsearch answers an msearch with HTTP 200 even when individual searches
+    fail, reporting each failure in its slot. Left unchecked, that slot would
+    read as "no duplicates", so it is raised instead.
+    """
+
+    def __init__(self, position: int, error: dict[str, Any]) -> None:
+        super().__init__(f"Search {position} failed: {error.get('type')}: {error.get('reason')}")
+        self.position = position
+        self.error = error
+
 
 class ElasticsearchBiographicSearch:
     def __init__(self, es_client: Elasticsearch | None = None) -> None:
@@ -100,11 +123,39 @@ class ElasticsearchBiographicSearch:
             query=body["query"],
             size=body["size"],
             min_score=body["min_score"],
-            # Consistent scoring across shards. We use one shard, so this is
-            # belt and braces, but HOPE sets it and parity is the goal.
-            search_type="dfs_query_then_fetch",
+            search_type=SEARCH_TYPE,
         )
         return [self._to_hit(hit) for hit in response["hits"]["hits"]]
+
+    def search_many(  # noqa: PLR0913, PLR0917 - signature fixed by the frozen contract
+        self,
+        business_area: str,
+        program_code: str,
+        payloads: list[schemas.BiographicPayload],
+        min_score: float,
+        dataset_id: int,
+        size: int = 100,
+    ) -> list[list[schemas.Hit]]:
+        """Return `search` results for every payload, in input order.
+
+        Batched through `_msearch` in chunks of `MSEARCH_CHUNK_SIZE`. Each search
+        is built exactly as `search` builds it, so the hits are identical; only
+        the number of round trips changes.
+        """
+        name = index.index_name(business_area, program_code)
+        results: list[list[schemas.Hit]] = []
+        for start in range(0, len(payloads), MSEARCH_CHUNK_SIZE):
+            searches: list[dict[str, Any]] = []
+            for payload in payloads[start : start + MSEARCH_CHUNK_SIZE]:
+                body = query.build_query(payload, min_score=min_score, dataset_id=dataset_id, size=size)
+                searches.append({"index": name, "search_type": SEARCH_TYPE})
+                searches.append(body)
+            response = self.client.msearch(searches=searches)
+            for offset, item in enumerate(response["responses"]):
+                if "error" in item:
+                    raise SearchItemError(start + offset, item["error"])
+                results.append([self._to_hit(hit) for hit in item["hits"]["hits"]])
+        return results
 
     def set_status(
         self,

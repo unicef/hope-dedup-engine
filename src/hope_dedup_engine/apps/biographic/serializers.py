@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from hope_dedup_engine.apps.api.models.deduplication import REFERENCE_PK_LENGTH
 from hope_dedup_engine.apps.biographic.config import BiographicConfig
-from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicSet
+from hope_dedup_engine.apps.biographic.models import NOTIFICATION_URL_LENGTH, BiographicFinding, BiographicSet
 from hope_dedup_engine.apps.biographic.schemas import PAYLOAD_FIELDS
 
 BIRTH_DATE_FIELD: Final[str] = "birth_date"
@@ -72,14 +72,48 @@ class RecordsBatchResultSerializer(serializers.Serializer):
     records_count = serializers.IntegerField(help_text="Records in the set after this batch.")
 
 
+class BiographicSetCreateSerializer(serializers.ModelSerializer):
+    """What a client may set when creating a set. Both are optional."""
+
+    notification_url = serializers.URLField(
+        max_length=NOTIFICATION_URL_LENGTH,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        help_text="Pinged with a GET on every state change a run makes.",
+    )
+
+    class Meta:
+        model = BiographicSet
+        fields = ("notification_url", "notify")
+        extra_kwargs = {"notify": {"required": False}}
+
+
 class BiographicSetSerializer(serializers.ModelSerializer):
     dataset_id = serializers.IntegerField(source="pk", read_only=True)
     status = serializers.CharField(source="state", read_only=True)
     records_count = serializers.IntegerField(read_only=True)
+    batch_duplicates = serializers.IntegerField(
+        read_only=True, help_text="Records with at least one duplicate inside this set."
+    )
+    population_duplicates = serializers.IntegerField(
+        read_only=True, help_text="Records with at least one duplicate in the program's approved population."
+    )
 
     class Meta:
         model = BiographicSet
-        fields = ("dataset_id", "status", "error", "records_count", "created_at", "updated_at")
+        fields = (
+            "dataset_id",
+            "status",
+            "error",
+            "records_count",
+            "batch_duplicates",
+            "population_duplicates",
+            "notification_url",
+            "notify",
+            "created_at",
+            "updated_at",
+        )
         read_only_fields = fields
 
 

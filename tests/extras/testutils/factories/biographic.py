@@ -3,6 +3,7 @@ import factory
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
     BiographicGroup,
+    BiographicJob,
     BiographicRecord,
     BiographicSet,
 )
@@ -25,6 +26,14 @@ class BiographicSetFactory(AutoRegisterModelFactory):
 
     class Meta:
         model = BiographicSet
+
+
+class BiographicJobFactory(AutoRegisterModelFactory):
+    dataset = factory.SubFactory(BiographicSetFactory, state=BiographicSet.State.INDEXING)
+    config_overrides = factory.LazyFunction(dict)
+
+    class Meta:
+        model = BiographicJob
 
 
 class BiographicRecordFactory(AutoRegisterModelFactory):

@@ -22,6 +22,9 @@ Settled with the interface:
   within-batch duplicates are a filter on the result, not a second search
 * classification lives in the service, not in the search library. The library
   returns scored hits and has no opinion on what a duplicate is
+* ``search_many`` is ``search`` over a list, with identical hits per payload. It
+  exists because one round trip per record dominated the run time of a large
+  set; the service always uses it, ``search`` stays for single lookups and tests
 """
 
 from typing import Protocol
@@ -51,6 +54,16 @@ class BiographicSearch(Protocol):
         dataset_id: int,
         size: int = 100,
     ) -> list[Hit]: ...
+
+    def search_many(  # noqa: PLR0913, PLR0917 - mirrors `search`
+        self,
+        business_area: str,
+        program_code: str,
+        payloads: list[BiographicPayload],
+        min_score: float,
+        dataset_id: int,
+        size: int = 100,
+    ) -> list[list[Hit]]: ...
 
     def set_status(
         self,

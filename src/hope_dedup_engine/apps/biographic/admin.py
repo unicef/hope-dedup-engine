@@ -2,22 +2,29 @@ from typing import cast
 
 from admin_extra_buttons.api import button
 from admin_extra_buttons.mixins import confirm_action
+from adminfilters.autocomplete import AutoCompleteFilter
 from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
+from adminfilters.mixin import AdminFiltersMixin
+from django.contrib import messages
 from django.contrib.admin import display, register
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
+from django_celery_boost.admin import CeleryTaskModelAdmin
 
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
-from hope_dedup_engine.apps.api.admin.json_display import pretty_json
+from hope_dedup_engine.apps.api.admin.json_display import format_log, pretty_json
+from hope_dedup_engine.apps.api.utils.notification import ErrorMessage, WarningMessage, send_notification
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
     BiographicGroup,
+    BiographicJob,
     BiographicRecord,
     BiographicSet,
 )
 from hope_dedup_engine.apps.core.permissions import can
 
+NOTIFICATION_SENT = _("Notification sent.")
 CONFIRM_RELEASE_LOCK = _(
     "Do you confirm to release the processing lock for this program? "
     "Release the lock only if you are sure that no task is currently running for it."
@@ -57,15 +64,42 @@ class BiographicGroupAdmin(ReadOnlyAdmin):
 
 @register(BiographicSet)
 class BiographicSetAdmin(ReadOnlyAdmin):
-    list_display = ("id", "group", "state", "processing_locked", "created_at", "updated_at")
+    list_display = ("id", "group", "state", "processing_locked", "search_sync_pending", "created_at", "updated_at")
     search_fields = ("id", "group__business_area", "group__program_code")
-    list_filter = (("state", ChoicesFieldComboFilter), DjangoLookupFilter)
+    list_filter = (("state", ChoicesFieldComboFilter), "search_sync_pending", DjangoLookupFilter)
     list_select_related = ("group",)
-    readonly_fields = ("group", "state", "error", "created_at", "updated_at")
+    readonly_fields = (
+        "group",
+        "state",
+        "error",
+        "notification_url",
+        "notify",
+        "search_sync_pending",
+        "formatted_log",
+        "created_at",
+        "updated_at",
+    )
+    exclude = ("log",)
 
     @display(description="Processing locked", boolean=True)
     def processing_locked(self, obj: BiographicSet) -> bool:
         return obj.group.processing_locked
+
+    @display(description="Log")
+    def formatted_log(self, obj: BiographicSet) -> str:
+        return format_log(obj.log)
+
+    @button(label="Send notification", change_form=True, change_list=False, permission=can.biographic.send_notification)
+    def send_notification(self, request: HttpRequest, pk: str) -> HttpResponse:
+        dataset = cast("BiographicSet", self.get_object(request, pk))
+        match send_notification(dataset, force=True):
+            case None:
+                self.message_user(request, NOTIFICATION_SENT, messages.SUCCESS)
+            case WarningMessage(message):
+                self.message_user(request, message, messages.WARNING)
+            case ErrorMessage(message):
+                self.message_user(request, message, messages.ERROR)
+        return redirect("admin:biographic_biographicset_change", dataset.pk)
 
     @button(
         label="Unlock processing",
@@ -115,6 +149,21 @@ class BiographicSetAdmin(ReadOnlyAdmin):
             description=str(dataset),
             pk=pk,
         )
+
+
+@register(BiographicJob)
+class BiographicJobAdmin(AdminFiltersMixin, CeleryTaskModelAdmin):
+    """Watch, queue and terminate runs. A job is only ever created by `process`."""
+
+    list_display = ("pk", "dataset_id", "progress_info", "datetime_created", "datetime_queued")
+    list_filter = (
+        ("dataset", AutoCompleteFilter),
+        ("dataset__group", AutoCompleteFilter),
+    )
+    readonly_fields = ("dataset", "config_overrides")
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
 
 
 @register(BiographicRecord)
