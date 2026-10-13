@@ -1,13 +1,43 @@
 import os
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 from elasticsearch import Elasticsearch
+from rest_framework.test import APIClient
+from testutils.factories.auth import APITokenFactory
+from testutils.factories.user import UserFactory
 
+from hope_dedup_engine.apps.api.grant import Grant
 from hope_dedup_engine.apps.biographic.search import index
 from hope_dedup_engine.apps.biographic.search.backend import ElasticsearchBiographicSearch
 
 TEST_PREFIX = "test_"
+
+
+def _token_client(*grants: Grant) -> APIClient:
+    token = APITokenFactory(user=UserFactory(), grants=[grant.value for grant in grants])
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+    return client
+
+
+@pytest.fixture
+def api(db) -> APIClient:
+    """A client holding only the biographic grant."""
+    return _token_client(Grant.API_BIOGRAPHIC)
+
+
+@pytest.fixture
+def api_without_grant(db) -> APIClient:
+    return _token_client(Grant.API_DEDUP)
+
+
+@pytest.fixture
+def queued_tasks(mocker) -> MagicMock:
+    """Captures enqueued biographic tasks: their bodies belong to the service layer."""
+    return mocker.patch("hope_dedup_engine.apps.biographic.services.lifecycle.current_app.send_task")
+
 
 DEFAULT_HOST = "http://localhost:9200"
 

@@ -72,6 +72,36 @@ CONSTANCE_CONFIG = {
         "Minimum unified quality score (0-1). Images below this threshold are rejected. 0 = disabled.",
         "bounded_confidence_0_1",
     ),
+    "DEFAULT_BIOGRAPHIC_DUPLICATE_SCORE": (
+        6.0,
+        "Biographic pairs scoring at or above this are duplicates. Also the Elasticsearch min_score. HOPE's default.",
+        float,
+    ),
+    "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_ALLOWED": (
+        5,
+        "Abort a biographic run when one record has more duplicates than this within its set.",
+        int,
+    ),
+    "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_PERCENTAGE": (
+        50,
+        "Abort a biographic run when at least this percentage of the set has a duplicate in the set.",
+        int,
+    ),
+    "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_ALLOWED": (
+        5,
+        "Abort a biographic run when one record has more duplicates than this in the approved population.",
+        int,
+    ),
+    "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_PERCENTAGE": (
+        50,
+        "Abort a biographic run when at least this percentage of the set has a duplicate in the population.",
+        int,
+    ),
+    "DEFAULT_BIOGRAPHIC_MAX_HITS": (
+        100,
+        "Maximum matches Elasticsearch returns per biographic record.",
+        int,
+    ),
     "NEW_USER_IS_STAFF": (False, "Set any new user as staff", bool),
     "NEW_USER_DEFAULT_GROUP": (
         DEFAULT_GROUP_NAME,
@@ -96,6 +126,17 @@ CONSTANCE_CONFIG_FIELDSETS = {
             "DEFAULT_EYES_OPEN_THRESHOLD",
             "DEFAULT_INTER_EYE_DISTANCE_THRESHOLD",
             "DEFAULT_UNIFIED_QUALITY_SCORE_THRESHOLD",
+        ),
+        "collapse": False,
+    },
+    "Biographic deduplication settings": {
+        "fields": (
+            "DEFAULT_BIOGRAPHIC_DUPLICATE_SCORE",
+            "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_ALLOWED",
+            "DEFAULT_BIOGRAPHIC_BATCH_DUPLICATES_PERCENTAGE",
+            "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_ALLOWED",
+            "DEFAULT_BIOGRAPHIC_POPULATION_DUPLICATES_PERCENTAGE",
+            "DEFAULT_BIOGRAPHIC_MAX_HITS",
         ),
         "collapse": False,
     },
