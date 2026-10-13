@@ -7,38 +7,39 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 from testutils.factories.auth import APITokenFactory
 
-from hope_dedup_engine.apps.api.models import DeduplicationSet
-from hope_dedup_engine.apps.security.models import User
-
 from api.api_const import (
     BULK_IMAGE_CLEAR_VIEW,
     BULK_IMAGE_LIST_VIEW,
     DEDUPLICATION_SET_DETAIL_VIEW,
     DEDUPLICATION_SET_LIST_VIEW,
+    GROUP_DETAIL_VIEW,
     JSON,
 )
 from api.utils import get_auth_headers
+from hope_dedup_engine.apps.api.models import DeduplicationSet
+from hope_dedup_engine.apps.security.models import User
 
 
 PK = object()
+GROUP_REFERENCE_PK = object()
 
 
 REQUESTS = (
     (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.GET, ()),
     (DEDUPLICATION_SET_LIST_VIEW, HTTPMethod.POST, ()),
     (DEDUPLICATION_SET_DETAIL_VIEW, HTTPMethod.DELETE, (PK,)),
+    (GROUP_DETAIL_VIEW, HTTPMethod.DELETE, (GROUP_REFERENCE_PK,)),
     (BULK_IMAGE_LIST_VIEW, HTTPMethod.POST, (PK,)),
     (BULK_IMAGE_CLEAR_VIEW, HTTPMethod.DELETE, (PK,)),
 )
 
 
 def preprocess_args(deduplication_set: DeduplicationSet, args: tuple[Any, ...]) -> tuple[Any, ...]:
-    return tuple(str(deduplication_set.pk) if arg == PK else arg for arg in args)
-
-
-def preprocess_kwargs(deduplication_set: DeduplicationSet, args: tuple[Any, ...]) -> dict[str, Any]:
-    """For nested routes that use kwargs instead of positional args."""
-    return {}
+    arg_values = {
+        PK: str(deduplication_set.pk),
+        GROUP_REFERENCE_PK: deduplication_set.group.reference_pk,
+    }
+    return tuple(arg_values.get(arg, arg) for arg in args)
 
 
 @pytest.mark.parametrize(("view_name", "method", "args"), REQUESTS)
@@ -54,7 +55,9 @@ def test_anonymous_cannot_access(
         url = reverse(view_name, kwargs={"deduplication_set_pk": deduplication_set.pk})
     else:
         url = reverse(view_name, processed)
+
     response = getattr(anonymous_api_client, method.lower())(url)
+
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -71,7 +74,9 @@ def test_authenticated_can_access(
         url = reverse(view_name, kwargs={"deduplication_set_pk": deduplication_set.pk})
     else:
         url = reverse(view_name, processed)
+
     response = getattr(api_client, method.lower())(url, format=JSON)
+
     assert response.status_code != status.HTTP_401_UNAUTHORIZED
 
 

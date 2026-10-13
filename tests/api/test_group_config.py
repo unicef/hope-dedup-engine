@@ -162,3 +162,38 @@ def test_post_blocked_when_processing_locked(api_client: APIClient, deduplicatio
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
     assert response.status_code == status.HTTP_409_CONFLICT
+
+
+@pytest.mark.django_db
+def test_get_ignores_deleted_group(api_client: APIClient, deduplication_set_group_factory) -> None:
+    defaults = get_default_group_settings()
+    group = deduplication_set_group_factory(
+        deleted=True,
+        settings={**defaults, "sharpness_threshold": 0.123},
+    )
+
+    response = api_client.get(config_url(group.reference_pk))
+
+    assert response.status_code == status.HTTP_200_OK
+    api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+    assert response.json() == {key: defaults[key] for key in api_fields if key in defaults}
+
+
+@pytest.mark.django_db
+def test_post_creates_new_group_when_previous_group_deleted(
+    api_client: APIClient,
+    deduplication_set_group_factory,
+) -> None:
+    old_group = deduplication_set_group_factory(deleted=True)
+
+    response = api_client.post(
+        config_url(old_group.reference_pk),
+        data={"sharpness_threshold": 0.6},
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    group = DeduplicationSetGroup.objects.get(reference_pk=old_group.reference_pk, deleted=False)
+    assert group.pk != old_group.pk
+    assert group.settings["sharpness_threshold"] == 0.6

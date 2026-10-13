@@ -102,3 +102,17 @@ def test_invalid_datetime_returns_400(api_client: APIClient, deduplicated_set: D
     response = api_client.get(url)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert UPDATED_AFTER in response.json()
+
+
+def test_findings_from_deleted_group_are_not_visible(
+    api_client: APIClient,
+    deduplicated_set: DeduplicationSet,
+    finding: Finding,
+) -> None:
+    deduplicated_set.group.deleted = True
+    deduplicated_set.group.save(update_fields=["deleted"])
+
+    response = api_client.get(findings_url(deduplicated_set.pk))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["results"] == []

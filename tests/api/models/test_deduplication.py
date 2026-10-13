@@ -1,8 +1,14 @@
 import pytest
 
+from django.db import IntegrityError, transaction
+
 from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
-from hope_dedup_engine.apps.api.models.deduplication import EncodingErrorGroup, GroupSettingsError
+from hope_dedup_engine.apps.api.models.deduplication import (
+    DeduplicationSetGroup,
+    EncodingErrorGroup,
+    GroupSettingsError,
+)
 
 
 @pytest.fixture
@@ -271,3 +277,46 @@ def test_update_settings_full_flow_clears_deduplicated_set(group_ds_deduplicated
     assert ds.finding_set.count() == 0
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.READY
+
+
+@pytest.mark.django_db
+def test_acquire_processing_lock_is_atomic(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory()
+    stale_group = DeduplicationSetGroup.objects.get(pk=group.pk)
+
+    assert group.acquire_processing_lock() is True
+    assert group.processing_locked is True
+    assert stale_group.acquire_processing_lock() is False
+
+    group.refresh_from_db()
+    assert group.processing_locked is True
+
+
+@pytest.mark.django_db
+def test_cannot_acquire_processing_lock_for_deleted_group(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory(deleted=True)
+
+    assert group.acquire_processing_lock() is False
+
+    group.refresh_from_db()
+    assert group.processing_locked is False
+
+
+@pytest.mark.django_db
+def test_group_reference_pk_can_be_reused_after_delete(deduplication_set_group_factory) -> None:
+    reference_pk = "same-ref"
+
+    deduplication_set_group_factory(reference_pk=reference_pk, deleted=True)
+    deduplication_set_group_factory(reference_pk=reference_pk, deleted=True)
+    active_group = deduplication_set_group_factory(reference_pk=reference_pk)
+
+    assert active_group.deleted is False
+
+
+@pytest.mark.django_db
+def test_group_reference_pk_rejects_multiple_active_groups(deduplication_set_group_factory) -> None:
+    reference_pk = "same-ref"
+    deduplication_set_group_factory(reference_pk=reference_pk)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        deduplication_set_group_factory(reference_pk=reference_pk)

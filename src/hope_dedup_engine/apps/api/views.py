@@ -64,10 +64,12 @@ class DeduplicationSetViewSet(
             return CreateDeduplicationSetSerializer
         return super().get_serializer_class()
 
+    @transaction.atomic
     def perform_create(self, serializer: Serializer) -> None:
         group_data = serializer.validated_data["group"]
         group, created = DeduplicationSetGroup.objects.update_or_create(
             reference_pk=group_data["reference_pk"],
+            deleted=False,
             defaults={"name": group_data.get("name")},
         )
         if created:
@@ -286,8 +288,26 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
             return self._config_retrieve(reference_pk)
         return self._config_update(request, reference_pk)
 
+    @extend_schema(
+        responses={status.HTTP_204_NO_CONTENT: None},
+        description="Soft-delete a deduplication set group. Returns 409 while group processing is running.",
+    )
+    @transaction.atomic
+    def destroy(self, request: Request, reference_pk: str) -> Response:
+        group = (
+            DeduplicationSetGroup.objects.select_for_update().filter(reference_pk=reference_pk, deleted=False).first()
+        )
+        if group is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        if group.processing_locked:
+            raise ConflictError("Cannot delete group while processing is running.")
+
+        group.deleted = True
+        group.save(update_fields=["deleted"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def _config_retrieve(self, reference_pk: str) -> Response:
-        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk).first()
+        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, deleted=False).first()
         defaults = get_default_group_settings()
         if group and group.settings:
             defaults.update(group.settings)
@@ -299,8 +319,9 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
         serializer = GroupSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        group, _ = DeduplicationSetGroup.objects.get_or_create(
+        group, _ = DeduplicationSetGroup.objects.select_for_update().get_or_create(
             reference_pk=reference_pk,
+            deleted=False,
             defaults={"settings": get_default_group_settings()},
         )
 

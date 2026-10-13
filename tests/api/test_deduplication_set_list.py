@@ -11,3 +11,16 @@ def test_can_list_deduplication_sets(api_client: APIClient, deduplication_set: D
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert len(data) == 1
+
+
+def test_sets_from_deleted_group_are_not_listed(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    deduplication_set.group.deleted = True
+    deduplication_set.group.save(update_fields=["deleted"])
+
+    response = api_client.get(reverse(DEDUPLICATION_SET_LIST_VIEW))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []

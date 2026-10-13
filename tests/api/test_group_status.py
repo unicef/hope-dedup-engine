@@ -51,3 +51,14 @@ def test_cannot_create_when_active_set_exists(api_client: APIClient, deduplicati
     response = api_client.get(status_url(deduplication_set.group.reference_pk))
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["can_create"] is False
+
+
+@pytest.mark.django_db
+def test_deleted_group_does_not_block_creation(api_client: APIClient, deduplication_set: DeduplicationSet) -> None:
+    deduplication_set.group.deleted = True
+    deduplication_set.group.save(update_fields=["deleted"])
+
+    response = api_client.get(status_url(deduplication_set.group.reference_pk))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["can_create"] is True

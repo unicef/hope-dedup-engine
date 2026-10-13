@@ -48,7 +48,7 @@ class GroupSettingsError(Exception):
 
 class DeduplicationSetGroup(models.Model):
     reference_pk = models.CharField(
-        max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
+        max_length=REFERENCE_PK_LENGTH, help_text="External id used to group deduplication sets."
     )
     name = models.CharField(
         max_length=128, null=True, blank=True, db_index=True, help_text="Deduplication set group name."
@@ -64,6 +64,14 @@ class DeduplicationSetGroup(models.Model):
     class Meta:
         permissions = [
             ("release_processing_lock", "Can release processing lock"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("reference_pk",),
+                condition=Q(deleted=False),
+                name="unique_active_deduplication_set_group_reference_pk",
+                violation_error_message="An active deduplication set group with this reference_pk already exists.",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -86,14 +94,11 @@ class DeduplicationSetGroup(models.Model):
         return self.deduplicationset_set.filter(state=DeduplicationSet.State.APPROVED).exists()
 
     def acquire_processing_lock(self) -> bool:
-        with transaction.atomic():
-            group = DeduplicationSetGroup.objects.select_for_update().get(pk=self.pk)
-            if group.processing_locked:
-                return False
-            group.processing_locked = True
-            group.save(update_fields=["processing_locked"])
+        if acquired := DeduplicationSetGroup.objects.filter(pk=self.pk, deleted=False, processing_locked=False).update(
+            processing_locked=True
+        ):
             self.processing_locked = True
-            return True
+        return bool(acquired)
 
     def release_processing_lock(self) -> None:
         self.processing_locked = False
