@@ -1,0 +1,7 @@
+title: Integration Guide
+nav:
+  - index.md
+  - workflow.md
+  - configuration.md
+  - findings-and-statuses.md
+  - notifications.md
