@@ -1,3 +1,105 @@
+v.2.0.0
+=======
+- Align authentication with hope-api-auth 0.3
+- Refactor deduplication set states to a granular lifecycle with validated transitions, group-level processing lock and restructured API endpoints
+- Add per-group deduplication settings with a dedicated API endpoint and admin form
+- Move findings and approve endpoints to the deduplication set level
+- Remove ignored pairs functionality
+- Remove the status field from Encoding; add Rejected status to the deduplication set
+- Remove the face confidence threshold
+- Rename AZURE_CLIENT_KEY to AZURE_CLIENT_ID
+- Add OFIQ image quality check with configurable thresholds and reuse of precalculated OFIQ scores
+- Store uploaded images on a mounted disk instead of DB base64
+- Add graceful cancellation and live progress tracking to the deduplication task
+- Add config snapshot to findings and expose it via admin and API
+- Add audit log to the deduplication set
+- Add group status endpoint and a separate endpoint to mark a deduplication set as ready; process endpoint supports encode_only
+- Format JSON fields in the admin for readability
+- Optimize admin changelist queries and fix slow loading of Findings and Encodings pages
+- Add logging and retries to the notification
+- Add missing HTTP security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, X-Frame-Options)
+- Harden session cookie handling and raise HSTS max-age default to one year
+- Fix incorrect chunk size calculation when creating findings
+- Fix inclusion of approved sets in findings
+- Fix file permission issue with Azure file storage
+- Fix config change API endpoint behavior
+- Return 409 instead of 500 when a deduplication set cannot be created
+- Prevent a single failing image from aborting the face encoding job
+
+v.1.15.0
+========
+- Simplify the deduplication flow; remove chords from encoding and deduplication
+- Use iterator to reduce memory usage
+- Handle DataTypeError when encoding faces
+- Improve embedding clearance
+- Add visibility_timeout config and remove time limits
+- Change the argument order for find_distance
+
+v.1.14.0
+========
+- Handle base64 data URLs in images
+- Force one active deduplication set per group and return 404 when there is no active set
+- Add a send notification button in the admin
+- Improve admin display of base64 filenames
+
+v.1.13.0
+========
+- Update finding on duplicate values
+- Make deduplication set settings optional
+- Session cookie alignment
+- Fix port and roll back entrypoint changes
+
+v.1.12
+======
+- Use django-celery-boost for all tasks
+- Admin enhancements: breadcrumbs, confirm_action on data-changing buttons, custom button permissions, DedupJob and Job admin pages
+- Add export of findings as CSV
+- Add status_code field to Findings with filtering and search
+- Store and display face coverage values for encodings
+- Add HOPE_API_TOKEN configuration and mask secret values
+- Add SUPERUSERS support to the update command
+- Use Dedup Engine specific queues
+- Update GitHub Actions
+
+v.1.11.2
+========
+- Fix build tag and release Docker build/dependency lock (build-only release)
+
+v.1.11.1
+========
+- Add face coverage threshold to the DeepFace encoding pipeline
+- Add possibility to test face detection
+- Admin button and action updates
+
+v.1.11
+======
+- Add possibility to run deduplication synchronously
+- Merge Image and Encoding models; Finding now uses Encoding foreign keys
+- Add admin preview page for Finding images and search by reference
+- Add reset encodings and remove findings buttons
+- Add help texts to deduplication set and group fields
+- Configure models and thresholds via constance
+- Use the deduplication set group reference pk to identify a deduplication set
+
+v.1.10
+======
+- Optimize the duplicate finding process: compare images between chunks, tune chunk size, sort findings before insertion
+- Compute embeddings only when missing, recreate them on system errors, and do not skip images already in findings
+- Add indexes to the Finding model and change the DedupJob relation to a ForeignKey on DeduplicationSet
+- Reschedule find_duplicates to avoid parallel runs
+- Filter findings by updated_at and by reference keys; add pagination for findings
+- Make image create endpoints idempotent
+- Rename DateInRangeFilter to DateInDateRangeFilter
+- Upgrade Django to 5.2.8 and tune uwsgi buffers
+
+v.1.9.0
+=======
+- Use a database connection pool; check and shrink connections after the deduplication task
+- Do not use signals for progress reporting
+- Mark result backend thread-safe and increase pool size and timeout
+- Add more statuses to the deduplication set
+- Increase test coverage
+
 v.1.8.0
 =======
 - Optimize encoding
