@@ -238,3 +238,60 @@ def test_rejected_cleanup_reports_per_index_and_spares_the_rest(search, make_gro
             for hit in es_client.search(index=name, query={"match_all": {}})["hits"]["hits"]
         }
         assert remaining == {"approved": "approved", "pending": "pending"}
+
+
+# --- search_many ------------------------------------------------------------
+
+
+def test_search_many_returns_exactly_what_search_returns_per_payload(search, group, mocker):
+    mocker.patch("hope_dedup_engine.apps.biographic.search.backend.MSEARCH_CHUNK_SIZE", 2)
+    index_records(
+        search,
+        group,
+        [
+            make_payload("a", given_name="Test", family_name="Testowski", full_name="Test Testowski"),
+            make_payload("b", given_name="Tesa", family_name="Testowski", full_name="Tesa Testowski"),
+            make_payload("c", given_name="Zed", family_name="Zedowski", full_name="Zed Zedowski"),
+        ],
+    )
+    probes = [
+        make_payload("p1", given_name="Test", family_name="Testowski", full_name="Test Testowski"),
+        make_payload("p2", given_name="Nobody", family_name="Nowhere", full_name="Nobody Nowhere"),
+        make_payload("p3", given_name="Zed", family_name="Zedowski", full_name="Zed Zedowski"),
+    ]
+    business_area, program_code = group
+
+    batched = search.search_many(business_area, program_code, probes, min_score=1.0, dataset_id=DATASET, size=2)
+
+    assert len(batched) == 3
+    for probe, hits in zip(probes, batched, strict=True):
+        assert hits == find(search, group, probe, min_score=1.0, size=2)
+    assert [h.reference_pk for h in batched[0]] == ["a", "b"]
+    assert batched[1] == []
+    assert [h.reference_pk for h in batched[2]] == ["c"]
+
+
+def test_search_many_with_nothing_asks_nothing(search, group, mocker):
+    spy = mocker.spy(search.client, "msearch")
+    assert search.search_many(*group, [], min_score=1.0, dataset_id=DATASET) == []
+    spy.assert_not_called()
+
+
+def test_search_many_raises_on_a_failed_item(search, group, mocker):
+    from hope_dedup_engine.apps.biographic.search.backend import SearchItemError
+
+    probe = make_payload("p", given_name="Test", family_name="Testowski", full_name="Test Testowski")
+    mocker.patch.object(
+        search.client,
+        "msearch",
+        return_value={
+            "responses": [
+                {"hits": {"hits": []}},
+                {"error": {"type": "search_phase_execution_exception", "reason": "all shards failed"}, "status": 503},
+            ]
+        },
+    )
+
+    with pytest.raises(SearchItemError, match="Search 1 failed: search_phase_execution_exception") as info:
+        search.search_many(*group, [probe, probe], min_score=1.0, dataset_id=DATASET)
+    assert info.value.position == 1

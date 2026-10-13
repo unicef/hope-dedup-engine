@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from elasticsearch import Elasticsearch
 from rest_framework.test import APIClient
+from testutils.biographic import FakeBiographicSearch
 from testutils.factories.auth import APITokenFactory
 from testutils.factories.user import UserFactory
 
@@ -35,8 +36,36 @@ def api_without_grant(db) -> APIClient:
 
 @pytest.fixture
 def queued_tasks(mocker) -> MagicMock:
-    """Captures enqueued biographic tasks: their bodies belong to the service layer."""
+    """Captures tasks sent by name (the status update), so no broker is needed."""
     return mocker.patch("hope_dedup_engine.apps.biographic.services.lifecycle.current_app.send_task")
+
+
+@pytest.fixture
+def queued_jobs(mocker) -> MagicMock:
+    """Captures `BiographicJob.queue()`, which would otherwise reach the broker."""
+    return mocker.patch("hope_dedup_engine.apps.biographic.models.BiographicJob.queue", autospec=True)
+
+
+@pytest.fixture
+def fake_search(mocker) -> FakeBiographicSearch:
+    """An in-memory search backend, wired into the tasks in place of Elasticsearch."""
+    fake = FakeBiographicSearch()
+    mocker.patch("hope_dedup_engine.apps.biographic.celery_tasks.get_search", return_value=fake)
+    return fake
+
+
+@pytest.fixture
+def no_tracking(mocker) -> None:
+    """Keep django-celery-boost's progress and cancellation tracking away from Redis."""
+    mocker.patch("hope_dedup_engine.apps.biographic.models.BiographicJob.set_tracking_info")
+    mocker.patch("hope_dedup_engine.apps.biographic.models.BiographicJob.get_tracking_info", return_value=None)
+    mocker.patch("hope_dedup_engine.apps.biographic.models.BiographicJob.cancel")
+
+
+@pytest.fixture
+def sent_notifications(mocker) -> MagicMock:
+    """Captures `send_notification` calls from the processing task; every one succeeds."""
+    return mocker.patch("hope_dedup_engine.apps.biographic.celery_tasks.send_notification", return_value=None)
 
 
 DEFAULT_HOST = "http://localhost:9200"

@@ -12,9 +12,9 @@ from typing import Any, Final
 from celery import current_app
 from django.db import IntegrityError, transaction
 
-from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK, UPDATE_STATUS_TASK
+from hope_dedup_engine.apps.biographic.const import UPDATE_STATUS_TASK
 from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
-from hope_dedup_engine.apps.biographic.models import BiographicRecord, BiographicSet
+from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicRecord, BiographicSet
 
 ANOTHER_SET_ACTIVE: Final[str] = "Another set in this program is being processed or awaiting approval."
 LOCK_HELD: Final[str] = "Another task is already running for this program."
@@ -56,11 +56,12 @@ def add_records(dataset: BiographicSet, rows: list[dict[str, Any]]) -> int:
         return BiographicRecord.objects.upsert_batch(dataset, rows)
 
 
-def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> None:
+def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> BiographicJob:
     """Take the program's processing slot for `dataset` and queue its run.
 
     Refuses when the set is not pending or failed, has no records, another set in
-    the program is active, or a task already holds the program's lock.
+    the program is active, or a task already holds the program's lock. The lock
+    is the task's to release, in its `finally`, whatever the outcome.
     """
     if dataset.state not in BiographicSet.PROCESSABLE_STATES:
         raise LifecycleConflictError(f"Cannot process set in '{dataset.get_state_display()}' state.")
@@ -73,7 +74,9 @@ def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> No
         raise LifecycleConflictError(LOCK_HELD)
 
     try:
-        dataset.transition(BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process")
+        with transaction.atomic():
+            dataset.transition(BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process")
+            job = BiographicJob.objects.create(dataset=dataset, config_overrides=dict(overrides))
     except IntegrityError:
         # Lost the race to another set: the one-active-set constraint fired.
         group.release_processing_lock()
@@ -83,25 +86,30 @@ def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> No
         raise
 
     try:
-        _queue(PROCESS_DATASET_TASK, dataset.pk, config_overrides=dict(overrides))
+        job.queue()
     except Exception:
         dataset.set_state(State.FAILED, error=QUEUE_FAILED)
         group.release_processing_lock()
         raise
+    return job
 
 
 def cancel(dataset: BiographicSet) -> None:
     """Abandon a pending or failed set."""
     was_failed = dataset.state == State.FAILED
-    dataset.transition(BiographicSet.CANCELABLE_STATES, State.CANCELED, "cancel")
+    # A failed run may have indexed part of the set before it stopped, so the
+    # documents have to be marked rejected like any other discarded set.
+    dataset.transition(BiographicSet.CANCELABLE_STATES, State.CANCELED, "cancel", search_sync_pending=was_failed)
     if was_failed:
-        # A failed run may have indexed part of the set before it stopped.
         _queue_status_update(dataset)
 
 
 def decide(dataset: BiographicSet, target: BiographicSet.State) -> None:
-    """Approve or reject a deduplicated set, freeing the program for the next one."""
+    """Approve or reject a deduplicated set, freeing the program for the next one.
+
+    The task released the program's lock when it finished; leaving the active
+    states is what frees the slot.
+    """
     verb = "approve" if target == State.APPROVED else "reject"
-    dataset.transition((State.DEDUPLICATED,), target, verb)
-    dataset.group.release_processing_lock()
+    dataset.transition((State.DEDUPLICATED,), target, verb, search_sync_pending=True)
     _queue_status_update(dataset)

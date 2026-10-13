@@ -1,14 +1,15 @@
 """The backend and the protocol must not drift apart.
 
 `ElasticsearchBiographicSearch` satisfies `BiographicSearch` structurally, without
-inheriting from it, so nothing fails loudly when the two stop matching. mypy would
-catch it at a call site, but the only call sites are in the service, which lives in
-another issue. Until that exists, this is what holds the contract.
+inheriting from it, so nothing fails loudly when the two stop matching. mypy
+catches it at the service's call sites; this holds the contract explicitly, for
+the real backend and for the fake the service tests run against.
 """
 
 import inspect
 
 import pytest
+from testutils.biographic import FakeBiographicSearch
 
 from hope_dedup_engine.apps.biographic.protocols import BiographicSearch
 from hope_dedup_engine.apps.biographic.search.backend import ElasticsearchBiographicSearch
@@ -28,6 +29,7 @@ def test_the_protocol_declares_the_methods_we_expect():
         "index_records",
         "refresh",
         "search",
+        "search_many",
         "set_status",
     ]
 
@@ -37,3 +39,13 @@ def test_backend_signature_matches_the_protocol(name):
     expected = inspect.signature(getattr(BiographicSearch, name))
 
     assert inspect.signature(getattr(ElasticsearchBiographicSearch, name)) == expected
+
+
+@pytest.mark.parametrize("name", protocol_methods())
+def test_fake_has_the_protocol_parameters(name):
+    """The fake is untyped, so it is held to the parameter names and defaults, not the annotations."""
+    expected = inspect.signature(getattr(BiographicSearch, name))
+    actual = inspect.signature(getattr(FakeBiographicSearch, name))
+
+    assert list(actual.parameters) == list(expected.parameters)
+    assert [p.default for p in actual.parameters.values()] == [p.default for p in expected.parameters.values()]

@@ -5,16 +5,20 @@ from django.db import IntegrityError, transaction
 from testutils.factories.biographic import (
     BiographicFindingFactory,
     BiographicGroupFactory,
+    BiographicJobFactory,
     BiographicRecordFactory,
     BiographicSetFactory,
 )
 
 from hope_dedup_engine.apps.api.models.deduplication import MAX_ERROR_LENGTH
+from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
+from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK
 from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError
 from hope_dedup_engine.apps.biographic.models import (
     FULL_NAME_LENGTH,
     BiographicFinding,
     BiographicGroup,
+    BiographicJob,
     BiographicRecord,
     BiographicSet,
 )
@@ -165,6 +169,42 @@ def test_transition_checks_the_database_not_the_instance():
 
     with pytest.raises(InvalidTransitionError):
         dataset.transition(BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process")
+
+
+def test_transition_can_flag_the_search_sync_with_the_state():
+    dataset = BiographicSetFactory(state=State.DEDUPLICATED)
+
+    dataset.transition((State.DEDUPLICATED,), State.APPROVED, "approve", search_sync_pending=True)
+
+    assert dataset.search_sync_pending
+    assert BiographicSet.objects.get(pk=dataset.pk).search_sync_pending
+
+
+def test_transition_does_not_flag_the_sync_when_refused():
+    dataset = BiographicSetFactory(state=State.PENDING)
+    with pytest.raises(InvalidTransitionError):
+        dataset.transition((State.DEDUPLICATED,), State.APPROVED, "approve", search_sync_pending=True)
+    assert not BiographicSet.objects.get(pk=dataset.pk).search_sync_pending
+
+
+def test_append_log_keeps_earlier_entries():
+    dataset = BiographicSetFactory(log=[{"action": "first"}])
+    dataset.append_log({"action": "second"})
+    assert [e["action"] for e in BiographicSet.objects.get(pk=dataset.pk).log] == ["first", "second"]
+
+
+def test_a_job_belongs_to_its_set_and_knows_its_task():
+    job = BiographicJobFactory(config_overrides={"max_hits": 3})
+    assert list(job.dataset.jobs.all()) == [job]
+    assert job.celery_task_name == PROCESS_DATASET_TASK
+    assert str(job) == f"Job {job.pk} for set {job.dataset_id}"
+
+
+def test_a_job_raises_when_termination_was_requested(mocker):
+    job = BiographicJobFactory()
+    mocker.patch.object(BiographicJob, "is_termination_requested", new_callable=mocker.PropertyMock, return_value=True)
+    with pytest.raises(GracefulJobCancellationError):
+        job.ensure_not_cancelled()
 
 
 def test_reference_pk_is_unique_within_a_set_only():

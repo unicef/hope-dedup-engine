@@ -25,6 +25,10 @@ class BiographicConfig:
     Resolved per run as request override, then the group's settings, then the
     Constance default. The group's settings are a snapshot of Constance taken when
     the group was created, so Constance is only reached for a setting added since.
+
+    HOPE also aborts a run when too many records have duplicates. That rule is
+    deliberately not here: a run always ends deduplicated, and the client decides
+    what the counts mean.
     """
 
     dataset_id: int | None = None
@@ -34,26 +38,6 @@ class BiographicConfig:
         metadata=_meta(
             kind=float,
             help_text="Pairs scoring at or above this are duplicates. Also the Elasticsearch min_score.",
-        ),
-    )
-    batch_duplicates_allowed: int = field(
-        default_factory=_default("batch_duplicates_allowed"),
-        metadata=_meta(kind=int, help_text="Abort when one record has more duplicates than this within its set."),
-    )
-    batch_duplicates_percentage: int = field(
-        default_factory=_default("batch_duplicates_percentage"),
-        metadata=_meta(
-            kind=int, help_text="Abort when at least this percentage of the set has a duplicate in the set."
-        ),
-    )
-    population_duplicates_allowed: int = field(
-        default_factory=_default("population_duplicates_allowed"),
-        metadata=_meta(kind=int, help_text="Abort when one record has more duplicates than this in the population."),
-    )
-    population_duplicates_percentage: int = field(
-        default_factory=_default("population_duplicates_percentage"),
-        metadata=_meta(
-            kind=int, help_text="Abort when at least this percentage of the set has a duplicate in the population."
         ),
     )
     max_hits: int = field(

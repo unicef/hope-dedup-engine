@@ -10,8 +10,14 @@ from testutils.factories.biographic import (
 )
 
 from hope_dedup_engine.apps.biographic.config import get_default_group_settings
-from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK, UPDATE_STATUS_TASK
-from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicGroup, BiographicRecord, BiographicSet
+from hope_dedup_engine.apps.biographic.const import UPDATE_STATUS_TASK
+from hope_dedup_engine.apps.biographic.models import (
+    BiographicFinding,
+    BiographicGroup,
+    BiographicJob,
+    BiographicRecord,
+    BiographicSet,
+)
 from hope_dedup_engine.apps.biographic.serializers import DUPLICATE_IN_BATCH, MAX_RECORDS_PER_BATCH
 from hope_dedup_engine.apps.biographic.services.lifecycle import (
     ANOTHER_SET_ACTIVE,
@@ -75,9 +81,28 @@ def test_create_registers_the_program_and_returns_a_pending_set(api: APIClient):
     assert body["status"] == "pending"
     assert body["records_count"] == 0
     assert body["error"] is None
+    assert (body["notification_url"], body["notify"]) == (None, True)
     group = BiographicGroup.objects.get(business_area=BA, program_code=PROGRAM)
     assert group.settings == get_default_group_settings()
     assert BiographicSet.objects.get(pk=body["dataset_id"]).group == group
+
+
+def test_create_takes_a_notification_url_and_switch(api: APIClient):
+    body = {"notification_url": "https://hope.example.org/callback/42/", "notify": False}
+
+    response = api.post(datasets_url(), body, format="json")
+
+    assert response.status_code == status.HTTP_201_CREATED
+    dataset = BiographicSet.objects.get(pk=response.json()["dataset_id"])
+    assert (dataset.notification_url, dataset.notify) == (body["notification_url"], False)
+    assert response.json()["notification_url"] == body["notification_url"]
+
+
+def test_create_refuses_a_notification_url_that_is_not_one(api: APIClient):
+    response = api.post(datasets_url(), {"notification_url": "not a url"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "notification_url" in response.json()
+    assert not BiographicSet.objects.exists()
 
 
 def test_create_reuses_the_program_and_lowercases_it(api: APIClient, group):
@@ -112,6 +137,23 @@ def test_retrieve_reports_state_error_and_record_count(api: APIClient, group):
     assert body["status"] == "failed"
     assert body["error"] == "Elasticsearch unavailable"
     assert body["records_count"] == 3
+    assert (body["batch_duplicates"], body["population_duplicates"]) == (0, 0)
+
+
+def test_retrieve_counts_records_with_a_duplicate_per_scope(api: APIClient, group):
+    """HOPE's counters: people with at least one duplicate, not pairs."""
+    dataset = BiographicSetFactory(group=group, state=State.DEDUPLICATED)
+    with_two_batch, with_both, clean = BiographicRecordFactory.create_batch(3, dataset=dataset)
+    BiographicFindingFactory.create_batch(2, record=with_two_batch, scope=BiographicFinding.Scope.BATCH)
+    BiographicFindingFactory(record=with_both, scope=BiographicFinding.Scope.BATCH)
+    BiographicFindingFactory(record=with_both, scope=BiographicFinding.Scope.POPULATION)
+    # Another set's findings never leak into this one's counts.
+    BiographicFindingFactory(record__dataset=BiographicSetFactory(group=group), scope=BiographicFinding.Scope.BATCH)
+
+    body = api.get(dataset_url(dataset)).json()
+
+    assert body["records_count"] == 3
+    assert (body["batch_duplicates"], body["population_duplicates"]) == (2, 1)
 
 
 def test_retrieve_is_scoped_to_the_program(api: APIClient, group):
@@ -241,7 +283,7 @@ def test_records_can_only_be_added_while_pending(api: APIClient, group, state):
 # --- process ----------------------------------------------------------------
 
 
-def test_process_starts_indexing_takes_the_lock_and_queues_the_run(api: APIClient, pending, queued_tasks):
+def test_process_starts_indexing_takes_the_lock_and_queues_a_job(api: APIClient, pending, queued_jobs):
     response = api.post(dataset_url(pending, "process"), format="json")
 
     assert response.status_code == status.HTTP_200_OK
@@ -249,27 +291,29 @@ def test_process_starts_indexing_takes_the_lock_and_queues_the_run(api: APIClien
     pending.refresh_from_db()
     assert pending.state == State.INDEXING
     assert locked(pending.group)
-    queued_tasks.assert_called_once_with(PROCESS_DATASET_TASK, args=[pending.pk], kwargs={"config_overrides": {}})
+    job = BiographicJob.objects.get(dataset=pending)
+    assert job.config_overrides == {}
+    queued_jobs.assert_called_once_with(job)
 
 
-def test_process_passes_validated_overrides_to_the_run(api: APIClient, pending, queued_tasks):
+def test_process_passes_validated_overrides_to_the_run(api: APIClient, pending, queued_jobs):
     api.post(dataset_url(pending, "process"), {"duplicate_score": 11, "max_hits": 20}, format="json")
-    queued_tasks.assert_called_once_with(
-        PROCESS_DATASET_TASK, args=[pending.pk], kwargs={"config_overrides": {"duplicate_score": 11.0, "max_hits": 20}}
-    )
+    job = BiographicJob.objects.get(dataset=pending)
+    assert job.config_overrides == {"duplicate_score": 11.0, "max_hits": 20}
 
 
-def test_invalid_overrides_are_rejected_before_anything_changes(api: APIClient, pending, queued_tasks):
+def test_invalid_overrides_are_rejected_before_anything_changes(api: APIClient, pending, queued_jobs):
     response = api.post(dataset_url(pending, "process"), {"duplicate_scor": 11}, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     pending.refresh_from_db()
     assert pending.state == State.PENDING
     assert not locked(pending.group)
-    queued_tasks.assert_not_called()
+    assert not BiographicJob.objects.exists()
+    queued_jobs.assert_not_called()
 
 
-def test_a_failed_set_can_be_retried(api: APIClient, group, queued_tasks):
+def test_a_failed_set_can_be_retried(api: APIClient, group, queued_jobs):
     dataset = BiographicSetFactory(group=group, state=State.FAILED, error="boom")
     BiographicRecordFactory(dataset=dataset)
 
@@ -282,14 +326,14 @@ def test_a_failed_set_can_be_retried(api: APIClient, group, queued_tasks):
 
 
 @pytest.mark.parametrize("state", [s for s in State if s not in BiographicSet.PROCESSABLE_STATES])
-def test_process_refuses_sets_that_are_not_pending_or_failed(api: APIClient, group, state, queued_tasks):
+def test_process_refuses_sets_that_are_not_pending_or_failed(api: APIClient, group, state, queued_jobs):
     dataset = BiographicSetFactory(group=group, state=state)
     BiographicRecordFactory(dataset=dataset)
     assert api.post(dataset_url(dataset, "process"), format="json").status_code == status.HTTP_409_CONFLICT
-    queued_tasks.assert_not_called()
+    queued_jobs.assert_not_called()
 
 
-def test_process_refuses_an_empty_set(api: APIClient, group, queued_tasks):
+def test_process_refuses_an_empty_set(api: APIClient, group, queued_jobs):
     dataset = BiographicSetFactory(group=group)
     response = api.post(dataset_url(dataset, "process"), format="json")
     assert response.status_code == status.HTTP_409_CONFLICT
@@ -297,23 +341,23 @@ def test_process_refuses_an_empty_set(api: APIClient, group, queued_tasks):
 
 
 @pytest.mark.parametrize("active", BiographicSet.ACTIVE_STATES)
-def test_process_refuses_while_another_set_in_the_program_is_active(api: APIClient, pending, active, queued_tasks):
+def test_process_refuses_while_another_set_in_the_program_is_active(api: APIClient, pending, active, queued_jobs):
     in_state(pending.group, active, locked=True)
 
     response = api.post(dataset_url(pending, "process"), format="json")
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["detail"] == ANOTHER_SET_ACTIVE
-    queued_tasks.assert_not_called()
+    queued_jobs.assert_not_called()
 
 
-def test_process_ignores_other_sets_that_are_only_queued(api: APIClient, pending, queued_tasks):
+def test_process_ignores_other_sets_that_are_only_queued(api: APIClient, pending, queued_jobs):
     BiographicRecordFactory(dataset=BiographicSetFactory(group=pending.group, state=State.PENDING))
     BiographicSetFactory(group=pending.group, state=State.FAILED)
     assert api.post(dataset_url(pending, "process"), format="json").status_code == status.HTTP_200_OK
 
 
-def test_two_programs_in_one_business_area_process_side_by_side(api: APIClient, pending, queued_tasks):
+def test_two_programs_in_one_business_area_process_side_by_side(api: APIClient, pending, queued_jobs):
     other = BiographicSetFactory(group__business_area=BA, group__program_code="cd34")
     BiographicRecordFactory(dataset=other)
 
@@ -321,13 +365,13 @@ def test_two_programs_in_one_business_area_process_side_by_side(api: APIClient, 
     assert api.post(dataset_url(other, "process"), format="json").status_code == status.HTTP_200_OK
 
 
-def test_a_second_process_call_is_a_conflict(api: APIClient, pending, queued_tasks):
+def test_a_second_process_call_is_a_conflict(api: APIClient, pending, queued_jobs):
     api.post(dataset_url(pending, "process"), format="json")
     assert api.post(dataset_url(pending, "process"), format="json").status_code == status.HTTP_409_CONFLICT
-    assert queued_tasks.call_count == 1
+    assert queued_jobs.call_count == 1
 
 
-def test_a_stale_lock_blocks_processing(api: APIClient, pending, queued_tasks):
+def test_a_stale_lock_blocks_processing(api: APIClient, pending, queued_jobs):
     BiographicGroup.objects.filter(pk=pending.group_id).update(processing_locked=True)
 
     response = api.post(dataset_url(pending, "process"), format="json")
@@ -336,7 +380,7 @@ def test_a_stale_lock_blocks_processing(api: APIClient, pending, queued_tasks):
     assert response.json()["detail"] == LOCK_HELD
 
 
-def test_losing_the_race_for_the_slot_releases_the_lock(api: APIClient, pending, queued_tasks, mocker):
+def test_losing_the_race_for_the_slot_releases_the_lock(api: APIClient, pending, queued_jobs, mocker):
     mocker.patch.object(BiographicSet, "set_state", side_effect=IntegrityError)
 
     response = api.post(dataset_url(pending, "process"), format="json")
@@ -344,10 +388,10 @@ def test_losing_the_race_for_the_slot_releases_the_lock(api: APIClient, pending,
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["detail"] == ANOTHER_SET_ACTIVE
     assert not locked(pending.group)
-    queued_tasks.assert_not_called()
+    queued_jobs.assert_not_called()
 
 
-def test_an_unexpected_error_while_starting_releases_the_lock(api: APIClient, pending, queued_tasks, mocker):
+def test_an_unexpected_error_while_starting_releases_the_lock(api: APIClient, pending, queued_jobs, mocker):
     mocker.patch.object(BiographicSet, "set_state", side_effect=RuntimeError("database went away"))
 
     with pytest.raises(RuntimeError):
@@ -355,8 +399,8 @@ def test_an_unexpected_error_while_starting_releases_the_lock(api: APIClient, pe
     assert not locked(pending.group)
 
 
-def test_a_queue_failure_marks_the_set_failed_and_releases_the_lock(api: APIClient, pending, queued_tasks):
-    queued_tasks.side_effect = ConnectionError("broker down")
+def test_a_queue_failure_marks_the_set_failed_and_releases_the_lock(api: APIClient, pending, queued_jobs):
+    queued_jobs.side_effect = ConnectionError("broker down")
 
     with pytest.raises(ConnectionError):
         api.post(dataset_url(pending, "process"), format="json")
@@ -381,6 +425,8 @@ def test_cancel_a_pending_set_touches_nothing_else(api: APIClient, pending, queu
 def test_cancel_a_failed_set_cleans_up_what_it_may_have_indexed(api: APIClient, group, queued_tasks):
     dataset = BiographicSetFactory(group=group, state=State.FAILED)
     assert api.post(dataset_url(dataset, "cancel"), format="json").status_code == status.HTTP_200_OK
+    dataset.refresh_from_db()
+    assert dataset.search_sync_pending
     queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
 
 
@@ -393,26 +439,34 @@ def test_cancel_refuses_sets_in_flight_or_decided(api: APIClient, group, state, 
 
 
 @pytest.mark.parametrize(("action", "outcome"), [("approve", State.APPROVED), ("reject", State.REJECTED)])
-def test_a_decision_releases_the_lock_and_queues_the_status_update(
-    api: APIClient, group, queued_tasks, action, outcome
-):
-    dataset = in_state(group, State.DEDUPLICATED, locked=True)
+def test_a_decision_flags_the_sync_and_queues_the_status_update(api: APIClient, group, queued_tasks, action, outcome):
+    dataset = in_state(group, State.DEDUPLICATED)
 
     response = api.post(dataset_url(dataset, action), format="json")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["status"] == outcome
-    assert not locked(group)
+    dataset.refresh_from_db()
+    assert dataset.search_sync_pending
     queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_a_decision_leaves_the_program_lock_alone(api: APIClient, group, queued_tasks, action):
+    # The task releases the lock when it finishes; a decision never touches it.
+    dataset = in_state(group, State.DEDUPLICATED, locked=True)
+    api.post(dataset_url(dataset, action), format="json")
+    assert locked(group)
 
 
 @pytest.mark.parametrize("action", ["approve", "reject"])
 @pytest.mark.parametrize("state", [s for s in State if s != State.DEDUPLICATED])
 def test_a_decision_needs_a_deduplicated_set(api: APIClient, group, queued_tasks, action, state):
-    dataset = in_state(group, state, locked=True)
+    dataset = in_state(group, state)
 
     assert api.post(dataset_url(dataset, action), format="json").status_code == status.HTTP_409_CONFLICT
-    assert locked(group)
+    dataset.refresh_from_db()
+    assert not dataset.search_sync_pending
     queued_tasks.assert_not_called()
 
 
@@ -426,7 +480,7 @@ def test_a_decision_needs_a_deduplicated_set(api: APIClient, group, queued_tasks
 )
 def test_a_decision_stands_when_its_status_update_cannot_be_queued(api: APIClient, group, queued_tasks, mocker, case):
     start, action, outcome = case
-    dataset = in_state(group, start, locked=start == State.DEDUPLICATED)
+    dataset = in_state(group, start)
     queued_tasks.side_effect = ConnectionError("broker down")
     logger = mocker.patch("hope_dedup_engine.apps.biographic.services.lifecycle.logger")
 
@@ -434,18 +488,20 @@ def test_a_decision_stands_when_its_status_update_cannot_be_queued(api: APIClien
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["status"] == outcome
-    assert not locked(group)
+    dataset.refresh_from_db()
+    # Still flagged: the next run in the program reconciles it.
+    assert dataset.search_sync_pending
     logger.exception.assert_called_once_with("Could not queue the status update for biographic set %s", dataset.pk)
 
 
 def test_reject_after_approve_is_a_conflict(api: APIClient, group, queued_tasks):
-    dataset = in_state(group, State.DEDUPLICATED, locked=True)
+    dataset = in_state(group, State.DEDUPLICATED)
     api.post(dataset_url(dataset, "approve"), format="json")
     assert api.post(dataset_url(dataset, "reject"), format="json").status_code == status.HTTP_409_CONFLICT
 
 
-def test_after_approval_the_next_set_can_be_processed(api: APIClient, group, queued_tasks):
-    first = in_state(group, State.DEDUPLICATED, locked=True)
+def test_after_approval_the_next_set_can_be_processed(api: APIClient, group, queued_tasks, queued_jobs):
+    first = in_state(group, State.DEDUPLICATED)
     second = BiographicSetFactory(group=group)
     BiographicRecordFactory(dataset=second)
 

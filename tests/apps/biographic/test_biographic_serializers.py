@@ -84,9 +84,7 @@ def test_a_misspelt_setting_is_an_error_not_ignored():
     assert serializer.errors == {"duplicate_scor": ["Unknown setting."]}
 
 
-@pytest.mark.parametrize(
-    ("name", "value"), [("duplicate_score", -1), ("max_hits", 0), ("batch_duplicates_allowed", 1.5)]
-)
+@pytest.mark.parametrize(("name", "value"), [("duplicate_score", -1), ("max_hits", 0), ("max_hits", 1.5)])
 def test_process_overrides_are_range_and_type_checked(name, value):
     serializer = ProcessOverridesSerializer(data={name: value})
     assert not serializer.is_valid()
