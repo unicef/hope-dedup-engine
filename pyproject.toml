@@ -121,6 +121,7 @@ docs = [
 [tool.hatch]
 build.hooks.vcs.version-file = "src/hope_dedup_engine/version.py"
 version.source = "vcs"
+version.fallback-version = "0.0.0"
 raw-options = { root = "../.." }
 
 [tool.hatch.version.raw-options]
