@@ -99,7 +99,7 @@ class EncodingAdmin(BaseModelAdmin):
     actions = ["deduplicate_selected_encodings"]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Encoding]:
-        return super().get_queryset(request).defer("embedding")
+        return super().get_queryset(request).filter(deduplication_set__group__deleted=False).defer("embedding")
 
     @display(description="Filename", ordering="filename")
     def filename_pretty(self, obj: Encoding) -> str:
@@ -117,7 +117,7 @@ class EncodingAdmin(BaseModelAdmin):
 
     @button(change_form=True, permission=can.api.detect_faces)
     def detect_face(self, request: HttpRequest, pk: str) -> HttpResponse:
-        encoding = cast("Encoding", self.get_object(request, pk))
+        encoding = cast("Encoding", self.get_required_object(request, pk))
         key = encoding.filename.name if encoding.filename else ""
         label = PurePosixPath(key).name
         image_url = reverse("admin:api_finding_image", kwargs={"filename": key})

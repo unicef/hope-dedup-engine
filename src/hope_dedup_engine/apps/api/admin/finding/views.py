@@ -22,7 +22,10 @@ class FindingDetailsPermissionMixin(PermissionRequiredMixin):
 class FindingImageView(FindingDetailsPermissionMixin, View):
     """Serve encoded image files to the browser."""
 
-    def get(self, request: HttpRequest, filename: str, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, filename: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not Encoding.objects.filter(filename=filename, deduplication_set__group__deleted=False).exists():
+            raise Http404("Image not found")
+
         storage = Encoding.filename.field.storage
         try:
             file_obj = storage.open(filename, "rb")
@@ -46,7 +49,9 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         finding = get_object_or_404(
-            Finding.objects.select_related("first_encoding", "second_encoding").defer(
+            Finding.objects.filter(deduplication_set__group__deleted=False)
+            .select_related("first_encoding", "second_encoding")
+            .defer(
                 "first_encoding__embedding",
                 "second_encoding__embedding",
             ),

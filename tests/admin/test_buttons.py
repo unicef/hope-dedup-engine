@@ -300,3 +300,27 @@ def test_group_release_processing_lock(confirm, locked_group) -> None:
 
     locked_group.refresh_from_db()
     assert locked_group.processing_locked is False
+
+
+def test_deleted_ds_admin_button_returns_404(app, seeded_ds) -> None:
+    seeded_ds.group.deleted = True
+    seeded_ds.group.save(update_fields=["deleted"])
+
+    res = app.get(
+        reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk]),
+        expect_errors=True,
+    )
+
+    assert res.status_code == 404
+
+
+def test_deleted_group_admin_button_returns_404(app, seeded_group) -> None:
+    seeded_group.deleted = True
+    seeded_group.save(update_fields=["deleted"])
+
+    res = app.get(
+        reverse("admin:api_deduplicationsetgroup_encodings", args=[seeded_group.pk]),
+        expect_errors=True,
+    )
+
+    assert res.status_code == 404

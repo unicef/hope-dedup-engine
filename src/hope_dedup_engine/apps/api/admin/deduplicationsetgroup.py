@@ -3,6 +3,7 @@ from typing import cast
 from admin_extra_buttons.api import button
 from admin_extra_buttons.mixins import confirm_action
 from django.contrib.admin import register, display
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
 from django.shortcuts import redirect
@@ -47,6 +48,9 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
     def get_form(self, request: HttpRequest, obj: DeduplicationSetGroup | None = None, **kwargs):
         return DeduplicationSetGroupSettingsForm
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSetGroup]:
+        return super().get_queryset(request).filter(deleted=False)
+
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
@@ -68,13 +72,13 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
 
     @button(label="Encodings", change_form=True, change_list=False, permission=can.api.view_encodings)
     def encodings(self, request: HttpRequest, pk: str) -> HttpResponse:
-        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        group = cast("DeduplicationSetGroup", self.get_required_object(request, pk))
         url = reverse("admin:api_encoding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)
 
     @button(label="Findings", change_form=True, change_list=False, permission=can.api.view_findings)
     def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
-        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        group = cast("DeduplicationSetGroup", self.get_required_object(request, pk))
         url = reverse("admin:api_finding_changelist") + f"?deduplication_set__group__exact={group.pk}"
         return redirect(url)
 
@@ -86,7 +90,7 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         visible=lambda button: button.original.processing_locked,
     )
     def release_processing_lock(self, request: HttpRequest, pk: str) -> HttpResponse:
-        group = cast("DeduplicationSetGroup", self.get_object(request, pk))
+        group = cast("DeduplicationSetGroup", self.get_required_object(request, pk))
 
         def action(_: HttpRequest) -> HttpResponse:
             group.release_processing_lock()

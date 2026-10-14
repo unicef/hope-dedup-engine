@@ -70,7 +70,7 @@ def test_post_creates_group_with_settings(api_client: APIClient):
     assert data["sharpness_threshold"] == 0.6
     assert data["eyes_open_threshold"] == 0.7
 
-    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk)
+    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk, deleted=False)
     assert group.settings["sharpness_threshold"] == 0.6
 
 
