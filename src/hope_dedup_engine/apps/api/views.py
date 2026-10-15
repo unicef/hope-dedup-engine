@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Count, QuerySet
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from hope_api_auth.views import TokenRequiredView
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -14,7 +14,11 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
-from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError, GroupSettingsError
+from hope_dedup_engine.apps.api.deduplication.exceptions import (
+    GroupDeleteError,
+    GroupSettingsApprovedError,
+    GroupSettingsLockedError,
+)
 from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.grant import Grant
@@ -276,10 +280,14 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
     @extend_schema(
         methods=["POST"],
         request=GroupSettingsSerializer,
-        responses=GroupSettingsSerializer,
+        responses={
+            status.HTTP_200_OK: GroupSettingsSerializer,
+            status.HTTP_409_CONFLICT: OpenApiResponse(
+                description="Settings cannot be changed in the current group state."
+            ),
+        },
         description="Create or update quality threshold settings for a deduplication set group. "
         "Creates the group if it does not exist. "
-        "Returns 409 if the group has an approved set or a processing job is running. "
         "If a deduplicated or encoded set exists, its embeddings and findings are cleared "
         "so new settings take effect on the next processing.",
     )
@@ -290,8 +298,11 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
         return self._config_update(request, reference_pk)
 
     @extend_schema(
-        responses={status.HTTP_204_NO_CONTENT: None},
-        description="Soft-delete a deduplication set group. Returns 409 while group processing is running.",
+        responses={
+            status.HTTP_204_NO_CONTENT: None,
+            status.HTTP_409_CONFLICT: OpenApiResponse(description=GroupDeleteError.message),
+        },
+        description="Soft-delete a deduplication set group.",
     )
     def destroy(self, request: Request, reference_pk: str) -> Response:
         group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, deleted=False).first()
@@ -301,7 +312,7 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
         try:
             group.soft_delete()
         except GroupDeleteError as exc:
-            raise ConflictError(str(exc)) from exc
+            raise ConflictError(GroupDeleteError.message) from exc
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -326,8 +337,10 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
 
         try:
             group.update_settings(serializer.validated_data)
-        except GroupSettingsError as exc:
-            raise ConflictError(str(exc)) from exc
+        except GroupSettingsLockedError as exc:
+            raise ConflictError(GroupSettingsLockedError.message) from exc
+        except GroupSettingsApprovedError as exc:
+            raise ConflictError(GroupSettingsApprovedError.message) from exc
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})

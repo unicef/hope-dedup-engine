@@ -1,9 +1,11 @@
 import pytest
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
 from hope_dedup_engine.apps.security.models import User
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError
 from hope_dedup_engine.apps.api.models import Finding, DeduplicationSet
 from testutils.perms import user_grant_permissions
 from testutils.factories.user import SuperUserFactory
@@ -345,13 +347,14 @@ def test_group_soft_delete_success(confirm, seeded_group) -> None:
     assert seeded_group.deleted is True
 
 
-def test_group_soft_delete_blocked_when_locked(confirm, locked_group) -> None:
+def test_group_soft_delete_blocked_when_locked(confirm, locked_group, mocker) -> None:
+    message_user = mocker.patch(
+        "hope_dedup_engine.apps.api.admin.deduplicationsetgroup.DeduplicationSetGroupAdmin.message_user"
+    )
     url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[locked_group.pk])
 
-    res = confirm(url)
-
-    assert res.status_code == 200
-    assert "Cannot delete group while processing is running." in res.body.decode()
+    assert confirm(url).status_code == 200
+    message_user.assert_called_once_with(mocker.ANY, GroupDeleteError.message, messages.ERROR)
 
     locked_group.refresh_from_db()
     assert locked_group.deleted is False

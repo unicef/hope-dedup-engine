@@ -9,8 +9,13 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
-from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError, GroupSettingsError
+from hope_dedup_engine.apps.api.deduplication.exceptions import (
+    GroupDeleteError,
+    GroupSettingsApprovedError,
+    GroupSettingsLockedError,
+)
 from hope_dedup_engine.apps.api.utils.image import encoding_image_key
+
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -103,11 +108,11 @@ class DeduplicationSetGroup(models.Model):
 
     def update_settings(self, new_settings: dict) -> None:
         if not self.acquire_processing_lock():
-            raise GroupSettingsError("Cannot change settings while a processing job is running.")
+            raise GroupSettingsLockedError
 
         try:
-            if self.deduplicationset_set.filter(state=DeduplicationSet.State.APPROVED).exists():
-                raise GroupSettingsError("Cannot change settings while an approved deduplication set exists.")
+            if self.has_approved_deduplication_sets():
+                raise GroupSettingsApprovedError
 
             with transaction.atomic():
                 if not self.settings:
@@ -132,7 +137,7 @@ class DeduplicationSetGroup(models.Model):
                 self.deleted = True
                 return
             if group.processing_locked:
-                raise GroupDeleteError("Cannot delete group while processing is running.")
+                raise GroupDeleteError
 
             group.deleted = True
             group.save(update_fields=["deleted"])

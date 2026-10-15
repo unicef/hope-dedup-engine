@@ -3,6 +3,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from api.api_const import GROUP_DETAIL_VIEW
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 
@@ -40,7 +41,7 @@ def test_cannot_delete_processing_group(api_client: APIClient, deduplication_set
     response = api_client.delete(group_url(group.reference_pk))
 
     assert response.status_code == status.HTTP_409_CONFLICT
-    assert response.json()["detail"] == "Cannot delete group while processing is running."
+    assert response.json()["detail"] == GroupDeleteError.message
     group.refresh_from_db()
     assert group.deleted is False
 

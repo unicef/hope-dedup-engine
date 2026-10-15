@@ -1,6 +1,10 @@
 class GroupDeleteError(Exception):
-    pass
+    message = "Cannot delete group while processing is running."
 
 
-class GroupSettingsError(Exception):
-    pass
+class GroupSettingsLockedError(Exception):
+    message = "Cannot change settings while a processing job is running."
+
+
+class GroupSettingsApprovedError(Exception):
+    message = "Cannot change settings while an approved deduplication set exists."

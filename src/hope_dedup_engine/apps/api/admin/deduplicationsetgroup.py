@@ -136,6 +136,6 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
                 pk=pk,
                 raise_exception=True,
             )
-        except GroupDeleteError as exc:
-            self.message_user(request, str(exc), messages.ERROR)
+        except GroupDeleteError:
+            self.message_user(request, GroupDeleteError.message, messages.ERROR)
             return redirect("admin:api_deduplicationsetgroup_change", group.pk)
