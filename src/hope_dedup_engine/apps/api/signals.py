@@ -9,6 +9,8 @@ from hope_dedup_engine.apps.api.models import Encoding
 logger = logging.getLogger(__name__)
 
 
+# Remove this signal after image files move to shared blob storage. Those blobs
+# are owned outside this service, so deleting an Encoding must not delete the file.
 @receiver(post_delete, sender=Encoding)
 def delete_encoding_image_file(sender: type[Encoding], instance: Encoding, **kwargs: object) -> None:
     """Remove the image file after the deleting transaction commits.
