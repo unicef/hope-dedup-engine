@@ -324,3 +324,58 @@ def test_deleted_group_admin_button_returns_404(app, seeded_group) -> None:
     )
 
     assert res.status_code == 404
+
+
+def test_group_soft_delete_asks_confirmation(app, seeded_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    res = app.get(url, expect_errors=True)
+
+    assert res.status_code == 200
+    seeded_group.refresh_from_db()
+    assert seeded_group.deleted is False
+
+
+def test_group_soft_delete_success(confirm, seeded_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    assert confirm(url).status_code == 200
+
+    seeded_group.refresh_from_db()
+    assert seeded_group.deleted is True
+
+
+def test_group_soft_delete_blocked_when_locked(confirm, locked_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[locked_group.pk])
+
+    res = confirm(url)
+
+    assert res.status_code == 200
+    assert "Cannot delete group while processing is running." in res.body.decode()
+
+    locked_group.refresh_from_db()
+    assert locked_group.deleted is False
+    assert locked_group.processing_locked is True
+
+
+@pytest.mark.parametrize(
+    ("perms", "expected_status"),
+    [
+        (["api.view_deduplicationsetgroup"], 403),
+        (["api.delete_deduplicationsetgroup"], 200),
+    ],
+)
+def test_group_soft_delete_permission(
+    staff_user: User,
+    seeded_group,
+    client: Client,
+    perms: list[str],
+    expected_status: int,
+) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    with user_grant_permissions(staff_user, perms):
+        client.force_login(staff_user)
+        res = client.get(url)
+
+    assert res.status_code == expected_status

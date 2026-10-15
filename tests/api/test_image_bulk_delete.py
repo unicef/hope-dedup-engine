@@ -23,3 +23,17 @@ def test_deduplication_set_is_updated(
     assert response.status_code == status.HTTP_204_NO_CONTENT
     deduplication_set.refresh_from_db()
     assert deduplication_set.updated_by == user
+
+
+def test_cannot_delete_images_from_deleted_group(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+    encoding: Encoding,
+) -> None:
+    deduplication_set.group.deleted = True
+    deduplication_set.group.save(update_fields=["deleted"])
+
+    response = api_client.delete(reverse(BULK_IMAGE_CLEAR_VIEW, kwargs={"deduplication_set_pk": deduplication_set.pk}))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert Encoding.objects.filter(pk=encoding.pk).exists()

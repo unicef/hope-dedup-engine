@@ -9,6 +9,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError, GroupSettingsError
 from hope_dedup_engine.apps.api.utils.image import encoding_image_key
 
 REFERENCE_PK_LENGTH: Final[int] = 100
@@ -40,10 +41,6 @@ def encoding_image_upload_to(instance: "Encoding", filename: str) -> str:
 # Do not rename: migrations reference this callable by dotted path.
 def get_encoding_status_choices() -> list[tuple[int, str]]:
     return list(Encoding.StatusCode.choices)
-
-
-class GroupSettingsError(Exception):
-    pass
 
 
 class DeduplicationSetGroup(models.Model):
@@ -125,6 +122,21 @@ class DeduplicationSetGroup(models.Model):
                 self._clear_active_set_on_settings_change()
         finally:
             self.release_processing_lock()
+
+    def soft_delete(self) -> None:
+        with transaction.atomic():
+            group = DeduplicationSetGroup.objects.select_for_update().filter(pk=self.pk).first()
+            if group is None:
+                return
+            if group.deleted:
+                self.deleted = True
+                return
+            if group.processing_locked:
+                raise GroupDeleteError("Cannot delete group while processing is running.")
+
+            group.deleted = True
+            group.save(update_fields=["deleted"])
+            self.deleted = True
 
     def _clear_active_set_on_settings_change(self) -> None:
         ds = (

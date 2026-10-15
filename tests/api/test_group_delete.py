@@ -17,8 +17,8 @@ def test_can_soft_delete_group(api_client: APIClient, deduplication_set: Dedupli
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     group.refresh_from_db()
-    deduplication_set.refresh_from_db()
     assert group.deleted is True
+    assert DeduplicationSet.objects.filter(pk=deduplication_set.pk).exists()
 
 
 def test_delete_group_is_idempotent(api_client: APIClient, deduplication_set_group_factory) -> None:
@@ -43,3 +43,18 @@ def test_cannot_delete_processing_group(api_client: APIClient, deduplication_set
     assert response.json()["detail"] == "Cannot delete group while processing is running."
     group.refresh_from_db()
     assert group.deleted is False
+
+
+def test_delete_targets_active_group_when_deleted_group_with_same_reference_exists(
+    api_client: APIClient,
+    deduplication_set_group_factory,
+) -> None:
+    reference_pk = "same-ref"
+    deduplication_set_group_factory(reference_pk=reference_pk, deleted=True)
+    active_group = deduplication_set_group_factory(reference_pk=reference_pk)
+
+    response = api_client.delete(group_url(reference_pk))
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    active_group.refresh_from_db()
+    assert active_group.deleted is True

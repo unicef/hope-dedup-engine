@@ -14,16 +14,17 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError, GroupSettingsError
 from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.filters import FindingFilter
 from hope_dedup_engine.apps.api.grant import Grant
 from hope_dedup_engine.apps.api.models import (
     DeduplicationSet,
+    DeduplicationSetGroup,
     Encoding,
     Finding,
+    MainJob,
 )
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup, GroupSettingsError
-from hope_dedup_engine.apps.api.models.jobs import MainJob
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import (
     CreateDeduplicationSetSerializer,
@@ -292,18 +293,16 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
         responses={status.HTTP_204_NO_CONTENT: None},
         description="Soft-delete a deduplication set group. Returns 409 while group processing is running.",
     )
-    @transaction.atomic
     def destroy(self, request: Request, reference_pk: str) -> Response:
-        group = (
-            DeduplicationSetGroup.objects.select_for_update().filter(reference_pk=reference_pk, deleted=False).first()
-        )
+        group = DeduplicationSetGroup.objects.filter(reference_pk=reference_pk, deleted=False).first()
         if group is None:
             return Response(status=status.HTTP_204_NO_CONTENT)
-        if group.processing_locked:
-            raise ConflictError("Cannot delete group while processing is running.")
 
-        group.deleted = True
-        group.save(update_fields=["deleted"])
+        try:
+            group.soft_delete()
+        except GroupDeleteError as exc:
+            raise ConflictError(str(exc)) from exc
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _config_retrieve(self, reference_pk: str) -> Response:
@@ -327,8 +326,8 @@ class DeduplicationSetGroupView(viewsets.ViewSet, TokenRequiredView):
 
         try:
             group.update_settings(serializer.validated_data)
-        except GroupSettingsError as e:
-            raise ConflictError(str(e))
+        except GroupSettingsError as exc:
+            raise ConflictError(str(exc)) from exc
 
         api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
         return Response({k: group.settings[k] for k in api_fields if k in group.settings})

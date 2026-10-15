@@ -3,12 +3,9 @@ import pytest
 from django.db import IntegrityError, transaction
 
 from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError, GroupSettingsError
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
-from hope_dedup_engine.apps.api.models.deduplication import (
-    DeduplicationSetGroup,
-    EncodingErrorGroup,
-    GroupSettingsError,
-)
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup, EncodingErrorGroup
 
 
 @pytest.fixture
@@ -300,6 +297,53 @@ def test_cannot_acquire_processing_lock_for_deleted_group(deduplication_set_grou
 
     group.refresh_from_db()
     assert group.processing_locked is False
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_preserves_related_data(
+    deduplication_set_group_factory,
+    deduplication_set_factory,
+    encoding_factory,
+    finding_factory,
+) -> None:
+    group = deduplication_set_group_factory()
+    deduplication_set = deduplication_set_factory(group=group)
+    encoding = encoding_factory(deduplication_set=deduplication_set)
+    finding = finding_factory(deduplication_set=deduplication_set, first_encoding=encoding)
+
+    group.soft_delete()
+
+    group.refresh_from_db()
+    assert group.deleted is True
+    assert group.deduplicationset_set.filter(pk=deduplication_set.pk).exists()
+    assert deduplication_set.encoding_set.filter(pk=encoding.pk).exists()
+    assert deduplication_set.finding_set.filter(pk=finding.pk).exists()
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_rejects_processing_locked_group(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory(processing_locked=True)
+
+    with pytest.raises(GroupDeleteError, match="processing is running"):
+        group.soft_delete()
+
+    group.refresh_from_db()
+    assert group.deleted is False
+    assert group.processing_locked is True
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_is_idempotent(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory()
+    stale_group = DeduplicationSetGroup.objects.get(pk=group.pk)
+
+    group.soft_delete()
+    stale_group.soft_delete()
+
+    assert group.deleted is True
+    assert stale_group.deleted is True
+    stale_group.refresh_from_db()
+    assert stale_group.deleted is True
 
 
 @pytest.mark.django_db

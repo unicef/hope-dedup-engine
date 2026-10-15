@@ -2,6 +2,7 @@ from typing import cast
 
 from admin_extra_buttons.api import button
 from admin_extra_buttons.mixins import confirm_action
+from django.contrib import messages
 from django.contrib.admin import register, display
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
@@ -13,15 +14,18 @@ from django.utils.translation import gettext_lazy as _
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.forms import DeduplicationSetGroupSettingsForm
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig
-from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError
+from hope_dedup_engine.apps.api.models import DeduplicationSetGroup
 from hope_dedup_engine.apps.core.permissions import can
+
 
 CONFIRM_RELEASE_LOCK = _(
     "Do you confirm to release the processing lock for this Deduplication Set Group? "
     "Release the lock only if you are sure that no task is currently running for this group."
 )
 LOCK_RELEASED = _("Processing lock released.")
-
+CONFIRM_SOFT_DELETE = _("Do you confirm to soft-delete this Deduplication Set Group?")
+GROUP_SOFT_DELETED = _("Deduplication Set Group soft-deleted.")
 CATEGORY_LABELS = {
     "detection": "Face Detection Settings",
     "recognition": "Recognition Settings",
@@ -52,6 +56,9 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
         return super().get_queryset(request).filter(deleted=False)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: DeduplicationSetGroup | None = None) -> bool:
         return False
 
     @display(description="Deduplication Sets")
@@ -105,3 +112,30 @@ class DeduplicationSetGroupAdmin(BaseModelAdmin):
             description=str(group),
             pk=pk,
         )
+
+    @button(
+        label="Soft delete",
+        change_form=True,
+        change_list=False,
+        permission=can.api.delete_deduplicationsetgroup,
+    )
+    def soft_delete(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("DeduplicationSetGroup", self.get_required_object(request, pk))
+
+        def action(_: HttpRequest) -> None:
+            group.soft_delete()
+
+        try:
+            return confirm_action(
+                modeladmin=self,
+                request=request,
+                action=action,
+                message=CONFIRM_SOFT_DELETE,
+                success_message=GROUP_SOFT_DELETED,
+                description=str(group),
+                pk=pk,
+                raise_exception=True,
+            )
+        except GroupDeleteError as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            return redirect("admin:api_deduplicationsetgroup_change", group.pk)

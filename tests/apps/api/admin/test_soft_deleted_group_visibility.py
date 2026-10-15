@@ -60,3 +60,12 @@ def test_admin_querysets_exclude_soft_deleted_group(
     finding_qs = FindingAdmin(Finding, site).get_queryset(request)
     assert finding_qs.filter(pk=active_finding.pk).exists()
     assert not finding_qs.filter(pk=deleted_finding.pk).exists()
+
+
+def test_group_admin_disables_hard_delete(rf: RequestFactory, admin_user) -> None:
+    request = rf.get("/admin/")
+    request.user = admin_user
+
+    model_admin = DeduplicationSetGroupAdmin(DeduplicationSetGroup, AdminSite())
+
+    assert model_admin.has_delete_permission(request) is False
