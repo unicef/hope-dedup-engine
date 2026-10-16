@@ -44,6 +44,7 @@ INSTALLED_APPS = (
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "hope_dedup_engine.apps.api",
+    "hope_dedup_engine.apps.biographic",
     "hope_dedup_engine.apps.faces",
     "storages",
     "smart_env",
@@ -215,6 +216,7 @@ from .fragments.celery import *  # noqa
 from .fragments.constance import *  # noqa
 from .fragments.csp import *  # noqa
 from .fragments.email import *  # noqa
+from .fragments.es_biographic import *  # noqa
 from .fragments.flags import *  # noqa
 from .fragments.models import *  # noqa
 from .fragments.rest_framework import *  # noqa

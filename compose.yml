@@ -121,6 +121,39 @@ services:
       timeout: 4s
       retries: 5
 
+  elasticsearch:
+    # Dedicated cluster for biographic deduplication. HOPE runs 9.4.2; the parity
+    # tests are what keep the two comparable, not the exact tag.
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    command: >
+      bash -c "
+        bin/elasticsearch-plugin install analysis-phonetic --batch --silent 2>/dev/null || true &&
+        exec /usr/local/bin/docker-entrypoint.sh eswrapper
+      "
+    environment:
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false"
+      - "xpack.security.http.ssl.enabled=false"
+      # One node and no replicas: there is nowhere to relocate a shard to, so the
+      # disk watermarks can only turn the cluster read-only on a full dev disk.
+      - "cluster.routing.allocation.disk.threshold_enabled=false"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - ${ELASTICSEARCH_PORT:-9200}:9200
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     command: "azurite -l /workspace -d /workspace/debug.log --blobPort 10000 --blobHost 0.0.0.0 --loose --silent --skipApiVersionCheck"
@@ -140,4 +173,5 @@ services:
 
 volumes:
   azurite_data:
+  elasticsearch_data:
   postgres_data:

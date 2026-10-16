@@ -61,6 +61,10 @@ Storage backends use the smart-env URL syntax: `<backend.class>?option=value&...
 | `SUPERUSERS` | *(empty)* | Emails/usernames auto-granted superuser at first creation (CI/dev environments). |
 | `CSP_ASSET_HOSTS` | `https://*.blob.core.windows.net` | Comma-separated origins allowed to serve static CSS, JS, images, and fonts. Add `http://localhost:10000` when static files come from a local Azurite. |
 
+## Biographic deduplication
+
+`ELASTICSEARCH_HOST`, `ELASTICSEARCH_PREFIX` and `ELASTICSEARCH_SYNONYMS_FILE` configure the Elasticsearch cluster used by biographic deduplication. See [Biographic environment](../biographic/admin/environment.md).
+
 ## Azure AD login (admin panel SSO)
 
 | Variable | Description |

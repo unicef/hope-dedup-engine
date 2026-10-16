@@ -26,6 +26,8 @@ exclude_lines =
     if __name__ == .__main__.:
     if TYPE_CHECKING:
     if settings.DEBUG:
+    # Protocol bodies are declarations: the `...` can never execute.
+    class .*\bProtocol\):
 
 fail_under = 66
 
