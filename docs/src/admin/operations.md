@@ -35,6 +35,8 @@ and, if deployed, in [Flower](https://flower.readthedocs.io/) (`celery-flower` s
 
 Encodings on approved sets are kept. Later runs in the same group compare new images against them.
 
+Only database rows are removed. The image files stay in the shared HOPE storage, which the engine only reads from and never deletes from.
+
 The task is not scheduled automatically. Turn it on from the admin:
 
 1. Open `Home › Periodic Tasks › Periodic tasks › Add`.
