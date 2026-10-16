@@ -33,7 +33,7 @@ Storage backends use the smart-env URL syntax: `<backend.class>?option=value&...
 
 | Variable | Description |
 |----------|-------------|
-| `FILE_STORAGE_IMAGES` | Storage for uploaded image files. Defaults to `FileSystemStorage` (local); can be set to an object store (e.g. `storages.backends.azure_storage.AzureStorage?...`). |
+| `FILE_STORAGE_HOPE` | Read-only storage for the shared HOPE dataset images the deduplication API reads by filename. Defaults to `storages.backends.azure_storage.AzureStorage`; typically points at the same object store as production HOPE. |
 | `FILE_STORAGE_STATIC` | Storage for static files (CSS/JS). |
 | `FILE_STORAGE_MEDIA` | Storage for media files. |
 | `FILE_STORAGE_DEFAULT` | Default Django storage; typically `django.core.files.storage.FileSystemStorage`. |
@@ -43,7 +43,6 @@ Storage backends use the smart-env URL syntax: `<backend.class>?option=value&...
 | Variable | Example | Description |
 |----------|---------|-------------|
 | `DEEPFACE_HOME` | `/var/run/app/deepface` | Where DeepFace model weights live (auto-downloaded on first use). Shared volume: writable for the backend, read-only for workers. |
-| `IMAGES_ROOT` | `/var/data` | Root directory for image files when `FILE_STORAGE_IMAGES` uses `FileSystemStorage`. Images are stored under `images/{group}/{set}/{filename}`. |
 | `DEFAULT_ROOT` | `/var/hope_dedupe_engine/default` | Root for locally stored files. |
 | `MEDIA_ROOT` | `/var/hope_dedupe_engine/media` | Media files root. |
 | `STATIC_ROOT` | `/var/hope_dedupe_engine/static` | Static files root. |

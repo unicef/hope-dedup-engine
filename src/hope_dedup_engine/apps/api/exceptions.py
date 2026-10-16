@@ -5,3 +5,7 @@ from rest_framework.exceptions import APIException
 class ConflictError(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "Conflict."
+
+
+class ImageDecodeError(ValueError):
+    """Raised when blob data was read successfully but is not a decodable image."""

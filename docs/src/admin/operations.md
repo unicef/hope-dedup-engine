@@ -35,6 +35,8 @@ and, if deployed, in [Flower](https://flower.readthedocs.io/) (`celery-flower` s
 
 Encodings on approved sets are kept. Later runs in the same group compare new images against them.
 
+Only database rows are removed. The image files stay in the shared HOPE storage, which the engine only reads from and never deletes from.
+
 The task is not scheduled automatically. Turn it on from the admin:
 
 1. Open `Home › Periodic Tasks › Periodic tasks › Add`.
@@ -51,7 +53,7 @@ Each group has a `processing_locked` flag preventing concurrent runs. The worker
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| All findings have status 404 | Wrong `FILE_STORAGE_IMAGES` configuration, or image files missing from storage | Verify the storage configuration and that registered images exist at the expected paths. |
+| All findings have status 404 | Wrong `FILE_STORAGE_HOPE` configuration, or image files missing from storage | Verify the storage configuration and that the filenames sent to the API exist at those paths in the HOPE storage. |
 | `process` always returns 409 "another task is already running" | Stale processing lock | See [releasing a stuck lock](#releasing-a-stuck-processing-lock). |
 | Encoding fails instantly | Missing model weights | Check the `DEEPFACE_HOME` volume is mounted and writable (weights are auto-downloaded on first use). |
 | Quality checks fail unexpectedly / OFIQ errors | OFIQ model data missing | Check `OFIQ_DATA_DIR` contents. |
