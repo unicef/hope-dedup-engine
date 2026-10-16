@@ -26,6 +26,23 @@ Celery task execution can be monitored at:
 
 and, if deployed, in [Flower](https://flower.readthedocs.io/) (`celery-flower` service).
 
+## Cleaning up old findings and rejected sets
+
+`cleanup_redundant_data` deletes data that is no longer needed once it is older than `CLEANUP_RETENTION_DAYS` (default 60 days, about two months; change it under Constance › Config):
+
+- findings on **approved** sets (HOPE has already read them and approved the set)
+- findings, encodings, and the set itself when the set is **rejected**
+
+Encodings on approved sets are kept. Later runs in the same group compare new images against them.
+
+The task is not scheduled automatically. Turn it on from the admin:
+
+1. Open `Home › Periodic Tasks › Periodic tasks › Add`.
+2. Set the task to `hope_dedup_engine.apps.api.celery_tasks.cleanup_redundant_data`.
+3. Choose a schedule (for example, once a day) and enable the task.
+
+Celery beat must be running for the schedule to fire. A one-off run can pass `{"retention_days": 60}` as keyword arguments to override the Constance value.
+
 ## Releasing a stuck processing lock
 
 Each group has a `processing_locked` flag preventing concurrent runs. The worker releases it in a `finally` block, so it should clear even on failure — but if a worker was killed hard (OOM, node eviction) the flag can remain set, and all `process` calls for the group will return 409. Check the group in `Home › Api › Deduplication set groups` and clear the flag if no task is actually running (verify in Task results / Flower first).

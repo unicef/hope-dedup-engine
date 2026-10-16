@@ -79,6 +79,15 @@ CONSTANCE_CONFIG = {
         str,
     ),
     "HOPE_API_TOKEN": (HOPE_API_TOKEN, "HOPE API Access Token", "write_only_text_input"),
+    "CLEANUP_RETENTION_DAYS": (
+        60,
+        (
+            "Delete findings HOPE already has, and rejected deduplication sets with their "
+            "findings and encodings, once the set is older than this many days. "
+            "About two months. Encodings of approved sets are kept."
+        ),
+        "positive_int",
+    ),
 }
 
 
@@ -105,6 +114,10 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     "API settings": {
         "fields": ("HOPE_API_TOKEN",),
+        "collapse": False,
+    },
+    "Data retention": {
+        "fields": ("CLEANUP_RETENTION_DAYS",),
         "collapse": False,
     },
 }
@@ -139,6 +152,10 @@ CONSTANCE_ADDITIONAL_FIELDS = {
             "required": False,
             "widget": "hope_dedup_engine.utils.constance.WriteOnlyTextInput",
         },
+    ],
+    "positive_int": [
+        "django.forms.IntegerField",
+        {"min_value": 1},
     ],
 }
 

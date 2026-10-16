@@ -280,7 +280,7 @@ class DeduplicationSet(models.Model):
             self.error = formatted_error[:MAX_ERROR_LENGTH]
         else:
             self.error = None
-        self.save(update_fields=["state", "error"])
+        self.save(update_fields=["state", "error", "updated_at"])
 
 
 class EncodingManager(models.Manager["Encoding"]):

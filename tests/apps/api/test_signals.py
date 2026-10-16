@@ -9,7 +9,7 @@ from hope_dedup_engine.apps.api.signals import delete_encoding_image_file
 pytestmark = pytest.mark.django_db
 
 
-def test_delete_encoding_removes_image_file(deduplication_set) -> None:
+def test_delete_encoding_removes_image_file(deduplication_set, django_capture_on_commit_callbacks) -> None:
     encoding = Encoding.objects.create(
         deduplication_set=deduplication_set,
         reference_pk="ref-del",
@@ -19,7 +19,9 @@ def test_delete_encoding_removes_image_file(deduplication_set) -> None:
     storage = encoding.filename.storage
     assert storage.exists(storage_path)
 
-    encoding.delete()
+    with django_capture_on_commit_callbacks(execute=True):
+        encoding.delete()
+        assert storage.exists(storage_path)
 
     assert not storage.exists(storage_path)
 
@@ -31,28 +33,36 @@ def test_delete_encoding_skips_missing_filename(deduplication_set) -> None:
     delete_encoding_image_file(Encoding, encoding)
 
 
-def test_delete_encoding_ignores_file_not_found() -> None:
+def test_delete_encoding_ignores_file_not_found(django_capture_on_commit_callbacks) -> None:
     encoding = Mock()
     field = Mock()
     field.__bool__ = Mock(return_value=True)
-    field.delete = Mock(side_effect=FileNotFoundError())
     field.name = "images/group/set/ref.jpg"
+    storage = Mock()
+    storage.delete = Mock(side_effect=FileNotFoundError())
+    field.storage = storage
     encoding.filename = field
 
-    delete_encoding_image_file(Encoding, encoding)
+    with django_capture_on_commit_callbacks(execute=True):
+        delete_encoding_image_file(Encoding, encoding)
 
-    field.delete.assert_called_once_with(save=False)
+    storage.delete.assert_called_once_with("images/group/set/ref.jpg")
 
 
-def test_delete_encoding_logs_unexpected_storage_errors() -> None:
+def test_delete_encoding_logs_unexpected_storage_errors(django_capture_on_commit_callbacks) -> None:
     encoding = Mock()
     field = Mock()
     field.__bool__ = Mock(return_value=True)
-    field.delete = Mock(side_effect=OSError("storage unavailable"))
     field.name = "images/group/set/ref.jpg"
+    storage = Mock()
+    storage.delete = Mock(side_effect=OSError("storage unavailable"))
+    field.storage = storage
     encoding.filename = field
 
-    with patch("hope_dedup_engine.apps.api.signals.logger.warning") as warning_mock:
+    with (
+        patch("hope_dedup_engine.apps.api.signals.logger.warning") as warning_mock,
+        django_capture_on_commit_callbacks(execute=True),
+    ):
         delete_encoding_image_file(Encoding, encoding)
 
     warning_mock.assert_called_once()
