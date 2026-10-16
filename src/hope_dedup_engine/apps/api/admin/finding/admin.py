@@ -1,4 +1,6 @@
 from django.contrib.admin import display, register
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.urls import path, reverse
 from adminfilters.autocomplete import LinkedAutoCompleteFilter
 from adminfilters.filters import DjangoLookupFilter, NumberFilter
@@ -61,10 +63,11 @@ class FindingAdmin(BaseModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return obj is not None
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Finding]:
         return (
             super()
             .get_queryset(request)
+            .filter(deduplication_set__group__deleted=False)
             .select_related("first_encoding", "second_encoding")
             .defer(
                 "first_encoding__embedding",

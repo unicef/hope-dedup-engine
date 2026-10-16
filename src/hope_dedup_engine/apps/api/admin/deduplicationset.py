@@ -74,7 +74,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
         return False
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DeduplicationSet]:
-        return super().get_queryset(request).defer("log", "error")
+        return super().get_queryset(request).filter(group__deleted=False).defer("log", "error")
 
     @display(description="Log")
     def formatted_log(self, obj: DeduplicationSet) -> str:
@@ -137,7 +137,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
 
     @button(change_form=True, permission=can.api.process_encodings)
     def encode(self, request: HttpRequest, pk: str) -> HttpResponse:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_required_object(request, pk))
         action = self._make_job_action(
             request,
             deduplication_set,
@@ -148,7 +148,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
 
     @button(change_form=True, permission=can.api.process_deduplicate)
     def deduplicate(self, request: HttpRequest, pk: str) -> HttpResponse:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_required_object(request, pk))
         action = self._make_job_action(
             request,
             deduplication_set,
@@ -173,13 +173,13 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     @view(label="View", permission=can.api.view_encoding)
     def encodings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
         """Redirect to the Encoding changelist filtered by Deduplication Set."""
-        ds = cast("DeduplicationSet", self.get_object(request, pk))
+        ds = cast("DeduplicationSet", self.get_required_object(request, pk))
         url = reverse("admin:api_encoding_changelist", query={"deduplication_set": str(ds.pk)})
         return redirect(url)
 
     @view(label="Clear Embeddings", permission=can.api.clear_embeddings)
     def clear_embeddings(self, request: HttpRequest, pk: str) -> HttpResponse:
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_required_object(request, pk))
         action = self._make_state_change_action(
             request,
             deduplication_set,
@@ -205,7 +205,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
 
     @button(label="Send notification", permission=can.api.send_notification)
     def send_notification(self, request: HttpRequest, pk: str) -> HttpResponse:
-        obj: DeduplicationSet = self.get_object(request, pk)
+        obj = cast("DeduplicationSet", self.get_required_object(request, pk))
         match send_notification(obj, force=True):
             case None:
                 self.message_user(request, NOTIFICATION_SENT, messages.SUCCESS)
@@ -217,14 +217,14 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     @view(label="View", permission=can.api.view_finding)
     def findings_view(self, request: HttpRequest, pk: str) -> HttpResponse:
         """Redirect to the Finding changelist filtered by Deduplication Set."""
-        ds = cast("DeduplicationSet", self.get_object(request, pk))
+        ds = cast("DeduplicationSet", self.get_required_object(request, pk))
         url = reverse("admin:api_finding_changelist", query={"deduplication_set": str(ds.pk)})
         return redirect(url)
 
     @view(label="Remove", permission=can.api.remove_findings)
     def findings_remove(self, request: HttpRequest, pk: str) -> HttpResponse:
         """Clear all Findings for this Deduplication Set."""
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_required_object(request, pk))
         action = self._make_state_change_action(
             request,
             deduplication_set,
@@ -238,7 +238,7 @@ class DeduplicationSetAdmin(BaseModelAdmin):
     @view(label="Export to CSV", permission=can.api.export_findings)
     def findings_export(self, request: HttpRequest, pk: str) -> StreamingHttpResponse:
         """Export Findings for this Deduplication Set to a CSV file."""
-        deduplication_set = cast("DeduplicationSet", self.get_object(request, pk))
+        deduplication_set = cast("DeduplicationSet", self.get_required_object(request, pk))
         qs = deduplication_set.finding_set.all()
         filename = f"deduplication_set_{deduplication_set}_findings.csv"
         return export_as_csv(qs, filename)

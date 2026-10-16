@@ -4,8 +4,13 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from hope_dedup_engine.apps.api.deduplication.config import DeduplicationSetConfig, get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.exceptions import (
+    GroupSettingsApprovedError,
+    GroupSettingsLockedError,
+)
 from hope_dedup_engine.apps.api.models import DeduplicationSet
 from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup
+
 
 URL_NAME = "deduplication_set_groups-config"
 JSON = "json"
@@ -70,7 +75,7 @@ def test_post_creates_group_with_settings(api_client: APIClient):
     assert data["sharpness_threshold"] == 0.6
     assert data["eyes_open_threshold"] == 0.7
 
-    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk)
+    group = DeduplicationSetGroup.objects.get(reference_pk=ref_pk, deleted=False)
     assert group.settings["sharpness_threshold"] == 0.6
 
 
@@ -110,7 +115,9 @@ def test_post_blocked_when_approved_dedup_set_exists(
     deduplication_set_factory(group=group, state=DeduplicationSet.State.APPROVED)
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+
     assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["detail"] == GroupSettingsApprovedError.message
 
 
 @pytest.mark.django_db
@@ -130,6 +137,7 @@ def test_post_clears_deduplicated_set_data(
     finding_factory(deduplication_set=ds, first_encoding=encoding)
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
+
     assert response.status_code == status.HTTP_200_OK
 
     encoding.refresh_from_db()
@@ -162,3 +170,39 @@ def test_post_blocked_when_processing_locked(api_client: APIClient, deduplicatio
 
     response = api_client.post(config_url(group.reference_pk), data={"sharpness_threshold": 0.5}, format=JSON)
     assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["detail"] == GroupSettingsLockedError.message
+
+
+@pytest.mark.django_db
+def test_get_ignores_deleted_group(api_client: APIClient, deduplication_set_group_factory) -> None:
+    defaults = get_default_group_settings()
+    group = deduplication_set_group_factory(
+        deleted=True,
+        settings={**defaults, "sharpness_threshold": 0.123},
+    )
+
+    response = api_client.get(config_url(group.reference_pk))
+
+    assert response.status_code == status.HTTP_200_OK
+    api_fields = [f.name for f in DeduplicationSetConfig.setting_fields(api=True)]
+    assert response.json() == {key: defaults[key] for key in api_fields if key in defaults}
+
+
+@pytest.mark.django_db
+def test_post_creates_new_group_when_previous_group_deleted(
+    api_client: APIClient,
+    deduplication_set_group_factory,
+) -> None:
+    old_group = deduplication_set_group_factory(deleted=True)
+
+    response = api_client.post(
+        config_url(old_group.reference_pk),
+        data={"sharpness_threshold": 0.6},
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+
+    group = DeduplicationSetGroup.objects.get(reference_pk=old_group.reference_pk, deleted=False)
+    assert group.pk != old_group.pk
+    assert group.settings["sharpness_threshold"] == 0.6

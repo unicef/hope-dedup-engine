@@ -25,3 +25,15 @@ def test_serializer_computes_findings_count_without_annotation(
 ) -> None:
     data = DeduplicationSetSerializer(deduplication_set).data
     assert data["findings_count"] == 1
+
+
+def test_set_from_deleted_group_is_not_retrievable(
+    api_client: APIClient,
+    deduplication_set: DeduplicationSet,
+) -> None:
+    deduplication_set.group.deleted = True
+    deduplication_set.group.save(update_fields=["deleted"])
+
+    response = api_client.get(reverse(DEDUPLICATION_SET_DETAIL_VIEW, (deduplication_set.pk,)))
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -3,9 +3,16 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from django.db import IntegrityError, transaction
+
 from hope_dedup_engine.apps.api.deduplication.config import get_default_group_settings
+from hope_dedup_engine.apps.api.deduplication.exceptions import (
+    GroupDeleteError,
+    GroupSettingsApprovedError,
+    GroupSettingsLockedError,
+)
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding
-from hope_dedup_engine.apps.api.models.deduplication import EncodingErrorGroup, GroupSettingsError
+from hope_dedup_engine.apps.api.models.deduplication import DeduplicationSetGroup, EncodingErrorGroup
 
 
 @pytest.fixture
@@ -168,14 +175,18 @@ def test_encodings_without_embeddings_exclusion(
 
 @pytest.mark.django_db
 def test_update_settings_raises_when_approved_sets_exist(group_with_approved_ds):
-    with pytest.raises(GroupSettingsError, match="approved"):
+    with pytest.raises(GroupSettingsApprovedError) as exc_info:
         group_with_approved_ds.update_settings({"sharpness_threshold": 0.5})
+
+    assert str(exc_info.value) == GroupSettingsApprovedError.message
 
 
 @pytest.mark.django_db
 def test_update_settings_raises_when_processing_locked(group_with_settings_locked):
-    with pytest.raises(GroupSettingsError, match="processing job is running"):
+    with pytest.raises(GroupSettingsLockedError) as exc_info:
         group_with_settings_locked.update_settings({"sharpness_threshold": 0.5})
+
+    assert str(exc_info.value) == GroupSettingsLockedError.message
 
 
 @pytest.mark.django_db
@@ -286,3 +297,106 @@ def test_update_settings_full_flow_clears_deduplicated_set(group_ds_deduplicated
     assert ds.finding_set.count() == 0
     ds.refresh_from_db()
     assert ds.state == DeduplicationSet.State.READY
+
+
+@pytest.mark.django_db
+def test_acquire_processing_lock_is_atomic(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory()
+    stale_group = DeduplicationSetGroup.objects.get(pk=group.pk)
+
+    assert group.acquire_processing_lock() is True
+    assert group.processing_locked is True
+    assert stale_group.acquire_processing_lock() is False
+
+    group.refresh_from_db()
+    assert group.processing_locked is True
+
+
+@pytest.mark.django_db
+def test_cannot_acquire_processing_lock_for_deleted_group(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory(deleted=True)
+
+    assert group.acquire_processing_lock() is False
+
+    group.refresh_from_db()
+    assert group.processing_locked is False
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_preserves_related_data(
+    deduplication_set_group_factory,
+    deduplication_set_factory,
+    encoding_factory,
+    finding_factory,
+) -> None:
+    group = deduplication_set_group_factory()
+    deduplication_set = deduplication_set_factory(group=group)
+    encoding = encoding_factory(deduplication_set=deduplication_set)
+    finding = finding_factory(deduplication_set=deduplication_set, first_encoding=encoding)
+
+    group.soft_delete()
+
+    group.refresh_from_db()
+    assert group.deleted is True
+    assert group.deduplicationset_set.filter(pk=deduplication_set.pk).exists()
+    assert deduplication_set.encoding_set.filter(pk=encoding.pk).exists()
+    assert deduplication_set.finding_set.filter(pk=finding.pk).exists()
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_rejects_processing_locked_group(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory(processing_locked=True)
+
+    with pytest.raises(GroupDeleteError) as exc_info:
+        group.soft_delete()
+
+    assert str(exc_info.value) == GroupDeleteError.message
+
+    group.refresh_from_db()
+    assert group.deleted is False
+    assert group.processing_locked is True
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_is_idempotent(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory()
+    stale_group = DeduplicationSetGroup.objects.get(pk=group.pk)
+
+    group.soft_delete()
+    stale_group.soft_delete()
+
+    assert group.deleted is True
+    assert stale_group.deleted is True
+    stale_group.refresh_from_db()
+    assert stale_group.deleted is True
+
+
+@pytest.mark.django_db
+def test_group_soft_delete_is_noop_when_group_no_longer_exists(deduplication_set_group_factory) -> None:
+    group = deduplication_set_group_factory()
+    group_pk = group.pk
+    DeduplicationSetGroup.objects.filter(pk=group_pk).delete()
+
+    group.soft_delete()
+
+    assert not DeduplicationSetGroup.objects.filter(pk=group_pk).exists()
+
+
+@pytest.mark.django_db
+def test_group_reference_pk_can_be_reused_after_delete(deduplication_set_group_factory) -> None:
+    reference_pk = "same-ref"
+
+    deduplication_set_group_factory(reference_pk=reference_pk, deleted=True)
+    deduplication_set_group_factory(reference_pk=reference_pk, deleted=True)
+    active_group = deduplication_set_group_factory(reference_pk=reference_pk)
+
+    assert active_group.deleted is False
+
+
+@pytest.mark.django_db
+def test_group_reference_pk_rejects_multiple_active_groups(deduplication_set_group_factory) -> None:
+    reference_pk = "same-ref"
+    deduplication_set_group_factory(reference_pk=reference_pk)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        deduplication_set_group_factory(reference_pk=reference_pk)

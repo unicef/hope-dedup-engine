@@ -32,10 +32,12 @@ def test_finding_image_requires_staff(client: MagicMock) -> None:
 def test_finding_image_serves_file(
     admin_client: MagicMock,
     finding_image_storage: MagicMock,
+    encoding_factory,
 ) -> None:
     filename = "images/abc/image.jpg"
-    url = reverse("admin:api_finding_image", kwargs={"filename": filename})
+    encoding_factory(filename=filename)
     finding_image_storage.open.return_value = BytesIO(b"image-bytes")
+    url = reverse("admin:api_finding_image", kwargs={"filename": filename})
 
     response = admin_client.get(url)
 
@@ -50,16 +52,37 @@ def test_finding_image_serves_file(
     assert body == b"image-bytes"
 
 
-def test_finding_image_missing_returns_404(
+def test_finding_image_missing_in_storage_returns_404(
     admin_client: MagicMock,
     finding_image_storage: MagicMock,
+    encoding_factory,
 ) -> None:
-    url = reverse("admin:api_finding_image", kwargs={"filename": "missing.jpg"})
+    filename = "missing.jpg"
+    encoding_factory(filename=filename)
     finding_image_storage.open.side_effect = FileNotFoundError("missing")
+    url = reverse("admin:api_finding_image", kwargs={"filename": filename})
 
     response = admin_client.get(url)
 
     assert response.status_code == 404
+    finding_image_storage.open.assert_called_once_with(filename, "rb")
+
+
+def test_finding_image_from_deleted_group_returns_404(
+    admin_client: MagicMock,
+    finding_image_storage: MagicMock,
+    encoding_factory,
+) -> None:
+    filename = "images/deleted/image.jpg"
+    encoding = encoding_factory(filename=filename)
+    encoding.deduplication_set.group.deleted = True
+    encoding.deduplication_set.group.save(update_fields=["deleted"])
+    url = reverse("admin:api_finding_image", kwargs={"filename": filename})
+
+    response = admin_client.get(url)
+
+    assert response.status_code == 404
+    finding_image_storage.open.assert_not_called()
 
 
 # ---------- FindingPreviewView ----------
@@ -113,3 +136,16 @@ def test_finding_preview_context(
         assert ctx["second_image_url"] == reverse("admin:api_finding_image", kwargs={"filename": second_filename})
     else:
         assert ctx["second_image_url"] is None
+
+
+def test_finding_preview_from_deleted_group_returns_404(
+    admin_client: MagicMock,
+    finding,
+) -> None:
+    finding.deduplication_set.group.deleted = True
+    finding.deduplication_set.group.save(update_fields=["deleted"])
+    url = reverse("admin:api_finding_details", kwargs={"pk": finding.pk})
+
+    response = admin_client.get(url)
+
+    assert response.status_code == 404

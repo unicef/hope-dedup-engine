@@ -68,3 +68,23 @@ def test_create_with_duplicate_id_returns_400(api_client: APIClient, deduplicati
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "id" in response.json()
+
+
+def test_create_uses_new_group_when_previous_group_deleted(
+    api_client: APIClient,
+    deduplication_set_group_factory,
+) -> None:
+    old_group = deduplication_set_group_factory(deleted=True)
+
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_LIST_VIEW),
+        data={"reference_pk": old_group.reference_pk},
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+
+    deduplication_set = DeduplicationSet.objects.get(pk=response.json()["id"])
+    assert deduplication_set.group_id != old_group.pk
+    assert deduplication_set.group.reference_pk == old_group.reference_pk
+    assert deduplication_set.group.deleted is False

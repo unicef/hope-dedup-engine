@@ -1,9 +1,11 @@
 import pytest
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
 from hope_dedup_engine.apps.security.models import User
+from hope_dedup_engine.apps.api.deduplication.exceptions import GroupDeleteError
 from hope_dedup_engine.apps.api.models import Finding, DeduplicationSet
 from testutils.perms import user_grant_permissions
 from testutils.factories.user import SuperUserFactory
@@ -300,3 +302,83 @@ def test_group_release_processing_lock(confirm, locked_group) -> None:
 
     locked_group.refresh_from_db()
     assert locked_group.processing_locked is False
+
+
+def test_deleted_ds_admin_button_returns_404(app, seeded_ds) -> None:
+    seeded_ds.group.deleted = True
+    seeded_ds.group.save(update_fields=["deleted"])
+
+    res = app.get(
+        reverse("admin:api_deduplicationset_encode", args=[seeded_ds.pk]),
+        expect_errors=True,
+    )
+
+    assert res.status_code == 404
+
+
+def test_deleted_group_admin_button_returns_404(app, seeded_group) -> None:
+    seeded_group.deleted = True
+    seeded_group.save(update_fields=["deleted"])
+
+    res = app.get(
+        reverse("admin:api_deduplicationsetgroup_encodings", args=[seeded_group.pk]),
+        expect_errors=True,
+    )
+
+    assert res.status_code == 404
+
+
+def test_group_soft_delete_asks_confirmation(app, seeded_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    res = app.get(url, expect_errors=True)
+
+    assert res.status_code == 200
+    seeded_group.refresh_from_db()
+    assert seeded_group.deleted is False
+
+
+def test_group_soft_delete_success(confirm, seeded_group) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    assert confirm(url).status_code == 200
+
+    seeded_group.refresh_from_db()
+    assert seeded_group.deleted is True
+
+
+def test_group_soft_delete_blocked_when_locked(confirm, locked_group, mocker) -> None:
+    message_user = mocker.patch(
+        "hope_dedup_engine.apps.api.admin.deduplicationsetgroup.DeduplicationSetGroupAdmin.message_user"
+    )
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[locked_group.pk])
+
+    assert confirm(url).status_code == 200
+    message_user.assert_called_once_with(mocker.ANY, GroupDeleteError.message, messages.ERROR)
+
+    locked_group.refresh_from_db()
+    assert locked_group.deleted is False
+    assert locked_group.processing_locked is True
+
+
+@pytest.mark.parametrize(
+    ("perms", "expected_status"),
+    [
+        (["api.view_deduplicationsetgroup"], 403),
+        (["api.delete_deduplicationsetgroup"], 200),
+    ],
+)
+def test_group_soft_delete_permission(
+    staff_user: User,
+    seeded_group,
+    client: Client,
+    perms: list[str],
+    expected_status: int,
+) -> None:
+    url = reverse("admin:api_deduplicationsetgroup_soft_delete", args=[seeded_group.pk])
+
+    with user_grant_permissions(staff_user, perms):
+        client.force_login(staff_user)
+        res = client.get(url)
+
+    assert res.status_code == expected_status

@@ -9,7 +9,13 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, QuerySet
 
+from hope_dedup_engine.apps.api.deduplication.exceptions import (
+    GroupDeleteError,
+    GroupSettingsApprovedError,
+    GroupSettingsLockedError,
+)
 from hope_dedup_engine.apps.api.utils.image import encoding_image_key
+
 
 REFERENCE_PK_LENGTH: Final[int] = 100
 FILENAME_LENGTH: Final[int] = 255
@@ -42,13 +48,9 @@ def get_encoding_status_choices() -> list[tuple[int, str]]:
     return list(Encoding.StatusCode.choices)
 
 
-class GroupSettingsError(Exception):
-    pass
-
-
 class DeduplicationSetGroup(models.Model):
     reference_pk = models.CharField(
-        max_length=REFERENCE_PK_LENGTH, unique=True, help_text="External id used to group deduplication sets."
+        max_length=REFERENCE_PK_LENGTH, help_text="External id used to group deduplication sets."
     )
     name = models.CharField(
         max_length=128, null=True, blank=True, db_index=True, help_text="Deduplication set group name."
@@ -64,6 +66,14 @@ class DeduplicationSetGroup(models.Model):
     class Meta:
         permissions = [
             ("release_processing_lock", "Can release processing lock"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("reference_pk",),
+                condition=Q(deleted=False),
+                name="unique_active_deduplication_set_group_reference_pk",
+                violation_error_message="An active deduplication set group with this reference_pk already exists.",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -86,14 +96,11 @@ class DeduplicationSetGroup(models.Model):
         return self.deduplicationset_set.filter(state=DeduplicationSet.State.APPROVED).exists()
 
     def acquire_processing_lock(self) -> bool:
-        with transaction.atomic():
-            group = DeduplicationSetGroup.objects.select_for_update().get(pk=self.pk)
-            if group.processing_locked:
-                return False
-            group.processing_locked = True
-            group.save(update_fields=["processing_locked"])
+        if acquired := DeduplicationSetGroup.objects.filter(pk=self.pk, deleted=False, processing_locked=False).update(
+            processing_locked=True
+        ):
             self.processing_locked = True
-            return True
+        return bool(acquired)
 
     def release_processing_lock(self) -> None:
         self.processing_locked = False
@@ -101,11 +108,11 @@ class DeduplicationSetGroup(models.Model):
 
     def update_settings(self, new_settings: dict) -> None:
         if not self.acquire_processing_lock():
-            raise GroupSettingsError("Cannot change settings while a processing job is running.")
+            raise GroupSettingsLockedError
 
         try:
-            if self.deduplicationset_set.filter(state=DeduplicationSet.State.APPROVED).exists():
-                raise GroupSettingsError("Cannot change settings while an approved deduplication set exists.")
+            if self.has_approved_deduplication_sets():
+                raise GroupSettingsApprovedError
 
             with transaction.atomic():
                 if not self.settings:
@@ -120,6 +127,21 @@ class DeduplicationSetGroup(models.Model):
                 self._clear_active_set_on_settings_change()
         finally:
             self.release_processing_lock()
+
+    def soft_delete(self) -> None:
+        with transaction.atomic():
+            group = DeduplicationSetGroup.objects.select_for_update().filter(pk=self.pk).first()
+            if group is None:
+                return
+            if group.deleted:
+                self.deleted = True
+                return
+            if group.processing_locked:
+                raise GroupDeleteError
+
+            group.deleted = True
+            group.save(update_fields=["deleted"])
+            self.deleted = True
 
     def _clear_active_set_on_settings_change(self) -> None:
         ds = (

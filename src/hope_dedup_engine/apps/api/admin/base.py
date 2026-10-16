@@ -1,15 +1,19 @@
 from typing import Any
 from collections.abc import Iterator
+
 from admin_extra_buttons.mixins import ExtraButtonsMixin
 from adminfilters.mixin import AdminAutoCompleteSearchMixin, AdminFiltersMixin
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Model
+from django.http import Http404, HttpRequest
 from django.urls import reverse
 from django import forms
 from adminactions import actions
 from admin_extra_buttons.buttons import ChoiceButton as BaseChoiceButton
 from admin_extra_buttons.handlers import ChoiceHandler
 from admin_extra_buttons.utils import check_permission, labelize
+
 
 actions.add_to_site(admin.site)
 
@@ -48,6 +52,12 @@ ChoiceHandler.button_class = FixedChoiceButton
 
 
 class BaseModelAdmin(ExtraButtonsMixin, AdminAutoCompleteSearchMixin, AdminFiltersMixin, admin.ModelAdmin):
+    def get_required_object(self, request: HttpRequest, object_id: str) -> Model:
+        """Return an admin object or raise 404."""
+        if (obj := self.get_object(request, object_id)) is None:
+            raise Http404
+        return obj
+
     @property
     def media(self) -> forms.Media:
         base = super().media
