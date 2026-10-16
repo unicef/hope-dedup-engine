@@ -28,16 +28,14 @@ def detect_face(encoding: Encoding) -> Detection | None:
             max_faces=2,
             enforce_detection=False,
         )
+        if len(representation) == 1:
+            return Detection(
+                encoding=encoding,
+                confidence=100 * float(representation[0]["face_confidence"]),
+                embedding=representation[0]["embedding"],
+            )
     except Exception:
         logger.exception("Failed to detect face for encoding %s", encoding.id)
-        return None
-
-    if len(representation) == 1:
-        return Detection(
-            encoding=encoding,
-            confidence=100 * float(representation[0]["face_confidence"]),
-            embedding=representation[0]["embedding"],
-        )
 
     return None
 

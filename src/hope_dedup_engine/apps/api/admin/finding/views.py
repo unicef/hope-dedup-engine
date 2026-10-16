@@ -1,4 +1,5 @@
 import mimetypes
+from io import BytesIO
 from typing import Any
 
 from azure.core.exceptions import ResourceNotFoundError
@@ -24,17 +25,22 @@ class FindingImageView(FindingDetailsPermissionMixin, View):
     """Serve image files from the shared HOPE blob storage to the browser."""
 
     def get(self, request: HttpRequest, filename: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        # Azure storage opens lazily: a missing blob only raises when the bytes are
+        # read, so read inside the try block to turn it into a 404 instead of a 500
+        # raised later while the response streams.
+
         if not Encoding.objects.filter(filename=filename, deduplication_set__group__deleted=False).exists():
             raise Http404("Image not found")
 
         try:
-            file_obj = storages["hope"].open(filename, "rb")
+            with storages["hope"].open(filename, "rb") as fh:
+                data = fh.read()
         except (ResourceNotFoundError, FileNotFoundError) as exc:
             raise Http404("Image not found") from exc
 
         content_type, _ = mimetypes.guess_type(filename)
         return FileResponse(
-            file_obj,
+            BytesIO(data),
             content_type=content_type or "application/octet-stream",
             as_attachment=False,
             filename=filename,

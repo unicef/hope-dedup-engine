@@ -2,6 +2,7 @@ from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
 from django.urls import reverse
 from pytest_mock import MockerFixture
 
@@ -84,6 +85,22 @@ def test_finding_image_from_deleted_group_returns_404(
 
     assert response.status_code == 404
     finding_image_storage.open.assert_not_called()
+
+
+def test_finding_image_missing_blob_on_read_returns_404(
+    admin_client: MagicMock,
+    finding_image_storage: MagicMock,
+) -> None:
+    """Azure opens lazily, so a missing blob raises on read, not on open."""
+    url = reverse("admin:api_finding_image", kwargs={"filename": "missing.jpg"})
+    handle = MagicMock()
+    handle.__enter__.return_value = handle
+    handle.read.side_effect = ResourceNotFoundError("missing")
+    finding_image_storage.open.return_value = handle
+
+    response = admin_client.get(url)
+
+    assert response.status_code == 404
 
 
 # ---------- FindingPreviewView ----------
