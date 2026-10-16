@@ -160,14 +160,18 @@ def test_encodings_without_embeddings_exclusion(
 
 @pytest.mark.django_db
 def test_update_settings_raises_when_approved_sets_exist(group_with_approved_ds):
-    with pytest.raises(GroupSettingsApprovedError):
+    with pytest.raises(GroupSettingsApprovedError) as exc_info:
         group_with_approved_ds.update_settings({"sharpness_threshold": 0.5})
+
+    assert str(exc_info.value) == GroupSettingsApprovedError.message
 
 
 @pytest.mark.django_db
 def test_update_settings_raises_when_processing_locked(group_with_settings_locked):
-    with pytest.raises(GroupSettingsLockedError):
+    with pytest.raises(GroupSettingsLockedError) as exc_info:
         group_with_settings_locked.update_settings({"sharpness_threshold": 0.5})
+
+    assert str(exc_info.value) == GroupSettingsLockedError.message
 
 
 @pytest.mark.django_db
@@ -328,8 +332,10 @@ def test_group_soft_delete_preserves_related_data(
 def test_group_soft_delete_rejects_processing_locked_group(deduplication_set_group_factory) -> None:
     group = deduplication_set_group_factory(processing_locked=True)
 
-    with pytest.raises(GroupDeleteError):
+    with pytest.raises(GroupDeleteError) as exc_info:
         group.soft_delete()
+
+    assert str(exc_info.value) == GroupDeleteError.message
 
     group.refresh_from_db()
     assert group.deleted is False
