@@ -44,7 +44,17 @@ Each name is matched by spelling (fuzzy, `AUTO:3,6`: no typo allowed up to 2 let
 Elasticsearch drops everything below `duplicate_score` (default **6.0**) and returns at most `max_hits` (default 100) per person, best first. With the defaults, matching given and family names is on its own a duplicate; one name plus birth date and phone is not (about 5).
 
 !!! warning "Synonym inflation"
-    Synonyms are expanded at index time, so a name from a large synonym group (e.g. the Mohammed spellings) is stored as every spelling in the group. The fuzzy query then matches several of those tokens and the scores add up: two people called Mohammed score about 7.8 on the given name alone and clear the default threshold without any other field. HOPE has the same behaviour and its threshold is calibrated against it, so it is kept.
+    Synonyms are expanded at index time, so a name from a synonym group is stored as every spelling in the group: "Mohammed" becomes 15 spellings. A spelling that is itself in the group behaves normally, because the query is expanded the same way and the group counts as one word: "Mohammed Ali" against "Mohammed Ali" scores 8.
+
+    A spelling that is **not** in the group but is within two typos of several of its members is different. The fuzzy query matches each of those stored spellings separately, and the scores add up. "Muhammad" is close to 10 of the 15 Mohammed spellings, which gives about 7.8 for the given name instead of at most 1:
+
+    | Query | Stored | Score |
+    |-------|--------|-------|
+    | Mohammed Ali | Mohammed Ali | 8 |
+    | Muhammad Ali | Mohammed Ali | 35.14 (4 × (7.79 + 1)) |
+    | Muhammad Khan | Mohammed Ali | 7.79, a duplicate on the given name alone |
+
+    A misspelling therefore outscores an exact match, and a shared first name can clear the default threshold without any other field. HOPE has the same behaviour and its threshold is calibrated against it, so it is kept.
 
 ## Stage 4 — Store findings
 

@@ -86,14 +86,14 @@ def index_settings() -> dict[str, Any]:
                     "replace": False,
                 },
                 # Applied at index time on `given_name` (see the mapping): a name
-                # with synonyms is stored as every spelling in its group. The
-                # fuzzy name query then matches several of those tokens and the
-                # scripted similarity sums them, so "Mohammed" against "Mohammed"
-                # scores about 7.8 on the given name alone where a name without
-                # synonyms scores about 1: a shared first name from a large
-                # synonym group clears the 6.0 default threshold by itself. HOPE
-                # has the same behaviour and its thresholds are calibrated
-                # against it, so it is kept, not fixed.
+                # with synonyms is stored as every spelling in its group. A query
+                # spelling in the group scores normally (about 1 for the given
+                # name). A spelling outside it is fuzzy-matched against each
+                # stored spelling and the scripted similarity sums them: "Muhammad"
+                # against a stored "Mohammed" scores about 7.8 on the given name
+                # alone, so it clears the 6.0 default threshold by itself and
+                # outscores an exact match. HOPE has the same behaviour and its
+                # thresholds are calibrated against it, so it is kept, not fixed.
                 "synonym_tokenfilter": {
                     "type": "synonym",
                     "synonyms": load_synonyms(),
