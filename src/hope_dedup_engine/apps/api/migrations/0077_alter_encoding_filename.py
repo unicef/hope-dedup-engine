@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("api", "0075_remove_deduplicationsetgroup_system_delete_hdetoken"),
+        ("api", "0076_alter_deduplicationsetgroup_reference_pk_and_more"),
     ]
 
     operations = [

@@ -13,7 +13,6 @@ from hope_dedup_engine.apps.api.deduplication.exceptions import (
     GroupSettingsApprovedError,
     GroupSettingsLockedError,
 )
-from hope_dedup_engine.apps.api.utils.image import encoding_image_key
 
 
 REFERENCE_PK_LENGTH: Final[int] = 100
