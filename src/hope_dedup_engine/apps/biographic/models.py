@@ -120,7 +120,7 @@ class BiographicSet(models.Model):
 
     PROCESSABLE_STATES: Final[tuple[str, ...]] = (PENDING_STATE, FAILED_STATE)
     CANCELABLE_STATES: Final[tuple[str, ...]] = (PENDING_STATE, FAILED_STATE)
-    PAIRS_STATES: Final[tuple[str, ...]] = (DEDUPLICATED_STATE, APPROVED_STATE)
+    FINDINGS_STATES: Final[tuple[str, ...]] = (DEDUPLICATED_STATE, APPROVED_STATE)
 
     group = models.ForeignKey(
         BiographicGroup, on_delete=models.CASCADE, related_name="sets", help_text="Biographic group."

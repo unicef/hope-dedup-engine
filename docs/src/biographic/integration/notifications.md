@@ -6,7 +6,7 @@ After `POST .../process/` returns, the run happens in a background worker. There
 
 `GET .../datasets/{id}/` returns the current `status`. Poll until it is:
 
-- `deduplicated` — success; read the pairs.
+- `deduplicated` — success; read the findings.
 - `failed` — the run stopped; `error` says why. Call `process` to retry, or `cancel`.
 
 A run indexes and scores in chunks, so its time grows linearly with the set: in testing, a set of about 4,500 people took about 10 seconds against a local cluster. Use generous timeouts for large sets.
@@ -37,5 +37,5 @@ Details worth knowing:
 | Signal | Where | Meaning |
 |--------|-------|---------|
 | `status: "failed"` | set detail | The run stopped with an unexpected error or was cancelled by an administrator. `error` holds the reason; retry with `POST .../process/`. |
-| `population_duplicates` / `batch_duplicates` high | set detail | Not an error. The run never aborts on duplicate counts; decide from the pairs. |
+| `population_duplicates` / `batch_duplicates` high | set detail | Not an error. The run never aborts on duplicate counts; decide from the findings. |
 | HTTP 409 on any call | API response | Not allowed in the current [state](../concepts/lifecycle.md), or another set or run in the program blocks it. The `detail` explains which. |

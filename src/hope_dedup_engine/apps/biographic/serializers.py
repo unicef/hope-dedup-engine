@@ -117,7 +117,7 @@ class BiographicSetSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class BiographicPairSerializer(serializers.ModelSerializer):
+class BiographicFindingSerializer(serializers.ModelSerializer):
     reference_pk = serializers.CharField(source="record.reference_pk", read_only=True)
 
     class Meta:

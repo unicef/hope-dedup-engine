@@ -1,9 +1,9 @@
-# Pairs and Statuses
+# Findings and Statuses
 
-Pairs are the output of a run. They are available from
+Findings are the output of a run. They are available from
 
 ```
-GET /api/biographic/{business_area}/{program_code}/datasets/{id}/pairs/
+GET /api/biographic/{business_area}/{program_code}/datasets/{id}/findings/
 ```
 
 once the set is `deduplicated`, and stay available after it is `approved`. In any other state the endpoint returns **409**.
@@ -13,7 +13,7 @@ once the set is `deduplicated`, and stay available after it is `approved`. In an
 ```json
 {
     "count": 1211,
-    "next": "https://.../pairs/?page=2",
+    "next": "https://.../findings/?page=2",
     "previous": null,
     "results": [
         {
@@ -45,11 +45,11 @@ once the set is `deduplicated`, and stay available after it is `approved`. In an
 | `scope` | `batch`: the match is in the same set. `population`: the match is an approved person of the program, from an earlier set. |
 | `score` | Elasticsearch score with HOPE's scoring. Not bounded to 0–1; see the [pipeline](../concepts/pipeline.md). |
 | `proximity_to_score` | `score` minus the `duplicate_score` used for this run. Always ≥ 0. |
-| `matched_full_name`, `matched_birth_date` | The matched person's name and birth date as indexed, so a reviewer can see the pair without another lookup. |
+| `matched_full_name`, `matched_birth_date` | The matched person's name and birth date as indexed, so a reviewer can see the match without another lookup. |
 
-**Pairs are directional.** When two people in the same set match each other, the pair is listed once from each side (A → B and B → A), as HOPE reports it per individual. Population pairs are listed only from the side of the new set.
+**Findings are directional.** When two people in the same set match each other, the match is listed once from each side (A → B and B → A), as HOPE reports it per individual. Population findings are listed only from the side of the new set.
 
-A person can have several pairs. If a matched person appears in more than one approved set, only the best-scoring match is listed.
+A person can have several findings. If a matched person appears in more than one approved set, only the best-scoring match is listed.
 
 ## Set status fields
 
@@ -60,8 +60,8 @@ A person can have several pairs. If a matched person appears in more than one ap
 | `status` | The [lifecycle state](../concepts/lifecycle.md#states). |
 | `error` | Why the last run failed, when `status` is `failed`. |
 | `records_count` | Records uploaded. |
-| `batch_duplicates` | Records with at least one `batch` pair. |
-| `population_duplicates` | Records with at least one `population` pair. |
+| `batch_duplicates` | Records with at least one `batch` finding. |
+| `population_duplicates` | Records with at least one `population` finding. |
 
 ## Pagination and filtering
 
@@ -69,13 +69,13 @@ Results are paginated with `page` / `page_size` (default 1000, maximum 10000) an
 
 | Query parameter | Example | Effect |
 |-----------------|---------|--------|
-| `scope` | `?scope=population` | Only pairs within the set (`batch`) or against the population. |
-| `min_score` | `?min_score=10` | Only pairs scoring at least this. |
-| `reference_pk` | `?reference_pk=IND-0001` | Only the pairs of one person of the set. |
+| `scope` | `?scope=population` | Only findings within the set (`batch`) or against the population. |
+| `min_score` | `?min_score=10` | Only findings scoring at least this. |
+| `reference_pk` | `?reference_pk=IND-0001` | Only the findings of one person of the set. |
 
 ```console
-$ http GET "$P/datasets/17/pairs/?scope=batch"                # duplicates inside the batch
-$ http GET "$P/datasets/17/pairs/?scope=population&min_score=10"  # strong matches to approved people
+$ http GET "$P/datasets/17/findings/?scope=batch"                # duplicates inside the batch
+$ http GET "$P/datasets/17/findings/?scope=population&min_score=10"  # strong matches to approved people
 ```
 
 ## Error responses

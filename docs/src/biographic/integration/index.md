@@ -49,18 +49,18 @@ Both are lowercased by the server, so `AFG` and `afg` are the same program. The 
 | Sets | `.../datasets/` | Create a set (`POST`), read it (`GET .../datasets/{id}/`) |
 | Records | `.../datasets/{id}/records/` | Upload a batch of people |
 | Actions | `.../datasets/{id}/process/`, `cancel/`, `approve/`, `reject/` | Move the set through its lifecycle |
-| Pairs | `.../datasets/{id}/pairs/` | Read the duplicate pairs (paginated, filterable) |
+| Findings | `.../datasets/{id}/findings/` | Read the duplicate findings (paginated, filterable) |
 
 There is no list or delete endpoint for sets: a client keeps the `dataset_id` it was given, and abandons a set with `cancel`.
 
 Two identifiers are yours to choose:
 
 - **Business area and program code** — the isolation unit. People are only ever compared within one program.
-- **Record `reference_pk`** — your identifier for the individual, e.g. a Country Workspace individual id. Pairs refer to people by this value. Do not reuse one `reference_pk` for two different people: a person is never matched against documents carrying their own `reference_pk`.
+- **Record `reference_pk`** — your identifier for the individual, e.g. a Country Workspace individual id. Findings refer to people by this value. Do not reuse one `reference_pk` for two different people: a person is never matched against documents carrying their own `reference_pk`.
 
 ## Where to next
 
 - [End-to-end workflow](workflow.md) — the full request sequence with examples.
 - [Configuration](configuration.md) — the thresholds and per-run overrides.
-- [Pairs and statuses](findings-and-statuses.md) — reading the results.
+- [Findings and statuses](findings-and-statuses.md) — reading the results.
 - [Notifications and polling](notifications.md) — tracking a run.

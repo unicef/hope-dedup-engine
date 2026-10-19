@@ -32,7 +32,7 @@ flowchart LR
 
 ## Components
 
-- **REST API** — create a set, upload records, process, cancel, approve, reject, read pairs. All routes are scoped by business area and program in the URL. Interactive documentation is at `/api/rest/swagger/`.
+- **REST API** — create a set, upload records, process, cancel, approve, reject, read findings. All routes are scoped by business area and program in the URL. Interactive documentation is at `/api/rest/swagger/`.
 - **PostgreSQL** — the source of truth. It owns the lifecycle, the records, the findings and every decision. Nothing about whether a set is approved is decided in Elasticsearch.
 - **Elasticsearch** — only scores. It holds one document per person, tagged with a status (`pending`, `approved`, `rejected`) that mirrors the set's state in Postgres.
 - **Celery worker** — runs `process_biographic_dataset` (index, score, store findings), `update_biographic_status` (mirror a decision into Elasticsearch) and `cleanup_biographic_rejected`.

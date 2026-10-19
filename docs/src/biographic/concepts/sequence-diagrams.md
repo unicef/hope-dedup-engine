@@ -225,9 +225,9 @@ sequenceDiagram
     API->>DB: set + records_count + batch_duplicates + population_duplicates
     API-->>C: {status, error, counts, notification_url, notify}
 
-    C->>API: GET /datasets/{id}/pairs/?scope=&min_score=&reference_pk=&page=
+    C->>API: GET /datasets/{id}/findings/?scope=&min_score=&reference_pk=&page=
     API->>DB: require deduplicated or approved, order by -score
-    API-->>C: paginated pairs, one per side
+    API-->>C: paginated findings, one per side
 ```
 
 ## Changing a program's thresholds

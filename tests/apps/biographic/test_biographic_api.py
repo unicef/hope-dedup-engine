@@ -511,21 +511,21 @@ def test_after_approval_the_next_set_can_be_processed(api: APIClient, group, que
     assert api.post(dataset_url(second, "process"), format="json").status_code == status.HTTP_200_OK
 
 
-# --- pairs ------------------------------------------------------------------
+# --- findings ---------------------------------------------------------------
 
 
-def pairs_url(dataset: BiographicSet) -> str:
-    return f"{dataset_url(dataset)}pairs/"
+def findings_url(dataset: BiographicSet) -> str:
+    return f"{dataset_url(dataset)}findings/"
 
 
-@pytest.mark.parametrize("state", [s for s in State if s not in BiographicSet.PAIRS_STATES])
-def test_pairs_are_refused_until_deduplicated(api: APIClient, group, state):
+@pytest.mark.parametrize("state", [s for s in State if s not in BiographicSet.FINDINGS_STATES])
+def test_findings_are_refused_until_deduplicated(api: APIClient, group, state):
     dataset = BiographicSetFactory(group=group, state=state)
-    assert api.get(pairs_url(dataset)).status_code == status.HTTP_409_CONFLICT
+    assert api.get(findings_url(dataset)).status_code == status.HTTP_409_CONFLICT
 
 
-@pytest.mark.parametrize("state", BiographicSet.PAIRS_STATES)
-def test_pairs_have_the_documented_shape(api: APIClient, group, state):
+@pytest.mark.parametrize("state", BiographicSet.FINDINGS_STATES)
+def test_findings_have_the_documented_shape(api: APIClient, group, state):
     dataset = BiographicSetFactory(group=group, state=state)
     BiographicFindingFactory(
         record__dataset=dataset,
@@ -538,7 +538,7 @@ def test_pairs_have_the_documented_shape(api: APIClient, group, state):
         scope=BiographicFinding.Scope.POPULATION,
     )
 
-    body = api.get(pairs_url(dataset)).json()
+    body = api.get(findings_url(dataset)).json()
 
     assert body["count"] == 1
     assert body["results"] == [
@@ -571,8 +571,8 @@ def matches(response) -> list[tuple[str, str]]:
     return [(row["reference_pk"], row["matched_reference_pk"]) for row in response.json()["results"]]
 
 
-def test_pairs_are_best_first_and_scoped_to_the_set(api: APIClient, scored):
-    assert matches(api.get(pairs_url(scored))) == [
+def test_findings_are_best_first_and_scoped_to_the_set(api: APIClient, scored):
+    assert matches(api.get(findings_url(scored))) == [
         ("cw-1", "old-7"),
         ("cw-2", "cw-1"),
         ("cw-1", "cw-2"),
@@ -580,30 +580,30 @@ def test_pairs_are_best_first_and_scoped_to_the_set(api: APIClient, scored):
     ]
 
 
-def test_pairs_filter_by_min_score(api: APIClient, scored):
-    assert len(matches(api.get(pairs_url(scored), {"min_score": 9}))) == 3
-    assert matches(api.get(pairs_url(scored), {"min_score": 10})) == [("cw-1", "old-7")]
+def test_findings_filter_by_min_score(api: APIClient, scored):
+    assert len(matches(api.get(findings_url(scored), {"min_score": 9}))) == 3
+    assert matches(api.get(findings_url(scored), {"min_score": 10})) == [("cw-1", "old-7")]
 
 
-def test_pairs_filter_by_scope(api: APIClient, scored):
-    assert set(matches(api.get(pairs_url(scored), {"scope": "batch"}))) == {("cw-1", "cw-2"), ("cw-2", "cw-1")}
-    assert api.get(pairs_url(scored), {"scope": "nowhere"}).status_code == status.HTTP_400_BAD_REQUEST
+def test_findings_filter_by_scope(api: APIClient, scored):
+    assert set(matches(api.get(findings_url(scored), {"scope": "batch"}))) == {("cw-1", "cw-2"), ("cw-2", "cw-1")}
+    assert api.get(findings_url(scored), {"scope": "nowhere"}).status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_pairs_filter_by_reference_pk(api: APIClient, scored):
-    assert matches(api.get(pairs_url(scored), {"reference_pk": "cw-2"})) == [("cw-2", "cw-1"), ("cw-2", "old-8")]
+def test_findings_filter_by_reference_pk(api: APIClient, scored):
+    assert matches(api.get(findings_url(scored), {"reference_pk": "cw-2"})) == [("cw-2", "cw-1"), ("cw-2", "old-8")]
 
 
-def test_pairs_are_paginated(api: APIClient, scored):
-    body = api.get(pairs_url(scored), {"page_size": 3}).json()
+def test_findings_are_paginated(api: APIClient, scored):
+    body = api.get(findings_url(scored), {"page_size": 3}).json()
     assert body["count"] == 4
     assert len(body["results"]) == 3
     assert body["next"]
 
 
-def test_pairs_of_another_program_are_not_found(api: APIClient, scored):
+def test_findings_of_another_program_are_not_found(api: APIClient, scored):
     other = BiographicSetFactory(state=State.DEDUPLICATED)
-    assert api.get(f"{datasets_url()}{other.pk}/pairs/").status_code == status.HTTP_404_NOT_FOUND
+    assert api.get(f"{datasets_url()}{other.pk}/findings/").status_code == status.HTTP_404_NOT_FOUND
 
 
 # --- auth -------------------------------------------------------------------
@@ -616,7 +616,7 @@ ENDPOINTS = [
     ("post", "1/cancel/"),
     ("post", "1/approve/"),
     ("post", "1/reject/"),
-    ("get", "1/pairs/"),
+    ("get", "1/findings/"),
 ]
 
 

@@ -19,7 +19,7 @@ sequenceDiagram
     W->>ES: index, score against set + approved population
     W-->>C: GET notification_url (on each state change)
     C->>A: GET /datasets/{id}/ (status: deduplicated)
-    C->>A: GET /datasets/{id}/pairs/?page=1
+    C->>A: GET /datasets/{id}/findings/?page=1
     C->>A: POST /datasets/{id}/approve/ (or reject)
 ```
 
@@ -115,15 +115,15 @@ $ http GET $P/datasets/17/
 }
 ```
 
-`batch_duplicates` and `population_duplicates` count **records** with at least one pair in that scope, as HOPE counts per individual.
+`batch_duplicates` and `population_duplicates` count **records** with at least one finding in that scope, as HOPE counts per individual.
 
-## 4. Read the pairs
+## 4. Read the findings
 
 ```console
-$ http GET "$P/datasets/17/pairs/?page=1&page_size=1000"
+$ http GET "$P/datasets/17/findings/?page=1&page_size=1000"
 ```
 
-Available in `deduplicated` and `approved`; **409** otherwise. See [Pairs and statuses](findings-and-statuses.md).
+Available in `deduplicated` and `approved`; **409** otherwise. See [Findings and statuses](findings-and-statuses.md).
 
 ## 5. Approve or reject
 

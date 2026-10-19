@@ -20,11 +20,11 @@ from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import EmptySerializer
 from hope_dedup_engine.apps.biographic.config import get_default_group_settings
 from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
-from hope_dedup_engine.apps.biographic.filters import BiographicPairFilter
+from hope_dedup_engine.apps.biographic.filters import BiographicFindingFilter
 from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicGroup, BiographicSet
 from hope_dedup_engine.apps.biographic.serializers import (
     MAX_RECORDS_PER_BATCH,
-    BiographicPairSerializer,
+    BiographicFindingSerializer,
     BiographicSetCreateSerializer,
     BiographicSetSerializer,
     ProcessOverridesSerializer,
@@ -208,33 +208,33 @@ class BiographicDatasetViewSet(
 
 
 @extend_schema(tags=SCHEMA_TAGS)
-class BiographicPairsViewSet(
+class BiographicFindingsViewSet(
     BiographicProgramMixin,
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
     TokenRequiredView,
 ):
-    """Paginated, filterable duplicate pairs for one set.
+    """Paginated, filterable duplicate findings for one set.
 
-    Pairs are directional: when two people in the set match, the pair is listed once
-    from each side, as HOPE reports it per individual.
+    Findings are directional: when two people in the set match, the match is listed
+    once from each side, as HOPE reports it per individual.
     """
 
     permission = Grant.API_BIOGRAPHIC
-    serializer_class = BiographicPairSerializer
+    serializer_class = BiographicFindingSerializer
     queryset = BiographicFinding.objects.none()
     filter_backends = (DjangoFilterBackend,)
-    filterset_class = BiographicPairFilter
+    filterset_class = BiographicFindingFilter
     pagination_class = FindingResultsPagination
 
     def get_queryset(self) -> QuerySet[BiographicFinding]:
         if getattr(self, "swagger_fake_view", False):
             return BiographicFinding.objects.none()
         dataset = get_object_or_404(self.program_sets(), pk=self.kwargs["dataset_id"])
-        if dataset.state not in BiographicSet.PAIRS_STATES:
-            raise ConflictError(f"Pairs are not available for set in '{dataset.get_state_display()}' state.")
+        if dataset.state not in BiographicSet.FINDINGS_STATES:
+            raise ConflictError(f"Findings are not available for set in '{dataset.get_state_display()}' state.")
         return BiographicFinding.objects.filter(dataset=dataset).select_related("record").order_by("-score", "-id")
 
-    @extend_schema(description="Duplicate pairs for a deduplicated or approved set, best match first.")
+    @extend_schema(description="Duplicate findings for a deduplicated or approved set, best match first.")
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)

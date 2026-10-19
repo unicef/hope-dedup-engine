@@ -38,9 +38,9 @@ stateDiagram-v2
 | `indexing` | The worker is writing the set's people into Elasticsearch. | Wait (poll or receive notifications). |
 | `indexed` | Indexed and searchable; scoring is about to start. | Wait. |
 | `deduplicating` | The worker is scoring every person. | Wait. |
-| `deduplicated` | Findings stored. | Read `pairs`; then `approve` or `reject`. |
+| `deduplicated` | Findings stored. | Read `findings`; then `approve` or `reject`. |
 | `failed` | The run stopped; reason in `error`. Partial findings are discarded by the next run. | `process` again, or `cancel`. |
-| `approved` | **Final.** The set's people join the program's population; every later set is checked against them. | Pairs stay readable. |
+| `approved` | **Final.** The set's people join the program's population; every later set is checked against them. | Findings stay readable. |
 | `rejected` | **Final.** The set is discarded; its documents are deleted from Elasticsearch by the daily cleanup. | — |
 | `canceled` | **Final.** Abandoned before a decision. Its documents, if any were indexed, are treated like a rejected set's. | — |
 
