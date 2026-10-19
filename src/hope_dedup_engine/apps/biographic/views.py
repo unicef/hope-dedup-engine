@@ -35,6 +35,9 @@ from hope_dedup_engine.apps.biographic.services import lifecycle
 
 GROUP_DELETED = "Biographic deduplication was deleted for this program."
 
+# drf-spectacular tags by the first path segment, which is "api" for every route here.
+SCHEMA_TAGS = ["biographic"]
+
 
 def duplicates_in_scope(scope: BiographicFinding.Scope) -> Coalesce:
     """Count the set's records with at least one finding in `scope`, as HOPE counts per individual.
@@ -81,6 +84,7 @@ class BiographicProgramMixin:
         )
 
 
+@extend_schema(tags=SCHEMA_TAGS)
 class BiographicDatasetViewSet(
     BiographicProgramMixin,
     mixins.RetrieveModelMixin,
@@ -203,6 +207,7 @@ class BiographicDatasetViewSet(
         return self._apply(lambda dataset: lifecycle.decide(dataset, BiographicSet.State.REJECTED))
 
 
+@extend_schema(tags=SCHEMA_TAGS)
 class BiographicPairsViewSet(
     BiographicProgramMixin,
     mixins.ListModelMixin,

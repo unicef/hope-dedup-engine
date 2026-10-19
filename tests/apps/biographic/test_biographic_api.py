@@ -1,5 +1,6 @@
 import pytest
 from django.db import IntegrityError
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework import status
 from rest_framework.test import APIClient
 from testutils.factories.biographic import (
@@ -637,3 +638,15 @@ def test_every_endpoint_needs_the_biographic_grant(api_without_grant: APIClient,
     response = getattr(api_without_grant, method)(f"{datasets_url()}{path}")
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert not BiographicGroup.objects.exists()
+
+
+def test_every_endpoint_is_grouped_under_biographic_in_the_schema():
+    schema = SchemaGenerator().get_schema(request=None, public=True)
+    operations = [
+        operation
+        for path, methods in schema["paths"].items()
+        if path.startswith("/api/biographic/")
+        for operation in methods.values()
+    ]
+    assert len(operations) == len(ENDPOINTS)
+    assert all(operation["tags"] == ["biographic"] for operation in operations)
