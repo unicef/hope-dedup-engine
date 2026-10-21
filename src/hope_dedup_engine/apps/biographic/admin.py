@@ -2,13 +2,16 @@ from typing import TYPE_CHECKING, Any, cast
 
 from admin_extra_buttons.api import button
 from admin_extra_buttons.mixins import confirm_action
-from adminfilters.autocomplete import AutoCompleteFilter
-from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter
+from adminfilters.autocomplete import AutoCompleteFilter, LinkedAutoCompleteFilter
+from adminfilters.dates import DateInDateRangeFilter
+from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter, NumberFilter
 from adminfilters.mixin import AdminFiltersMixin
 from django.contrib import messages
 from django.contrib.admin import display, register
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils.html import format_html_join
 from django.utils.translation import gettext_lazy as _
 from django_celery_boost.admin import CeleryTaskModelAdmin
 
@@ -45,6 +48,20 @@ MARKED_FAILED_ERROR = "Marked as failed by an administrator."
 # A task owns the set in these states. If it dies, nothing moves the set on.
 STUCK_STATES = (BiographicSet.State.INDEXING, BiographicSet.State.INDEXED, BiographicSet.State.DEDUPLICATING)
 
+# Group, then set: picking a group narrows the set choices to that group.
+GROUP_AND_SET_FILTERS = (
+    ("dataset__group", LinkedAutoCompleteFilter.factory(parent=None)),
+    ("dataset", LinkedAutoCompleteFilter.factory(parent="dataset__group")),
+)
+
+# Name searches look inside the JSON payload too: `full_name` is the only name with
+# its own column, and a client may send given and family names without it.
+RECORD_NAME_SEARCH = ("full_name", "payload__given_name", "payload__family_name")
+
+
+def changelist_url(model_name: str, **query: Any) -> str:
+    return reverse(f"admin:biographic_{model_name}_changelist", query=query)
+
 
 class ReadOnlyAdmin(BaseModelAdmin):
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -62,11 +79,31 @@ class BiographicGroupAdmin(BaseModelAdmin):
     list_display = ("business_area", "program_code", "processing_locked", "deleted")
     search_fields = ("business_area", "program_code")
     list_filter = ("processing_locked", "deleted", DjangoLookupFilter)
-    readonly_fields = ("business_area", "program_code", "processing_locked", "deleted")
+    readonly_fields = ("business_area", "program_code", "biographic_sets", "processing_locked", "deleted")
     fieldsets = (
         (None, {"fields": readonly_fields}),
         ("Deduplication settings", {"fields": tuple(f.name for f in BiographicConfig.setting_fields())}),
     )
+
+    @display(description="Sets")
+    def biographic_sets(self, obj: BiographicGroup) -> str:
+        qs = obj.sets.only("pk", "state").order_by("created_at", "pk")
+        return format_html_join(
+            "\n",
+            "<div><a href='{}'>{}</a> <span style='opacity:.7'>({})</span></div>",
+            (
+                (reverse("admin:biographic_biographicset_change", args=[ds.pk]), str(ds), ds.get_state_display())
+                for ds in qs
+            ),
+        )
+
+    @button(label="Records", change_form=True, change_list=False, permission=can.biographic.view_biographicrecord)
+    def records(self, request: HttpRequest, pk: str) -> HttpResponse:
+        return redirect(changelist_url("biographicrecord", dataset__group__exact=pk))
+
+    @button(label="Findings", change_form=True, change_list=False, permission=can.biographic.view_biographicfinding)
+    def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
+        return redirect(changelist_url("biographicfinding", dataset__group__exact=pk))
 
     def get_form(
         self, request: HttpRequest, obj: BiographicGroup | None = None, change: bool = False, **kwargs: Any
@@ -83,7 +120,14 @@ class BiographicGroupAdmin(BaseModelAdmin):
 class BiographicSetAdmin(ReadOnlyAdmin):
     list_display = ("id", "group", "state", "processing_locked", "search_sync_pending", "created_at", "updated_at")
     search_fields = ("id", "group__business_area", "group__program_code")
-    list_filter = (("state", ChoicesFieldComboFilter), "search_sync_pending", DjangoLookupFilter)
+    list_filter = (
+        ("state", ChoicesFieldComboFilter),
+        ("group", AutoCompleteFilter),
+        ("created_at", DateInDateRangeFilter),
+        ("updated_at", DateInDateRangeFilter),
+        "search_sync_pending",
+        DjangoLookupFilter,
+    )
     list_select_related = ("group",)
     readonly_fields = (
         "group",
@@ -105,6 +149,20 @@ class BiographicSetAdmin(ReadOnlyAdmin):
     @display(description="Log")
     def formatted_log(self, obj: BiographicSet) -> str:
         return format_log(obj.log)
+
+    @button(label="Records", change_form=True, change_list=False, permission=can.biographic.view_biographicrecord)
+    def records(self, request: HttpRequest, pk: str) -> HttpResponse:
+        dataset = cast("BiographicSet", self.get_object(request, pk))
+        return redirect(
+            changelist_url("biographicrecord", dataset__group__exact=dataset.group_id, dataset__exact=dataset.pk)
+        )
+
+    @button(label="Findings", change_form=True, change_list=False, permission=can.biographic.view_biographicfinding)
+    def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
+        dataset = cast("BiographicSet", self.get_object(request, pk))
+        return redirect(
+            changelist_url("biographicfinding", dataset__group__exact=dataset.group_id, dataset__exact=dataset.pk)
+        )
 
     @button(label="Send notification", change_form=True, change_list=False, permission=can.biographic.send_notification)
     def send_notification(self, request: HttpRequest, pk: str) -> HttpResponse:
@@ -185,12 +243,16 @@ class BiographicJobAdmin(AdminFiltersMixin, CeleryTaskModelAdmin):
 
 @register(BiographicRecord)
 class BiographicRecordAdmin(ReadOnlyAdmin):
-    list_display = ("reference_pk", "full_name", "dataset", "created_at")
-    search_fields = ("full_name", "reference_pk")
-    list_filter = (DjangoLookupFilter,)
-    list_select_related = ("dataset",)
+    list_display = ("reference_pk", "full_name", "dataset", "group", "created_at")
+    search_fields = ("reference_pk", *RECORD_NAME_SEARCH)
+    list_filter = (*GROUP_AND_SET_FILTERS, ("created_at", DateInDateRangeFilter), DjangoLookupFilter)
+    list_select_related = ("dataset__group",)
     readonly_fields = ("dataset", "reference_pk", "full_name", "formatted_payload", "payload_version", "created_at")
     exclude = ("payload",)
+
+    @display(description="Group", ordering="dataset__group")
+    def group(self, obj: BiographicRecord) -> BiographicGroup:
+        return obj.dataset.group
 
     @display(description="Payload")
     def formatted_payload(self, obj: BiographicRecord) -> str:
@@ -199,10 +261,22 @@ class BiographicRecordAdmin(ReadOnlyAdmin):
 
 @register(BiographicFinding)
 class BiographicFindingAdmin(ReadOnlyAdmin):
-    list_display = ("record", "matched_reference_pk", "matched_full_name", "scope", "score", "dataset")
-    search_fields = ("record__reference_pk", "matched_reference_pk", "matched_full_name")
-    list_filter = (("scope", ChoicesFieldComboFilter), DjangoLookupFilter)
-    list_select_related = ("record", "dataset")
+    list_display = ("record", "matched_reference_pk", "matched_full_name", "scope", "score", "dataset", "group")
+    # The matched person is stored by full name only, so their given and family
+    # names cannot be searched; the scored record's can.
+    search_fields = (
+        "record__reference_pk",
+        "matched_reference_pk",
+        "matched_full_name",
+        *(f"record__{name}" for name in RECORD_NAME_SEARCH),
+    )
+    list_filter = (
+        *GROUP_AND_SET_FILTERS,
+        ("scope", ChoicesFieldComboFilter),
+        ("score", NumberFilter),
+        DjangoLookupFilter,
+    )
+    list_select_related = ("record", "dataset__group")
     readonly_fields = (
         "dataset",
         "record",
@@ -217,6 +291,10 @@ class BiographicFindingAdmin(ReadOnlyAdmin):
         "updated_at",
     )
     exclude = ("config",)
+
+    @display(description="Group", ordering="dataset__group")
+    def group(self, obj: BiographicFinding) -> BiographicGroup:
+        return obj.dataset.group
 
     @display(description="Config")
     def formatted_config(self, obj: BiographicFinding) -> str:
