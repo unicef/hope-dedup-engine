@@ -63,6 +63,13 @@ def test_detect_face_single_face_found(encoding: Encoding, load_image_mock: Mock
     assert detect_face(encoding) == Detection(encoding, VALID_CONFIDENCE_PERCENTS, EMBEDDING)
 
 
+def test_detect_face_malformed_representation_returns_none(
+    encoding: Encoding, load_image_mock: Mock, deepface_class_mock: Mock
+) -> None:
+    deepface_class_mock.represent.return_value = [{"embedding": EMBEDDING}]
+    assert detect_face(encoding) is None
+
+
 def test_detect_face_represent_arguments(encoding: Encoding, load_image_mock: Mock, deepface_class_mock: Mock) -> None:
     detect_face(encoding)
     deepface_class_mock.represent.assert_called_once_with(
