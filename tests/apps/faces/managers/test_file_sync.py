@@ -61,6 +61,33 @@ def test_sync_locked_file(mocker, local_base):
     assert result == downloader.MESSAGES["downloading"]
 
 
+def test_sync_existing_file_being_downloaded(mocker, local_base):
+    """An already existing file whose lock is held elsewhere is not downloaded again."""
+    downloader = FileDownloader(local_base)
+    local_file = local_base / "test.dat"
+    local_file.parent.mkdir(parents=True, exist_ok=True)
+    local_file.touch()
+    (local_base / "test.dat.lock").touch()
+
+    mocker.patch("filelock.FileLock.acquire", side_effect=Timeout("locked"))
+    result = downloader.sync("test.dat", "source1")
+
+    assert result == downloader.MESSAGES["downloading"]
+
+
+def test_sync_existing_file_with_a_stale_lock_file(local_base):
+    """An existing file whose lock file is not held anymore is not downloaded again."""
+    downloader = FileDownloader(local_base)
+    local_file = local_base / "test.dat"
+    local_file.parent.mkdir(parents=True, exist_ok=True)
+    local_file.touch()
+    (local_base / "test.dat.lock").touch()
+
+    result = downloader.sync("test.dat", "source1")
+
+    assert result == downloader.MESSAGES["file_exists"]
+
+
 def test_execute_download_not_implemented(local_base):
     """Test the base _execute_download raises NotImplementedError."""
     downloader = FileDownloader(local_base)
@@ -203,3 +230,12 @@ def test_file_sync_manager_invalid_source(local_base):
     """Test that an invalid source raises DownloaderKeyError."""
     with pytest.raises(DownloaderKeyError):
         FileSyncManager(source="invalid_source", local_base_location=local_base)
+
+
+def test_file_sync_manager_defaults_to_the_settings_root(settings):
+    """Without an explicit location the manager downloads into DEFAULT_ROOT."""
+    settings.DEFAULT_ROOT = "/tmp/default-root"
+
+    manager = FileSyncManager(source="github")
+
+    assert manager.local_base_location == Path("/tmp/default-root")

@@ -38,3 +38,17 @@ def test_send_notification_button_message(
     assert message.message == expected_message
     assert message.level == expected_level
     send_notification_mock.assert_called_once_with(deduplication_set, force=True)
+
+
+def test_send_notification_button_ignores_an_unknown_result(
+    admin_client: Client,
+    deduplication_set: DeduplicationSet,
+    mocker: MockerFixture,
+) -> None:
+    """A result that is neither a success, a warning nor an error does not report anything."""
+    mocker.patch("hope_dedup_engine.apps.api.admin.deduplicationset.send_notification", return_value="unexpected")
+    url = reverse("admin:api_deduplicationset_send_notification", args=[deduplication_set.pk])
+
+    response = admin_client.get(url)
+
+    assert len(get_messages(response.wsgi_request)) == 0
