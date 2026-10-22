@@ -11,8 +11,8 @@ repos:
       - id: djlint-reformat
         args: ["--configuration", "djlint.toml"]
 
-  - repo: https://github.com/semgrep/semgrep
-    rev: v1.164.0
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.180.0
     hooks:
       - id: semgrep
         # pydantic 2.14 removed eval_type_backport, which mcp 1.16 (required by

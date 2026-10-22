@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Usage: ./show_findings [--json] [filters, e.g. scope==population min_score==10 reference_pk==NEW-EXACT]
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+as_json=false
+if [[ "${1:-}" == "--json" ]]; then
+  as_json=true
+  shift
+fi
+
+response=$(call_api GET "$(dataset_path)/findings" page_size==10000 "$@")
+
+if $as_json; then
+  echo "$response"
+  exit 0
+fi
+
+banner "Findings of dataset $DATASET_ID ($(echo "$response" | jq '.count') found, best first)"
+{
+  echo -e "REFERENCE_PK\tMATCHED_REFERENCE_PK\tSCOPE\tSCORE\tPROXIMITY\tMATCHED_NAME\tMATCHED_BIRTH_DATE"
+  echo "$response" | jq -r '.results[]
+    | [.reference_pk, .matched_reference_pk, .scope, (.score * 100 | round / 100),
+       (.proximity_to_score * 100 | round / 100), .matched_full_name, (.matched_birth_date // "-")]
+    | @tsv'
+} | column -t -s $'\t'

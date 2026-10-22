@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+call_api GET "$(dataset_path)"

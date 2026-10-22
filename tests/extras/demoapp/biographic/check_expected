@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# Usage: ./check_expected [expected.json]
+# Compares the current dataset's findings with the planted cases. Exits 1 on any mismatch.
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+expected="${1:-$HERE/data/expected.json}"
+findings=$("$HERE/show_findings" --json)
+
+banner "Check the planted cases"
+
+report=$(jq -r --argjson findings "$findings" '
+  def key: [.reference_pk, .matched_reference_pk, .scope];
+  def rounded: . * 100 | round / 100 | tostring;
+  (map(key)) as $planted
+  | (.[] as $case
+      | ($findings.results | map(select(key == ($case | key))) | first) as $pair
+      | [(if ($pair != null) == $case.duplicate then "PASS" else "FAIL" end),
+         $case.case,
+         "\($case.reference_pk) -> \($case.matched_reference_pk)",
+         (if $case.duplicate then "duplicate" else "not a duplicate" end),
+         (if $pair then "score \($pair.score | rounded)" else "not reported" end)]),
+    ($findings.results[] | select((key | IN($planted[])) | not)
+      | ["FAIL", "Unexpected pair", "\(.reference_pk) -> \(.matched_reference_pk)", .scope, "score \(.score | rounded)"])
+  | @tsv' "$expected")
+
+echo -e "RESULT\tCASE\tPAIR\tEXPECTED\tACTUAL\n$report" | column -t -s $'\t'
+
+if grep -q '^FAIL' <<< "$report"; then
+  exit 1
+fi
+info "All planted cases behave as expected"

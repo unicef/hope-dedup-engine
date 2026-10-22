@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+banner "Reject dataset $DATASET_ID: its people never take part in deduplication again"
+call_api POST "$(dataset_path)/reject"
