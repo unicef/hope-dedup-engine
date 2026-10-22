@@ -273,3 +273,57 @@ def test_find_duplicates_cancelled_during_deduplication(  # noqa: PLR0917
     mock_capture_exception.assert_not_called()
     assert dedup_set.log[0]["encodings_processed"] == 2
     assert not dedup_set.group.processing_locked
+
+
+@patch("sentry_sdk.capture_exception")
+@patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
+@patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
+@patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+def test_find_duplicates_cancelled_before_any_processing_keeps_the_state(
+    mock_send_notification,
+    mock_encode_faces,
+    mock_dedupe_all,
+    mock_capture_exception,
+    job_with_encodings,
+    mocker,
+):
+    """A cancellation outside of the encoding/deduplication phases leaves the state untouched."""
+    mocker.patch.object(MainJob, "cancel")
+    mocker.patch.object(find_duplicates, "update_state")
+    dedup_set = job_with_encodings.deduplication_set
+    dedup_set.state = DeduplicationSet.State.READY
+    dedup_set.save(update_fields=["state"])
+
+    mocker.patch.object(MainJob, "ensure_not_cancelled", side_effect=GracefulJobCancellationError("cancel requested"))
+
+    with pytest.raises(Ignore):
+        find_duplicates(job_with_encodings.id, job_with_encodings.version)
+
+    dedup_set.refresh_from_db()
+    assert dedup_set.state == DeduplicationSet.State.READY
+    mock_encode_faces.assert_not_called()
+    mock_dedupe_all.assert_not_called()
+    assert not dedup_set.group.processing_locked
+
+
+@patch("sentry_sdk.capture_exception")
+@patch("hope_dedup_engine.apps.api.deduplication.process.dedupe_all")
+@patch("hope_dedup_engine.apps.api.deduplication.process.encode_faces")
+@patch("hope_dedup_engine.apps.api.deduplication.process.send_notification")
+def test_find_duplicates_without_encodings_to_encode(
+    mock_send_notification,
+    mock_encode_faces,
+    mock_dedupe_all,
+    mock_capture_exception,
+    main_job_factory,
+):
+    """A deduplication set with nothing left to encode skips the encoding phase."""
+    job = main_job_factory(deduplication_set__state=DeduplicationSet.State.ENCODING_IN_PROGRESS)
+    mock_dedupe_all.return_value = 0
+
+    result = find_duplicates(job.id, job.version)
+
+    mock_encode_faces.assert_not_called()
+    assert result["encodings_processed"] == 0
+    job.deduplication_set.refresh_from_db()
+    assert job.deduplication_set.state == DeduplicationSet.State.DEDUPLICATED

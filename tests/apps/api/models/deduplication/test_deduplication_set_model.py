@@ -180,3 +180,15 @@ def test_clear_embeddings_data_no_op_on_empty_set(ds):
 
     assert ds.encoding_set.count() == 0
     assert ds.finding_set.count() == 0
+
+
+def test_encodings_with_embeddings_returns_only_encoded_images(ds_with_mixed_embeddings):
+    """Only the encodings carrying an embedding are returned."""
+    encodings = ds_with_mixed_embeddings.encodings_with_embeddings()
+
+    assert encodings.count() == 1
+    assert encodings.get().embedding is not None
+
+
+def test_encodings_with_embeddings_is_empty_when_nothing_is_encoded(ds):
+    assert ds.encodings_with_embeddings().count() == 0

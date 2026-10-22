@@ -134,3 +134,46 @@ def test_upgrade_raises_when_no_admin_user_exists() -> None:
 
     with pytest.raises(CommandError, match=r"Failure: Error when creating an admin user!"):
         cmd._create_superuser(lambda *_a, **_k: None)
+
+
+def test_upgrade_syncs_pre_trained_models(environment) -> None:
+    """`--no-sync-models` is off by default: the syncmodels command is executed."""
+    out = StringIO()
+    SuperUserFactory()
+    with (
+        mock.patch.dict(os.environ, environment, clear=True),
+        mock.patch("hope_dedup_engine.apps.core.management.commands.upgrade.call_command") as m,
+    ):
+        call_command(
+            "upgrade",
+            stdout=out,
+            check=False,
+            sync_models=True,
+            static=False,
+            migrate=False,
+            admin_email="",
+        )
+
+    assert "Run sync pre-trained models" in out.getvalue()
+    assert mock.call("syncmodels", verbosity=0) in m.call_args_list
+
+
+def test_upgrade_halts_on_invalid_admin_email(environment) -> None:
+    """An invalid admin email is reported as a wrong argument and halts the command."""
+    out = StringIO()
+    with (
+        mock.patch.dict(os.environ, environment, clear=True),
+        pytest.raises(SystemExit),
+    ):
+        call_command(
+            "upgrade",
+            stdout=out,
+            check=False,
+            sync_models=False,
+            static=False,
+            migrate=False,
+            admin_email="not-an-email",
+        )
+
+    assert "Wrong argument(s)" in out.getvalue()
+    assert "SYSTEM HALTED" in out.getvalue()

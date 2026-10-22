@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class Echo(Protocol):
-    def __call__(self, msg: str, style_func: Callable[[str], str] | None = ...) -> None: ...
+    def __call__(self, msg: str, style_func: Callable[[str], str] | None = ...) -> None: ...  # pragma: no cover
 
 
 logger = logging.getLogger(__name__)

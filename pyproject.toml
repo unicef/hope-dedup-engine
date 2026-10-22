@@ -14,10 +14,10 @@ authors = [
   { name = "Domenico DiNicola", email = "ddinicola@unicef.org" },
   { name = "Stefano Apostolico", email = "sapostolico@unicef.org" },
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = "==3.14.*"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
 ]
 dynamic = [
   "version",
@@ -64,6 +64,7 @@ dependencies = [
   "ultralytics",
   "unicef-security",
   "uwsgi",
+  "werkzeug",
 ]
 urls.Documentation = "https://unicef.github.io/hope-dedup-engine/"
 urls.Homepage = "https://github.com/unicef/hope_dedup_engine"

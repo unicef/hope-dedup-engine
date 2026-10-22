@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from hope_dedup_engine.type_aliases.http import AuthHttpRequest
 
 
-def show_ddt(request: "AuthHttpRequest") -> bool:  # pragma: no-cover
+def show_ddt(request: "AuthHttpRequest") -> bool:  # pragma: no cover
     if request.path in RegexList(("/api/.*", "/dal/.*", "/healthcheck/")):
         return False
     return flag_enabled("DEVELOP_DEBUG_TOOLBAR", request=request)

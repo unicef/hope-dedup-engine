@@ -135,3 +135,24 @@ def test_fixed_choice_button_can_render(
     btn.get_choices = mocker.Mock()
     assert btn.can_render() is False
     btn.get_choices.assert_not_called()
+
+
+def test_fixed_choice_button_without_permission_does_not_check_it(
+    mocker: MockerFixture,
+    mk_handler: Callable[..., Mock],
+    mk_choice: Callable[[Mock], Mock],
+    mk_btn: Callable[..., admin_base.FixedChoiceButton],
+) -> None:
+    """A button without a permission requirement is rendered without any permission check."""
+    mocker.patch(
+        "hope_dedup_engine.apps.api.admin.base.reverse",
+        side_effect=lambda name, args=None, **_: f"/{name}/" if not args else f"/{name}/{args[0]}/",
+    )
+    mocker.patch("hope_dedup_engine.apps.api.admin.base.labelize", side_effect=lambda s: f"LBL:{s}")
+    check_permission = mocker.patch("hope_dedup_engine.apps.api.admin.base.check_permission")
+
+    handler = mk_handler(name="a", single=True, perm=None)
+    btn = mk_btn(choices=[mk_choice(handler)], change_form=False, change_list=True)
+
+    assert list(btn.get_choices()) == [{"label": "LBL:a", "url": "/admin:a/", "selected": False}]
+    check_permission.assert_not_called()
