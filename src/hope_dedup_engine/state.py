@@ -15,7 +15,7 @@ class AnyRequest(Protocol):
 
 
 class AnyResponse(Protocol):
-    def set_cookie(self, name: str, *args: Any) -> None:
+    def set_cookie(self, name: str, *args: Any) -> None:  # pragma: no cover
         pass
 
 

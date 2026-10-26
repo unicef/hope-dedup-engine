@@ -48,6 +48,23 @@ def test_create_conflict_when_active_set_exists(api_client: APIClient, active_ds
     assert response.status_code == status.HTTP_409_CONFLICT
 
 
+def test_create_in_a_group_without_active_sets_is_allowed(
+    api_client: APIClient,
+    deduplication_set_factory,
+) -> None:
+    """A group whose only set is rejected does not block the creation of a new one."""
+    rejected = deduplication_set_factory(state=DeduplicationSet.State.REJECTED)
+
+    response = api_client.post(
+        reverse(DEDUPLICATION_SET_LIST_VIEW),
+        data={"reference_pk": rejected.group.reference_pk},
+        format=JSON,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert DeduplicationSet.objects.get(pk=response.json()["id"]).group == rejected.group
+
+
 @pytest.mark.parametrize("field", ["reference_pk"])
 def test_invalid_values_handling(field: str, api_client: APIClient, deduplication_set_factory) -> None:
     data = CreateDeduplicationSetSerializer(deduplication_set_factory.build()).data

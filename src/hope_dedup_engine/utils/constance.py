@@ -29,7 +29,9 @@ class WriteOnlyMixin:
         return value
 
 
-class WriteOnlyTextInput(WriteOnlyMixin, TextInput): ...
+class WriteOnlyTextInput(WriteOnlyMixin, TextInput):
+    """Text input that never renders the stored secret."""
 
 
-class WriteOnlyTextarea(WriteOnlyMixin, Textarea): ...
+class WriteOnlyTextarea(WriteOnlyMixin, Textarea):
+    """Textarea that never renders the stored secret."""

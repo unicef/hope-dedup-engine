@@ -31,6 +31,27 @@ def test_report_long_execution(mock_sentry, time_side_effect, should_be_called, 
 
 
 @pytest.mark.parametrize(
+    ("time_side_effect", "should_be_called"),
+    [
+        ([0, 1], False),
+        ([0, 6], True),
+    ],
+)
+@patch("hope_dedup_engine.apps.faces.utils.sentry_sdk")
+def test_report_long_execution_with_explicit_threshold(mock_sentry, time_side_effect, should_be_called, settings):
+    """An explicit threshold overrides the one coming from the settings."""
+    settings.DEFAULT_THRESHOLD_SECONDS = 60
+    with patch("time.time", side_effect=time_side_effect):
+        with report_long_execution("Test Task", threshold_seconds=5):
+            pass
+
+    if should_be_called:
+        mock_sentry.capture_message.assert_called_once()
+    else:
+        mock_sentry.capture_message.assert_not_called()
+
+
+@pytest.mark.parametrize(
     ("value", "expected"),
     [
         (Encoding.StatusCode.DEDUPLICATE_SUCCESS, False),

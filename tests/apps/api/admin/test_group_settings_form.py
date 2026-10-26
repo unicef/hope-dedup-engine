@@ -103,3 +103,18 @@ def test_form_allows_save_when_no_embeddings(deduplication_set_group_factory):
     changed_data = {**VALID_FORM_DATA, "sharpness_threshold": 0.9}
     form = DeduplicationSetGroupSettingsForm(data=changed_data, instance=group)
     assert form.is_valid(), form.errors
+
+
+@pytest.mark.django_db
+def test_form_save_without_commit_does_not_persist(deduplication_set_group_factory):
+    """save(commit=False) fills the instance settings without writing to the database."""
+    group = deduplication_set_group_factory()
+
+    form = DeduplicationSetGroupSettingsForm(data=VALID_FORM_DATA, instance=group)
+    assert form.is_valid(), form.errors
+
+    instance = form.save(commit=False)
+
+    assert instance.settings["recognition_model"] == "Facenet512"
+    group.refresh_from_db()
+    assert group.settings == {}
