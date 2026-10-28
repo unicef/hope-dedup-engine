@@ -26,6 +26,7 @@ def test_the_protocol_declares_the_methods_we_expect():
     assert protocol_methods() == [
         "delete_by_status",
         "ensure_index",
+        "index_exists",
         "index_records",
         "refresh",
         "search",

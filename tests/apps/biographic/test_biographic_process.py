@@ -1,7 +1,7 @@
 """The processing service, step by step, against the in-memory search."""
 
 import pytest
-from testutils.biographic import FakeBiographicSearch
+from testutils.biographic import FakeBiographicSearch, make_payload
 from testutils.factories.biographic import (
     BiographicFindingFactory,
     BiographicJobFactory,
@@ -11,6 +11,7 @@ from testutils.factories.biographic import (
 
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.biographic.config import resolve_config
+from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
 from hope_dedup_engine.apps.biographic.models import FULL_NAME_LENGTH, BiographicFinding, BiographicSet
 from hope_dedup_engine.apps.biographic.services import process
 
@@ -91,6 +92,159 @@ def test_prepare_creates_the_index_and_reconciles_pending_decisions(dataset, sea
     other_program.refresh_from_db()
     assert not rejected.search_sync_pending
     assert other_program.search_sync_pending
+
+
+def test_prepare_refuses_to_recreate_the_index_of_a_program_with_approved_sets(dataset, search):
+    """An empty index would be searched as if the approved population were empty."""
+    BiographicSetFactory(group=dataset.group, state=State.APPROVED)
+    BiographicFindingFactory(record__dataset=dataset)
+
+    with pytest.raises(IndexMissingError):
+        process.prepare(dataset, search)
+
+    assert not any(call[0] == "ensure_index" for call in search.calls)
+    assert BiographicFinding.objects.filter(dataset=dataset).exists()
+
+
+def test_prepare_runs_when_the_index_of_a_program_with_approved_sets_exists(dataset, search):
+    approved_population(dataset.group, search, "Maria Gonzalez")
+
+    process.prepare(dataset, search)
+
+
+@pytest.mark.parametrize("state", [State.REJECTED, State.CANCELED, State.FAILED])
+def test_prepare_creates_the_index_when_no_set_of_the_program_is_approved(dataset, search, state):
+    BiographicSetFactory(group=dataset.group, state=state)
+
+    process.prepare(dataset, search)
+
+    assert ("ensure_index", dataset.group.business_area, dataset.group.program_code) in search.calls
+
+
+# --- prepare_search -----------------------------------------------------------
+
+
+def test_prepare_search_keeps_the_index_and_drops_the_sets_findings(dataset, search):
+    group = dataset.group
+    search.ensure_index(group.business_area, group.program_code)
+    BiographicFindingFactory(record__dataset=dataset)
+
+    process.prepare_search(dataset, search)
+
+    assert not BiographicFinding.objects.filter(dataset=dataset).exists()
+    assert not any(call[0] == "ensure_index" for call in search.calls[1:])
+
+
+def test_prepare_search_reconciles_pending_decisions(dataset, search):
+    group = dataset.group
+    search.ensure_index(group.business_area, group.program_code)
+    rejected = BiographicSetFactory(group=group, state=State.REJECTED, search_sync_pending=True)
+
+    process.prepare_search(dataset, search)
+
+    rejected.refresh_from_db()
+    assert not rejected.search_sync_pending
+
+
+def test_prepare_search_refuses_when_the_index_is_gone(dataset, search):
+    """The set was indexed, so a missing index has lost its documents."""
+    BiographicFindingFactory(record__dataset=dataset)
+
+    with pytest.raises(IndexMissingError):
+        process.prepare_search(dataset, search)
+
+    assert BiographicFinding.objects.filter(dataset=dataset).exists()
+
+
+# --- rebuild ------------------------------------------------------------------
+
+
+def statuses(search, group):
+    docs = search.documents(group.business_area, group.program_code)
+    return {key: doc.status for key, doc in docs.items()}
+
+
+def test_rebuild_restores_each_set_with_the_status_postgres_gives_it(search):
+    group = BiographicSetFactory().group
+    approved = BiographicSetFactory(group=group, state=State.APPROVED)
+    awaiting = BiographicSetFactory(group=group, state=State.DEDUPLICATED)
+    person(approved, "a", "Ana Silva")
+    person(awaiting, "b", "Bo Berg")
+
+    written = process.rebuild(group, search)
+
+    assert written == {approved.pk: 1, awaiting.pk: 1}
+    assert statuses(search, group) == {f"{approved.pk}:a": "approved", f"{awaiting.pk}:b": "pending"}
+
+
+@pytest.mark.parametrize("state", [State.PENDING, State.FAILED, State.REJECTED, State.CANCELED, State.INDEXING])
+def test_rebuild_leaves_sets_with_nothing_to_restore(search, state):
+    group = BiographicSetFactory().group
+    person(BiographicSetFactory(group=group, state=state), "a", "Ana Silva")
+
+    assert process.rebuild(group, search) == {}
+    assert statuses(search, group) == {}
+
+
+def test_rebuild_creates_a_missing_index(search):
+    group = BiographicSetFactory().group
+    assert not search.index_exists(group.business_area, group.program_code)
+
+    process.rebuild(group, search)
+
+    assert search.index_exists(group.business_area, group.program_code)
+
+
+def test_rebuild_never_touches_documents_that_are_not_ours(search):
+    """HOPE fills program indexes with `dataset_id` 0 documents Postgres does not have."""
+    group = BiographicSetFactory().group
+    approved = BiographicSetFactory(group=group, state=State.APPROVED)
+    person(approved, "a", "Ana Silva")
+    search.ensure_index(group.business_area, group.program_code)
+    search.index_records(group.business_area, group.program_code, 0, [make_payload("h", full_name="Hope")])
+    search.set_status(group.business_area, group.program_code, 0, "approved")
+
+    process.rebuild(group, search)
+
+    assert statuses(search, group) == {"0:h": "approved", f"{approved.pk}:a": "approved"}
+    assert ("delete_by_status", "rejected") not in search.calls
+
+
+def test_rebuild_twice_does_not_duplicate_documents(search):
+    group = BiographicSetFactory().group
+    approved = BiographicSetFactory(group=group, state=State.APPROVED)
+    person(approved, "a", "Ana Silva")
+
+    process.rebuild(group, search)
+    process.rebuild(group, search)
+
+    assert statuses(search, group) == {f"{approved.pk}:a": "approved"}
+
+
+def test_rebuild_of_one_set_leaves_the_others_alone(search):
+    group = BiographicSetFactory().group
+    first = BiographicSetFactory(group=group, state=State.APPROVED)
+    second = BiographicSetFactory(group=group, state=State.APPROVED)
+    person(first, "a", "Ana Silva")
+    person(second, "b", "Bo Berg")
+
+    assert process.rebuild(group, search, second) == {second.pk: 1}
+    assert statuses(search, group) == {f"{second.pk}:b": "approved"}
+
+
+def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
+    group = BiographicSetFactory().group
+    awaiting = BiographicSetFactory(group=group, state=State.DEDUPLICATED)
+    rejected = BiographicSetFactory(group=group, state=State.REJECTED, search_sync_pending=True)
+    person(awaiting, "a", "Ana Silva")
+    search.ensure_index(group.business_area, group.program_code)
+    search.index_records(group.business_area, group.program_code, rejected.pk, [make_payload("r")])
+
+    process.rebuild(group, search)
+
+    assert statuses(search, group) == {f"{awaiting.pk}:a": "pending", f"{rejected.pk}:r": "rejected"}
+    rejected.refresh_from_db()
+    assert not rejected.search_sync_pending
 
 
 # --- index --------------------------------------------------------------------

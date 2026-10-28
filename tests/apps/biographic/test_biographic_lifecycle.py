@@ -4,7 +4,7 @@ import pytest
 from django.db import IntegrityError
 from testutils.factories.biographic import BiographicRecordFactory, BiographicSetFactory
 
-from hope_dedup_engine.apps.biographic.const import UPDATE_STATUS_TASK
+from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK, UPDATE_STATUS_TASK
 from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError, LifecycleConflictError
 from hope_dedup_engine.apps.biographic.models import BiographicGroup, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.services import lifecycle
@@ -113,6 +113,97 @@ def test_start_processing_queue_failure_fails_the_set_and_releases_the_lock(pend
     pending.refresh_from_db()
     assert (pending.state, pending.error) == (State.FAILED, QUEUE_FAILED)
     assert not locked(pending.group)
+
+
+def test_an_admin_may_index_only(pending, queued_jobs):
+    job = lifecycle.start_processing(pending, {}, BiographicJob.Mode.INDEX)
+
+    assert (pending.state, job.mode) == (State.INDEXING, BiographicJob.Mode.INDEX)
+    queued_jobs.assert_called_once_with(job)
+
+
+# --- start_search -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("state", lifecycle.SEARCHABLE_STATES)
+def test_start_search_takes_the_slot_and_queues_a_search_job(state, queued_jobs):
+    dataset = BiographicSetFactory(state=state)
+
+    job = lifecycle.start_search(dataset, {"max_hits": 5})
+
+    assert dataset.state == State.DEDUPLICATING
+    assert locked(dataset.group)
+    assert (job.dataset, job.mode, job.config_overrides) == (dataset, BiographicJob.Mode.SEARCH, {"max_hits": 5})
+    queued_jobs.assert_called_once_with(job)
+
+
+@pytest.mark.parametrize("state", [s for s in State if s not in lifecycle.SEARCHABLE_STATES])
+def test_start_search_needs_an_indexed_set(state, queued_jobs):
+    dataset = BiographicSetFactory(state=state)
+    with pytest.raises(LifecycleConflictError, match="Cannot search"):
+        lifecycle.start_search(dataset, {})
+    assert not locked(dataset.group)
+    queued_jobs.assert_not_called()
+
+
+def test_start_search_refuses_when_a_task_holds_the_lock(queued_jobs):
+    dataset = BiographicSetFactory(state=State.INDEXED, group__processing_locked=True)
+    with pytest.raises(LifecycleConflictError, match=LOCK_HELD):
+        lifecycle.start_search(dataset, {})
+
+
+@pytest.mark.parametrize("state", lifecycle.SEARCHABLE_STATES)
+def test_start_search_queue_failure_puts_the_set_back(state, queued_jobs):
+    """Nothing was deleted yet, so an indexed set must not be failed by a broker hiccup."""
+    dataset = BiographicSetFactory(state=state)
+    queued_jobs.side_effect = ConnectionError("broker down")
+
+    with pytest.raises(ConnectionError):
+        lifecycle.start_search(dataset, {})
+
+    dataset.refresh_from_db()
+    assert dataset.state == state
+    assert not locked(dataset.group)
+
+
+# --- start_rebuild ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("dataset_state", [None, State.APPROVED, State.DEDUPLICATED])
+def test_start_rebuild_takes_the_lock_and_queues_the_task(queued_tasks, dataset_state):
+    group = BiographicSetFactory().group
+    dataset = BiographicSetFactory(group=group, state=dataset_state) if dataset_state else None
+
+    lifecycle.start_rebuild(group, dataset)
+
+    assert locked(group)
+    queued_tasks.assert_called_once_with(
+        REBUILD_INDEX_TASK, args=[group.pk, dataset.pk if dataset else None], kwargs={}
+    )
+
+
+@pytest.mark.parametrize("state", [State.PENDING, State.FAILED, State.REJECTED, State.CANCELED, State.INDEXING])
+def test_start_rebuild_of_a_set_needs_something_to_restore(queued_tasks, state):
+    dataset = BiographicSetFactory(state=state)
+    with pytest.raises(LifecycleConflictError, match="Cannot rebuild"):
+        lifecycle.start_rebuild(dataset.group, dataset)
+    assert not locked(dataset.group)
+    queued_tasks.assert_not_called()
+
+
+def test_start_rebuild_refuses_when_a_task_holds_the_lock(queued_tasks):
+    group = BiographicSetFactory(group__processing_locked=True).group
+    with pytest.raises(LifecycleConflictError, match=LOCK_HELD):
+        lifecycle.start_rebuild(group)
+    queued_tasks.assert_not_called()
+
+
+def test_start_rebuild_queue_failure_releases_the_lock(queued_tasks):
+    group = BiographicSetFactory().group
+    queued_tasks.side_effect = ConnectionError("broker down")
+    with pytest.raises(ConnectionError):
+        lifecycle.start_rebuild(group)
+    assert not locked(group)
 
 
 # --- cancel -------------------------------------------------------------------

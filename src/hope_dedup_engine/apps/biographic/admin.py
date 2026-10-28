@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from admin_extra_buttons.api import button
@@ -19,6 +20,7 @@ from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.json_display import format_log, pretty_json
 from hope_dedup_engine.apps.api.utils.notification import ErrorMessage, WarningMessage, send_notification
 from hope_dedup_engine.apps.biographic.config import BiographicConfig
+from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
 from hope_dedup_engine.apps.biographic.forms import BiographicGroupSettingsForm
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
@@ -27,6 +29,8 @@ from hope_dedup_engine.apps.biographic.models import (
     BiographicRecord,
     BiographicSet,
 )
+from hope_dedup_engine.apps.biographic.services import lifecycle
+from hope_dedup_engine.apps.biographic.services.status import REBUILD_STATUS
 from hope_dedup_engine.apps.core.permissions import can
 
 if TYPE_CHECKING:
@@ -44,6 +48,20 @@ CONFIRM_MARK_FAILED = _(
 )
 MARKED_FAILED = _("Set marked as failed.")
 MARKED_FAILED_ERROR = "Marked as failed by an administrator."
+
+CONFIRM_INDEX = _(
+    "Do you confirm to index the records of this set? They are written to the program's index and the set "
+    "stays indexed, waiting for a search. Nothing is scored yet."
+)
+CONFIRM_SEARCH = _(
+    "Do you confirm to search this set against the program's index? Its findings are deleted and created again."
+)
+CONFIRM_REBUILD = _(
+    "Do you confirm to rebuild the index from the records stored here? Approved sets are written back as approved, "
+    "sets awaiting a decision as pending. Nothing is deleted from the index, so documents HOPE put in it stay."
+)
+QUEUED = _("Queued. Follow it in the Jobs list.")
+REBUILD_QUEUED = _("Queued. The program stays locked until the rebuild finishes.")
 
 # A task owns the set in these states. If it dies, nothing moves the set on.
 STUCK_STATES = (BiographicSet.State.INDEXING, BiographicSet.State.INDEXED, BiographicSet.State.DEDUPLICATING)
@@ -104,6 +122,23 @@ class BiographicGroupAdmin(BaseModelAdmin):
     @button(label="Findings", change_form=True, change_list=False, permission=can.biographic.view_biographicfinding)
     def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
         return redirect(changelist_url("biographicfinding", dataset__group__exact=pk))
+
+    @button(label="Rebuild index", change_form=True, change_list=False, permission=can.biographic.rebuild_index)
+    def rebuild_index(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("BiographicGroup", self.get_object(request, pk))
+
+        def action(_: HttpRequest) -> HttpResponse:
+            try:
+                lifecycle.start_rebuild(group)
+            except LifecycleConflictError as error:
+                self.message_user(request, str(error), messages.ERROR)
+            else:
+                self.message_user(request, REBUILD_QUEUED, messages.SUCCESS)
+            return redirect("admin:biographic_biographicgroup_change", group.pk)
+
+        return confirm_action(
+            modeladmin=self, request=request, action=action, message=CONFIRM_REBUILD, description=str(group), pk=pk
+        )
 
     def get_form(
         self, request: HttpRequest, obj: BiographicGroup | None = None, change: bool = False, **kwargs: Any
@@ -176,6 +211,71 @@ class BiographicSetAdmin(ReadOnlyAdmin):
                 self.message_user(request, message, messages.ERROR)
         return redirect("admin:biographic_biographicset_change", dataset.pk)
 
+    def _confirm_start(
+        self,
+        request: HttpRequest,
+        pk: str,
+        message: str,
+        start: Callable[[BiographicSet], object],
+        success_message: str = QUEUED,
+    ) -> HttpResponse:
+        """Ask for confirmation, then start `start(dataset)` and report why it could not."""
+        dataset = cast("BiographicSet", self.get_object(request, pk))
+
+        def action(_: HttpRequest) -> HttpResponse:
+            try:
+                start(dataset)
+            except LifecycleConflictError as error:
+                self.message_user(request, str(error), messages.ERROR)
+            else:
+                self.message_user(request, success_message, messages.SUCCESS)
+            return redirect("admin:biographic_biographicset_change", dataset.pk)
+
+        return confirm_action(
+            modeladmin=self, request=request, action=action, message=message, description=str(dataset), pk=pk
+        )
+
+    @button(
+        label="Index records",
+        change_form=True,
+        change_list=False,
+        permission=can.biographic.process_indexing,
+        visible=lambda button: button.original.state in BiographicSet.PROCESSABLE_STATES,
+    )
+    def index_records(self, request: HttpRequest, pk: str) -> HttpResponse:
+        return self._confirm_start(
+            request,
+            pk,
+            CONFIRM_INDEX,
+            lambda dataset: lifecycle.start_processing(dataset, {}, BiographicJob.Mode.INDEX),
+        )
+
+    @button(
+        label="Find duplicates",
+        change_form=True,
+        change_list=False,
+        permission=can.biographic.process_deduplicate,
+        visible=lambda button: button.original.state in lifecycle.SEARCHABLE_STATES,
+    )
+    def find_duplicates(self, request: HttpRequest, pk: str) -> HttpResponse:
+        return self._confirm_start(request, pk, CONFIRM_SEARCH, lambda dataset: lifecycle.start_search(dataset, {}))
+
+    @button(
+        label="Rebuild index",
+        change_form=True,
+        change_list=False,
+        permission=can.biographic.rebuild_index,
+        visible=lambda button: button.original.state in REBUILD_STATUS,
+    )
+    def rebuild_index(self, request: HttpRequest, pk: str) -> HttpResponse:
+        return self._confirm_start(
+            request,
+            pk,
+            CONFIRM_REBUILD,
+            lambda dataset: lifecycle.start_rebuild(dataset.group, dataset),
+            REBUILD_QUEUED,
+        )
+
     @button(
         label="Unlock processing",
         change_form=True,
@@ -228,7 +328,7 @@ class BiographicSetAdmin(ReadOnlyAdmin):
 
 @register(BiographicJob)
 class BiographicJobAdmin(AdminFiltersMixin, CeleryTaskModelAdmin):
-    """Watch, queue and terminate runs. A job is only ever created by `process`."""
+    """Watch and terminate runs. A job is only ever created, and queued, by `process`."""
 
     list_display = ("pk", "dataset_id", "progress_info", "datetime_created", "datetime_queued")
     list_filter = (
@@ -239,6 +339,18 @@ class BiographicJobAdmin(AdminFiltersMixin, CeleryTaskModelAdmin):
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
+
+    def has_queue_permission(self, perm: str, request: HttpRequest, o: BiographicJob | None) -> bool:
+        """Never offer the inherited "Queue" button.
+
+        Re-queueing a job skips `start_processing`, which is what checks the set's
+        state and takes the program's lock. The task would then clear the findings
+        and re-index an already decided set as `pending`, and release a lock it
+        never held. A run is only started through the `process` endpoint.
+        """
+        if perm == "queue":
+            return False
+        return super().has_queue_permission(perm, request, o)
 
 
 @register(BiographicRecord)

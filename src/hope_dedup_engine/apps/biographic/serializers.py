@@ -8,6 +8,7 @@ from hope_dedup_engine.apps.biographic.models import NOTIFICATION_URL_LENGTH, Bi
 from hope_dedup_engine.apps.biographic.schemas import PAYLOAD_FIELDS
 
 BIRTH_DATE_FIELD: Final[str] = "birth_date"
+FULL_NAME_FIELD: Final[str] = "full_name"
 
 MAX_RECORDS_PER_BATCH: Final[int] = 10_000
 
@@ -27,6 +28,10 @@ class BiographicPayloadSerializer(serializers.Serializer):
     Keys outside that list are dropped rather than rejected: a client may hold more
     about a person than we score. Values are stored as sent - no trimming - so a
     payload reads back exactly as it was posted.
+
+    `full_name` is the one required field. The upstream services always send it, and
+    the name query falls back to it whenever given or family name is missing, so a
+    record without it could not be searched by name at all.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -34,6 +39,8 @@ class BiographicPayloadSerializer(serializers.Serializer):
         for name in PAYLOAD_FIELDS:
             if name == BIRTH_DATE_FIELD:
                 self.fields[name] = IsoDateField(required=False, allow_null=True)
+            elif name == FULL_NAME_FIELD:
+                self.fields[name] = serializers.CharField(trim_whitespace=False)
             else:
                 self.fields[name] = serializers.CharField(
                     required=False, allow_null=True, allow_blank=True, trim_whitespace=False

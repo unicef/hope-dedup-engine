@@ -44,6 +44,9 @@ class FakeBiographicSearch:
         if self.fail_on == method:
             raise RuntimeError(f"{method} failed")
 
+    def index_exists(self, business_area: str, program_code: str) -> bool:
+        return self.index_name(business_area, program_code) in self.indexes
+
     def ensure_index(self, business_area: str, program_code: str) -> str:
         self._check("ensure_index")
         self.calls.append(("ensure_index", business_area, program_code))
@@ -51,12 +54,12 @@ class FakeBiographicSearch:
         self.indexes[name]  # noqa: B018 - creates the index
         return name
 
-    def index_records(self, business_area, program_code, dataset_id, records):
+    def index_records(self, business_area, program_code, dataset_id, records, status="pending"):
         self._check("index_records")
         self.calls.append(("index_records", dataset_id, len(records)))
         docs = self.indexes[self.index_name(business_area, program_code)]
         for record in records:
-            docs[f"{dataset_id}:{record.reference_pk}"] = FakeDocument(record, dataset_id)
+            docs[f"{dataset_id}:{record.reference_pk}"] = FakeDocument(record, dataset_id, status)
         return len(records)
 
     def refresh(self, business_area, program_code):

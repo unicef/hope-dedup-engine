@@ -18,8 +18,10 @@ from hope_dedup_engine.apps.biographic.const import (
     CLEANUP_REJECTED_PERIODIC_TASK_NAME,
     CLEANUP_REJECTED_TASK,
     PROCESS_DATASET_TASK,
+    REBUILD_INDEX_TASK,
     UPDATE_STATUS_TASK,
 )
+from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
 from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.services import process
 
@@ -52,6 +54,7 @@ def test_task_names_match_the_constants():
     assert celery_tasks.process_biographic_dataset.name == PROCESS_DATASET_TASK
     assert celery_tasks.update_biographic_status.name == UPDATE_STATUS_TASK
     assert celery_tasks.cleanup_biographic_rejected.name == CLEANUP_REJECTED_TASK
+    assert celery_tasks.rebuild_biographic_index.name == REBUILD_INDEX_TASK
     assert BiographicJob.celery_task_name == PROCESS_DATASET_TASK
 
 
@@ -216,6 +219,103 @@ def test_a_set_already_failed_by_an_admin_is_left_alone(job, fake_search, mocker
 def test_a_stale_job_version_is_refused(job):
     with pytest.raises(BiographicJob.DoesNotExist):
         celery_tasks.process_biographic_dataset(job.pk, job.version + 1)
+
+
+# --- partial runs ---------------------------------------------------------------
+
+
+def test_an_index_run_stops_at_indexed(job, fake_search, sent_notifications):
+    job.mode = BiographicJob.Mode.INDEX
+    job.save()
+    dataset = job.dataset
+
+    result = run(job)
+
+    dataset.refresh_from_db()
+    assert dataset.state == State.INDEXED
+    assert result == {"dataset": dataset.pk, "records_indexed": 2}
+    assert not BiographicFinding.objects.filter(dataset=dataset).exists()
+    assert not locked(dataset)
+    assert not any(call[0] == "search_many" for call in fake_search.calls)
+    (entry,) = dataset.log
+    assert (entry["action"], entry["state"], entry["records_indexed"]) == ("index", "Indexed", 2)
+    assert [c.args[0] for c in sent_notifications.call_args_list] == [dataset] * 2
+
+
+def test_a_search_run_scores_what_an_index_run_left_behind(job, fake_search, sent_notifications):
+    job.mode = BiographicJob.Mode.INDEX
+    job.save()
+    run(job)
+    dataset = job.dataset
+    dataset.refresh_from_db()
+    dataset.set_state(State.DEDUPLICATING)
+    dataset.group.acquire_processing_lock()
+    search_job = BiographicJob.objects.create(dataset=dataset, mode=BiographicJob.Mode.SEARCH)
+    fake_search.calls.clear()
+
+    result = run(search_job)
+
+    dataset.refresh_from_db()
+    assert dataset.state == State.DEDUPLICATED
+    assert result == {"dataset": dataset.pk, "records_indexed": 0, "findings_created": 2, "records_truncated": 0}
+    assert BiographicFinding.objects.filter(dataset=dataset).count() == 2
+    assert not locked(dataset)
+    assert not any(call[0] == "index_records" for call in fake_search.calls)
+    assert dataset.log[-1]["action"] == "search"
+    assert [n["state"] for n in dataset.log[-1]["notifications"]] == ["Deduplicating", "Deduplicated"]
+
+
+def test_a_search_run_fails_the_set_when_its_index_is_gone(job, fake_search):
+    job.mode = BiographicJob.Mode.SEARCH
+    job.save()
+    dataset = job.dataset
+    dataset.set_state(State.DEDUPLICATING, force=True)
+
+    with pytest.raises(IndexMissingError):
+        run(job)
+
+    dataset.refresh_from_db()
+    assert dataset.state == State.FAILED
+    assert "Rebuild the index" in dataset.error
+    assert not locked(dataset)
+
+
+# --- rebuild_biographic_index ---------------------------------------------------
+
+
+def test_rebuild_restores_the_sets_logs_it_and_releases_the_lock(fake_search):
+    approved = BiographicSetFactory(state=State.APPROVED, group__processing_locked=True)
+    BiographicRecordFactory(dataset=approved, reference_pk="a", payload={"full_name": "Ana Silva"})
+    group = approved.group
+
+    written = celery_tasks.rebuild_biographic_index(group.pk)
+
+    assert written == {approved.pk: 1}
+    assert fake_search.documents(group.business_area, group.program_code)[f"{approved.pk}:a"].status == "approved"
+    approved.refresh_from_db()
+    assert (approved.log[0]["action"], approved.log[0]["records_indexed"]) == ("rebuild_index", 1)
+    assert not locked(approved)
+
+
+def test_rebuild_of_one_set_only_restores_that_set(fake_search):
+    group = BiographicSetFactory(group__processing_locked=True).group
+    first = BiographicSetFactory(group=group, state=State.APPROVED)
+    second = BiographicSetFactory(group=group, state=State.APPROVED)
+    BiographicRecordFactory(dataset=first, reference_pk="a")
+    BiographicRecordFactory(dataset=second, reference_pk="b")
+
+    assert celery_tasks.rebuild_biographic_index(group.pk, second.pk) == {second.pk: 1}
+
+
+def test_a_failed_rebuild_still_releases_the_lock(fake_search):
+    group = BiographicSetFactory(group__processing_locked=True).group
+    fake_search.fail_on = "ensure_index"
+
+    with pytest.raises(RuntimeError, match="ensure_index failed"):
+        celery_tasks.rebuild_biographic_index(group.pk)
+
+    group.refresh_from_db()
+    assert not group.processing_locked
 
 
 # --- update_biographic_status -------------------------------------------------

@@ -12,9 +12,10 @@ from typing import Any, Final
 from celery import current_app
 from django.db import IntegrityError, transaction
 
-from hope_dedup_engine.apps.biographic.const import UPDATE_STATUS_TASK
+from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK, UPDATE_STATUS_TASK
 from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
-from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicRecord, BiographicSet
+from hope_dedup_engine.apps.biographic.models import BiographicGroup, BiographicJob, BiographicRecord, BiographicSet
+from hope_dedup_engine.apps.biographic.services.status import REBUILD_STATUS
 
 ANOTHER_SET_ACTIVE: Final[str] = "Another set in this program is being processed or awaiting approval."
 LOCK_HELD: Final[str] = "Another task is already running for this program."
@@ -24,6 +25,16 @@ QUEUE_FAILED: Final[str] = "Could not queue the processing task."
 logger = logging.getLogger(__name__)
 
 State = BiographicSet.State
+
+# Indexed, so there is something to search; a deduplicated set may be searched again.
+SEARCHABLE_STATES = (State.INDEXED, State.DEDUPLICATED)
+
+# Where each kind of run may start from, the state it takes the set to, and what the error calls it.
+STARTS = {
+    BiographicJob.Mode.FULL: (BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process"),
+    BiographicJob.Mode.INDEX: (BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process"),
+    BiographicJob.Mode.SEARCH: (SEARCHABLE_STATES, State.DEDUPLICATING, "search"),
+}
 
 
 def _queue(task_name: str, *args: Any, **kwargs: Any) -> None:
@@ -56,27 +67,47 @@ def add_records(dataset: BiographicSet, rows: list[dict[str, Any]]) -> int:
         return BiographicRecord.objects.upsert_batch(dataset, rows)
 
 
-def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> BiographicJob:
+def start_processing(
+    dataset: BiographicSet, overrides: Mapping[str, Any], mode: BiographicJob.Mode = BiographicJob.Mode.FULL
+) -> BiographicJob:
     """Take the program's processing slot for `dataset` and queue its run.
 
     Refuses when the set is not pending or failed, has no records, another set in
     the program is active, or a task already holds the program's lock. The lock
     is the task's to release, in its `finally`, whatever the outcome.
+
+    `mode` is `FULL` for the API. An administrator may index only, which leaves
+    the set `indexed` for a later `start_search`.
     """
-    if dataset.state not in BiographicSet.PROCESSABLE_STATES:
-        raise LifecycleConflictError(f"Cannot process set in '{dataset.get_state_display()}' state.")
-    if not dataset.records.exists():
+    if dataset.state in BiographicSet.PROCESSABLE_STATES and not dataset.records.exists():
         raise LifecycleConflictError(NO_RECORDS)
+    return _start(dataset, overrides, mode)
+
+
+def start_search(dataset: BiographicSet, overrides: Mapping[str, Any]) -> BiographicJob:
+    """Score an indexed set against the index as it is, without indexing it again.
+
+    From `indexed` (indexed on its own, or by a run that stopped there) or from
+    `deduplicated` (score it again before deciding). Findings are replaced.
+    """
+    return _start(dataset, overrides, BiographicJob.Mode.SEARCH)
+
+
+def _start(dataset: BiographicSet, overrides: Mapping[str, Any], mode: BiographicJob.Mode) -> BiographicJob:
+    allowed, target, verb = STARTS[mode]
+    if dataset.state not in allowed:
+        raise LifecycleConflictError(f"Cannot {verb} set in '{dataset.get_state_display()}' state.")
     group = dataset.group
     if group.sets.filter(state__in=BiographicSet.ACTIVE_STATES).exclude(pk=dataset.pk).exists():
         raise LifecycleConflictError(ANOTHER_SET_ACTIVE)
     if not group.acquire_processing_lock():
         raise LifecycleConflictError(LOCK_HELD)
 
+    previous = dataset.state
     try:
         with transaction.atomic():
-            dataset.transition(BiographicSet.PROCESSABLE_STATES, State.INDEXING, "process")
-            job = BiographicJob.objects.create(dataset=dataset, config_overrides=dict(overrides))
+            dataset.transition(allowed, target, verb)
+            job = BiographicJob.objects.create(dataset=dataset, config_overrides=dict(overrides), mode=mode)
     except IntegrityError:
         # Lost the race to another set: the one-active-set constraint fired.
         group.release_processing_lock()
@@ -88,10 +119,31 @@ def start_processing(dataset: BiographicSet, overrides: Mapping[str, Any]) -> Bi
     try:
         job.queue()
     except Exception:
-        dataset.set_state(State.FAILED, error=QUEUE_FAILED)
+        if mode == BiographicJob.Mode.SEARCH:
+            # Nothing was touched yet, so the set goes back to where it was.
+            dataset.set_state(State(previous), force=True)
+        else:
+            dataset.set_state(State.FAILED, error=QUEUE_FAILED)
         group.release_processing_lock()
         raise
     return job
+
+
+def start_rebuild(group: BiographicGroup, dataset: BiographicSet | None = None) -> None:
+    """Take the program's lock and queue a rebuild of its index from Postgres.
+
+    Restores documents only; see `process.rebuild`. Refuses when a task already holds
+    the lock, or when `dataset` has nothing to restore. The task releases the lock.
+    """
+    if dataset is not None and dataset.state not in REBUILD_STATUS:
+        raise LifecycleConflictError(f"Cannot rebuild the index from set in '{dataset.get_state_display()}' state.")
+    if not group.acquire_processing_lock():
+        raise LifecycleConflictError(LOCK_HELD)
+    try:
+        _queue(REBUILD_INDEX_TASK, group.pk, dataset.pk if dataset else None)
+    except Exception:
+        group.release_processing_lock()
+        raise
 
 
 def cancel(dataset: BiographicSet) -> None:

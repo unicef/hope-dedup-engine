@@ -39,9 +39,13 @@ def test_a_full_payload_round_trips_unchanged():
     assert validated(FULL_PAYLOAD) == FULL_PAYLOAD
 
 
-def test_every_field_is_optional_and_absent_keys_stay_absent():
+def test_only_full_name_is_required_and_absent_keys_stay_absent():
     assert validated({"full_name": "Maria"}) == {"full_name": "Maria"}
-    assert validated({}) == {}
+
+
+@pytest.mark.parametrize("data", [{}, {"full_name": None}, {"full_name": ""}, {"given_name": "Maria"}])
+def test_full_name_is_required(data):
+    assert set(errors(data)) == {"full_name"}
 
 
 def test_unknown_keys_are_dropped_not_rejected():
@@ -50,7 +54,8 @@ def test_unknown_keys_are_dropped_not_rejected():
 
 
 def test_whitespace_is_kept_as_sent():
-    assert validated({"given_name": "  Maria "}) == {"given_name": "  Maria "}
+    data = {"full_name": " Maria  Gonzalez ", "given_name": "  Maria "}
+    assert validated(data) == data
 
 
 @pytest.mark.parametrize("value", ["15/05/1990", "1990-13-01", "1990-05-15T10:00:00", "yesterday", 19900515])
@@ -59,7 +64,7 @@ def test_birth_date_must_be_an_iso_date(value):
 
 
 def test_birth_date_is_stored_as_a_canonical_iso_string():
-    assert validated({"birth_date": "1990-5-15"}) == {"birth_date": "1990-05-15"}
+    assert validated({"full_name": "Maria", "birth_date": "1990-5-15"})["birth_date"] == "1990-05-15"
 
 
 def test_text_fields_reject_structures():

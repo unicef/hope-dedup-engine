@@ -51,10 +51,14 @@ class ElasticsearchBiographicSearch:
             self._client = client.get_client()
         return self._client
 
+    def index_exists(self, business_area: str, program_code: str) -> bool:
+        """Whether the index for one business area and program is there."""
+        return bool(self.client.indices.exists(index=index.index_name(business_area, program_code)))
+
     def ensure_index(self, business_area: str, program_code: str) -> str:
         """Create the index for one business area and program if it is not there yet."""
         name = index.index_name(business_area, program_code)
-        if self.client.indices.exists(index=name):
+        if self.index_exists(business_area, program_code):
             return name
 
         client.verify_phonetic_plugin(self.client)
@@ -77,8 +81,13 @@ class ElasticsearchBiographicSearch:
         program_code: str,
         dataset_id: int,
         records: list[schemas.BiographicPayload],
+        status: str = "pending",
     ) -> int:
-        """Bulk index a dataset's records as `pending`. Returns the number indexed."""
+        """Bulk index a dataset's records with `status`. Returns the number indexed.
+
+        Document ids are `{dataset_id}:{reference_pk}`, so indexing a record again
+        overwrites its document instead of adding a second one.
+        """
         if not records:
             return 0
 
@@ -87,7 +96,7 @@ class ElasticsearchBiographicSearch:
             {
                 "_index": name,
                 "_id": index.document_id(dataset_id, record.reference_pk),
-                "_source": index.to_document(record, business_area, program_code, dataset_id),
+                "_source": index.to_document(record, business_area, program_code, dataset_id, status),
             }
             for record in records
         ]

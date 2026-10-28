@@ -27,6 +27,9 @@ Unlike biometric settings, a change is **never refused**: a run reads the settin
 |------------|--------|
 | `biographic | biographic group | Can release processing lock` | The *Unlock processing* and *Mark as failed* buttons on a set. |
 | `biographic | biographic set | Can send notification` | The *Send notification* button on a set. |
+| `biographic | biographic set | Can index records` | The *Index records* button on a set. |
+| `biographic | biographic set | Can find duplicates` | The *Find duplicates* button on a set. |
+| `biographic | biographic group | Can rebuild index` | The *Rebuild index* button on a group and on a set. |
 | `biographic | biographic group | Can change biographic group` | Editing a program's settings. |
 
 API access is not a Django permission: it is the **Api Biographic** grant on the client's token (see [Deployment](deployment.md#creating-api-credentials)).

@@ -20,8 +20,30 @@ Each `process` call creates a job showing its progress (records scored out of th
 
 The client retries by calling `POST .../process/` on the `failed` set. The new run discards the old findings and overwrites the indexed documents.
 
-!!! danger "Do not re-queue a finished biographic job"
-    The job admin shows celery-boost's **Queue** button, but re-queueing a job whose run already finished is not safe: the run rewrites the set's documents as `pending` and deletes its findings before discovering that the set is no longer `indexing`. On an approved set, that removes its people from the population. Retry through the API instead.
+!!! info "There is no Queue button on jobs"
+    celery-boost's **Queue** button is disabled for biographic jobs: re-queueing skips the state check and the lock, and would rewrite a decided set's documents as `pending`. Start runs through the API, or the *Index records* and *Find duplicates* buttons on the set.
+
+## Indexing and searching from the admin
+
+An administrator can run the two halves of a run separately, from the buttons on a set. Both start a normal job, take the program's lock and follow the usual rules (one active set per program), so they appear in **Biographic jobs** like any run.
+
+- **Index records** (visible in `pending` and `failed`) writes the set's records to the program's index and stops at `indexed`. Nothing is scored. Needs *Can index records*.
+- **Find duplicates** (visible in `indexed` and `deduplicated`) scores the set against the index as it is, without indexing it again, and ends `deduplicated`. Its old findings are replaced. If the program's index is gone it fails the set and says so; rebuild the index first. Needs *Can find duplicates*.
+
+An `indexed` set holds the program's slot like any active set. The API cannot move it on (`process` refuses `indexed`), so finish it with **Find duplicates**, or use *Mark as failed* to hand it back to the client.
+
+## Rebuilding the index
+
+A program's index lives only in Elasticsearch. If it is lost, restore the sets Postgres knows from their stored records:
+
+- **Rebuild index** on a *group* restores every set that was indexed and is still alive.
+- **Rebuild index** on a *set* (visible in `indexed`, `deduplicating`, `deduplicated`, `approved`) restores that set only.
+
+Approved sets come back as `approved`, sets awaiting a decision as `pending`. Rejected, canceled, pending and failed sets have nothing to restore. The rebuild runs as a task and the program stays locked until it finishes; each restored set gets a `rebuild_index` entry in its log. Needs *Can rebuild index*.
+
+A rebuild only adds documents. It never deletes or recreates the index, because HOPE puts documents of its own in program indexes (`dataset_id` 0) that Postgres does not hold. Document ids are `{set id}:{reference_pk}`, so running it again overwrites instead of duplicating. If an index was lost, documents HOPE had placed in it are lost too, and only HOPE can restore those.
+
+Until an index with approved sets is rebuilt, `process` fails with "the index ... is missing" instead of searching an empty population.
 
 ## Stopping a run
 

@@ -71,7 +71,7 @@ One person. `reference_pk` is the client's identifier (a Country Workspace indiv
 
 | Field | Notes |
 |-------|-------|
-| `given_name`, `family_name`, `full_name`, `middle_name` | Text. `full_name` is what is matched when either given or family name is missing. |
+| `given_name`, `family_name`, `full_name`, `middle_name` | Text. `full_name` is required, and is what is matched when either given or family name is missing. |
 | `birth_date` | ISO 8601 date. |
 | `phone_no`, `phone_no_alternative` | Exact match. |
 | `sex`, `relationship` | Exact match. |

@@ -16,8 +16,18 @@ from hope_dedup_engine.apps.biographic.protocols import BiographicSearch
 
 logger = logging.getLogger(__name__)
 
+STATUS_PENDING: Final[str] = "pending"
 STATUS_APPROVED: Final[str] = "approved"
 STATUS_REJECTED: Final[str] = "rejected"
+
+# What a set's documents must say when it is put back in the index. Only sets that
+# were indexed and are still alive have documents to restore.
+REBUILD_STATUS: Final[dict[str, str]] = {
+    BiographicSet.State.APPROVED: STATUS_APPROVED,
+    BiographicSet.State.INDEXED: STATUS_PENDING,
+    BiographicSet.State.DEDUPLICATING: STATUS_PENDING,
+    BiographicSet.State.DEDUPLICATED: STATUS_PENDING,
+}
 
 # Only approved documents are ever searched again. A rejected or canceled set is
 # `rejected` in the index until the daily cleanup deletes it.
@@ -32,8 +42,10 @@ def sync(dataset: BiographicSet, search: BiographicSearch) -> int:
     """Push the set's decision to its documents and clear the pending flag.
 
     Returns the number of documents updated. A set without a decision has nothing
-    to push, and the flag is left alone. A missing index means nothing of the
-    program was ever indexed, so there is nothing to update either.
+    to push, and the flag is left alone. So is it when the index is missing: that
+    can be a program never indexed, or an index lost and later restored from an
+    older snapshot. Either way the flag stays, and `reconcile` retries once the
+    next run has made sure the index exists.
     """
     status = DOCUMENT_STATUS.get(dataset.state)
     if status is None:
@@ -44,7 +56,13 @@ def sync(dataset: BiographicSet, search: BiographicSearch) -> int:
     try:
         updated = search.set_status(group.business_area, group.program_code, dataset.pk, status)
     except NotFoundError:
-        updated = 0
+        logger.warning(
+            "Index of %s/%s is missing: biographic set %s stays pending sync.",
+            group.business_area,
+            group.program_code,
+            dataset.pk,
+        )
+        return 0
     BiographicSet.objects.filter(pk=dataset.pk).update(search_sync_pending=False)
     dataset.search_sync_pending = False
     return updated

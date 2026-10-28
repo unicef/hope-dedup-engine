@@ -38,6 +38,17 @@ def best_score(hits):
     return hits[0].score if hits else 0.0
 
 
+def test_index_exists_follows_the_index(search, group, es_client):
+    business_area, program_code = group
+    assert search.index_exists(business_area, program_code)
+
+    es_client.indices.delete(index=index.index_name(business_area, program_code))
+
+    assert not search.index_exists(business_area, program_code)
+    search.ensure_index(business_area, program_code)
+    assert search.index_exists(business_area, program_code)
+
+
 def test_index_records_counts_and_needs_a_refresh(search, group):
     business_area, program_code = group
     records = [

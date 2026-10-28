@@ -196,10 +196,16 @@ def test_records_are_stored_with_payload_unchanged_and_full_name_copied(api: API
     assert stored.payload_version == 1
 
 
-def test_records_without_full_name_get_a_blank_one(api: APIClient, group):
+@pytest.mark.parametrize("payload", [{}, {"full_name": None}, {"full_name": ""}, {"given_name": "Maria"}])
+def test_a_record_without_a_full_name_is_rejected(api: APIClient, group, payload):
     dataset = BiographicSetFactory(group=group)
-    api.post(dataset_url(dataset, "records"), {"records": [{"reference_pk": "cw-1", "payload": {}}]}, format="json")
-    assert BiographicRecord.objects.get(reference_pk="cw-1").full_name == ""
+    batch = {"records": [{"reference_pk": "cw-1", "payload": payload}]}
+
+    response = api.post(dataset_url(dataset, "records"), batch, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert set(response.json()["records"]["0"]["payload"]) == {"full_name"}
+    assert not dataset.records.exists()
 
 
 def test_unknown_payload_keys_are_dropped(api: APIClient, group):
@@ -264,7 +270,7 @@ def test_malformed_batches_are_rejected(api: APIClient, group, body):
 
 def test_a_batch_has_a_size_limit(api: APIClient, group):
     dataset = BiographicSetFactory(group=group)
-    batch = {"records": [{"reference_pk": f"cw-{n}", "payload": {}} for n in range(MAX_RECORDS_PER_BATCH + 1)]}
+    batch = {"records": [record(f"cw-{n}") for n in range(MAX_RECORDS_PER_BATCH + 1)]}
 
     response = api.post(dataset_url(dataset, "records"), batch, format="json")
 

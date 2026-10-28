@@ -73,12 +73,18 @@ def test_sync_without_a_decision_does_nothing(search, state, mocker):
     logger.warning.assert_called_once()
 
 
-def test_sync_with_no_index_just_clears_the_flag(search):
-    """Nothing of the program was ever indexed, so there is nothing to update."""
+def test_sync_with_no_index_keeps_the_flag_so_reconcile_can_retry(search):
+    """A missing index may be a lost one that comes back from an older snapshot."""
     dataset = BiographicSetFactory(state=State.REJECTED, search_sync_pending=True)
 
     assert status.sync(dataset, search) == 0
 
+    dataset.refresh_from_db()
+    assert dataset.search_sync_pending
+
+    indexed(search, dataset, "a")
+    assert status.reconcile(dataset.group, search) == 1
+    assert statuses(search, dataset) == {"a": "rejected"}
     dataset.refresh_from_db()
     assert not dataset.search_sync_pending
 

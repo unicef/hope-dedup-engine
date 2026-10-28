@@ -73,8 +73,8 @@ $ http POST $P/datasets/17/records/ <<< '{
 
 - Up to **10,000** records per call; send as many calls as needed.
 - Re-sending a `reference_pk` already in the set **replaces** that record, so a batch can be safely retried after a timeout. The same `reference_pk` twice in one batch is a 400.
-- Payload fields: `given_name`, `family_name`, `full_name`, `middle_name`, `birth_date` (ISO date), `phone_no`, `phone_no_alternative`, `sex`, `relationship`. All optional and nullable. Unknown keys are dropped; values are stored as sent, without trimming.
-- Send `full_name` too: it is what is matched when either given or family name is missing.
+- Payload fields: `given_name`, `family_name`, `full_name`, `middle_name`, `birth_date` (ISO date), `phone_no`, `phone_no_alternative`, `sex`, `relationship`. Only `full_name` is required and it cannot be null or empty; the others are optional and nullable. Unknown keys are dropped; values are stored as sent, without trimming.
+- `full_name` is what is matched when either given or family name is missing, so a batch with a record that lacks it is rejected.
 - Returns **409** once the set has left `pending`.
 
 ## 3. Start processing

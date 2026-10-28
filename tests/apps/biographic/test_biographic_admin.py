@@ -1,5 +1,5 @@
 import pytest
-from django.contrib.messages import SUCCESS, WARNING, get_messages
+from django.contrib.messages import ERROR, SUCCESS, WARNING, get_messages
 from django.urls import reverse
 from testutils.factories.biographic import (
     BiographicFindingFactory,
@@ -11,7 +11,11 @@ from testutils.factories.biographic import (
 from testutils.factories.user import SuperUserFactory
 
 from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR
-from hope_dedup_engine.apps.biographic.models import BiographicSet
+from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK
+from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicSet
+from hope_dedup_engine.apps.biographic.services import lifecycle
+from hope_dedup_engine.apps.biographic.services.lifecycle import LOCK_HELD, NO_RECORDS
+from hope_dedup_engine.apps.biographic.services.status import REBUILD_STATUS
 
 pytestmark = pytest.mark.django_db
 
@@ -27,6 +31,12 @@ def app(django_app_factory, mocked_responses):
 
 def confirm(app, url: str):
     return app.get(url).forms[1].submit().follow()
+
+
+def confirm_messages(admin_client, url: str) -> list[tuple[str, int]]:
+    """Confirm and return what the admin told the user, as (text, level)."""
+    response = admin_client.post(url)
+    return [(m.message, m.level) for m in get_messages(response.wsgi_request)]
 
 
 def button_url(name: str, dataset: BiographicSet) -> str:
@@ -53,6 +63,94 @@ def test_a_stuck_set_can_be_marked_failed_and_then_retried(app, state):
     assert dataset.error == MARKED_FAILED_ERROR
     assert dataset.group.processing_locked is False
     assert State.INDEXING in BiographicSet.VALID_TRANSITIONS[dataset.state]
+
+
+def group_button_url(name: str, group) -> str:
+    return reverse(f"admin:biographic_biographicgroup_{name}", args=[group.pk])
+
+
+@pytest.mark.parametrize("state", BiographicSet.PROCESSABLE_STATES)
+def test_index_records_indexes_without_searching(app, queued_jobs, state):
+    dataset = BiographicSetFactory(state=state)
+    BiographicRecordFactory(dataset=dataset)
+
+    confirm(app, button_url("index_records", dataset))
+
+    dataset.refresh_from_db()
+    assert dataset.state == State.INDEXING
+    (job,) = dataset.jobs.all()
+    assert job.mode == BiographicJob.Mode.INDEX
+    queued_jobs.assert_called_once_with(job)
+
+
+def test_index_records_reports_why_it_cannot_start(admin_client, queued_jobs):
+    dataset = BiographicSetFactory()
+
+    assert confirm_messages(admin_client, button_url("index_records", dataset)) == [(NO_RECORDS, ERROR)]
+    queued_jobs.assert_not_called()
+
+
+@pytest.mark.parametrize("state", [State.INDEXED, State.DEDUPLICATED])
+def test_find_duplicates_searches_an_indexed_set(app, queued_jobs, state):
+    dataset = BiographicSetFactory(state=state)
+
+    confirm(app, button_url("find_duplicates", dataset))
+
+    dataset.refresh_from_db()
+    assert dataset.state == State.DEDUPLICATING
+    (job,) = dataset.jobs.all()
+    assert job.mode == BiographicJob.Mode.SEARCH
+    queued_jobs.assert_called_once_with(job)
+
+
+def test_find_duplicates_reports_why_it_cannot_start(admin_client, queued_jobs):
+    dataset = BiographicSetFactory(state=State.INDEXED, group__processing_locked=True)
+
+    assert confirm_messages(admin_client, button_url("find_duplicates", dataset)) == [(LOCK_HELD, ERROR)]
+    queued_jobs.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("button", "states"),
+    [
+        ("index_records", BiographicSet.PROCESSABLE_STATES),
+        ("find_duplicates", lifecycle.SEARCHABLE_STATES),
+        ("rebuild_index", REBUILD_STATUS),
+    ],
+)
+def test_set_buttons_show_only_in_the_states_they_work_for(app, button, states):
+    url = f"/{button}/"
+    for state in State:
+        dataset = BiographicSetFactory(group__processing_locked=False, state=state)
+        page = app.get(reverse("admin:biographic_biographicset_change", args=[dataset.pk]))
+        assert (url in page.text) == (state in states), state
+
+
+def test_a_set_can_rebuild_its_own_documents(app, queued_tasks):
+    dataset = BiographicSetFactory(state=State.APPROVED)
+
+    confirm(app, button_url("rebuild_index", dataset))
+
+    queued_tasks.assert_called_once_with(REBUILD_INDEX_TASK, args=[dataset.group_id, dataset.pk], kwargs={})
+    dataset.group.refresh_from_db()
+    assert dataset.group.processing_locked
+
+
+def test_a_group_can_rebuild_its_index(app, queued_tasks):
+    group = BiographicGroupFactory()
+
+    confirm(app, group_button_url("rebuild_index", group))
+
+    queued_tasks.assert_called_once_with(REBUILD_INDEX_TASK, args=[group.pk, None], kwargs={})
+    group.refresh_from_db()
+    assert group.processing_locked
+
+
+def test_a_locked_group_cannot_start_a_rebuild(admin_client, queued_tasks):
+    group = BiographicGroupFactory(processing_locked=True)
+
+    assert confirm_messages(admin_client, group_button_url("rebuild_index", group)) == [(LOCK_HELD, ERROR)]
+    queued_tasks.assert_not_called()
 
 
 def test_group_admin_edits_the_programs_thresholds(app):
@@ -103,6 +201,15 @@ def test_job_admin_lists_the_jobs(app):
     page = app.get(reverse("admin:biographic_biographicjob_changelist"))
     assert str(job.dataset_id) in page.text
     assert app.get(reverse("admin:biographic_biographicjob_change", args=[job.pk])).status_code == 200
+
+
+def test_job_admin_does_not_offer_to_queue_a_job(app):
+    """Queueing skips `start_processing`: no state check, no lock, a decided set re-indexed as pending."""
+    job = BiographicJobFactory(dataset__state=State.APPROVED)
+
+    page = app.get(reverse("admin:biographic_biographicjob_change", args=[job.pk]))
+    assert "celery_queue" not in page.text
+    app.get(reverse("admin:biographic_biographicjob_celery_queue", args=[job.pk]), status=403)
 
 
 def test_record_admin_renders_the_payload(app):

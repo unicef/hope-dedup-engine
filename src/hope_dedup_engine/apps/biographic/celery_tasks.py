@@ -25,7 +25,7 @@ from hope_dedup_engine.apps.api.utils.notification import (
     send_notification,
 )
 from hope_dedup_engine.apps.biographic.config import BiographicConfig, resolve_config
-from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicJob, BiographicSet
+from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicGroup, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.protocols import BiographicSearch
 from hope_dedup_engine.apps.biographic.search.backend import ElasticsearchBiographicSearch
 from hope_dedup_engine.apps.biographic.services import process, status
@@ -39,6 +39,13 @@ RUNNING_STATES = (State.INDEXING, State.INDEXED, State.DEDUPLICATING)
 
 STATUS_UPDATE_MAX_RETRIES = 5
 
+# What the run log calls a run, by what it did.
+RUN_ACTIONS = {
+    BiographicJob.Mode.FULL: "deduplicate",
+    BiographicJob.Mode.INDEX: "index",
+    BiographicJob.Mode.SEARCH: "search",
+}
+
 
 def get_search() -> BiographicSearch:
     """Return the search backend. Patched by tests that drive the tasks with a fake."""
@@ -50,6 +57,7 @@ class RunLog:
     """What one run records about itself, filled in as it goes."""
 
     dataset: BiographicSet
+    action: str = "deduplicate"
     config: BiographicConfig | None = None
     records_indexed: int = 0
     records_truncated: int = 0
@@ -58,7 +66,7 @@ class RunLog:
     def append(self, error: Exception | None = None) -> None:
         entry: dict[str, Any] = {
             "timestamp": timezone.now().isoformat(),
-            "action": "deduplicate",
+            "action": self.action,
             "state": self.dataset.get_state_display(),
             "config": self.config.as_dict() if self.config else None,
             "records_indexed": self.records_indexed,
@@ -117,27 +125,38 @@ def process_biographic_dataset(self: Any, job_id: int, version: int) -> dict[str
     On failure or graceful cancellation, from any of the first three:
         -> FAILED
 
+    An administrator may split the run. An `index` job stops at INDEXED. A `search`
+    job starts at DEDUPLICATING, which the caller already set, against documents an
+    earlier run indexed.
+
     The program's lock is taken by the caller before queueing and released here,
     in `finally`, whatever happens.
     """
     job = BiographicJob.objects.select_related("dataset__group").get(pk=job_id, version=version)
     dataset = job.dataset
     group = dataset.group
+    mode = BiographicJob.Mode(job.mode)
     search = get_search()
-    run = RunLog(dataset)
+    run = RunLog(dataset, action=RUN_ACTIONS[mode])
 
     try:
         job.ensure_not_cancelled()
         _notify(run)
         run.config = resolve_config(dataset, job.config_overrides)
 
-        process.prepare(dataset, search)
-        run.records_indexed = process.index(dataset, search, job)
-        dataset.set_state(State.INDEXED)
-        _notify(run)
+        if mode == BiographicJob.Mode.SEARCH:
+            process.prepare_search(dataset, search)
+        else:
+            process.prepare(dataset, search)
+            run.records_indexed = process.index(dataset, search, job)
+            dataset.set_state(State.INDEXED)
+            _notify(run)
+            if mode == BiographicJob.Mode.INDEX:
+                run.append()
+                return {"dataset": dataset.pk, "records_indexed": run.records_indexed}
+            dataset.set_state(State.DEDUPLICATING)
+            _notify(run)
 
-        dataset.set_state(State.DEDUPLICATING)
-        _notify(run)
         stats = process.deduplicate(dataset, run.config, search, job)
         run.records_truncated = stats.records_truncated
 
@@ -190,3 +209,33 @@ def cleanup_biographic_rejected() -> dict[str, int]:
         if count:
             logger.info("Deleted %s rejected biographic documents from %s", count, name)
     return deleted
+
+
+@shared_task
+def rebuild_biographic_index(group_id: int, dataset_id: int | None = None) -> dict[int, int]:
+    """Put the group's indexed sets back in its index. Returns the documents written per set.
+
+    The caller took the program's lock; it is released here, in `finally`. The
+    index is never deleted, because HOPE keeps documents in it that Postgres does
+    not have. One entry per restored set goes in its log.
+    """
+    group = BiographicGroup.objects.get(pk=group_id)
+    dataset = BiographicSet.objects.get(pk=dataset_id) if dataset_id else None
+    try:
+        written = process.rebuild(group, get_search(), dataset)
+    except Exception:
+        logger.exception("Could not rebuild the index of biographic group %s", group_id)
+        raise
+    finally:
+        group.release_processing_lock()
+
+    for restored in BiographicSet.objects.filter(pk__in=written):
+        restored.append_log(
+            {
+                "timestamp": timezone.now().isoformat(),
+                "action": "rebuild_index",
+                "state": restored.get_state_display(),
+                "records_indexed": written[restored.pk],
+            }
+        )
+    return written

@@ -56,6 +56,7 @@ class BiographicGroup(models.Model):
         ]
         permissions = [
             ("release_processing_lock", "Can release processing lock"),
+            ("rebuild_index", "Can rebuild index"),
         ]
 
     def __str__(self) -> str:
@@ -106,7 +107,8 @@ class BiographicSet(models.Model):
         State.INDEXING: (State.INDEXED, State.FAILED),
         State.INDEXED: (State.DEDUPLICATING, State.FAILED),
         State.DEDUPLICATING: (State.DEDUPLICATED, State.FAILED),
-        State.DEDUPLICATED: (State.APPROVED, State.REJECTED),
+        # A scored set may be scored again, from the admin, before it is decided.
+        State.DEDUPLICATED: (State.APPROVED, State.REJECTED, State.DEDUPLICATING),
         State.FAILED: (State.INDEXING, State.CANCELED),
         State.APPROVED: (),
         State.REJECTED: (),
@@ -156,6 +158,8 @@ class BiographicSet(models.Model):
         ]
         permissions = [
             ("send_notification", "Can send notification"),
+            ("process_indexing", "Can index records"),
+            ("process_deduplicate", "Can find duplicates"),
         ]
 
     def __str__(self) -> str:
@@ -206,8 +210,19 @@ class BiographicJob(CeleryTaskModel):
     machine, not the job, says whether a run may start.
     """
 
+    class Mode(models.TextChoices):
+        FULL = "full", "Index and search"
+        INDEX = "index", "Index only"
+        SEARCH = "search", "Search only"
+
     dataset = models.ForeignKey(
         BiographicSet, on_delete=models.CASCADE, related_name="jobs", help_text="Set this run processes."
+    )
+    mode = models.CharField(
+        max_length=16,
+        choices=Mode,
+        default=Mode.FULL,
+        help_text="Which steps the run performs. Only an administrator starts a partial run.",
     )
     config_overrides = models.JSONField(
         default=dict, blank=True, help_text="Settings the client overrode for this run."

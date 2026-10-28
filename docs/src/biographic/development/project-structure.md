@@ -7,7 +7,7 @@ src/hope_dedup_engine/apps/biographic/
 ├── models.py          # BiographicGroup, BiographicSet (state machine), BiographicRecord,
 │                      # BiographicFinding, BiographicJob
 ├── schemas.py         # PAYLOAD_FIELDS, BiographicPayload, Hit: data crossing into the search library
-├── protocols.py       # BiographicSearch: the interface the service calls (frozen)
+├── protocols.py       # BiographicSearch: the interface the service calls (stable)
 ├── config.py          # BiographicConfig: the settings and how they are resolved
 ├── const.py           # Celery task and periodic task names
 ├── exceptions.py      # LifecycleConflictError, InvalidTransitionError (mapped to 409)
@@ -42,7 +42,7 @@ src/hope_dedup_engine/apps/biographic/
 
 - **Postgres decides, Elasticsearch follows.** A decision commits its state and `search_sync_pending` together, then queues the status update; never write a status to Elasticsearch without the flag.
 - **State changes** go through `BiographicSet.transition()` (row-locked check, used by client actions) or `set_state()` (validated against `VALID_TRANSITIONS`, used by the task). Don't assign `state` directly.
-- **The protocol and schemas are frozen.** `protocols.py` and `schemas.py` are shared between the service and search work; changing them needs the agreement of everyone working on biographic deduplication.
+- **The protocol and schemas are stable.** `protocols.py` and `schemas.py` are shared between the service and search work; changing them needs the agreement of everyone working on biographic deduplication.
 - **`PAYLOAD_FIELDS` is the only list of payload fields.** The serializer, the mapping and the query are tested against it.
 - **Scoring is HOPE's.** Don't change the similarity script, analyzers, mapping types or query without re-running the parity tests and agreeing that the threshold must be recalibrated.
 - **Program scoping**: every API queryset goes through `BiographicProgramMixin.program_sets()`.

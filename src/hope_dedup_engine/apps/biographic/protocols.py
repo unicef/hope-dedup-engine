@@ -5,8 +5,10 @@ structurally, without inheriting, and so does any in-memory fake the service wan
 to test against. It lives here, above both, so that annotating a service attribute
 does not drag the Elasticsearch adapter into the import graph.
 
-Frozen: changing anything here needs the agreement of every assignee on the
+Stable: changing anything here needs the agreement of every assignee on the
 biographic deduplication issues, because both sides of the split depend on it.
+`index_exists` was added after the first version, so the service can tell a
+program that was never indexed from one whose index was lost.
 
 Settled with the interface:
 
@@ -16,7 +18,8 @@ Settled with the interface:
   ``PAYLOAD_FIELDS`` is the only place that list exists
 * index name: ``biographic_{business_area}_{program_code}``
 * Elasticsearch document id: ``{dataset_id}:{reference_pk}``
-* status values: ``pending`` / ``approved`` / ``rejected``
+* status values: ``pending`` / ``approved`` / ``rejected``. ``index_records`` writes
+  ``pending`` unless told otherwise; a rebuild passes ``approved`` for approved sets
 * one search covers both sides at once: the rest of the caller's dataset, still
   pending, plus the approved population. Each hit says which it was, so
   within-batch duplicates are a filter on the result, not a second search
@@ -33,6 +36,8 @@ from hope_dedup_engine.apps.biographic.schemas import BiographicPayload, Hit
 
 
 class BiographicSearch(Protocol):
+    def index_exists(self, business_area: str, program_code: str) -> bool: ...
+
     def ensure_index(self, business_area: str, program_code: str) -> str: ...
 
     def index_records(
@@ -41,6 +46,7 @@ class BiographicSearch(Protocol):
         program_code: str,
         dataset_id: int,
         records: list[BiographicPayload],
+        status: str = "pending",
     ) -> int: ...
 
     def refresh(self, business_area: str, program_code: str) -> None: ...

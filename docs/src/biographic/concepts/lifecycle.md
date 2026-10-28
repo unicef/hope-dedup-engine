@@ -18,6 +18,8 @@ stateDiagram-v2
     deduplicating --> failed: error / cancellation
     failed --> indexing: POST process (retry)
     failed --> canceled: POST cancel
+    indexed --> deduplicating: admin, Find duplicates
+    deduplicated --> deduplicating: admin, Find duplicates
     deduplicated --> approved: POST approve
     deduplicated --> rejected: POST reject
     approved --> [*]
@@ -28,6 +30,7 @@ stateDiagram-v2
 !!! info "About the transitions"
     - `indexing → indexed → deduplicating → deduplicated` happen inside one worker run, with a notification at each step.
     - A run never aborts because a set has *many* duplicates: HOPE's "too many duplicates" abort rules are deliberately not implemented. The run always ends `deduplicated`, and the client decides what the counts mean.
+    - An administrator can stop the run at `indexed` (*Index records*) and score later (*Find duplicates*), or score a `deduplicated` set again; see [Operations](../admin/operations.md#indexing-and-searching-from-the-admin).
     - `failed` covers unexpected errors and a graceful cancellation requested by an administrator. The reason is in the set's `error`.
 
 ## States
