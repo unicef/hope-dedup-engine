@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# Usage: ./full_flow [business_area] [program_code]
+#
+# Runs the whole biographic flow against a fresh program:
+#   1. the existing population is processed and approved
+#   2. a new registration is processed against it, its findings are checked, and it is approved
+
+source "$(dirname "$0")/.common"
+
+if [[ -z "$AUTH_TOKEN" ]]; then
+  echo "No auth token: run ./use_auth_token <token> first" >&2
+  exit 1
+fi
+
+business_area="${1:-afghanistan}"
+# A fresh program by default: a reused one already holds earlier runs' people.
+program_code="${2:-demo-$(date +%Y%m%d-%H%M%S)}"
+data="$HERE/data"
+summary='{dataset_id, status, records_count, batch_duplicates, population_duplicates}'
+
+banner "Generate fake people"
+python3 "$HERE/generate_people.py" "$data" >&2
+
+"$HERE/use_program" "$business_area" "$program_code"
+
+banner "STEP 1: the program's existing population"
+"$HERE/create_dataset" | jq -c '{dataset_id, status}'
+"$HERE/upload_records" "$data/population.json" 100
+"$HERE/process_dataset" | jq "$summary"
+"$HERE/show_findings"
+"$HERE/approve" | jq -c '{dataset_id, status}'
+
+banner "STEP 2: a new registration, deduplicated against the population"
+"$HERE/create_dataset" | jq -c '{dataset_id, status}'
+"$HERE/upload_records" "$data/new_registration.json" 25
+"$HERE/process_dataset" | jq "$summary"
+"$HERE/show_findings"
+"$HERE/show_findings" scope==batch
+"$HERE/check_expected" "$data/expected.json"
+"$HERE/approve" | jq -c '{dataset_id, status}'
+
+banner "Done: program $business_area / $program_code now holds both datasets as its population"

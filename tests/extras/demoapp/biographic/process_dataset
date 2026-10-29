@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# Usage: ./process_dataset [httpie overrides, e.g. duplicate_score:=8 max_hits:=50]
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+timeout="${PROCESS_TIMEOUT:-600}"
+
+banner "Process dataset $DATASET_ID"
+call_api POST "$(dataset_path)/process" "$@" > /dev/null
+
+started=$SECONDS
+last=""
+while true; do
+  dataset=$("$HERE/show_dataset")
+  status=$(echo "$dataset" | jq -r '.status')
+  if [[ "$status" != "$last" ]]; then
+    info "status: $status ($((SECONDS - started))s)"
+    last="$status"
+  fi
+  case "$status" in
+    deduplicated) break ;;
+    failed)
+      echo "$dataset" | jq '{status, error}' >&2
+      exit 1
+      ;;
+  esac
+  if ((SECONDS - started > timeout)); then
+    echo "Gave up after ${timeout}s in status '$status'. Is the celery worker running?" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+echo "$dataset"

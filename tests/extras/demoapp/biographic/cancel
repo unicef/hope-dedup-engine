@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+banner "Cancel dataset $DATASET_ID"
+call_api POST "$(dataset_path)/cancel"
