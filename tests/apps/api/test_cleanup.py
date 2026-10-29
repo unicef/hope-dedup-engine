@@ -6,7 +6,7 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 from freezegun import freeze_time
 
-from hope_dedup_engine.apps.api.celery_tasks import _delete_in_batches, cleanup_redundant_data
+from hope_dedup_engine.apps.api.celery_tasks import _delete_in_batches, cleanup_redundant_data, not_a_task
 from hope_dedup_engine.apps.api.models import DeduplicationSet, Encoding, Finding, MainJob
 from hope_dedup_engine.config.celery import app as celery_app
 
@@ -15,6 +15,11 @@ def _backdate(deduplication_set: DeduplicationSet, *, days: int) -> None:
     DeduplicationSet.objects.filter(pk=deduplication_set.pk).update(
         updated_at=timezone.now() - timedelta(days=days),
     )
+
+
+def test_not_a_task_does_nothing() -> None:
+    """`not_a_task` is a placeholder task: calling it is a no-op."""
+    assert not_a_task() is None
 
 
 def test_cleanup_task_is_registered() -> None:

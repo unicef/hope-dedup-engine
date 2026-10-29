@@ -40,6 +40,16 @@ def test_configure(state):
         assert not hasattr(state, "not_set")
 
 
+def test_set_restores_the_previous_value(state):
+    """`set` restores the overridden attribute instead of dropping it."""
+    state.cookies = {"a": [1]}
+
+    with state.set(cookies={"b": [2]}):
+        assert state.cookies == {"b": [2]}
+
+    assert state.cookies == {"a": [1]}
+
+
 @freeze_time("2000-01-01T00:00:00Z")
 def test_add_cookies(state):
     state.add_cookie("test", Cookie(22, 3600, None, "/path/", "domain.example.com", True, True, "lax"))
@@ -52,6 +62,7 @@ def test_add_cookies(state):
         "expires": "Sat, 01 Jan 2000 01:00:00 GMT",
         "httponly": True,
         "max-age": 3600,
+        "partitioned": "",
         "path": "/path/",
         "samesite": "lax",
         "secure": True,

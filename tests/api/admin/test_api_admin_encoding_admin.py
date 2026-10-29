@@ -264,3 +264,46 @@ def test_encoding_admin_deduplicate_selected_encodings_submit(
     prepare_deduplication_results_mock.assert_called_once_with(
         calculate_thresholds_mock.return_value, group_by_thresholds_mock.return_value
     )
+
+
+def test_encoding_admin_detect_face_with_an_invalid_form(
+    mocker: MockerFixture, rf: RequestFactory, admin_user, encoding
+) -> None:
+    """An invalid form is rendered back without running the detection."""
+    request = rf.post(f"/admin/api/encoding/{encoding.pk}/detect_face/", data={"submit": "Detect face"})
+    request.user = admin_user
+    admin_site = AdminSite()
+
+    find_face_form_class_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.FindFaceForm")
+    find_face_form_class_mock.return_value.is_valid.return_value = False
+    render_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.render")
+    detect_face_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.detect_face")
+
+    encoding_admin = EncodingAdmin(Encoding, admin_site)
+    encoding_admin.detect_face(encoding_admin, request, encoding.pk)
+
+    detect_face_mock.assert_not_called()
+    assert "results" not in render_mock.call_args.kwargs["context"]
+
+
+def test_encoding_admin_deduplicate_selected_encodings_with_an_invalid_form(
+    mocker: MockerFixture, rf: RequestFactory, admin_user
+) -> None:
+    """An invalid form is rendered back without running the deduplication."""
+    request = rf.post(
+        "/admin/api/encoding/",
+        data={"action": "action", "_selected_action": "selected_action", "submit": "Deduplicate"},
+    )
+    request.user = admin_user
+    admin_site = AdminSite()
+
+    deduplicate_form_class_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.DeduplicateForm")
+    deduplicate_form_class_mock.return_value.is_valid.return_value = False
+    render_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.render")
+    deduplicate_mock = mocker.patch("hope_dedup_engine.apps.api.admin.encoding.admin.deduplicate")
+
+    encoding_admin = EncodingAdmin(Encoding, admin_site)
+    encoding_admin.deduplicate_selected_encodings(request, mocker.Mock())
+
+    deduplicate_mock.assert_not_called()
+    assert "results" not in render_mock.call_args.kwargs["context"]
