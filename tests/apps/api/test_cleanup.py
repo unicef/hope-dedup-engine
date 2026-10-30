@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 from constance.test import override_config
 from django.core.files.base import ContentFile
+from django.core.files.storage import storages
 from django.utils import timezone
 from freezegun import freeze_time
 
@@ -66,7 +67,7 @@ def test_keeps_approved_findings_updated_exactly_at_the_cutoff(deduplication_set
     assert Finding.objects.filter(pk=finding.pk).exists()
 
 
-def test_deletes_old_rejected_sets_with_findings_encodings_and_files(
+def test_deletes_old_rejected_sets_with_findings_and_encodings_but_keeps_blobs(
     deduplication_set_factory,
     deduplication_set_group_factory,
     main_job_factory,
@@ -76,13 +77,13 @@ def test_deletes_old_rejected_sets_with_findings_encodings_and_files(
         group=deduplication_set_group_factory(),
         state=DeduplicationSet.State.REJECTED,
     )
+    storage = storages["hope"]
+    storage_path = storage.save("hope/test-cleanup/ref-old.jpg", ContentFile(b"image-bytes"))
     encoding = Encoding.objects.create(
         deduplication_set=deduplication_set,
         reference_pk="ref-old",
-        filename=ContentFile(b"image-bytes", name="ref-old.jpg"),
+        filename=storage_path,
     )
-    storage_path = encoding.filename.name
-    storage = encoding.filename.storage
     assert storage.exists(storage_path)
     finding = Finding.objects.create(
         deduplication_set=deduplication_set,
@@ -106,7 +107,9 @@ def test_deletes_old_rejected_sets_with_findings_encodings_and_files(
     assert not Encoding.objects.filter(pk=encoding.pk).exists()
     assert not DeduplicationSet.objects.filter(pk=deduplication_set.pk).exists()
     assert not MainJob.objects.filter(pk=job.pk).exists()
-    assert not storage.exists(storage_path)
+    # The blob belongs to the shared HOPE storage and must never be deleted by this service.
+    assert storage.exists(storage_path)
+    storage.delete(storage_path)
 
 
 def test_keeps_recently_rejected_sets(deduplication_set_factory, finding_factory) -> None:

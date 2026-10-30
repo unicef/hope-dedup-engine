@@ -38,8 +38,9 @@ def cleanup_redundant_data(retention_days: int | None = None) -> dict[str, int]:
     reads the findings and then approves the set. Encodings on approved sets are
     kept, because later runs in the same group compare new images against them.
 
-    Rejected sets are removed together with their findings and encodings. Image
-    files are removed by the encoding post_delete signal after the transaction commits.
+    Rejected sets are removed together with their findings and encodings. Only
+    database rows are deleted: the images live in the shared HOPE blob storage,
+    which this service reads from and never deletes from.
 
     Age comes from the deduplication set ``updated_at``, which changes when the
     set is approved or rejected. Anything updated more recently than

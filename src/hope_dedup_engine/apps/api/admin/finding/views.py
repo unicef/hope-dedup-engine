@@ -1,9 +1,11 @@
 import mimetypes
-from pathlib import PurePosixPath
+from io import BytesIO
 from typing import Any
 
+from azure.core.exceptions import ResourceNotFoundError
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.files.storage import storages
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -20,24 +22,28 @@ class FindingDetailsPermissionMixin(PermissionRequiredMixin):
 
 
 class FindingImageView(FindingDetailsPermissionMixin, View):
-    """Serve encoded image files to the browser."""
+    """Serve image files from the shared HOPE blob storage to the browser."""
 
     def get(self, request: HttpRequest, filename: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        # Azure storage opens lazily: a missing blob only raises when the bytes are
+        # read, so read inside the try block to turn it into a 404 instead of a 500
+        # raised later while the response streams.
+
         if not Encoding.objects.filter(filename=filename, deduplication_set__group__deleted=False).exists():
             raise Http404("Image not found")
 
-        storage = Encoding.filename.field.storage
         try:
-            file_obj = storage.open(filename, "rb")
-        except FileNotFoundError as exc:
+            with storages["hope"].open(filename, "rb") as fh:
+                data = fh.read()
+        except (ResourceNotFoundError, FileNotFoundError) as exc:
             raise Http404("Image not found") from exc
 
         content_type, _ = mimetypes.guess_type(filename)
         return FileResponse(
-            file_obj,
+            BytesIO(data),
             content_type=content_type or "application/octet-stream",
             as_attachment=False,
-            filename=PurePosixPath(filename).name,
+            filename=filename,
         )
 
 
@@ -64,10 +70,10 @@ class FindingPreviewView(FindingDetailsPermissionMixin, TemplateView):
             opts=Finding._meta,
             finding=finding,
             status_label=Encoding.StatusCode(finding.status_code).label,
-            first_image_url=self._image_url(first.filename.name if first.filename else None),
-            second_image_url=self._image_url(second.filename.name if second and second.filename else None),
-            first_filename=PurePosixPath(first.filename.name).name if first.filename else None,
-            second_filename=PurePosixPath(second.filename.name).name if second and second.filename else None,
+            first_image_url=self._image_url(first.filename),
+            second_image_url=self._image_url(second.filename if second else None),
+            first_filename=first.filename,
+            second_filename=second.filename if second else None,
         )
         return context
 

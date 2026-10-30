@@ -43,7 +43,7 @@ Two identifiers appear throughout and are **yours to choose**:
 
 ## Images
 
-You register images by providing a `reference_pk` (your identifier for the individual) and a `filename` containing the image as a **base64 data URL** (e.g. `data:image/jpeg;base64,/9j/4AAQ...`). The engine decodes the payload, stores the file via its `images` storage backend, and reads it back during processing. If the file cannot be found at processing time, that image is reported in the findings with status code **404**.
+You register images by providing a `reference_pk` (your identifier for the individual) and a `filename` — the path/key of the image in the shared HOPE blob storage (`FILE_STORAGE_HOPE`). The engine reads the image directly from that storage during processing; it doesn't receive or store the image bytes itself. If the file cannot be found at processing time, that image is reported in the findings with status code **404**.
 
 ## Where to next
 
