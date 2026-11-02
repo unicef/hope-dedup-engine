@@ -22,7 +22,7 @@ The demo setup creates an external system and an API token you can find under `H
 
 ## API interaction scripts
 
-Shell scripts in `tests/extras/demoapp/scripts/` drive the API end to end. They require [httpie](https://httpie.io/), [jq](https://jqlang.github.io/jq/), and the `mimetype` command (Debian/Ubuntu package `libfile-mimeinfo-perl`).
+Shell scripts in `tests/extras/demoapp/scripts/` drive the API end to end. The biographic API has its own scripts, see [Biographic Demo Scripts](../biographic/development/demo.md). They require [httpie](https://httpie.io/), [jq](https://jqlang.github.io/jq/), and the `mimetype` command (Debian/Ubuntu package `libfile-mimeinfo-perl`).
 
 ### Configuration
 

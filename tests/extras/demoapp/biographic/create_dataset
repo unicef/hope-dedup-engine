@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_program
+
+banner "Create dataset in $BUSINESS_AREA / $PROGRAM_CODE"
+
+# The program's group is registered on the first dataset created for it.
+args=()
+if [[ $# -ge 1 ]]; then
+  args+=("notification_url=$1" "notify:=true")
+fi
+
+response=$(call_api POST "$(program_path)/datasets" "${args[@]}")
+echo "$response"
+
+dataset_id=$(echo "$response" | jq -r '.dataset_id')
+set_variable DATASET_ID "$dataset_id"
+info "Dataset $dataset_id selected"

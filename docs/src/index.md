@@ -4,6 +4,8 @@ The HOPE Deduplication Engine (HDE) is a service in the [HOPE](https://github.co
 
 Under the hood HDE uses [DeepFace](https://github.com/serengil/deepface) for face detection and recognition and [OFIQ](https://github.com/BSI-OFIQ/OFIQ-Project) for image quality assessment, with Celery workers doing the heavy lifting asynchronously.
 
+HDE also deduplicates by **biographic data** — names, birth date, phone numbers — with HOPE's Elasticsearch scoring, through a separate API. That is documented in its own section, [Biographic Deduplication](biographic/index.md). The Concepts, Integration Guide and Administration sections below describe face (biometric) deduplication.
+
 ## Where to go
 
 The documentation is organized by audience:
@@ -14,6 +16,7 @@ The documentation is organized by audience:
 | [Integration Guide](integration/index.md) | Developers of client systems (e.g. Country Workspace) | Authentication, the end-to-end API workflow, configuration, findings, statuses, and notifications |
 | [Administration](admin/deployment.md) | Operators and admins | Deployment, environment variables, admin panel settings, maintenance and troubleshooting |
 | [Development](development/getting-started.md) | Contributors to HDE itself | Local setup, project layout, testing, the demo app, and contribution guidelines |
+| [Biographic Deduplication](biographic/index.md) | All of the above, for biographic deduplication | The same four sections — concepts, integration, administration, development — plus sequence diagrams of every flow |
 
 ## Quick orientation
 
