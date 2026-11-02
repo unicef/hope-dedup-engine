@@ -243,7 +243,9 @@ def find_duplicate_pairs(  # noqa
                 continue
 
             distance = float(distances[r, c])
-            confidence = find_confidence(distance, model_name, distance_metric, verified=True)
+            confidence = find_confidence(
+                distance=distance, model_name=model_name, verified=True, distance_metric=distance_metric
+            )
 
             if confidence >= confidence_threshold:
                 duplicates.append((all_ids[global_r], all_ids[c], confidence))
