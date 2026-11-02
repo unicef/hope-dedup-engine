@@ -25,12 +25,12 @@ def mock_azurite_manager(mocker: MockerFixture):
     )
 
 
-def _patch_storage_source(mocker: MockerFixture, src: Path) -> None:
-    """Make every storage declare `src` as its source directory."""
+def _patch_storage_source(mocker: MockerFixture, source: Path) -> None:
+    """Make every storage declare `source` as its source directory."""
     real_storage = demo.Storage
 
-    def _factory(name: str, options: dict[str, str] | None = None) -> demo.Storage:
-        return real_storage(name=name, src=src, options=options or {})
+    def _factory(name: str, src: Path | None = None, options: dict[str, str] | None = None) -> demo.Storage:
+        return real_storage(name=name, src=source, options=options or {})
 
     mocker.patch(
         "hope_dedup_engine.apps.core.management.commands.demo.Storage",
@@ -82,8 +82,8 @@ def test_demo_handle_uploads_the_source_files(environment, mock_azurite_manager,
     with mock.patch.dict("os.environ", environment, clear=True):
         call_command("demo", stdout=out)
 
-    assert mock_azurite_manager.return_value.upload_files.call_count == 2
     assert mock_azurite_manager.return_value.upload_files.call_args_list == [
+        mock.call(tmp_path),
         mock.call(tmp_path),
         mock.call(tmp_path),
     ]
