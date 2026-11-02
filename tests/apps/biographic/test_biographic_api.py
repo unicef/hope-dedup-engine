@@ -1,5 +1,6 @@
 import pytest
 from django.db import IntegrityError
+from django.db.models.query import EmptyQuerySet
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -26,6 +27,7 @@ from hope_dedup_engine.apps.biographic.services.lifecycle import (
     NO_RECORDS,
     QUEUE_FAILED,
 )
+from hope_dedup_engine.apps.biographic.views import BiographicFindingsViewSet
 
 pytestmark = pytest.mark.django_db
 
@@ -656,3 +658,8 @@ def test_every_endpoint_is_grouped_under_biographic_in_the_schema():
     ]
     assert len(operations) == len(ENDPOINTS)
     assert all(operation["tags"] == ["biographic"] for operation in operations)
+
+
+def test_findings_queryset_is_empty_for_schema_generation():
+    view = BiographicFindingsViewSet(swagger_fake_view=True, kwargs={})
+    assert isinstance(view.get_queryset(), EmptyQuerySet)

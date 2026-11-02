@@ -23,6 +23,7 @@ from hope_dedup_engine.apps.biographic.const import (
 )
 from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
 from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicJob, BiographicSet
+from hope_dedup_engine.apps.biographic.search.backend import ElasticsearchBiographicSearch
 from hope_dedup_engine.apps.biographic.services import process
 
 pytestmark = pytest.mark.django_db
@@ -56,6 +57,10 @@ def test_task_names_match_the_constants():
     assert celery_tasks.cleanup_biographic_rejected.name == CLEANUP_REJECTED_TASK
     assert celery_tasks.rebuild_biographic_index.name == REBUILD_INDEX_TASK
     assert BiographicJob.celery_task_name == PROCESS_DATASET_TASK
+
+
+def test_tasks_search_elasticsearch_by_default():
+    assert isinstance(celery_tasks.get_search(), ElasticsearchBiographicSearch)
 
 
 # --- process_biographic_dataset -----------------------------------------------

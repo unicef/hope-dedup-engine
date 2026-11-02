@@ -10,6 +10,7 @@ from testutils.factories.biographic import (
 )
 from testutils.factories.user import SuperUserFactory
 
+from hope_dedup_engine.apps.api.utils.notification import FAILED_TO_NOTIFY
 from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR
 from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK
 from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicSet
@@ -194,6 +195,28 @@ def test_send_notification_button_forces_a_ping(admin_client, mocked_responses, 
     (sent,) = get_messages(response.wsgi_request)
     assert (sent.message, sent.level) == (message, level)
     assert len(mocked_responses.calls) == (1 if dataset.notification_url else 0)
+
+
+def test_send_notification_button_reports_a_failed_ping(admin_client, mocked_responses):
+    dataset = BiographicSetFactory(state=State.DEDUPLICATED, notification_url="https://hope.example.org/cb/")
+    mocked_responses.add(mocked_responses.GET, dataset.notification_url, status=404)
+
+    response = admin_client.get(button_url("send_notification", dataset))
+
+    (sent,) = get_messages(response.wsgi_request)
+    assert sent.level == ERROR
+    assert sent.message.startswith(FAILED_TO_NOTIFY.format(error=""))
+    assert len(mocked_responses.calls) == 1
+
+
+def test_send_notification_button_ignores_an_unknown_result(admin_client, mocker):
+    """A result that is neither a success, a warning nor an error does not report anything."""
+    mocker.patch("hope_dedup_engine.apps.biographic.admin.send_notification", return_value="unexpected")
+    dataset = BiographicSetFactory(state=State.DEDUPLICATED)
+
+    response = admin_client.get(button_url("send_notification", dataset))
+
+    assert len(get_messages(response.wsgi_request)) == 0
 
 
 def test_job_admin_lists_the_jobs(app):
