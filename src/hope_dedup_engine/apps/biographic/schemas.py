@@ -60,7 +60,7 @@ class Hit:
 
     reference_pk: str
     score: float
-    dataset_id: int
+    dataset_id: str
     status: str
     full_name: str | None
     birth_date: str | None

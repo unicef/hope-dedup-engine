@@ -3,23 +3,27 @@ from contextlib import contextmanager
 from http import HTTPMethod
 from typing import Any
 
+from django.db import IntegrityError, transaction
 from django.db.models import Count, OuterRef, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from hope_api_auth.views import TokenRequiredView
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.validators import UniqueValidator
 
 from hope_dedup_engine.apps.api.exceptions import ConflictError
 from hope_dedup_engine.apps.api.grant import Grant
 from hope_dedup_engine.apps.api.pagination import FindingResultsPagination
 from hope_dedup_engine.apps.api.serializers import EmptySerializer
 from hope_dedup_engine.apps.biographic.config import get_default_group_settings
-from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeleteError, LifecycleConflictError
 from hope_dedup_engine.apps.biographic.filters import BiographicFindingFilter
 from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicGroup, BiographicSet
 from hope_dedup_engine.apps.biographic.serializers import (
@@ -33,10 +37,11 @@ from hope_dedup_engine.apps.biographic.serializers import (
 )
 from hope_dedup_engine.apps.biographic.services import lifecycle
 
-GROUP_DELETED = "Biographic deduplication was deleted for this program."
-
 # drf-spectacular tags by the first path segment, which is "api" for every route here.
 SCHEMA_TAGS = ["biographic"]
+
+# Either case, on every route: a UUID names the same set however it is written.
+UUID_REGEX = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 
 
 def duplicates_in_scope(scope: BiographicFinding.Scope) -> Coalesce:
@@ -85,6 +90,33 @@ class BiographicProgramMixin:
 
 
 @extend_schema(tags=SCHEMA_TAGS)
+class BiographicGroupView(BiographicProgramMixin, TokenRequiredView):
+    """The program itself: soft delete."""
+
+    permission = Grant.API_BIOGRAPHIC
+
+    @extend_schema(
+        responses={
+            status.HTTP_204_NO_CONTENT: None,
+            status.HTTP_409_CONFLICT: OpenApiResponse(description=GroupDeleteError.message),
+        },
+        description="Soft-delete biographic deduplication for this program. Its sets are hidden from the API, "
+        "and the program can be registered again by creating a new set. "
+        "Returns 204 when the program does not exist or is already deleted, "
+        "and 409 while a task is running for it.",
+    )
+    def delete(self, request: Request, **kwargs: Any) -> Response:
+        business_area, program_code = self.program_key()
+        group = BiographicGroup.objects.filter(
+            business_area=business_area, program_code=program_code, deleted=False
+        ).first()
+        if group is not None:
+            with conflicts_as_409():
+                group.soft_delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=SCHEMA_TAGS)
 class BiographicDatasetViewSet(
     BiographicProgramMixin,
     mixins.RetrieveModelMixin,
@@ -94,7 +126,7 @@ class BiographicDatasetViewSet(
     permission = Grant.API_BIOGRAPHIC
     serializer_class = BiographicSetSerializer
     lookup_url_kwarg = "dataset_id"
-    lookup_value_regex = r"\d+"
+    lookup_value_regex = UUID_REGEX
 
     def get_queryset(self) -> QuerySet[BiographicSet]:
         return (
@@ -120,22 +152,34 @@ class BiographicDatasetViewSet(
         request=BiographicSetCreateSerializer,
         responses={status.HTTP_201_CREATED: BiographicSetSerializer},
         description="Create an empty set for this business area and program. "
-        "The program is registered on first use. Creation is always allowed, even while "
-        "another set is being processed; add people with the records endpoint. "
+        "The program is registered on first use, or again after it was deleted. "
+        "Creation is always allowed, even while another set is being processed; "
+        "add people with the records endpoint. "
+        "An optional id (UUID) names the set; one is generated when omitted, and an id "
+        "already in use is rejected. "
         "An optional notification_url is pinged with a GET on every state change a run makes.",
     )
+    @transaction.atomic
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         serializer = BiographicSetCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         business_area, program_code = self.program_key()
-        group, _ = BiographicGroup.objects.get_or_create(
+        # The group's row stays locked until the response is built, so a concurrent
+        # delete waits instead of hiding the set this request is about to return.
+        group, _ = BiographicGroup.objects.select_for_update().get_or_create(
             business_area=business_area,
             program_code=program_code,
+            deleted=False,
             defaults={"settings": get_default_group_settings()},
         )
-        if group.deleted:
-            raise ConflictError(GROUP_DELETED)
-        dataset = BiographicSet.objects.create(group=group, **serializer.validated_data)
+        try:
+            with transaction.atomic():
+                dataset = BiographicSet.objects.create(group=group, **serializer.validated_data)
+        except IntegrityError:
+            # Another request took the same id between validation and insert.
+            if "id" not in serializer.validated_data:
+                raise
+            raise ValidationError({"id": [UniqueValidator.message]}) from None
         return self._respond(dataset, status.HTTP_201_CREATED)
 
     @extend_schema(description="Current state of the set. Poll this after starting processing.")
@@ -235,6 +279,9 @@ class BiographicFindingsViewSet(
             raise ConflictError(f"Findings are not available for set in '{dataset.get_state_display()}' state.")
         return BiographicFinding.objects.filter(dataset=dataset).select_related("record").order_by("-score", "-id")
 
-    @extend_schema(description="Duplicate findings for a deduplicated or approved set, best match first.")
+    @extend_schema(
+        parameters=[OpenApiParameter("dataset_id", OpenApiTypes.UUID, OpenApiParameter.PATH)],
+        description="Duplicate findings for a deduplicated or approved set, best match first.",
+    )
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return super().list(request, *args, **kwargs)

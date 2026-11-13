@@ -1,5 +1,7 @@
 """The processing service, step by step, against the in-memory search."""
 
+from uuid import uuid4
+
 import pytest
 from testutils.biographic import FakeBiographicSearch, make_payload
 from testutils.factories.biographic import (
@@ -52,9 +54,9 @@ def approved_population(group, search, *names, dataset_id=None):
     business_area, program_code = group.business_area, group.program_code
     search.ensure_index(business_area, program_code)
     search.index_records(
-        business_area, program_code, dataset_id or population.pk, [process.to_payload(r) for r in records]
+        business_area, program_code, dataset_id or str(population.pk), [process.to_payload(r) for r in records]
     )
-    search.set_status(business_area, program_code, dataset_id or population.pk, "approved")
+    search.set_status(business_area, program_code, dataset_id or str(population.pk), "approved")
     return population
 
 
@@ -87,7 +89,7 @@ def test_prepare_creates_the_index_and_reconciles_pending_decisions(dataset, sea
     process.prepare(dataset, search)
 
     assert ("ensure_index", group.business_area, group.program_code) in search.calls
-    assert ("set_status", rejected.pk, "rejected") in search.calls
+    assert ("set_status", str(rejected.pk), "rejected") in search.calls
     rejected.refresh_from_db()
     other_program.refresh_from_db()
     assert not rejected.search_sync_pending
@@ -173,7 +175,7 @@ def test_rebuild_restores_each_set_with_the_status_postgres_gives_it(search):
 
     written = process.rebuild(group, search)
 
-    assert written == {approved.pk: 1, awaiting.pk: 1}
+    assert written == {str(approved.pk): 1, str(awaiting.pk): 1}
     assert statuses(search, group) == {f"{approved.pk}:a": "approved", f"{awaiting.pk}:b": "pending"}
 
 
@@ -228,7 +230,7 @@ def test_rebuild_of_one_set_leaves_the_others_alone(search):
     person(first, "a", "Ana Silva")
     person(second, "b", "Bo Berg")
 
-    assert process.rebuild(group, search, second) == {second.pk: 1}
+    assert process.rebuild(group, search, second) == {str(second.pk): 1}
     assert statuses(search, group) == {f"{second.pk}:b": "approved"}
 
 
@@ -238,7 +240,7 @@ def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
     rejected = BiographicSetFactory(group=group, state=State.REJECTED, search_sync_pending=True)
     person(awaiting, "a", "Ana Silva")
     search.ensure_index(group.business_area, group.program_code)
-    search.index_records(group.business_area, group.program_code, rejected.pk, [make_payload("r")])
+    search.index_records(group.business_area, group.program_code, str(rejected.pk), [make_payload("r")])
 
     process.rebuild(group, search)
 
@@ -327,7 +329,7 @@ def test_deduplicate_honours_the_run_overrides(search, no_tracking):
 
     # The fake scores 10: below the overridden threshold, so nothing matches.
     assert stats.findings_created == 0
-    assert search.calls[-1] == ("search_many", job.dataset.pk, 2)
+    assert search.calls[-1] == ("search_many", str(job.dataset.pk), 2)
 
 
 def test_deduplicate_keeps_the_best_hit_per_matched_person_and_scope(job, dataset, search):
@@ -335,13 +337,14 @@ def test_deduplicate_keeps_the_best_hit_per_matched_person_and_scope(job, datase
     group = dataset.group
     approved_population(group, search, "Ana Silva")
     first = BiographicSet.objects.filter(group=group, state=State.APPROVED).get()
+    resent = str(uuid4())
     search.index_records(
         group.business_area,
         group.program_code,
-        first.pk + 1000,
+        resent,
         [process.to_payload(r) for r in first.records.all()],
     )
-    search.set_status(group.business_area, group.program_code, first.pk + 1000, "approved")
+    search.set_status(group.business_area, group.program_code, resent, "approved")
     person(dataset, "a", "Ana Silva")
 
     _, stats = run(job, search)
@@ -352,7 +355,7 @@ def test_deduplicate_keeps_the_best_hit_per_matched_person_and_scope(job, datase
 
 def test_documents_migrated_from_hope_count_as_population(job, dataset, search):
     """`dataset_id = 0` is reserved for HOPE's existing population."""
-    approved_population(dataset.group, search, "Ana Silva", dataset_id=0)
+    approved_population(dataset.group, search, "Ana Silva", dataset_id="0")
     person(dataset, "a", "Ana Silva")
 
     run(job, search)
@@ -427,7 +430,7 @@ def test_other_pending_sets_are_not_candidates(job, dataset, search):
     other_record = person(other, "x", "Ana Silva")
     search.ensure_index(dataset.group.business_area, dataset.group.program_code)
     search.index_records(
-        dataset.group.business_area, dataset.group.program_code, other.pk, [process.to_payload(other_record)]
+        dataset.group.business_area, dataset.group.program_code, str(other.pk), [process.to_payload(other_record)]
     )
     person(dataset, "a", "Ana Silva")
 

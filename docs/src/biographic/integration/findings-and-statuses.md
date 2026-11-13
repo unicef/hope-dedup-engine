@@ -74,8 +74,8 @@ Results are paginated with `page` / `page_size` (default 1000, maximum 10000) an
 | `reference_pk` | `?reference_pk=IND-0001` | Only the findings of one person of the set. |
 
 ```console
-$ http GET "$P/datasets/17/findings/?scope=batch"                # duplicates inside the batch
-$ http GET "$P/datasets/17/findings/?scope=population&min_score=10"  # strong matches to approved people
+$ http GET "$P/datasets/$DATASET/findings/?scope=batch"                # duplicates inside the batch
+$ http GET "$P/datasets/$DATASET/findings/?scope=population&min_score=10"  # strong matches to approved people
 ```
 
 ## Error responses
@@ -85,4 +85,4 @@ $ http GET "$P/datasets/17/findings/?scope=population&min_score=10"  # strong ma
 | 400 | Invalid body: a payload field of the wrong type, an invalid date, the same `reference_pk` twice in a batch, more than 10,000 records, an unknown or out-of-range setting. The body names the offending fields. |
 | 401 / 403 | See [authentication](index.md#authentication). |
 | 404 | No such set in this program. |
-| 409 | The operation is not allowed in the set's state, another set in the program is active, a run is already in progress, the set has no records, or the program was deleted. The `detail` explains which. |
+| 409 | The operation is not allowed in the set's state, another set in the program is active, a run is already in progress, the set has no records, or the program cannot be deleted because a task is running for it. The `detail` explains which. |

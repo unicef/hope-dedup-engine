@@ -25,7 +25,7 @@ For each run, every setting is resolved in this order:
 ## Overriding for one run
 
 ```console
-$ http POST $P/datasets/17/process/ duplicate_score:=8.0
+$ http POST $P/datasets/$DATASET/process/ duplicate_score:=8.0
 ```
 
 - Any subset of the parameters; the others come from the program.

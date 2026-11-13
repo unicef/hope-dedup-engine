@@ -50,8 +50,11 @@ Both are lowercased by the server, so `AFG` and `afg` are the same program. The 
 | Records | `.../datasets/{id}/records/` | Upload a batch of people |
 | Actions | `.../datasets/{id}/process/`, `cancel/`, `approve/`, `reject/` | Move the set through its lifecycle |
 | Findings | `.../datasets/{id}/findings/` | Read the duplicate findings (paginated, filterable) |
+| Program | `.../` | Soft-delete the program (`DELETE`) |
 
-There is no list or delete endpoint for sets: a client keeps the `dataset_id` it was given, and abandons a set with `cancel`.
+A set is identified by a UUID, the `dataset_id`, which the client may choose when creating it. There is no list or delete endpoint for sets: a client keeps the `dataset_id`, and abandons a set with `cancel`.
+
+The program itself can be soft-deleted with `DELETE .../` (see [Deleting a program](workflow.md#deleting-a-program)).
 
 Two identifiers are yours to choose:
 

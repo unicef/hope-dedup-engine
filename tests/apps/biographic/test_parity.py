@@ -13,6 +13,8 @@ Field values are copied verbatim from HOPE's factories, including its
 relationship and sex literals.
 """
 
+from uuid import uuid4
+
 import pytest
 
 from testutils.biographic import make_payload
@@ -26,8 +28,8 @@ DUPLICATE = "duplicate"
 NEEDS_ADJUDICATION = "needs_adjudication"
 UNIQUE = "unique"
 
-PENDING_DATASET = 1
-POPULATION_DATASET = 2
+PENDING_DATASET = str(uuid4())
+POPULATION_DATASET = str(uuid4())
 
 # given_name, family_name, full_name, birth_date, phone_no, relationship, sex
 PENDING_RECORDS = {

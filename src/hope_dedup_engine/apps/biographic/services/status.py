@@ -54,7 +54,7 @@ def sync(dataset: BiographicSet, search: BiographicSearch) -> int:
 
     group = dataset.group
     try:
-        updated = search.set_status(group.business_area, group.program_code, dataset.pk, status)
+        updated = search.set_status(group.business_area, group.program_code, str(dataset.pk), status)
     except NotFoundError:
         logger.warning(
             "Index of %s/%s is missing: biographic set %s stays pending sync.",

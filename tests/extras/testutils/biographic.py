@@ -16,7 +16,7 @@ def make_payload(reference_pk: str, **fields) -> BiographicPayload:
 @dataclass
 class FakeDocument:
     payload: BiographicPayload
-    dataset_id: int
+    dataset_id: str
     status: str = "pending"
 
 
@@ -57,6 +57,7 @@ class FakeBiographicSearch:
     def index_records(self, business_area, program_code, dataset_id, records, status="pending"):
         self._check("index_records")
         self.calls.append(("index_records", dataset_id, len(records)))
+        dataset_id = str(dataset_id)  # a keyword in the real index: ids are compared as text
         docs = self.indexes[self.index_name(business_area, program_code)]
         for record in records:
             docs[f"{dataset_id}:{record.reference_pk}"] = FakeDocument(record, dataset_id, status)
@@ -68,6 +69,7 @@ class FakeBiographicSearch:
     def search(self, business_area, program_code, payload, min_score, dataset_id, size=100):  # noqa: PLR0913, PLR0917
         docs = self.indexes[self.index_name(business_area, program_code)]
         hits = []
+        dataset_id = str(dataset_id)
         for doc in docs.values():
             if doc.payload.reference_pk == payload.reference_pk:
                 continue
@@ -103,7 +105,7 @@ class FakeBiographicSearch:
             raise NotFoundError("index_not_found_exception", None, None)  # type: ignore[arg-type]
         updated = 0
         for doc in self.indexes[name].values():
-            if doc.dataset_id == dataset_id:
+            if doc.dataset_id == str(dataset_id):
                 doc.status = status
                 updated += 1
         return updated

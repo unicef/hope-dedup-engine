@@ -43,10 +43,10 @@ def test_synonyms_file_is_configurable(es_settings, tmp_path):
 def test_document_carries_metadata_and_payload(es_settings):
     payload = make_payload("abc", given_name="Test", full_name="Test Testowski")
 
-    document = index.to_document(payload, "afghanistan", "ab12", dataset_id=7)
+    document = index.to_document(payload, "afghanistan", "ab12", dataset_id="7")
 
     assert document["reference_pk"] == "abc"
-    assert document["dataset_id"] == 7
+    assert document["dataset_id"] == "7"
     assert document["business_area"] == "afghanistan"
     assert document["program_code"] == "ab12"
     assert document["status"] == "pending"
@@ -54,8 +54,12 @@ def test_document_carries_metadata_and_payload(es_settings):
     assert set(document) == set(schemas.PAYLOAD_FIELDS) | index.METADATA_FIELDS
 
 
+def test_dataset_id_is_a_keyword_so_it_holds_a_uuid():
+    assert index.index_mapping()["properties"]["dataset_id"] == {"type": "keyword"}
+
+
 def test_document_id_pairs_dataset_and_reference():
-    assert index.document_id(7, "abc") == "7:abc"
+    assert index.document_id("7", "abc") == "7:abc"
 
 
 @pytest.mark.elasticsearch

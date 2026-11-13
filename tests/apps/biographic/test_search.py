@@ -4,15 +4,21 @@ The query path is never mocked: the point of these tests is that the engine
 itself produces the expected scores.
 """
 
+from uuid import uuid4
+
 import pytest
 
 from hope_dedup_engine.apps.biographic.search import index
+from hope_dedup_engine.apps.biographic.search.backend import IndexMappingError
 
 from testutils.biographic import make_payload
 
 pytestmark = pytest.mark.elasticsearch
 
-DATASET = 1
+# Real set ids: numeric strings would pass on the old `long` mapping too.
+DATASET = str(uuid4())
+OTHER = str(uuid4())
+THIRD = str(uuid4())
 
 
 def index_records(search, group, records, dataset_id=DATASET):
@@ -47,6 +53,39 @@ def test_index_exists_follows_the_index(search, group, es_client):
     assert not search.index_exists(business_area, program_code)
     search.ensure_index(business_area, program_code)
     assert search.index_exists(business_area, program_code)
+
+
+def test_an_index_with_the_old_mapping_is_refused_up_front(search, group, es_client):
+    """Before set ids were UUIDs, `dataset_id` was a `long`: every query on it would fail."""
+    business_area, program_code = group
+    name = index.index_name(business_area, program_code)
+    es_client.indices.delete(index=name)
+    mapping = index.index_mapping()
+    mapping["properties"]["dataset_id"] = {"type": "long"}
+    es_client.indices.create(index=name, settings=index.index_settings(), mappings=mapping)
+
+    with pytest.raises(IndexMappingError, match="maps `dataset_id` as long, not keyword"):
+        search.index_exists(business_area, program_code)
+    with pytest.raises(IndexMappingError):
+        search.ensure_index(business_area, program_code)
+
+
+def test_documents_hope_wrote_with_a_numeric_dataset_id_are_population(search, group, es_client):
+    """HOPE puts its own people in program indexes as `dataset_id` 0, a number."""
+    business_area, program_code = group
+    name = index.index_name(business_area, program_code)
+    hope = index.to_document(
+        make_payload("hope-1", given_name="Test", family_name="Testowski"), business_area, program_code, "0", "approved"
+    )
+    es_client.index(index=name, id="0:hope-1", document={**hope, "dataset_id": 0}, refresh=True)
+    index_records(search, group, [make_payload("mine", given_name="Test", family_name="Testowski")])
+
+    hits = find(search, group, make_payload("q", given_name="Test", family_name="Testowski"))
+
+    assert {hit.reference_pk: (hit.dataset_id, hit.status) for hit in hits} == {
+        "hope-1": ("0", "approved"),
+        "mine": (DATASET, "pending"),
+    }
 
 
 def test_index_records_counts_and_needs_a_refresh(search, group):
@@ -159,8 +198,8 @@ def test_an_approved_copy_of_the_same_reference_pk_is_excluded_too(search, group
     """A reference_pk names one person, so a record never matches an earlier copy of itself."""
     business_area, program_code = group
     record = make_payload("same-pk", given_name="Test", family_name="Testowski", full_name="Test Testowski")
-    index_records(search, group, [record], dataset_id=99)
-    search.set_status(business_area, program_code, 99, "approved")
+    index_records(search, group, [record], dataset_id=OTHER)
+    search.set_status(business_area, program_code, OTHER, "approved")
     index_records(search, group, [record], dataset_id=DATASET)
 
     assert find(search, group, record) == []
@@ -168,21 +207,23 @@ def test_an_approved_copy_of_the_same_reference_pk_is_excluded_too(search, group
 
 def test_one_search_returns_both_sides_and_says_which_is_which(search, group):
     business_area, program_code = group
-    index_records(search, group, [make_payload("approved", given_name="Test", family_name="Testowski")], dataset_id=2)
-    search.set_status(business_area, program_code, 2, "approved")
+    index_records(
+        search, group, [make_payload("approved", given_name="Test", family_name="Testowski")], dataset_id=OTHER
+    )
+    search.set_status(business_area, program_code, OTHER, "approved")
     index_records(search, group, [make_payload("pending", given_name="Test", family_name="Testowski")])
 
     hits = find(search, group, make_payload("q", given_name="Test", family_name="Testowski"))
 
     assert {hit.reference_pk: (hit.dataset_id, hit.status) for hit in hits} == {
         "pending": (DATASET, "pending"),
-        "approved": (2, "approved"),
+        "approved": (OTHER, "approved"),
     }
 
 
 def test_other_datasets_still_pending_are_not_candidates(search, group):
     """Two batches in flight must not see each other: only approved records are shared."""
-    index_records(search, group, [make_payload("other", given_name="Test", family_name="Testowski")], dataset_id=2)
+    index_records(search, group, [make_payload("other", given_name="Test", family_name="Testowski")], dataset_id=OTHER)
     index_records(search, group, [make_payload("mine", given_name="Test", family_name="Testowski")])
 
     hits = find(search, group, make_payload("q", given_name="Test", family_name="Testowski"))
@@ -192,8 +233,10 @@ def test_other_datasets_still_pending_are_not_candidates(search, group):
 
 def test_rejected_records_are_not_candidates(search, group):
     business_area, program_code = group
-    index_records(search, group, [make_payload("rejected", given_name="Test", family_name="Testowski")], dataset_id=2)
-    search.set_status(business_area, program_code, 2, "rejected")
+    index_records(
+        search, group, [make_payload("rejected", given_name="Test", family_name="Testowski")], dataset_id=OTHER
+    )
+    search.set_status(business_area, program_code, OTHER, "rejected")
 
     assert find(search, group, make_payload("q", given_name="Test", family_name="Testowski")) == []
 
@@ -211,15 +254,15 @@ def test_other_groups_are_never_searched(search, make_group):
 
 def test_set_status_touches_only_the_target_dataset(search, group, es_client):
     business_area, program_code = group
-    index_records(search, group, [make_payload("a", given_name="Test", family_name="Testowski")], dataset_id=1)
-    index_records(search, group, [make_payload("b", given_name="Test", family_name="Testowski")], dataset_id=2)
+    index_records(search, group, [make_payload("a", given_name="Test", family_name="Testowski")], dataset_id=DATASET)
+    index_records(search, group, [make_payload("b", given_name="Test", family_name="Testowski")], dataset_id=OTHER)
 
-    updated = search.set_status(business_area, program_code, 1, "approved")
+    updated = search.set_status(business_area, program_code, DATASET, "approved")
 
     assert updated == 1
     name = index.index_name(business_area, program_code)
-    assert es_client.get(index=name, id="1:a")["_source"]["status"] == "approved"
-    assert es_client.get(index=name, id="2:b")["_source"]["status"] == "pending"
+    assert es_client.get(index=name, id=f"{DATASET}:a")["_source"]["status"] == "approved"
+    assert es_client.get(index=name, id=f"{OTHER}:b")["_source"]["status"] == "pending"
 
 
 def test_rejected_cleanup_reports_per_index_and_spares_the_rest(search, make_group, es_client):
@@ -228,15 +271,15 @@ def test_rejected_cleanup_reports_per_index_and_spares_the_rest(search, make_gro
     for group in (first, second):
         business_area, program_code = group
         index_records(
-            search, group, [make_payload("rejected", given_name="Test", family_name="Testowski")], dataset_id=1
+            search, group, [make_payload("rejected", given_name="Test", family_name="Testowski")], dataset_id=DATASET
         )
-        search.set_status(business_area, program_code, 1, "rejected")
+        search.set_status(business_area, program_code, DATASET, "rejected")
         index_records(
-            search, group, [make_payload("approved", given_name="Test", family_name="Testowski")], dataset_id=2
+            search, group, [make_payload("approved", given_name="Test", family_name="Testowski")], dataset_id=OTHER
         )
-        search.set_status(business_area, program_code, 2, "approved")
+        search.set_status(business_area, program_code, OTHER, "approved")
         index_records(
-            search, group, [make_payload("pending", given_name="Test", family_name="Testowski")], dataset_id=3
+            search, group, [make_payload("pending", given_name="Test", family_name="Testowski")], dataset_id=THIRD
         )
 
     deleted = search.delete_by_status("rejected")

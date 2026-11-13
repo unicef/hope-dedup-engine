@@ -13,7 +13,7 @@ from testutils.factories.biographic import (
 from hope_dedup_engine.apps.api.models.deduplication import MAX_ERROR_LENGTH
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK
-from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeletedError, GroupDeleteError, InvalidTransitionError
 from hope_dedup_engine.apps.biographic.models import (
     FULL_NAME_LENGTH,
     BiographicFinding,
@@ -45,6 +45,75 @@ def test_group_is_unique_per_business_area_and_program():
     BiographicGroupFactory(business_area="afg", program_code="ab12")
     with pytest.raises(IntegrityError):
         BiographicGroupFactory(business_area="afg", program_code="ab12")
+
+
+def test_a_deleted_group_does_not_hold_its_program():
+    BiographicGroupFactory(business_area="afg", program_code="ab12", deleted=True)
+    BiographicGroupFactory(business_area="afg", program_code="ab12")
+    with pytest.raises(IntegrityError):
+        BiographicGroupFactory(business_area="afg", program_code="ab12")
+
+
+def test_soft_delete_marks_the_group_and_keeps_its_data():
+    dataset = BiographicSetFactory()
+    group = dataset.group
+
+    group.soft_delete()
+
+    assert group.deleted
+    assert BiographicGroup.objects.get(pk=group.pk).deleted
+    assert BiographicSet.objects.filter(pk=dataset.pk).exists()
+
+
+def test_soft_delete_is_idempotent():
+    group = BiographicGroupFactory()
+    group.soft_delete()
+    group.soft_delete()
+    assert BiographicGroup.objects.get(pk=group.pk).deleted
+
+
+def test_soft_delete_reads_the_database_not_the_instance():
+    group = BiographicGroupFactory()
+    stale = BiographicGroup.objects.get(pk=group.pk)
+    group.soft_delete()
+
+    stale.soft_delete()
+
+    assert stale.deleted
+
+
+def test_soft_delete_is_refused_while_the_group_is_locked():
+    group = BiographicGroupFactory()
+    assert group.acquire_processing_lock()
+
+    with pytest.raises(GroupDeleteError):
+        group.soft_delete()
+
+    assert not BiographicGroup.objects.get(pk=group.pk).deleted
+
+
+def test_a_deleted_group_cannot_be_locked():
+    group = BiographicGroupFactory(deleted=True)
+
+    with pytest.raises(GroupDeletedError):
+        group.acquire_processing_lock()
+
+    assert not BiographicGroup.objects.get(pk=group.pk).processing_locked
+
+
+def test_the_lock_reads_the_deleted_flag_from_the_database():
+    group = BiographicGroupFactory()
+    stale = BiographicGroup.objects.get(pk=group.pk)
+    group.soft_delete()
+
+    with pytest.raises(GroupDeletedError):
+        stale.acquire_processing_lock()
+
+
+def test_soft_delete_of_a_group_that_is_gone_does_nothing():
+    group = BiographicGroupFactory()
+    BiographicGroup.objects.filter(pk=group.pk).delete()
+    group.soft_delete()
 
 
 def test_one_business_area_can_hold_many_programs():

@@ -8,7 +8,7 @@ from testutils.biographic import make_payload
 def build(payload, **kwargs):
     defaults = {
         "min_score": 11.0,
-        "dataset_id": 7,
+        "dataset_id": "7",
     }
     return query.build_query(payload, **{**defaults, **kwargs})
 
@@ -83,7 +83,7 @@ def test_one_filter_covers_this_dataset_and_the_approved_population():
         {
             "bool": {
                 "must": [
-                    {"term": {"dataset_id": 7}},
+                    {"term": {"dataset_id": "7"}},
                     {"term": {"status": "pending"}},
                 ],
             },
@@ -94,7 +94,7 @@ def test_one_filter_covers_this_dataset_and_the_approved_population():
 
 def test_self_exclusion_keys_on_the_reference_pk():
     """A reference_pk identifies one person, so excluding it never hides a real duplicate."""
-    body = build(make_payload("abc", sex="MALE"), dataset_id=7)
+    body = build(make_payload("abc", sex="MALE"), dataset_id="7")
 
     assert body["query"]["bool"]["must_not"] == [{"term": {"reference_pk": "abc"}}]
 

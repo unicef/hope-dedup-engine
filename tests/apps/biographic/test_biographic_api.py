@@ -1,9 +1,13 @@
+from uuid import uuid4
+
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.db.models.query import EmptyQuerySet
+from django.test.utils import CaptureQueriesContext
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework.validators import UniqueValidator
 from testutils.factories.biographic import (
     BiographicFindingFactory,
     BiographicGroupFactory,
@@ -13,6 +17,7 @@ from testutils.factories.biographic import (
 
 from hope_dedup_engine.apps.biographic.config import get_default_group_settings
 from hope_dedup_engine.apps.biographic.const import UPDATE_STATUS_TASK
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeleteError
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
     BiographicGroup,
@@ -37,6 +42,10 @@ BA, PROGRAM = "afg", "ab12"
 
 def datasets_url(business_area: str = BA, program_code: str = PROGRAM) -> str:
     return f"/api/biographic/{business_area}/{program_code}/datasets/"
+
+
+def group_url(business_area: str = BA, program_code: str = PROGRAM) -> str:
+    return f"/api/biographic/{business_area}/{program_code}/"
 
 
 def dataset_url(dataset: BiographicSet, action: str = "") -> str:
@@ -121,9 +130,76 @@ def test_create_is_allowed_while_another_set_is_active(api: APIClient, group):
     assert api.post(datasets_url(), format="json").status_code == status.HTTP_201_CREATED
 
 
-def test_create_in_a_deleted_program_is_a_conflict(api: APIClient, group):
+def test_create_takes_the_id_the_client_chose(api: APIClient):
+    chosen = uuid4()
+
+    response = api.post(datasets_url(), {"id": str(chosen)}, format="json")
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.json()["dataset_id"] == str(chosen)
+    assert BiographicSet.objects.get(pk=chosen).state == State.PENDING
+
+
+def test_create_generates_an_id_when_none_is_sent(api: APIClient):
+    response = api.post(datasets_url(), format="json")
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert BiographicSet.objects.filter(pk=response.json()["dataset_id"]).exists()
+
+
+def test_create_refuses_an_id_already_in_use(api: APIClient, pending):
+    response = api.post(datasets_url(), {"id": str(pending.pk)}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "id" in response.json()
+    assert BiographicSet.objects.count() == 1
+
+
+def test_an_id_taken_after_validation_is_still_a_400(api: APIClient, pending, mocker):
+    """Two requests with the same new id both pass validation; the slower one must not get a 500."""
+    mocker.patch.object(UniqueValidator, "__call__", return_value=None)
+
+    response = api.post(datasets_url(), {"id": str(pending.pk)}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json() == {"id": [str(UniqueValidator.message)]}
+    assert BiographicSet.objects.count() == 1
+
+
+def test_create_locks_the_program_so_a_delete_waits(api: APIClient, group):
+    with CaptureQueriesContext(connection) as queries:
+        assert api.post(datasets_url(), {}, format="json").status_code == status.HTTP_201_CREATED
+
+    table = BiographicGroup._meta.db_table
+    assert any(table in query["sql"] and "FOR UPDATE" in query["sql"] for query in queries)
+
+
+def test_create_refuses_an_id_used_in_another_program(api: APIClient):
+    other = BiographicSetFactory()
+
+    response = api.post(datasets_url(), {"id": str(other.pk)}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_create_refuses_an_id_that_is_not_a_uuid(api: APIClient):
+    response = api.post(datasets_url(), {"id": "12"}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "id" in response.json()
+    assert not BiographicSet.objects.exists()
+
+
+def test_create_in_a_deleted_program_registers_it_again(api: APIClient, group):
     BiographicGroup.objects.filter(pk=group.pk).update(deleted=True)
-    assert api.post(datasets_url(), format="json").status_code == status.HTTP_409_CONFLICT
+
+    response = api.post(datasets_url(), format="json")
+
+    assert response.status_code == status.HTTP_201_CREATED
+    revived = BiographicSet.objects.get(pk=response.json()["dataset_id"]).group
+    assert revived.pk != group.pk
+    assert not revived.deleted
+    assert BiographicGroup.objects.filter(business_area=BA, program_code=PROGRAM).count() == 2
 
 
 def test_listing_sets_is_not_offered(api: APIClient):
@@ -136,7 +212,7 @@ def test_retrieve_reports_state_error_and_record_count(api: APIClient, group):
 
     body = api.get(dataset_url(dataset)).json()
 
-    assert body["dataset_id"] == dataset.pk
+    assert body["dataset_id"] == str(dataset.pk)
     assert body["status"] == "failed"
     assert body["error"] == "Elasticsearch unavailable"
     assert body["records_count"] == 3
@@ -170,8 +246,20 @@ def test_retrieve_hides_deleted_programs(api: APIClient, pending):
     assert api.get(dataset_url(pending)).status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_non_numeric_ids_do_not_route(api: APIClient):
-    assert api.get(f"{datasets_url()}abc/").status_code == status.HTTP_404_NOT_FOUND
+@pytest.mark.parametrize("dataset_id", ["abc", "12"])
+def test_ids_that_are_not_uuids_do_not_route(api: APIClient, dataset_id):
+    assert api.get(f"{datasets_url()}{dataset_id}/").status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_unknown_ids_are_not_found(api: APIClient, group):
+    assert api.get(f"{datasets_url()}{uuid4()}/").status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_ids_route_in_either_case(api: APIClient, scored):
+    upper = str(scored.pk).upper()
+
+    assert api.get(f"{datasets_url()}{upper}/").json()["dataset_id"] == str(scored.pk)
+    assert api.get(f"{datasets_url()}{upper}/findings/").status_code == status.HTTP_200_OK
 
 
 # --- records ----------------------------------------------------------------
@@ -436,7 +524,7 @@ def test_cancel_a_failed_set_cleans_up_what_it_may_have_indexed(api: APIClient, 
     assert api.post(dataset_url(dataset, "cancel"), format="json").status_code == status.HTTP_200_OK
     dataset.refresh_from_db()
     assert dataset.search_sync_pending
-    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
+    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[str(dataset.pk)], kwargs={})
 
 
 @pytest.mark.parametrize("state", [s for s in State if s not in BiographicSet.CANCELABLE_STATES])
@@ -457,7 +545,7 @@ def test_a_decision_flags_the_sync_and_queues_the_status_update(api: APIClient, 
     assert response.json()["status"] == outcome
     dataset.refresh_from_db()
     assert dataset.search_sync_pending
-    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
+    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[str(dataset.pk)], kwargs={})
 
 
 @pytest.mark.parametrize("action", ["approve", "reject"])
@@ -614,17 +702,79 @@ def test_findings_of_another_program_are_not_found(api: APIClient, scored):
     assert api.get(f"{datasets_url()}{other.pk}/findings/").status_code == status.HTTP_404_NOT_FOUND
 
 
+# --- delete the program -----------------------------------------------------
+
+
+def test_delete_soft_deletes_the_program(api: APIClient, pending):
+    response = api.delete(group_url())
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    group = pending.group
+    group.refresh_from_db()
+    assert group.deleted
+    assert BiographicSet.objects.filter(pk=pending.pk).exists()
+
+
+def test_delete_hides_the_programs_sets(api: APIClient, pending):
+    api.delete(group_url())
+
+    assert api.get(dataset_url(pending)).status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_delete_is_lowercased_like_every_other_route(api: APIClient, group):
+    assert api.delete(group_url("AFG", "AB12")).status_code == status.HTTP_204_NO_CONTENT
+    group.refresh_from_db()
+    assert group.deleted
+
+
+def test_delete_is_idempotent(api: APIClient, group):
+    assert api.delete(group_url()).status_code == status.HTTP_204_NO_CONTENT
+    assert api.delete(group_url()).status_code == status.HTTP_204_NO_CONTENT
+
+
+def test_delete_of_an_unknown_program_is_a_no_op(api: APIClient):
+    assert api.delete(group_url()).status_code == status.HTTP_204_NO_CONTENT
+    assert not BiographicGroup.objects.exists()
+
+
+def test_delete_leaves_other_programs_alone(api: APIClient, group):
+    other = BiographicGroupFactory(business_area=BA, program_code="cd34")
+
+    api.delete(group_url())
+
+    other.refresh_from_db()
+    assert not other.deleted
+
+
+def test_delete_is_refused_while_a_task_is_running(api: APIClient, group):
+    BiographicGroup.objects.filter(pk=group.pk).update(processing_locked=True)
+
+    response = api.delete(group_url())
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.json()["detail"] == GroupDeleteError.message
+    group.refresh_from_db()
+    assert not group.deleted
+
+
+def test_delete_only_accepts_delete(api: APIClient, group):
+    assert api.get(group_url()).status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+    assert api.post(group_url()).status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
 # --- auth -------------------------------------------------------------------
+
+SOME_SET = "7d5ea5f1-4b6a-4a8c-9c3e-0f5f8f4b2c11"
 
 ENDPOINTS = [
     ("post", ""),
-    ("get", "1/"),
-    ("post", "1/records/"),
-    ("post", "1/process/"),
-    ("post", "1/cancel/"),
-    ("post", "1/approve/"),
-    ("post", "1/reject/"),
-    ("get", "1/findings/"),
+    ("get", f"{SOME_SET}/"),
+    ("post", f"{SOME_SET}/records/"),
+    ("post", f"{SOME_SET}/process/"),
+    ("post", f"{SOME_SET}/cancel/"),
+    ("post", f"{SOME_SET}/approve/"),
+    ("post", f"{SOME_SET}/reject/"),
+    ("get", f"{SOME_SET}/findings/"),
 ]
 
 
@@ -656,8 +806,27 @@ def test_every_endpoint_is_grouped_under_biographic_in_the_schema():
         if path.startswith("/api/biographic/")
         for operation in methods.values()
     ]
-    assert len(operations) == len(ENDPOINTS)
+    assert len(operations) == len(ENDPOINTS) + 1  # the program's own DELETE
     assert all(operation["tags"] == ["biographic"] for operation in operations)
+
+
+def test_the_findings_path_documents_its_dataset_id_as_a_uuid():
+    schema = SchemaGenerator().get_schema(request=None, public=True)
+    (operation,) = [
+        methods["get"] for path, methods in schema["paths"].items() if path.endswith("/{dataset_id}/findings/")
+    ]
+    (parameter,) = [p for p in operation["parameters"] if p["name"] == "dataset_id"]
+    assert parameter["schema"] == {"type": "string", "format": "uuid"}
+
+
+def test_deleting_a_program_needs_a_token():
+    assert APIClient().delete(group_url()).status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_deleting_a_program_needs_the_biographic_grant(api_without_grant: APIClient, group):
+    assert api_without_grant.delete(group_url()).status_code == status.HTTP_403_FORBIDDEN
+    group.refresh_from_db()
+    assert not group.deleted
 
 
 def test_findings_queryset_is_empty_for_schema_generation():

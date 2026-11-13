@@ -16,3 +16,15 @@ class IndexMissingError(Exception):
 
 class InvalidTransitionError(LifecycleConflictError):
     """A set is not in a state the requested transition allows."""
+
+
+class GroupDeletedError(LifecycleConflictError):
+    """The program was deleted, so nothing may be processed or rebuilt for it."""
+
+    message = "Biographic deduplication was deleted for this program."
+
+
+class GroupDeleteError(LifecycleConflictError):
+    """The program cannot be deleted while a task is running for it."""
+
+    message = "Cannot delete biographic deduplication while processing is running."

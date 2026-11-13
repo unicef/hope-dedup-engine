@@ -111,7 +111,7 @@ def index(dataset: BiographicSet, search: BiographicSearch, job: BiographicJob) 
     for chunk in _chunks(dataset, INDEX_CHUNK_SIZE):
         job.ensure_not_cancelled()
         indexed += search.index_records(
-            group.business_area, group.program_code, dataset.pk, [to_payload(record) for record in chunk]
+            group.business_area, group.program_code, str(dataset.pk), [to_payload(record) for record in chunk]
         )
     search.refresh(group.business_area, group.program_code)
     return indexed
@@ -135,7 +135,7 @@ def deduplicate(
             group.program_code,
             [to_payload(record) for record in chunk],
             min_score=config.duplicate_score,
-            dataset_id=dataset.pk,
+            dataset_id=str(dataset.pk),
             size=config.max_hits,
         )
         findings: list[BiographicFinding] = []
@@ -168,7 +168,8 @@ def _findings_for(
     seen: set[tuple[str, str]] = set()
     findings = []
     for hit in hits:
-        scope = BiographicFinding.Scope.BATCH if hit.dataset_id == dataset.pk else BiographicFinding.Scope.POPULATION
+        in_batch = hit.dataset_id == str(dataset.pk)
+        scope = BiographicFinding.Scope.BATCH if in_batch else BiographicFinding.Scope.POPULATION
         key = (hit.reference_pk, scope)
         if key in seen:
             continue
@@ -189,7 +190,7 @@ def _findings_for(
     return findings
 
 
-def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: BiographicSet | None = None) -> dict[int, int]:
+def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: BiographicSet | None = None) -> dict[str, int]:
     """Put sets back in the program's index from the records kept in Postgres.
 
     Additive on purpose: the index is created if it is missing, never deleted or
@@ -210,12 +211,12 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
     if dataset is not None:
         sets = sets.filter(pk=dataset.pk)
 
-    written: dict[int, int] = {}
-    for target in sets.order_by("pk"):
+    written: dict[str, int] = {}
+    for target in sets.order_by("created_at", "pk"):
         document_status = status.REBUILD_STATUS[target.state]
-        written[target.pk] = sum(
+        written[str(target.pk)] = sum(
             search.index_records(
-                business_area, program_code, target.pk, [to_payload(record) for record in chunk], document_status
+                business_area, program_code, str(target.pk), [to_payload(record) for record in chunk], document_status
             )
             for chunk in _chunks(target, INDEX_CHUNK_SIZE)
         )

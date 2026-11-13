@@ -1,6 +1,7 @@
 from typing import Any, Final
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 from hope_dedup_engine.apps.api.models.deduplication import REFERENCE_PK_LENGTH
 from hope_dedup_engine.apps.biographic.config import BiographicConfig
@@ -80,7 +81,13 @@ class RecordsBatchResultSerializer(serializers.Serializer):
 
 
 class BiographicSetCreateSerializer(serializers.ModelSerializer):
-    """What a client may set when creating a set. Both are optional."""
+    """What a client may set when creating a set. All of it is optional."""
+
+    id = serializers.UUIDField(
+        required=False,
+        validators=[UniqueValidator(queryset=BiographicSet.objects.all())],
+        help_text="Id for the new set. Generated when omitted.",
+    )
 
     notification_url = serializers.URLField(
         max_length=NOTIFICATION_URL_LENGTH,
@@ -92,12 +99,12 @@ class BiographicSetCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BiographicSet
-        fields = ("notification_url", "notify")
+        fields = ("id", "notification_url", "notify")
         extra_kwargs = {"notify": {"required": False}}
 
 
 class BiographicSetSerializer(serializers.ModelSerializer):
-    dataset_id = serializers.IntegerField(source="pk", read_only=True)
+    dataset_id = serializers.UUIDField(source="pk", read_only=True)
     status = serializers.CharField(source="state", read_only=True)
     records_count = serializers.IntegerField(read_only=True)
     batch_duplicates = serializers.IntegerField(

@@ -38,7 +38,7 @@ def build_query(
     payload: schemas.BiographicPayload,
     *,
     min_score: float,
-    dataset_id: int,
+    dataset_id: str,
     size: int = 100,
 ) -> dict[str, Any]:
     """Build the full search body for one record.
@@ -176,7 +176,7 @@ def scalar_queries(payload: schemas.BiographicPayload) -> list[dict[str, Any]]:
     return queries
 
 
-def candidate_filter(dataset_id: int) -> dict[str, Any]:
+def candidate_filter(dataset_id: str) -> dict[str, Any]:
     """Restrict the search to everything worth comparing against, without scoring.
 
     That is the rest of this dataset, still pending, plus the whole approved

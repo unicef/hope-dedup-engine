@@ -10,7 +10,8 @@ src/hope_dedup_engine/apps/biographic/
 ├── protocols.py       # BiographicSearch: the interface the service calls (stable)
 ├── config.py          # BiographicConfig: the settings and how they are resolved
 ├── const.py           # Celery task and periodic task names
-├── exceptions.py      # LifecycleConflictError, InvalidTransitionError (mapped to 409)
+├── exceptions.py      # LifecycleConflictError and its subclasses InvalidTransitionError,
+│                      # GroupDeletedError, GroupDeleteError (mapped to 409); IndexMissingError
 ├── services/
 │   ├── lifecycle.py   # add_records, start_processing, cancel, decide: what a client can request
 │   ├── process.py     # prepare, index, deduplicate: the work of one run
@@ -20,7 +21,8 @@ src/hope_dedup_engine/apps/biographic/
 │   ├── client.py      # connection, plugin check, index listing
 │   ├── index.py       # index name, settings, mapping, documents (ported from HOPE)
 │   ├── query.py       # the search body (ported from HOPE's DeduplicateTask)
-│   ├── backend.py     # ElasticsearchBiographicSearch, the BiographicSearch implementation
+│   ├── backend.py     # ElasticsearchBiographicSearch, the BiographicSearch implementation;
+│   │                  # SearchItemError, IndexMappingError
 │   └── synonyms.txt   # bundled nickname synonyms
 ├── views.py, serializers.py, filters.py, urls.py   # the API under /api/biographic/
 ├── admin.py, forms.py # admin pages, the program settings form

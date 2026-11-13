@@ -29,13 +29,14 @@ Each step is drawn in more detail on the [sequence diagrams](../concepts/sequenc
 
 ```console
 $ http POST $P/datasets/ \
+    id="3f1c2a52-8d0e-4f6b-9a47-5b6e1c7d2a90" \
     notification_url="https://cw.example.org/hde-callback?batch=42" \
     notify:=true
 ```
 
 ```json
 {
-    "dataset_id": 17,
+    "dataset_id": "3f1c2a52-8d0e-4f6b-9a47-5b6e1c7d2a90",
     "status": "pending",
     "error": null,
     "records_count": 0,
@@ -48,14 +49,14 @@ $ http POST $P/datasets/ \
 }
 ```
 
-- The body is optional; see [Notifications](notifications.md) for both fields.
+- The body is optional. `id` is an optional UUID that names the set; the server generates one when it is omitted. An `id` that is already in use, in any program, or that is not a UUID is rejected with **400**. The server answers with ids in lowercase and accepts either case in URLs. The examples below write the set's id as `$DATASET`. See [Notifications](notifications.md) for `notification_url` and `notify`.
 - Creating a set is **always allowed**, even while another set in the program is being processed or awaiting a decision.
-- Returns **409** if biographic deduplication was deleted for this program.
+- A program that was [deleted](#deleting-a-program) is registered again by creating a set: it starts empty, with the default settings.
 
 ## 2. Upload records
 
 ```console
-$ http POST $P/datasets/17/records/ <<< '{
+$ http POST $P/datasets/$DATASET/records/ <<< '{
     "records": [
         {"reference_pk": "IND-0001", "payload": {
             "given_name": "Amina", "family_name": "Yusuf", "full_name": "Amina Yusuf",
@@ -80,13 +81,13 @@ $ http POST $P/datasets/17/records/ <<< '{
 ## 3. Start processing
 
 ```console
-$ http POST $P/datasets/17/process/
+$ http POST $P/datasets/$DATASET/process/
 ```
 
 The response is the set, now `indexing`. The body may override the program's settings for this run only:
 
 ```console
-$ http POST $P/datasets/17/process/ duplicate_score:=8.0 max_hits:=50
+$ http POST $P/datasets/$DATASET/process/ duplicate_score:=8.0 max_hits:=50
 ```
 
 An unknown key is a **400**, so a misspelt threshold cannot silently run with the default. See [Configuration](configuration.md).
@@ -103,9 +104,9 @@ Returns **409** when:
 Processing is asynchronous. Track it by [polling or notifications](notifications.md):
 
 ```console
-$ http GET $P/datasets/17/
+$ http GET $P/datasets/$DATASET/
 {
-    "dataset_id": 17,
+    "dataset_id": "3f1c2a52-8d0e-4f6b-9a47-5b6e1c7d2a90",
     "status": "deduplicated",
     "error": null,
     "records_count": 4480,
@@ -120,7 +121,7 @@ $ http GET $P/datasets/17/
 ## 4. Read the findings
 
 ```console
-$ http GET "$P/datasets/17/findings/?page=1&page_size=1000"
+$ http GET "$P/datasets/$DATASET/findings/?page=1&page_size=1000"
 ```
 
 Available in `deduplicated` and `approved`; **409** otherwise. See [Findings and statuses](findings-and-statuses.md).
@@ -130,8 +131,8 @@ Available in `deduplicated` and `approved`; **409** otherwise. See [Findings and
 Both are final and only allowed in `deduplicated`:
 
 ```console
-$ http POST $P/datasets/17/approve/
-$ http POST $P/datasets/17/reject/
+$ http POST $P/datasets/$DATASET/approve/
+$ http POST $P/datasets/$DATASET/reject/
 ```
 
 - **Approve** accepts the set. Its people join the program's population, and every later set in the program is scored against them.
@@ -145,7 +146,20 @@ Either one frees the program for the next set. The change reaches Elasticsearch 
 ## Cancelling a set
 
 ```console
-$ http POST $P/datasets/17/cancel/
+$ http POST $P/datasets/$DATASET/cancel/
 ```
 
 Abandons a `pending` or `failed` set; it is final. A set that is processing or awaiting a decision cannot be cancelled: wait for it, then reject it.
+
+## Deleting a program
+
+```console
+$ http DELETE $P/
+```
+
+Soft-deletes biographic deduplication for the program: its sets are no longer found, so every set route answers **404**, and its settings and data are kept in the database.
+
+- Returns **204** with no body. Deleting a program that does not exist, or one that is already deleted, also returns **204**.
+- Returns **409** while a task (indexing, searching or rebuilding) is running for the program. Try again once it has finished.
+- The program can be used again: creating a set registers a new, empty program under the same business area and program code, with the default settings.
+- Nothing is removed from Elasticsearch. The index is named after the business area and program code, so documents of the deleted program's approved sets stay in it, and a program registered again is searched against them as its approved population.

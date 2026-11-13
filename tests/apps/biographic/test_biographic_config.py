@@ -35,7 +35,7 @@ def test_request_override_beats_group_which_beats_constance():
 
     assert config.duplicate_score == 14.0  # request
     assert config.max_hits == 7  # constance: the group never snapshotted it
-    assert config.dataset_id == dataset.pk
+    assert config.dataset_id == str(dataset.pk)
 
 
 def test_group_setting_beats_constance():
@@ -54,7 +54,7 @@ def test_group_snapshot_ignores_later_constance_changes():
 
 def test_empty_group_settings_fall_back_to_constance():
     dataset = BiographicSetFactory(group__settings=None)
-    assert resolve_config(dataset).as_dict() == {"dataset_id": dataset.pk, **get_default_group_settings()}
+    assert resolve_config(dataset).as_dict() == {"dataset_id": str(dataset.pk), **get_default_group_settings()}
 
 
 def test_a_dropped_setting_in_an_old_snapshot_is_ignored():

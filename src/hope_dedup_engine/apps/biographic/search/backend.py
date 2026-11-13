@@ -41,6 +41,23 @@ class SearchItemError(RuntimeError):
         self.error = error
 
 
+class IndexMappingError(RuntimeError):
+    """An index exists but was created with a mapping this library can no longer use.
+
+    Elasticsearch cannot change a field's type in place, so the index has to be
+    deleted and created again. Left to the queries, it would fail with an opaque
+    parsing error on the first document or search.
+    """
+
+    def __init__(self, name: str, field: str, found: str | None, expected: str) -> None:
+        # Short enough for `BiographicSet.error`, where the failed run reports it.
+        super().__init__(
+            f"Index {name} maps `{field}` as {found or 'nothing'}, not {expected}. Delete it and rebuild it "
+            "from the admin; HOPE has to send again the documents it put there."
+        )
+        self.name = name
+
+
 class ElasticsearchBiographicSearch:
     def __init__(self, es_client: Elasticsearch | None = None) -> None:
         self._client = es_client
@@ -52,8 +69,25 @@ class ElasticsearchBiographicSearch:
         return self._client
 
     def index_exists(self, business_area: str, program_code: str) -> bool:
-        """Whether the index for one business area and program is there."""
-        return bool(self.client.indices.exists(index=index.index_name(business_area, program_code)))
+        """Whether the index for one business area and program is there.
+
+        An index that is there but cannot be used raises `IndexMappingError`, so
+        every run fails up front with what to do, before anything is written.
+        """
+        name = index.index_name(business_area, program_code)
+        if not self.client.indices.exists(index=name):
+            return False
+        self._check_mapping(name)
+        return True
+
+    def _check_mapping(self, name: str) -> None:
+        response = self.client.indices.get_mapping(index=name)
+        properties = next(iter(response.values()))["mappings"].get("properties", {})
+        for field in index.KEY_FIELDS:
+            expected = index.index_mapping()["properties"][field]["type"]
+            found = properties.get(field, {}).get("type")
+            if found != expected:
+                raise IndexMappingError(name, field, found, expected)
 
     def ensure_index(self, business_area: str, program_code: str) -> str:
         """Create the index for one business area and program if it is not there yet."""
@@ -79,7 +113,7 @@ class ElasticsearchBiographicSearch:
         self,
         business_area: str,
         program_code: str,
-        dataset_id: int,
+        dataset_id: str,
         records: list[schemas.BiographicPayload],
         status: str = "pending",
     ) -> int:
@@ -113,7 +147,7 @@ class ElasticsearchBiographicSearch:
         program_code: str,
         payload: schemas.BiographicPayload,
         min_score: float,
-        dataset_id: int,
+        dataset_id: str,
         size: int = 100,
     ) -> list[schemas.Hit]:
         """Return scored matches for one record, best first.
@@ -142,7 +176,7 @@ class ElasticsearchBiographicSearch:
         program_code: str,
         payloads: list[schemas.BiographicPayload],
         min_score: float,
-        dataset_id: int,
+        dataset_id: str,
         size: int = 100,
     ) -> list[list[schemas.Hit]]:
         """Return `search` results for every payload, in input order.
@@ -170,7 +204,7 @@ class ElasticsearchBiographicSearch:
         self,
         business_area: str,
         program_code: str,
-        dataset_id: int,
+        dataset_id: str,
         status: str,
     ) -> int:
         """Move one dataset's documents to `status`. Returns the number updated."""
@@ -212,7 +246,7 @@ class ElasticsearchBiographicSearch:
         return schemas.Hit(
             reference_pk=source["reference_pk"],
             score=hit["_score"],
-            dataset_id=source["dataset_id"],
+            dataset_id=str(source["dataset_id"]),
             status=source["status"],
             full_name=source.get("full_name"),
             birth_date=source.get("birth_date"),

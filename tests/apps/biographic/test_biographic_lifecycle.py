@@ -5,7 +5,11 @@ from django.db import IntegrityError
 from testutils.factories.biographic import BiographicRecordFactory, BiographicSetFactory
 
 from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK, UPDATE_STATUS_TASK
-from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError, LifecycleConflictError
+from hope_dedup_engine.apps.biographic.exceptions import (
+    GroupDeletedError,
+    InvalidTransitionError,
+    LifecycleConflictError,
+)
 from hope_dedup_engine.apps.biographic.models import BiographicGroup, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.services import lifecycle
 from hope_dedup_engine.apps.biographic.services.lifecycle import ANOTHER_SET_ACTIVE, LOCK_HELD, NO_RECORDS, QUEUE_FAILED
@@ -178,7 +182,7 @@ def test_start_rebuild_takes_the_lock_and_queues_the_task(queued_tasks, dataset_
 
     assert locked(group)
     queued_tasks.assert_called_once_with(
-        REBUILD_INDEX_TASK, args=[group.pk, dataset.pk if dataset else None], kwargs={}
+        REBUILD_INDEX_TASK, args=[group.pk, str(dataset.pk) if dataset else None], kwargs={}
     )
 
 
@@ -189,6 +193,42 @@ def test_start_rebuild_of_a_set_needs_something_to_restore(queued_tasks, state):
         lifecycle.start_rebuild(dataset.group, dataset)
     assert not locked(dataset.group)
     queued_tasks.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "start",
+    [
+        lambda dataset: lifecycle.start_processing(dataset, {}),
+        lambda dataset: lifecycle.start_processing(dataset, {}, BiographicJob.Mode.INDEX),
+        lambda dataset: lifecycle.start_rebuild(dataset.group),
+    ],
+    ids=["process", "index", "rebuild"],
+)
+def test_nothing_starts_in_a_deleted_program(pending, queued_jobs, queued_tasks, start):
+    pending.group.soft_delete()
+
+    with pytest.raises(GroupDeletedError):
+        start(pending)
+
+    pending.refresh_from_db()
+    assert pending.state == State.PENDING
+    assert not pending.jobs.exists()
+    assert not locked(pending.group)
+    queued_jobs.assert_not_called()
+    queued_tasks.assert_not_called()
+
+
+@pytest.mark.parametrize("state", [State.INDEXED, State.DEDUPLICATED])
+def test_a_search_does_not_start_in_a_deleted_program(queued_jobs, state):
+    dataset = BiographicSetFactory(state=state)
+    dataset.group.soft_delete()
+
+    with pytest.raises(GroupDeletedError):
+        lifecycle.start_search(dataset, {})
+
+    dataset.refresh_from_db()
+    assert dataset.state == state
+    queued_jobs.assert_not_called()
 
 
 def test_start_rebuild_refuses_when_a_task_holds_the_lock(queued_tasks):
@@ -221,7 +261,7 @@ def test_cancel_a_failed_set_asks_for_cleanup(queued_tasks):
     lifecycle.cancel(dataset)
     assert dataset.state == State.CANCELED
     assert dataset.search_sync_pending
-    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
+    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[str(dataset.pk)], kwargs={})
 
 
 @pytest.mark.parametrize("state", [s for s in State if s not in BiographicSet.CANCELABLE_STATES])
@@ -241,7 +281,7 @@ def test_decide_flags_the_sync_and_queues_the_status_update(target, queued_tasks
     lifecycle.decide(dataset, target)
     assert dataset.state == target
     assert dataset.search_sync_pending
-    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[dataset.pk], kwargs={})
+    queued_tasks.assert_called_once_with(UPDATE_STATUS_TASK, args=[str(dataset.pk)], kwargs={})
 
 
 @pytest.mark.parametrize("target", [State.APPROVED, State.REJECTED])

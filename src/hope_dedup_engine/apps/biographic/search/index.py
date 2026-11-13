@@ -43,6 +43,11 @@ METADATA_FIELDS = frozenset(
 )
 
 
+# Fields whose type an existing index must match. The queries filter on them, and
+# a wrong type fails every query that does.
+KEY_FIELDS = ("dataset_id", "status")
+
+
 def index_name(business_area: str, program_code: str) -> str:
     """Return the index name for one business area and program.
 
@@ -122,7 +127,7 @@ def index_mapping() -> dict[str, Any]:
     return {
         "properties": {
             "reference_pk": {"type": "keyword"},
-            "dataset_id": {"type": "long"},
+            "dataset_id": {"type": "keyword"},
             "business_area": {"type": "keyword", "similarity": "boolean"},
             "program_code": {"type": "keyword"},
             "status": {"type": "keyword"},
@@ -151,7 +156,7 @@ def scoreable_fields() -> set[str]:
     return set(index_mapping()["properties"]) - set(METADATA_FIELDS)
 
 
-def document_id(dataset_id: int, reference_pk: str) -> str:
+def document_id(dataset_id: str, reference_pk: str) -> str:
     return f"{dataset_id}:{reference_pk}"
 
 
@@ -159,7 +164,7 @@ def to_document(
     payload: schemas.BiographicPayload,
     business_area: str,
     program_code: str,
-    dataset_id: int,
+    dataset_id: str,
     status: str = "pending",
 ) -> dict[str, Any]:
     document: dict[str, Any] = {

@@ -19,7 +19,7 @@ erDiagram
     }
 
     BiographicSet {
-        int id "dataset_id in the API"
+        uuid id "dataset_id in the API; the client may choose it"
         string state "lifecycle state"
         string error
         string notification_url
@@ -53,11 +53,11 @@ erDiagram
 
 ## BiographicGroup
 
-One business area and one program: the isolation unit. Created the first time a set is created for that pair, and maps one to one onto an Elasticsearch index.
+One business area and one program: the isolation unit. Created the first time a set is created for that pair. Its Elasticsearch index is named after the pair, so a program registered again after a delete shares the index with the deleted group.
 
 - `settings` — the program's thresholds, snapshotted from the [Constance defaults](../admin/settings.md) at creation and editable in the admin.
 - `processing_locked` — set while a run is in progress for the program.
-- `deleted` — a deleted program refuses new sets with 409.
+- `deleted` — set by `DELETE /api/biographic/{business_area}/{program_code}/`. The program's sets disappear from the API, nothing can be processed or rebuilt for it, and the next set created for the pair registers a new group. Only one live group exists per pair.
 
 ## BiographicSet
 

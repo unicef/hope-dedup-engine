@@ -5,6 +5,7 @@ imports the search library.
 """
 
 from typing import Any, Final
+from uuid import uuid4
 
 from django.db import models, transaction
 from django.db.models import Q
@@ -13,7 +14,7 @@ from django_celery_boost.models import CeleryTaskModel
 from hope_dedup_engine.apps.api.models.deduplication import MAX_ERROR_LENGTH, REFERENCE_PK_LENGTH
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.biographic.const import PROCESS_DATASET_TASK
-from hope_dedup_engine.apps.biographic.exceptions import InvalidTransitionError
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeletedError, GroupDeleteError, InvalidTransitionError
 from hope_dedup_engine.apps.biographic.schemas import PAYLOAD_VERSION
 
 BUSINESS_AREA_LENGTH: Final[int] = 100
@@ -49,8 +50,10 @@ class BiographicGroup(models.Model):
 
     class Meta:
         constraints = [
+            # Only live groups are unique, so a deleted program can be registered again.
             models.UniqueConstraint(
                 fields=["business_area", "program_code"],
+                condition=Q(deleted=False),
                 name="unique_biographic_group",
             ),
         ]
@@ -63,8 +66,14 @@ class BiographicGroup(models.Model):
         return f"{self.business_area}:{self.program_code}"
 
     def acquire_processing_lock(self) -> bool:
+        """Take the program's lock. False when a task holds it; refuses outright once the program is deleted.
+
+        Checked under the same row lock as `soft_delete`, so a run and a delete cannot both win.
+        """
         with transaction.atomic():
             group = BiographicGroup.objects.select_for_update().get(pk=self.pk)
+            if group.deleted:
+                raise GroupDeletedError(GroupDeletedError.message)
             if group.processing_locked:
                 return False
             group.processing_locked = True
@@ -75,6 +84,22 @@ class BiographicGroup(models.Model):
     def release_processing_lock(self) -> None:
         self.processing_locked = False
         self.save(update_fields=["processing_locked"])
+
+    def soft_delete(self) -> None:
+        """Mark the group deleted. Idempotent; refuses while a task holds the lock."""
+        with transaction.atomic():
+            group = BiographicGroup.objects.select_for_update().filter(pk=self.pk).first()
+            if group is None:
+                return
+            if group.deleted:
+                self.deleted = True
+                return
+            if group.processing_locked:
+                raise GroupDeleteError(GroupDeleteError.message)
+
+            group.deleted = True
+            group.save(update_fields=["deleted"])
+            self.deleted = True
 
 
 PENDING_STATE: Final[str] = "pending"
@@ -124,6 +149,7 @@ class BiographicSet(models.Model):
     CANCELABLE_STATES: Final[tuple[str, ...]] = (PENDING_STATE, FAILED_STATE)
     FINDINGS_STATES: Final[tuple[str, ...]] = (DEDUPLICATED_STATE, APPROVED_STATE)
 
+    id = models.UUIDField(primary_key=True, default=uuid4, help_text="Biographic set id.")
     group = models.ForeignKey(
         BiographicGroup, on_delete=models.CASCADE, related_name="sets", help_text="Biographic group."
     )

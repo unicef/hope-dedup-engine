@@ -49,7 +49,7 @@ def _queue_status_update(dataset: BiographicSet) -> None:
     program reconciles statuses that never reached Elasticsearch.
     """
     try:
-        _queue(UPDATE_STATUS_TASK, dataset.pk)
+        _queue(UPDATE_STATUS_TASK, str(dataset.pk))
     except Exception:
         logger.exception("Could not queue the status update for biographic set %s", dataset.pk)
 
@@ -140,7 +140,7 @@ def start_rebuild(group: BiographicGroup, dataset: BiographicSet | None = None) 
     if not group.acquire_processing_lock():
         raise LifecycleConflictError(LOCK_HELD)
     try:
-        _queue(REBUILD_INDEX_TASK, group.pk, dataset.pk if dataset else None)
+        _queue(REBUILD_INDEX_TASK, group.pk, str(dataset.pk) if dataset else None)
     except Exception:
         group.release_processing_lock()
         raise

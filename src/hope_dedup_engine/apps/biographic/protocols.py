@@ -8,7 +8,8 @@ does not drag the Elasticsearch adapter into the import graph.
 Stable: changing anything here needs the agreement of every assignee on the
 biographic deduplication issues, because both sides of the split depend on it.
 `index_exists` was added after the first version, so the service can tell a
-program that was never indexed from one whose index was lost.
+program that was never indexed from one whose index was lost. It raises when the
+index is there but its mapping cannot be used, rather than answering either way.
 
 Settled with the interface:
 
@@ -17,7 +18,8 @@ Settled with the interface:
 * ``BiographicRecord`` stores the scoreable fields as a single JSON ``payload``;
   ``PAYLOAD_FIELDS`` is the only place that list exists
 * index name: ``biographic_{business_area}_{program_code}``
-* Elasticsearch document id: ``{dataset_id}:{reference_pk}``
+* Elasticsearch document id: ``{dataset_id}:{reference_pk}``; ``dataset_id`` is the set's
+  UUID as a string, mapped as a keyword
 * status values: ``pending`` / ``approved`` / ``rejected``. ``index_records`` writes
   ``pending`` unless told otherwise; a rebuild passes ``approved`` for approved sets
 * one search covers both sides at once: the rest of the caller's dataset, still
@@ -44,7 +46,7 @@ class BiographicSearch(Protocol):
         self,
         business_area: str,
         program_code: str,
-        dataset_id: int,
+        dataset_id: str,
         records: list[BiographicPayload],
         status: str = "pending",
     ) -> int: ...
@@ -57,7 +59,7 @@ class BiographicSearch(Protocol):
         program_code: str,
         payload: BiographicPayload,
         min_score: float,
-        dataset_id: int,
+        dataset_id: str,
         size: int = 100,
     ) -> list[Hit]: ...
 
@@ -67,7 +69,7 @@ class BiographicSearch(Protocol):
         program_code: str,
         payloads: list[BiographicPayload],
         min_score: float,
-        dataset_id: int,
+        dataset_id: str,
         size: int = 100,
     ) -> list[list[Hit]]: ...
 
@@ -75,7 +77,7 @@ class BiographicSearch(Protocol):
         self,
         business_area: str,
         program_code: str,
-        dataset_id: int,
+        dataset_id: str,
         status: str,  # "approved" | "rejected"
     ) -> int: ...
 

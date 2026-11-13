@@ -21,7 +21,7 @@ def indexed(search, dataset, *reference_pks):
     group = dataset.group
     search.ensure_index(group.business_area, group.program_code)
     search.index_records(
-        group.business_area, group.program_code, dataset.pk, [make_payload(pk) for pk in reference_pks]
+        group.business_area, group.program_code, str(dataset.pk), [make_payload(pk) for pk in reference_pks]
     )
 
 

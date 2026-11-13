@@ -13,6 +13,7 @@ from testutils.factories.user import SuperUserFactory
 from hope_dedup_engine.apps.api.utils.notification import FAILED_TO_NOTIFY
 from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR
 from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeletedError
 from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.services import lifecycle
 from hope_dedup_engine.apps.biographic.services.lifecycle import LOCK_HELD, NO_RECORDS
@@ -127,12 +128,33 @@ def test_set_buttons_show_only_in_the_states_they_work_for(app, button, states):
         assert (url in page.text) == (state in states), state
 
 
+@pytest.mark.parametrize("button", ["index_records", "find_duplicates", "rebuild_index"])
+def test_set_buttons_that_run_tasks_are_hidden_in_a_deleted_program(app, button):
+    for state in State:
+        dataset = BiographicSetFactory(group__deleted=True, state=state)
+        page = app.get(reverse("admin:biographic_biographicset_change", args=[dataset.pk]))
+        assert f"/{button}/" not in page.text, state
+
+
+@pytest.mark.parametrize(
+    ("button", "state"),
+    [("index_records", State.PENDING), ("find_duplicates", State.INDEXED), ("rebuild_index", State.APPROVED)],
+)
+def test_set_buttons_refuse_a_deleted_program(admin_client, queued_jobs, queued_tasks, button, state):
+    dataset = BiographicSetFactory(group__deleted=True, state=state)
+    BiographicRecordFactory(dataset=dataset)
+
+    assert confirm_messages(admin_client, button_url(button, dataset)) == [(GroupDeletedError.message, ERROR)]
+    queued_jobs.assert_not_called()
+    queued_tasks.assert_not_called()
+
+
 def test_a_set_can_rebuild_its_own_documents(app, queued_tasks):
     dataset = BiographicSetFactory(state=State.APPROVED)
 
     confirm(app, button_url("rebuild_index", dataset))
 
-    queued_tasks.assert_called_once_with(REBUILD_INDEX_TASK, args=[dataset.group_id, dataset.pk], kwargs={})
+    queued_tasks.assert_called_once_with(REBUILD_INDEX_TASK, args=[dataset.group_id, str(dataset.pk)], kwargs={})
     dataset.group.refresh_from_db()
     assert dataset.group.processing_locked
 
@@ -145,6 +167,17 @@ def test_a_group_can_rebuild_its_index(app, queued_tasks):
     queued_tasks.assert_called_once_with(REBUILD_INDEX_TASK, args=[group.pk, None], kwargs={})
     group.refresh_from_db()
     assert group.processing_locked
+
+
+def test_a_deleted_group_hides_and_refuses_a_rebuild(app, admin_client, queued_tasks):
+    group = BiographicGroupFactory(deleted=True)
+
+    page = app.get(reverse("admin:biographic_biographicgroup_change", args=[group.pk]))
+    assert "/rebuild_index/" not in page.text
+    assert confirm_messages(admin_client, group_button_url("rebuild_index", group)) == [
+        (GroupDeletedError.message, ERROR)
+    ]
+    queued_tasks.assert_not_called()
 
 
 def test_a_locked_group_cannot_start_a_rebuild(admin_client, queued_tasks):

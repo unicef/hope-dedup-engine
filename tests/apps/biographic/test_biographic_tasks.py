@@ -74,7 +74,7 @@ def test_a_full_run(job, sent_notifications):
     dataset.refresh_from_db()
     assert dataset.state == State.DEDUPLICATED
     assert dataset.error is None
-    assert result == {"dataset": dataset.pk, "records_indexed": 2, "findings_created": 2, "records_truncated": 0}
+    assert result == {"dataset": str(dataset.pk), "records_indexed": 2, "findings_created": 2, "records_truncated": 0}
     assert BiographicFinding.objects.filter(dataset=dataset).count() == 2
     assert not locked(dataset)
 
@@ -238,7 +238,7 @@ def test_an_index_run_stops_at_indexed(job, fake_search, sent_notifications):
 
     dataset.refresh_from_db()
     assert dataset.state == State.INDEXED
-    assert result == {"dataset": dataset.pk, "records_indexed": 2}
+    assert result == {"dataset": str(dataset.pk), "records_indexed": 2}
     assert not BiographicFinding.objects.filter(dataset=dataset).exists()
     assert not locked(dataset)
     assert not any(call[0] == "search_many" for call in fake_search.calls)
@@ -262,7 +262,7 @@ def test_a_search_run_scores_what_an_index_run_left_behind(job, fake_search, sen
 
     dataset.refresh_from_db()
     assert dataset.state == State.DEDUPLICATED
-    assert result == {"dataset": dataset.pk, "records_indexed": 0, "findings_created": 2, "records_truncated": 0}
+    assert result == {"dataset": str(dataset.pk), "records_indexed": 0, "findings_created": 2, "records_truncated": 0}
     assert BiographicFinding.objects.filter(dataset=dataset).count() == 2
     assert not locked(dataset)
     assert not any(call[0] == "index_records" for call in fake_search.calls)
@@ -295,7 +295,7 @@ def test_rebuild_restores_the_sets_logs_it_and_releases_the_lock(fake_search):
 
     written = celery_tasks.rebuild_biographic_index(group.pk)
 
-    assert written == {approved.pk: 1}
+    assert written == {str(approved.pk): 1}
     assert fake_search.documents(group.business_area, group.program_code)[f"{approved.pk}:a"].status == "approved"
     approved.refresh_from_db()
     assert (approved.log[0]["action"], approved.log[0]["records_indexed"]) == ("rebuild_index", 1)
@@ -309,7 +309,7 @@ def test_rebuild_of_one_set_only_restores_that_set(fake_search):
     BiographicRecordFactory(dataset=first, reference_pk="a")
     BiographicRecordFactory(dataset=second, reference_pk="b")
 
-    assert celery_tasks.rebuild_biographic_index(group.pk, second.pk) == {second.pk: 1}
+    assert celery_tasks.rebuild_biographic_index(group.pk, str(second.pk)) == {str(second.pk): 1}
 
 
 def test_a_failed_rebuild_still_releases_the_lock(fake_search):
@@ -330,9 +330,9 @@ def test_update_status_syncs_the_decision(fake_search):
     dataset = BiographicSetFactory(state=State.APPROVED, search_sync_pending=True)
     group = dataset.group
     fake_search.ensure_index(group.business_area, group.program_code)
-    fake_search.index_records(group.business_area, group.program_code, dataset.pk, [make_payload("a")])
+    fake_search.index_records(group.business_area, group.program_code, str(dataset.pk), [make_payload("a")])
 
-    assert celery_tasks.update_biographic_status(dataset.pk) == 1
+    assert celery_tasks.update_biographic_status(str(dataset.pk)) == 1
 
     assert fake_search.documents(group.business_area, group.program_code)[f"{dataset.pk}:a"].status == "approved"
     dataset.refresh_from_db()
@@ -356,8 +356,8 @@ def test_cleanup_deletes_rejected_documents_everywhere_and_logs_counts(fake_sear
     for dataset, status in ((rejected, "rejected"), (approved, "approved")):
         group = dataset.group
         fake_search.ensure_index(group.business_area, group.program_code)
-        fake_search.index_records(group.business_area, group.program_code, dataset.pk, [make_payload("a")])
-        fake_search.set_status(group.business_area, group.program_code, dataset.pk, status)
+        fake_search.index_records(group.business_area, group.program_code, str(dataset.pk), [make_payload("a")])
+        fake_search.set_status(group.business_area, group.program_code, str(dataset.pk), status)
     logger = mocker.patch.object(celery_tasks, "logger")
 
     deleted = celery_tasks.cleanup_biographic_rejected()

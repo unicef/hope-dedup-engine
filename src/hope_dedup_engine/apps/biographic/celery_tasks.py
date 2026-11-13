@@ -153,7 +153,7 @@ def process_biographic_dataset(self: Any, job_id: int, version: int) -> dict[str
             _notify(run)
             if mode == BiographicJob.Mode.INDEX:
                 run.append()
-                return {"dataset": dataset.pk, "records_indexed": run.records_indexed}
+                return {"dataset": str(dataset.pk), "records_indexed": run.records_indexed}
             dataset.set_state(State.DEDUPLICATING)
             _notify(run)
 
@@ -164,7 +164,7 @@ def process_biographic_dataset(self: Any, job_id: int, version: int) -> dict[str
         _notify(run)
         run.append()
         return {
-            "dataset": dataset.pk,
+            "dataset": str(dataset.pk),
             "records_indexed": run.records_indexed,
             "findings_created": stats.findings_created,
             "records_truncated": stats.records_truncated,
@@ -191,7 +191,7 @@ def process_biographic_dataset(self: Any, job_id: int, version: int) -> dict[str
     retry_backoff=True,
     retry_kwargs={"max_retries": STATUS_UPDATE_MAX_RETRIES},
 )
-def update_biographic_status(dataset_id: int) -> int:
+def update_biographic_status(dataset_id: str) -> int:
     """Mirror a set's decision into Elasticsearch. Returns the documents updated.
 
     Retried on a connection failure. If it still fails, `search_sync_pending`
@@ -212,7 +212,7 @@ def cleanup_biographic_rejected() -> dict[str, int]:
 
 
 @shared_task
-def rebuild_biographic_index(group_id: int, dataset_id: int | None = None) -> dict[int, int]:
+def rebuild_biographic_index(group_id: int, dataset_id: str | None = None) -> dict[str, int]:
     """Put the group's indexed sets back in its index. Returns the documents written per set.
 
     The caller took the program's lock; it is released here, in `finally`. The
@@ -235,7 +235,7 @@ def rebuild_biographic_index(group_id: int, dataset_id: int | None = None) -> di
                 "timestamp": timezone.now().isoformat(),
                 "action": "rebuild_index",
                 "state": restored.get_state_display(),
-                "records_indexed": written[restored.pk],
+                "records_indexed": written[str(restored.pk)],
             }
         )
     return written

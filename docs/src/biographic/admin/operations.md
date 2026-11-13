@@ -45,6 +45,8 @@ A rebuild only adds documents. It never deletes or recreates the index, because 
 
 Until an index with approved sets is rebuilt, `process` fails with "the index ... is missing" instead of searching an empty population.
 
+An index whose mapping no longer fits fails every run up front with "Index ... maps `dataset_id` as long, not keyword", rather than with a parsing error halfway through. It was created before set ids became UUIDs, and Elasticsearch cannot change a field's type in place. A rebuild cannot fix it, because a rebuild never recreates the index. Delete the index in Elasticsearch, then use **Rebuild index** on its group. HOPE's documents go with the deleted index, and HOPE has to send them again.
+
 ## Stopping a run
 
 On the job, the **Cancel** button asks the run to stop. The worker checks before every chunk, then fails the set with "Cancellation requested", logs it, notifies the client and releases the lock. The client can retry or cancel the set.

@@ -81,6 +81,11 @@ def changelist_url(model_name: str, **query: Any) -> str:
     return reverse(f"admin:biographic_{model_name}_changelist", query=query)
 
 
+def is_live(dataset: BiographicSet) -> bool:
+    """Whether the set's program still exists. A deleted program's sets are kept, but never run again."""
+    return not dataset.group.deleted
+
+
 class ReadOnlyAdmin(BaseModelAdmin):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -123,7 +128,13 @@ class BiographicGroupAdmin(BaseModelAdmin):
     def findings(self, request: HttpRequest, pk: str) -> HttpResponse:
         return redirect(changelist_url("biographicfinding", dataset__group__exact=pk))
 
-    @button(label="Rebuild index", change_form=True, change_list=False, permission=can.biographic.rebuild_index)
+    @button(
+        label="Rebuild index",
+        change_form=True,
+        change_list=False,
+        permission=can.biographic.rebuild_index,
+        visible=lambda button: not button.original.deleted,
+    )
     def rebuild_index(self, request: HttpRequest, pk: str) -> HttpResponse:
         group = cast("BiographicGroup", self.get_object(request, pk))
 
@@ -240,7 +251,7 @@ class BiographicSetAdmin(ReadOnlyAdmin):
         change_form=True,
         change_list=False,
         permission=can.biographic.process_indexing,
-        visible=lambda button: button.original.state in BiographicSet.PROCESSABLE_STATES,
+        visible=lambda button: is_live(button.original) and button.original.state in BiographicSet.PROCESSABLE_STATES,
     )
     def index_records(self, request: HttpRequest, pk: str) -> HttpResponse:
         return self._confirm_start(
@@ -255,7 +266,7 @@ class BiographicSetAdmin(ReadOnlyAdmin):
         change_form=True,
         change_list=False,
         permission=can.biographic.process_deduplicate,
-        visible=lambda button: button.original.state in lifecycle.SEARCHABLE_STATES,
+        visible=lambda button: is_live(button.original) and button.original.state in lifecycle.SEARCHABLE_STATES,
     )
     def find_duplicates(self, request: HttpRequest, pk: str) -> HttpResponse:
         return self._confirm_start(request, pk, CONFIRM_SEARCH, lambda dataset: lifecycle.start_search(dataset, {}))
@@ -265,7 +276,7 @@ class BiographicSetAdmin(ReadOnlyAdmin):
         change_form=True,
         change_list=False,
         permission=can.biographic.rebuild_index,
-        visible=lambda button: button.original.state in REBUILD_STATUS,
+        visible=lambda button: is_live(button.original) and button.original.state in REBUILD_STATUS,
     )
     def rebuild_index(self, request: HttpRequest, pk: str) -> HttpResponse:
         return self._confirm_start(

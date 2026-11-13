@@ -31,7 +31,7 @@ class BiographicConfig:
     what the counts mean.
     """
 
-    dataset_id: int | None = None
+    dataset_id: str | None = None
 
     duplicate_score: float = field(
         default_factory=_default("duplicate_score"),
@@ -56,7 +56,7 @@ class BiographicConfig:
     def for_set(cls, dataset: BiographicSet, overrides: Mapping[str, Any] | None = None) -> Self:
         group_settings = dataset.group.settings or {}
         overrides = overrides or {}
-        kwargs: dict[str, Any] = {"dataset_id": dataset.pk}
+        kwargs: dict[str, Any] = {"dataset_id": str(dataset.pk)}
         for f in cls.setting_fields():
             if f.name in overrides:
                 kwargs[f.name] = overrides[f.name]
