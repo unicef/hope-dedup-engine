@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+banner "Approve dataset $DATASET_ID: its people join the program's population"
+call_api POST "$(dataset_path)/approve"

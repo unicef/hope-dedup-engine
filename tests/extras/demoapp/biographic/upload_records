@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_dataset
+
+if [[ $# -lt 1 ]]; then
+  show_required_args "records file (JSON list of {reference_pk, payload})"
+  exit 1
+fi
+
+file="$1"
+batch_size="${2:-100}"
+total=$(jq 'length' "$file")
+
+banner "Upload $total records from $(basename "$file") to dataset $DATASET_ID, $batch_size per call"
+
+body=$(mktemp)
+trap 'rm -f "$body"' EXIT
+
+for ((offset = 0; offset < total; offset += batch_size)); do
+  jq -c "{records: .[$offset:$((offset + batch_size))]}" "$file" > "$body"
+  result=$(call_api_json POST "$(dataset_path)/records" "$body")
+  info "records $((offset + 1))-$(( offset + batch_size < total ? offset + batch_size : total )): $(echo "$result" | jq -c .)"
+done

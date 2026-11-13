@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+
+if [[ $# -ne 2 ]]; then
+  show_required_args "business area" "program code"
+  exit 1
+fi
+
+# The API lowercases both: they become part of an Elasticsearch index name.
+set_variable BUSINESS_AREA "${1,,}"
+set_variable PROGRAM_CODE "${2,,}"
+set_variable DATASET_ID ""
+info "Program: ${1,,} / ${2,,}"
