@@ -83,7 +83,8 @@ class RecordsBatchResultSerializer(serializers.Serializer):
 class BiographicSetCreateSerializer(serializers.ModelSerializer):
     """What a client may set when creating a set. All of it is optional."""
 
-    id = serializers.UUIDField(
+    dataset_id = serializers.UUIDField(
+        source="id",
         required=False,
         validators=[UniqueValidator(queryset=BiographicSet.objects.all())],
         help_text="Id for the new set. Generated when omitted.",
@@ -99,7 +100,7 @@ class BiographicSetCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BiographicSet
-        fields = ("id", "notification_url", "notify")
+        fields = ("dataset_id", "notification_url", "notify")
         extra_kwargs = {"notify": {"required": False}}
 
 

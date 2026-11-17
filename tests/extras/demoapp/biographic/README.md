@@ -1,3 +1,4 @@
+
 # Biographic demo scripts
 
 Drive the biographic API end to end, the way HOPE would. Requires `httpie`, `jq` and `python3`.
@@ -12,5 +13,9 @@ $ ./full_flow [business_area] [program_code]
 new registration against it and checks that every planted case (exact repeat, typo, sound-alike, nickname, namesake,
 household member, duplicate within the batch, ...) comes out as expected.
 
-The scenario, every script and flow diagrams are documented in
-[docs/src/biographic/development/demo.md](../../../../docs/src/biographic/development/demo.md).
+## Create a dataset
+
+`create_dataset` accepts an optional notification URL and a client-provided `dataset_id` (UUID).
+
+Usage examples, the full scenario, and flow diagrams are available in the
+[demo documentation](../../../../docs/src/biographic/development/demo.md).

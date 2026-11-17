@@ -130,39 +130,39 @@ def test_create_is_allowed_while_another_set_is_active(api: APIClient, group):
     assert api.post(datasets_url(), format="json").status_code == status.HTTP_201_CREATED
 
 
-def test_create_takes_the_id_the_client_chose(api: APIClient):
+def test_create_takes_the_dataset_id_the_client_chose(api: APIClient):
     chosen = uuid4()
 
-    response = api.post(datasets_url(), {"id": str(chosen)}, format="json")
+    response = api.post(datasets_url(), {"dataset_id": str(chosen)}, format="json")
 
     assert response.status_code == status.HTTP_201_CREATED
     assert response.json()["dataset_id"] == str(chosen)
     assert BiographicSet.objects.get(pk=chosen).state == State.PENDING
 
 
-def test_create_generates_an_id_when_none_is_sent(api: APIClient):
+def test_create_generates_a_dataset_id_when_none_is_sent(api: APIClient):
     response = api.post(datasets_url(), format="json")
 
     assert response.status_code == status.HTTP_201_CREATED
     assert BiographicSet.objects.filter(pk=response.json()["dataset_id"]).exists()
 
 
-def test_create_refuses_an_id_already_in_use(api: APIClient, pending):
-    response = api.post(datasets_url(), {"id": str(pending.pk)}, format="json")
+def test_create_refuses_a_dataset_id_already_in_use(api: APIClient, pending):
+    response = api.post(datasets_url(), {"dataset_id": str(pending.pk)}, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "id" in response.json()
+    assert "dataset_id" in response.json()
     assert BiographicSet.objects.count() == 1
 
 
-def test_an_id_taken_after_validation_is_still_a_400(api: APIClient, pending, mocker):
-    """Two requests with the same new id both pass validation; the slower one must not get a 500."""
+def test_a_dataset_id_taken_after_validation_is_still_a_400(api: APIClient, pending, mocker):
+    """Two requests with the same new dataset id both pass validation; the slower one must not get a 500."""
     mocker.patch.object(UniqueValidator, "__call__", return_value=None)
 
-    response = api.post(datasets_url(), {"id": str(pending.pk)}, format="json")
+    response = api.post(datasets_url(), {"dataset_id": str(pending.pk)}, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json() == {"id": [str(UniqueValidator.message)]}
+    assert response.json() == {"dataset_id": [str(UniqueValidator.message)]}
     assert BiographicSet.objects.count() == 1
 
 
@@ -174,19 +174,19 @@ def test_create_locks_the_program_so_a_delete_waits(api: APIClient, group):
     assert any(table in query["sql"] and "FOR UPDATE" in query["sql"] for query in queries)
 
 
-def test_create_refuses_an_id_used_in_another_program(api: APIClient):
+def test_create_refuses_a_dataset_id_used_in_another_program(api: APIClient):
     other = BiographicSetFactory()
 
-    response = api.post(datasets_url(), {"id": str(other.pk)}, format="json")
+    response = api.post(datasets_url(), {"dataset_id": str(other.pk)}, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_create_refuses_an_id_that_is_not_a_uuid(api: APIClient):
-    response = api.post(datasets_url(), {"id": "12"}, format="json")
+def test_create_refuses_a_dataset_id_that_is_not_a_uuid(api: APIClient):
+    response = api.post(datasets_url(), {"dataset_id": "12"}, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "id" in response.json()
+    assert "dataset_id" in response.json()
     assert not BiographicSet.objects.exists()
 
 

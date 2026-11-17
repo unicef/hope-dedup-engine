@@ -1,3 +1,4 @@
+
 # Demo Scripts
 
 Shell scripts in `tests/extras/demoapp/biographic/` drive the biographic API end to end, the way HOPE would. They need [httpie](https://httpie.io/), [jq](https://jqlang.github.io/jq/) and `python3` (standard library only, for the fake data).
@@ -17,6 +18,19 @@ $ ./full_flow afghanistan my-demo  # or choose both
 ```
 
 Each run uses a new program by default: a reused program already holds the people of earlier runs, and they would match the new ones.
+
+### Creating a dataset manually
+
+`create_dataset` accepts an optional notification URL followed by an optional client-provided `dataset_id` (UUID):
+
+```console
+$ ./create_dataset
+$ ./create_dataset "https://example.org/callback"
+$ ./create_dataset "" "550e8400-e29b-41d4-a716-446655440000"
+$ ./create_dataset "https://example.org/callback" "550e8400-e29b-41d4-a716-446655440001"
+```
+
+Omit `dataset_id` to let the server generate one. Pass an empty first argument to supply a UUID without a notification URL. Each explicit `dataset_id` must be unique, including across programs.
 
 ## The scenario
 
@@ -88,7 +102,7 @@ sequenceDiagram
     API->>DB: register the program's group on first use, create the set (pending)
     API-->>S: 201 {dataset_id, status: pending}
     loop one call per batch (up to 10,000 records)
-        S->>API: POST .../datasets/{id}/records/ {records: [...]}
+        S->>API: POST .../datasets/{dataset_id}/records/ {records: [...]}
         API->>DB: insert, or replace an existing reference_pk
         API-->>S: 201 {received, records_count}
     end
@@ -104,14 +118,14 @@ sequenceDiagram
     participant API as HDE API
     participant W as Celery worker
     participant ES as Elasticsearch
-    S->>API: POST .../datasets/{id}/process/
+    S->>API: POST .../datasets/{dataset_id}/process/
     API->>W: queue the run
     API-->>S: 200 {status: indexing}
     W->>ES: index the set's people as pending
     W->>ES: search each person against the set and the approved population
     W->>W: store findings, status deduplicated
     loop every second until deduplicated (exit 1 on failed)
-        S->>API: GET .../datasets/{id}/
+        S->>API: GET .../datasets/{dataset_id}/
         API-->>S: {status, records_count, batch_duplicates, population_duplicates}
     end
 ```
@@ -124,10 +138,10 @@ sequenceDiagram
     participant API as HDE API
     participant W as Celery worker
     participant ES as Elasticsearch
-    S->>API: GET .../datasets/{id}/findings/?page_size=10000
+    S->>API: GET .../datasets/{dataset_id}/findings/?page_size=10000
     API-->>S: {count, results: [{reference_pk, matched_reference_pk, scope, score, proximity_to_score, ...}]}
     S->>S: check_expected compares them with expected.json
-    S->>API: POST .../datasets/{id}/approve/
+    S->>API: POST .../datasets/{dataset_id}/approve/
     API-->>S: 200 {status: approved}
     API->>W: queue the status update
     W->>ES: mark the set's documents approved
@@ -164,7 +178,7 @@ State (base URL, token, program, current dataset) is kept in `.vars`, created on
 | `use_base_url` | base url | Sets the API base URL |
 | `use_auth_token` | token | Sets the API token |
 | `use_program` | business area, program code | Selects the program for the following commands |
-| `create_dataset` | `[notification_url]` | Creates a dataset and selects it |
+| `create_dataset` | `[notification_url] [dataset_id]` | Creates a dataset and selects it |
 | `upload_records` | file, `[batch_size]` (default 100) | Uploads a JSON list of `{reference_pk, payload}` in batches |
 | `process_dataset` | `[overrides]`, e.g. `duplicate_score:=8` | Starts processing and polls until `deduplicated`; exits 1 on `failed` |
 | `show_dataset` | – | Shows the dataset, with its state and duplicate counts |

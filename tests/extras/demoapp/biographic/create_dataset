@@ -7,8 +7,11 @@ banner "Create dataset in $BUSINESS_AREA / $PROGRAM_CODE"
 
 # The program's group is registered on the first dataset created for it.
 args=()
-if [[ $# -ge 1 ]]; then
+if [[ -n "${1:-}" ]]; then
   args+=("notification_url=$1" "notify:=true")
+fi
+if [[ -n "${2:-}" ]]; then
+  args+=("dataset_id=$2")
 fi
 
 response=$(call_api POST "$(program_path)/datasets" "${args[@]}")

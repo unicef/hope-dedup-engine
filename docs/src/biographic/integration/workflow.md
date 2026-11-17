@@ -9,18 +9,18 @@ sequenceDiagram
     participant W as Celery worker
     participant ES as Elasticsearch
 
-    C->>A: POST /datasets/ {notification_url}
+    C->>A: POST /datasets/ {dataset_id, notification_url, notify}
     A-->>C: 201 {dataset_id, status: pending}
     loop record batches
-        C->>A: POST /datasets/{id}/records/ {records}
+        C->>A: POST /datasets/{dataset_id}/records/ {records}
     end
-    C->>A: POST /datasets/{id}/process/
+    C->>A: POST /datasets/{dataset_id}/process/
     A->>W: queue job
     W->>ES: index, score against set + approved population
     W-->>C: GET notification_url (on each state change)
-    C->>A: GET /datasets/{id}/ (status: deduplicated)
-    C->>A: GET /datasets/{id}/findings/?page=1
-    C->>A: POST /datasets/{id}/approve/ (or reject)
+    C->>A: GET /datasets/{dataset_id}/ (status: deduplicated)
+    C->>A: GET /datasets/{dataset_id}/findings/?page=1
+    C->>A: POST /datasets/{dataset_id}/approve/ (or reject)
 ```
 
 Each step is drawn in more detail on the [sequence diagrams](../concepts/sequence-diagrams.md) page.
@@ -29,7 +29,7 @@ Each step is drawn in more detail on the [sequence diagrams](../concepts/sequenc
 
 ```console
 $ http POST $P/datasets/ \
-    id="3f1c2a52-8d0e-4f6b-9a47-5b6e1c7d2a90" \
+    dataset_id="3f1c2a52-8d0e-4f6b-9a47-5b6e1c7d2a90" \
     notification_url="https://cw.example.org/hde-callback?batch=42" \
     notify:=true
 ```
@@ -49,7 +49,7 @@ $ http POST $P/datasets/ \
 }
 ```
 
-- The body is optional. `id` is an optional UUID that names the set; the server generates one when it is omitted. An `id` that is already in use, in any program, or that is not a UUID is rejected with **400**. The server answers with ids in lowercase and accepts either case in URLs. The examples below write the set's id as `$DATASET`. See [Notifications](notifications.md) for `notification_url` and `notify`.
+- The body is optional. `dataset_id` is an optional UUID that names the set; the server generates one when it is omitted. A `dataset_id` that is already in use, in any program, or that is not a UUID is rejected with **400**. The server returns UUIDs in lowercase and accepts either case in URLs. The examples below use `$DATASET` for `dataset_id`. See [Notifications](notifications.md) for `notification_url` and `notify`.
 - Creating a set is **always allowed**, even while another set in the program is being processed or awaiting a decision.
 - A program that was [deleted](#deleting-a-program) is registered again by creating a set: it starts empty, with the default settings.
 

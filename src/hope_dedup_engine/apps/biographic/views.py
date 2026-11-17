@@ -155,7 +155,7 @@ class BiographicDatasetViewSet(
         "The program is registered on first use, or again after it was deleted. "
         "Creation is always allowed, even while another set is being processed; "
         "add people with the records endpoint. "
-        "An optional id (UUID) names the set; one is generated when omitted, and an id "
+        "An optional dataset_id (UUID) names the set; one is generated when omitted, and a dataset_id "
         "already in use is rejected. "
         "An optional notification_url is pinged with a GET on every state change a run makes.",
     )
@@ -179,7 +179,7 @@ class BiographicDatasetViewSet(
             # Another request took the same id between validation and insert.
             if "id" not in serializer.validated_data:
                 raise
-            raise ValidationError({"id": [UniqueValidator.message]}) from None
+            raise ValidationError({"dataset_id": [UniqueValidator.message]}) from None
         return self._respond(dataset, status.HTTP_201_CREATED)
 
     @extend_schema(description="Current state of the set. Poll this after starting processing.")
