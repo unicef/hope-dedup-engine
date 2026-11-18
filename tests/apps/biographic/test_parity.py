@@ -102,12 +102,11 @@ def best_scores(search, group):
     The split is what the service will do: HOPE's two passes become one query
     plus a filter on `status`.
     """
-    business_area, program_code = group
+    group_id = group[0]
     in_batch, against_population = {}, {}
     for reference_pk, record in PENDING_RECORDS.items():
         hits = search.search(
-            business_area,
-            program_code,
+            group_id,
             to_payload(reference_pk, record),
             min_score=POSSIBLE_DUPLICATE_SCORE,
             dataset_id=PENDING_DATASET,
@@ -123,14 +122,16 @@ def best(hits, status):
 
 @pytest.fixture
 def hope_fixture(search, group):
-    business_area, program_code = group
+    group_id, business_area, program_code = group
     search.index_records(
+        group_id,
         business_area,
         program_code,
         PENDING_DATASET,
         [to_payload(pk, record) for pk, record in PENDING_RECORDS.items()],
     )
     search.index_records(
+        group_id,
         business_area,
         program_code,
         POPULATION_DATASET,
@@ -138,8 +139,8 @@ def hope_fixture(search, group):
     )
     # update_by_query only sees refreshed documents, so the population has to be
     # searchable before it can be approved.
-    search.refresh(business_area, program_code)
-    search.set_status(business_area, program_code, POPULATION_DATASET, "approved")
+    search.refresh(group_id)
+    search.set_status(group_id, POPULATION_DATASET, "approved")
     return group
 
 

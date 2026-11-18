@@ -48,15 +48,18 @@ METADATA_FIELDS = frozenset(
 KEY_FIELDS = ("dataset_id", "status")
 
 
-def index_name(business_area: str, program_code: str) -> str:
-    """Return the index name for one business area and program.
+def index_name(group_id: int) -> str:
+    """Return the Elasticsearch index name for one `BiographicGroup`.
 
-    One index per `BiographicGroup`, which is why both components are in the name.
-    Mirrors HOPE, which names its own per-program indices
-    `{prefix}individuals_{business_area.slug}_{program.code}` - a short human-readable
-    code, not a surrogate key, so the index list stays legible in `_cat/indices`.
+    The group's database PK identifies its index, not the business area and
+    program code. Soft-deleting a group and registering the same program again
+    creates a new group with a different PK, so the new population starts empty
+    and cannot match documents belonging to the deleted group.
+
+    The old index remains until physical cleanup. The group PK is internal to
+    DedupEngine; API clients still identify programs by business area and code.
     """
-    return f"{settings.ELASTICSEARCH_PREFIX}biographic_{business_area}_{program_code}"
+    return f"{settings.ELASTICSEARCH_PREFIX}biographic_{group_id}"
 
 
 def index_pattern() -> str:

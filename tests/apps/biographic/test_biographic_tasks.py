@@ -296,7 +296,7 @@ def test_rebuild_restores_the_sets_logs_it_and_releases_the_lock(fake_search):
     written = celery_tasks.rebuild_biographic_index(group.pk)
 
     assert written == {str(approved.pk): 1}
-    assert fake_search.documents(group.business_area, group.program_code)[f"{approved.pk}:a"].status == "approved"
+    assert fake_search.documents(group.pk)[f"{approved.pk}:a"].status == "approved"
     approved.refresh_from_db()
     assert (approved.log[0]["action"], approved.log[0]["records_indexed"]) == ("rebuild_index", 1)
     assert not locked(approved)
@@ -329,12 +329,12 @@ def test_a_failed_rebuild_still_releases_the_lock(fake_search):
 def test_update_status_syncs_the_decision(fake_search):
     dataset = BiographicSetFactory(state=State.APPROVED, search_sync_pending=True)
     group = dataset.group
-    fake_search.ensure_index(group.business_area, group.program_code)
-    fake_search.index_records(group.business_area, group.program_code, str(dataset.pk), [make_payload("a")])
+    fake_search.ensure_index(group.pk)
+    fake_search.index_records(group.pk, group.business_area, group.program_code, str(dataset.pk), [make_payload("a")])
 
     assert celery_tasks.update_biographic_status(str(dataset.pk)) == 1
 
-    assert fake_search.documents(group.business_area, group.program_code)[f"{dataset.pk}:a"].status == "approved"
+    assert fake_search.documents(group.pk)[f"{dataset.pk}:a"].status == "approved"
     dataset.refresh_from_db()
     assert not dataset.search_sync_pending
 
@@ -355,19 +355,21 @@ def test_cleanup_deletes_rejected_documents_everywhere_and_logs_counts(fake_sear
     approved = BiographicSetFactory(state=State.APPROVED)
     for dataset, status in ((rejected, "rejected"), (approved, "approved")):
         group = dataset.group
-        fake_search.ensure_index(group.business_area, group.program_code)
-        fake_search.index_records(group.business_area, group.program_code, str(dataset.pk), [make_payload("a")])
-        fake_search.set_status(group.business_area, group.program_code, str(dataset.pk), status)
+        fake_search.ensure_index(group.pk)
+        fake_search.index_records(
+            group.pk, group.business_area, group.program_code, str(dataset.pk), [make_payload("a")]
+        )
+        fake_search.set_status(group.pk, str(dataset.pk), status)
     logger = mocker.patch.object(celery_tasks, "logger")
 
     deleted = celery_tasks.cleanup_biographic_rejected()
 
     assert deleted == {
-        fake_search.index_name(rejected.group.business_area, rejected.group.program_code): 1,
-        fake_search.index_name(approved.group.business_area, approved.group.program_code): 0,
+        fake_search.index_name(rejected.group_id): 1,
+        fake_search.index_name(approved.group_id): 0,
     }
-    assert not fake_search.documents(rejected.group.business_area, rejected.group.program_code)
-    assert len(fake_search.documents(approved.group.business_area, approved.group.program_code)) == 1
+    assert not fake_search.documents(rejected.group_id)
+    assert len(fake_search.documents(approved.group_id)) == 1
     logger.info.assert_called_once()
 
 

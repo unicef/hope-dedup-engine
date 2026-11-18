@@ -3,8 +3,12 @@
 # Usage: ./full_flow [business_area] [program_code]
 #
 # Runs the whole biographic flow against a fresh program:
-#   1. the existing population is processed and approved
-#   2. a new registration is processed against it, its findings are checked, and it is approved
+#   1. process and approve the existing population
+#   2. deduplicate a new registration against it and check the findings
+#   3. soft-delete the program
+#   4. recreate it and confirm that the old population is no longer searched
+#   5. approve a new population with different reference_pks
+#   6. confirm that the new registration matches only the new population
 
 source "$(dirname "$0")/.common"
 
@@ -21,6 +25,9 @@ summary='{dataset_id, status, records_count, batch_duplicates, population_duplic
 
 banner "Generate fake people"
 python3 "$HERE/generate_people.py" "$data" >&2
+jq 'map(.reference_pk |= sub("^POP-"; "POP2-"))' "$data/population.json" > "$data/population_recreated.json"
+jq 'map(if .scope == "population" then .matched_reference_pk |= sub("^POP-"; "POP2-") else . end)' \
+  "$data/expected.json" > "$data/expected_recreated.json"
 
 "$HERE/use_program" "$business_area" "$program_code"
 
@@ -40,4 +47,46 @@ banner "STEP 2: a new registration, deduplicated against the population"
 "$HERE/check_expected" "$data/expected.json"
 "$HERE/approve" | jq -c '{dataset_id, status}'
 
-banner "Done: program $business_area / $program_code now holds both datasets as its population"
+banner "STEP 3: soft-delete the program"
+"$HERE/delete_program"
+
+banner "STEP 4: recreate the program and verify an empty population"
+"$HERE/create_dataset" | jq -c '{dataset_id, status}'
+"$HERE/upload_records" "$data/new_registration.json" 25
+result=$("$HERE/process_dataset")
+echo "$result" | jq "$summary"
+"$HERE/show_findings"
+"$HERE/check_expected" <(jq 'map(select(.scope == "batch"))' "$data/expected.json")
+
+if ! jq -e '.population_duplicates == 0 and .batch_duplicates == 2' <<< "$result" > /dev/null; then
+  info "Unexpected duplicate counts after recreating the program"
+  exit 1
+fi
+"$HERE/reject" | jq -c '{dataset_id, status}'
+
+banner "STEP 5: approve a new population with distinct reference_pks"
+"$HERE/create_dataset" | jq -c '{dataset_id, status}'
+"$HERE/upload_records" "$data/population_recreated.json" 100
+result=$("$HERE/process_dataset")
+echo "$result" | jq "$summary"
+"$HERE/show_findings"
+if ! jq -e '.records_count == 400 and .batch_duplicates == 0 and .population_duplicates == 0' <<< "$result" > /dev/null; then
+  info "Unexpected duplicate counts while building the new population"
+  exit 1
+fi
+"$HERE/approve" | jq -c '{dataset_id, status}'
+
+banner "STEP 6: verify that only the new population is searched"
+"$HERE/create_dataset" | jq -c '{dataset_id, status}'
+"$HERE/upload_records" "$data/new_registration.json" 25
+result=$("$HERE/process_dataset")
+echo "$result" | jq "$summary"
+"$HERE/show_findings"
+"$HERE/check_expected" "$data/expected_recreated.json"
+if ! jq -e '.population_duplicates == 7 and .batch_duplicates == 2' <<< "$result" > /dev/null; then
+  info "Unexpected duplicate counts against the new population"
+  exit 1
+fi
+"$HERE/approve" | jq -c '{dataset_id, status}'
+
+banner "Done: the deleted group is isolated; the recreated program has its own approved population"

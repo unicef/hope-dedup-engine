@@ -1,21 +1,15 @@
-
 # Biographic demo scripts
 
-Drive the biographic API end to end, the way HOPE would. Requires `httpie`, `jq` and `python3`.
+End-to-end biographic API demo for Country Workspace. Requires `httpie`, `jq`, `python3`, and `column`.
 
 ```console
-$ ./use_base_url http://localhost:8000
-$ ./use_auth_token <token with the API_BIOGRAPHIC grant>
-$ ./full_flow [business_area] [program_code]
+./use_base_url http://localhost:8000
+./use_auth_token <token with API_BIOGRAPHIC grant>
+./full_flow [business_area] [program_code]
 ```
 
-`full_flow` generates fake people, processes and approves a program's existing population, then deduplicates a
-new registration against it and checks that every planted case (exact repeat, typo, sound-alike, nickname, namesake,
-household member, duplicate within the batch, ...) comes out as expected.
+`full_flow` checks deduplication against an approved population (400 people), soft-deletes and recreates the program, then verifies that the new group starts with an empty population. It approves a replacement population with distinct `POP2-` reference PKs and checks that a new registration matches only that population. Expected results are **7 population + 2 batch**, **0 population + 2 batch**, then **7 population + 2 batch** duplicates.
 
-## Create a dataset
+Use a fresh program code for each run. For manual steps, use `use_program`, `create_dataset`, `delete_program`, and the other scripts.
 
-`create_dataset` accepts an optional notification URL and a client-provided `dataset_id` (UUID).
-
-Usage examples, the full scenario, and flow diagrams are available in the
-[demo documentation](../../../../docs/src/biographic/development/demo.md).
+See the [demo guide](../../../../docs/src/biographic/development/demo.md) for the full workflow and examples.

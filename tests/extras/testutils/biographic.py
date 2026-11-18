@@ -37,37 +37,37 @@ class FakeBiographicSearch:
     fail_on: str | None = None
 
     @staticmethod
-    def index_name(business_area: str, program_code: str) -> str:
-        return f"{business_area}_{program_code}"
+    def index_name(group_id: int) -> str:
+        return f"biographic_{group_id}"
 
     def _check(self, method: str) -> None:
         if self.fail_on == method:
             raise RuntimeError(f"{method} failed")
 
-    def index_exists(self, business_area: str, program_code: str) -> bool:
-        return self.index_name(business_area, program_code) in self.indexes
+    def index_exists(self, group_id: int) -> bool:
+        return self.index_name(group_id) in self.indexes
 
-    def ensure_index(self, business_area: str, program_code: str) -> str:
+    def ensure_index(self, group_id: int) -> str:
         self._check("ensure_index")
-        self.calls.append(("ensure_index", business_area, program_code))
-        name = self.index_name(business_area, program_code)
+        self.calls.append(("ensure_index", group_id))
+        name = self.index_name(group_id)
         self.indexes[name]  # noqa: B018 - creates the index
         return name
 
-    def index_records(self, business_area, program_code, dataset_id, records, status="pending"):
+    def index_records(self, group_id, business_area, program_code, dataset_id, records, status="pending"):  # noqa: PLR0913, PLR0917
         self._check("index_records")
         self.calls.append(("index_records", dataset_id, len(records)))
         dataset_id = str(dataset_id)  # a keyword in the real index: ids are compared as text
-        docs = self.indexes[self.index_name(business_area, program_code)]
+        docs = self.indexes[self.index_name(group_id)]
         for record in records:
             docs[f"{dataset_id}:{record.reference_pk}"] = FakeDocument(record, dataset_id, status)
         return len(records)
 
-    def refresh(self, business_area, program_code):
+    def refresh(self, group_id):
         self.calls.append(("refresh",))
 
-    def search(self, business_area, program_code, payload, min_score, dataset_id, size=100):  # noqa: PLR0913, PLR0917
-        docs = self.indexes[self.index_name(business_area, program_code)]
+    def search(self, group_id, payload, min_score, dataset_id, size=100):
+        docs = self.indexes[self.index_name(group_id)]
         hits = []
         dataset_id = str(dataset_id)
         for doc in docs.values():
@@ -92,15 +92,15 @@ class FakeBiographicSearch:
             )
         return hits[:size]
 
-    def search_many(self, business_area, program_code, payloads, min_score, dataset_id, size=100):  # noqa: PLR0913, PLR0917
+    def search_many(self, group_id, payloads, min_score, dataset_id, size=100):
         self._check("search_many")
         self.calls.append(("search_many", dataset_id, len(payloads)))
-        return [self.search(business_area, program_code, p, min_score, dataset_id, size) for p in payloads]
+        return [self.search(group_id, p, min_score, dataset_id, size) for p in payloads]
 
-    def set_status(self, business_area, program_code, dataset_id, status):
+    def set_status(self, group_id, dataset_id, status):
         self._check("set_status")
         self.calls.append(("set_status", dataset_id, status))
-        name = self.index_name(business_area, program_code)
+        name = self.index_name(group_id)
         if name not in self.indexes:
             raise NotFoundError("index_not_found_exception", None, None)  # type: ignore[arg-type]
         updated = 0
@@ -120,5 +120,5 @@ class FakeBiographicSearch:
             deleted[name] = len(doomed)
         return deleted
 
-    def documents(self, business_area: str, program_code: str) -> dict[str, FakeDocument]:
-        return self.indexes[self.index_name(business_area, program_code)]
+    def documents(self, group_id: int) -> dict[str, FakeDocument]:
+        return self.indexes[self.index_name(group_id)]

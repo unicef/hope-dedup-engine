@@ -17,7 +17,7 @@ Settled with the interface:
   the processing lock, and maps 1:1 onto an Elasticsearch index
 * ``BiographicRecord`` stores the scoreable fields as a single JSON ``payload``;
   ``PAYLOAD_FIELDS`` is the only place that list exists
-* index name: ``biographic_{business_area}_{program_code}``
+* index name: ``biographic_{group_id}``; a deleted group and its replacement have separate indices
 * Elasticsearch document id: ``{dataset_id}:{reference_pk}``; ``dataset_id`` is the set's
   UUID as a string, mapped as a keyword
 * status values: ``pending`` / ``approved`` / ``rejected``. ``index_records`` writes
@@ -38,12 +38,13 @@ from hope_dedup_engine.apps.biographic.schemas import BiographicPayload, Hit
 
 
 class BiographicSearch(Protocol):
-    def index_exists(self, business_area: str, program_code: str) -> bool: ...
+    def index_exists(self, group_id: int) -> bool: ...
 
-    def ensure_index(self, business_area: str, program_code: str) -> str: ...
+    def ensure_index(self, group_id: int) -> str: ...
 
-    def index_records(
+    def index_records(  # noqa: PLR0913, PLR0917 - group identity and document metadata
         self,
+        group_id: int,
         business_area: str,
         program_code: str,
         dataset_id: str,
@@ -51,34 +52,26 @@ class BiographicSearch(Protocol):
         status: str = "pending",
     ) -> int: ...
 
-    def refresh(self, business_area: str, program_code: str) -> None: ...
+    def refresh(self, group_id: int) -> None: ...
 
-    def search(  # noqa: PLR0913, PLR0917 - the contract is frozen
+    def search(
         self,
-        business_area: str,
-        program_code: str,
+        group_id: int,
         payload: BiographicPayload,
         min_score: float,
         dataset_id: str,
         size: int = 100,
     ) -> list[Hit]: ...
 
-    def search_many(  # noqa: PLR0913, PLR0917 - mirrors `search`
+    def search_many(
         self,
-        business_area: str,
-        program_code: str,
+        group_id: int,
         payloads: list[BiographicPayload],
         min_score: float,
         dataset_id: str,
         size: int = 100,
     ) -> list[list[Hit]]: ...
 
-    def set_status(
-        self,
-        business_area: str,
-        program_code: str,
-        dataset_id: str,
-        status: str,  # "approved" | "rejected"
-    ) -> int: ...
+    def set_status(self, group_id: int, dataset_id: str, status: str) -> int: ...
 
     def delete_by_status(self, status: str) -> dict[str, int]: ...

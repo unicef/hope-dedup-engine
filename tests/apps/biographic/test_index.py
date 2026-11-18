@@ -11,8 +11,9 @@ def test_scoreable_mapping_matches_the_contract():
     assert index.scoreable_fields() == set(schemas.PAYLOAD_FIELDS)
 
 
-def test_index_name_carries_business_area_and_program(es_settings):
-    assert index.index_name("afghanistan", "ab12") == "test_biographic_afghanistan_ab12"
+def test_index_name_uses_group_id(es_settings):
+    assert index.index_name(15) == "test_biographic_15"
+    assert index.index_name(16) != index.index_name(15)
 
 
 def test_index_pattern_covers_every_group(es_settings):
@@ -64,18 +65,18 @@ def test_document_id_pairs_dataset_and_reference():
 
 @pytest.mark.elasticsearch
 def test_ensure_index_is_idempotent(search, es_client, group):
-    business_area, program_code = group
-    name = index.index_name(business_area, program_code)
+    group_id, _, _ = group
+    name = index.index_name(group_id)
     before = es_client.indices.get(index=name)[name]
 
-    assert search.ensure_index(business_area, program_code) == name
+    assert search.ensure_index(group_id) == name
     assert es_client.indices.get(index=name)[name] == before
 
 
 @pytest.mark.elasticsearch
 def test_settings_and_mapping_round_trip(es_client, group):
-    business_area, program_code = group
-    name = index.index_name(business_area, program_code)
+    group_id, _, _ = group
+    name = index.index_name(group_id)
 
     created = es_client.indices.get(index=name)[name]
 

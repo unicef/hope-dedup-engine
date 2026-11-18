@@ -68,13 +68,13 @@ class ElasticsearchBiographicSearch:
             self._client = client.get_client()
         return self._client
 
-    def index_exists(self, business_area: str, program_code: str) -> bool:
-        """Whether the index for one business area and program is there.
+    def index_exists(self, group_id: int) -> bool:
+        """Whether the index for one biographic group is there.
 
         An index that is there but cannot be used raises `IndexMappingError`, so
         every run fails up front with what to do, before anything is written.
         """
-        name = index.index_name(business_area, program_code)
+        name = index.index_name(group_id)
         if not self.client.indices.exists(index=name):
             return False
         self._check_mapping(name)
@@ -89,10 +89,10 @@ class ElasticsearchBiographicSearch:
             if found != expected:
                 raise IndexMappingError(name, field, found, expected)
 
-    def ensure_index(self, business_area: str, program_code: str) -> str:
-        """Create the index for one business area and program if it is not there yet."""
-        name = index.index_name(business_area, program_code)
-        if self.index_exists(business_area, program_code):
+    def ensure_index(self, group_id: int) -> str:
+        """Create the index for one biographic group if it is not there yet."""
+        name = index.index_name(group_id)
+        if self.index_exists(group_id):
             return name
 
         client.verify_phonetic_plugin(self.client)
@@ -109,8 +109,9 @@ class ElasticsearchBiographicSearch:
                 raise
         return name
 
-    def index_records(
+    def index_records(  # noqa: PLR0913, PLR0917 - group identity and document metadata
         self,
+        group_id: int,
         business_area: str,
         program_code: str,
         dataset_id: str,
@@ -125,7 +126,7 @@ class ElasticsearchBiographicSearch:
         if not records:
             return 0
 
-        name = index.index_name(business_area, program_code)
+        name = index.index_name(group_id)
         actions = [
             {
                 "_index": name,
@@ -137,14 +138,13 @@ class ElasticsearchBiographicSearch:
         indexed, _ = bulk(self.client, actions, chunk_size=client.BULK_CHUNK_SIZE)
         return indexed
 
-    def refresh(self, business_area: str, program_code: str) -> None:
+    def refresh(self, group_id: int) -> None:
         """Make newly indexed documents searchable. HOPE's `ensure_index_ready`."""
-        self.client.indices.refresh(index=index.index_name(business_area, program_code))
+        self.client.indices.refresh(index=index.index_name(group_id))
 
-    def search(  # noqa: PLR0913, PLR0917 - signature fixed by the frozen contract
+    def search(
         self,
-        business_area: str,
-        program_code: str,
+        group_id: int,
         payload: schemas.BiographicPayload,
         min_score: float,
         dataset_id: str,
@@ -155,14 +155,9 @@ class ElasticsearchBiographicSearch:
         One search spans the caller's pending dataset and the approved
         population; each hit says which side it came from.
         """
-        body = query.build_query(
-            payload,
-            min_score=min_score,
-            dataset_id=dataset_id,
-            size=size,
-        )
+        body = query.build_query(payload, min_score=min_score, dataset_id=dataset_id, size=size)
         response = self.client.search(
-            index=index.index_name(business_area, program_code),
+            index=index.index_name(group_id),
             query=body["query"],
             size=body["size"],
             min_score=body["min_score"],
@@ -170,10 +165,9 @@ class ElasticsearchBiographicSearch:
         )
         return [self._to_hit(hit) for hit in response["hits"]["hits"]]
 
-    def search_many(  # noqa: PLR0913, PLR0917 - signature fixed by the frozen contract
+    def search_many(
         self,
-        business_area: str,
-        program_code: str,
+        group_id: int,
         payloads: list[schemas.BiographicPayload],
         min_score: float,
         dataset_id: str,
@@ -185,7 +179,7 @@ class ElasticsearchBiographicSearch:
         is built exactly as `search` builds it, so the hits are identical; only
         the number of round trips changes.
         """
-        name = index.index_name(business_area, program_code)
+        name = index.index_name(group_id)
         results: list[list[schemas.Hit]] = []
         for start in range(0, len(payloads), MSEARCH_CHUNK_SIZE):
             searches: list[dict[str, Any]] = []
@@ -200,16 +194,10 @@ class ElasticsearchBiographicSearch:
                 results.append([self._to_hit(hit) for hit in item["hits"]["hits"]])
         return results
 
-    def set_status(
-        self,
-        business_area: str,
-        program_code: str,
-        dataset_id: str,
-        status: str,
-    ) -> int:
+    def set_status(self, group_id: int, dataset_id: str, status: str) -> int:
         """Move one dataset's documents to `status`. Returns the number updated."""
         response = self.client.update_by_query(
-            index=index.index_name(business_area, program_code),
+            index=index.index_name(group_id),
             query={"term": {"dataset_id": dataset_id}},
             script={
                 "source": SET_STATUS_SCRIPT,

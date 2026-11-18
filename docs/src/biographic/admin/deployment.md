@@ -20,10 +20,12 @@ The repository's `compose.yml` has an `elasticsearch` service that does this on 
 
 Point the engine at the cluster with `ELASTICSEARCH_HOST`, and set `ELASTICSEARCH_PREFIX` if several environments share one cluster. See [Environment](environment.md).
 
-Indices are created by the worker on a program's first run; there is nothing to create by hand. Each program gets `{ELASTICSEARCH_PREFIX}biographic_{business_area}_{program_code}`, with **1 shard and 0 replicas**: HOPE's scoring is calibrated on a single shard.
+Indices are normally created by the worker on a group's first processing run; **Rebuild index** in Django Admin can also create a missing index. There is nothing to create by hand. Each `BiographicGroup` has its own index, `{ELASTICSEARCH_PREFIX}biographic_{group_id}`, where `group_id` is the group's internal PostgreSQL PK. The REST API still identifies a program by business area and program code; clients do not need the group PK. Each index has **1 shard and 0 replicas**: HOPE's scoring is calibrated on a single shard.
 
-!!! warning "Elasticsearch holds the only searchable copy of the population"
-    Postgres keeps every record and decision, but there is no command yet to rebuild an index from it. On a multi-node cluster, back the indices up with snapshots, or add replicas after creation (`PUT <index>/_settings {"number_of_replicas": 1}`), which does not change scores.
+Soft-deleting a group does not remove its index. Registering the same program again creates a new group with an empty population; its index is created on the first processing run. Old approved records cannot match new registrations. Physical cleanup of deleted groups and their indices is not implemented yet.
+
+!!! warning "Recovering a missing index"
+    PostgreSQL keeps the records and decisions used to build the searchable population. If an index is missing and the group has approved sets, processing refuses to create an empty index rather than silently miss those people. Use **Rebuild index** on the group in Django Admin to restore its approved and other indexed sets. The rebuild is additive and does not remove existing documents; rejected, canceled, pending and failed sets are not restored. On a multi-node cluster, use snapshots for faster recovery, or add replicas after creation (`PUT <index>/_settings {"number_of_replicas": 1}`), which does not change scores.
 
 ## Migrations
 

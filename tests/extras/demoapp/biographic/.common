@@ -1,0 +1,72 @@
+
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VARS="$HERE/.vars"
+
+BASE_URL=""
+AUTH_TOKEN=""
+BUSINESS_AREA=""
+PROGRAM_CODE=""
+DATASET_ID=""
+
+
+if [[ -f "$VARS" ]]; then
+  chmod 600 "$VARS"
+  source "$VARS"
+fi
+
+info() { printf '%s\n' "$*" >&2; }
+banner() { printf '\n== %s ==\n' "$*" >&2; }
+show_required_args() { printf 'Required arguments: %s\n' "$*" >&2; }
+
+set_variable() {
+  printf -v "$1" '%s' "$2"
+  (
+    umask 077
+    printf 'BASE_URL=%q\nAUTH_TOKEN=%q\nBUSINESS_AREA=%q\nPROGRAM_CODE=%q\nDATASET_ID=%q\n' \
+      "$BASE_URL" "$AUTH_TOKEN" "$BUSINESS_AREA" "$PROGRAM_CODE" "$DATASET_ID" > "$VARS"
+  )
+}
+
+require_program() {
+  if [[ -z "$BUSINESS_AREA" || -z "$PROGRAM_CODE" ]]; then
+    info 'Select a program with ./use_program <business_area> <program_code> first.'
+    exit 1
+  fi
+}
+
+require_dataset() {
+  require_program
+  if [[ -z "$DATASET_ID" ]]; then
+    info 'Create a dataset with ./create_dataset first.'
+    exit 1
+  fi
+}
+
+program_path() { printf 'api/biographic/%s/%s' "$BUSINESS_AREA" "$PROGRAM_CODE"; }
+dataset_path() { printf '%s/datasets/%s' "$(program_path)" "$DATASET_ID"; }
+
+require_api() {
+  if [[ -z "$BASE_URL" || -z "$AUTH_TOKEN" ]]; then
+    info 'Set the base URL and auth token with ./use_base_url and ./use_auth_token first.'
+    exit 1
+  fi
+}
+
+call_api() {
+  require_api
+  local method="$1" path="$2" response
+  shift 2
+  if ! response=$(http --check-status --body "$method" "${BASE_URL%/}/${path#/}/" "Authorization:Token $AUTH_TOKEN" "$@"); then
+    printf '%s\n' "$response" >&2
+    return 1
+  fi
+  printf '%s\n' "$response"
+}
+
+call_api_json() {
+  call_api "$1" "$2" Content-Type:application/json < "$3"
+}

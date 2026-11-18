@@ -14,12 +14,13 @@ src/hope_dedup_engine/apps/biographic/
 │                      # GroupDeletedError, GroupDeleteError (mapped to 409); IndexMissingError
 ├── services/
 │   ├── lifecycle.py   # add_records, start_processing, cancel, decide: what a client can request
-│   ├── process.py     # prepare, index, deduplicate: the work of one run
+│   ├── process.py     # prepare, index, deduplicate, rebuild: processing and index recovery
 │   └── status.py      # sync, reconcile: mirroring decisions into Elasticsearch
-├── celery_tasks.py    # process_biographic_dataset, update_biographic_status, cleanup_biographic_rejected
+├── celery_tasks.py    # process_biographic_dataset, update_biographic_status,
+│                      # rebuild_biographic_index, cleanup_biographic_rejected
 ├── search/            # the Elasticsearch library; imports no models
 │   ├── client.py      # connection, plugin check, index listing
-│   ├── index.py       # index name, settings, mapping, documents (ported from HOPE)
+│   ├── index.py       # group-PK index naming, HOPE-parity settings and mapping, documents
 │   ├── query.py       # the search body (ported from HOPE's DeduplicateTask)
 │   ├── backend.py     # ElasticsearchBiographicSearch, the BiographicSearch implementation;
 │   │                  # SearchItemError, IndexMappingError
@@ -38,7 +39,7 @@ src/hope_dedup_engine/apps/biographic/
 
 ## The search library
 
-`search/` implements `protocols.BiographicSearch` and knows nothing of Django models. `index.py` and `query.py` are line-by-line ports of HOPE (`hope/apps/household/documents.py`, `hope/apps/registration_data/tasks/deduplicate.py`), one function per HOPE method so a reviewer can diff them side by side.
+`search/` implements `protocols.BiographicSearch` and knows nothing of Django models. `index.py` preserves HOPE's scoring-critical index settings, analyzers and field mapping (`hope/apps/household/documents.py`), but names each index by the internal `BiographicGroup.pk`: `{ELASTICSEARCH_PREFIX}biographic_{group_id}`. `query.py` ports HOPE's search logic (`hope/apps/registration_data/tasks/deduplicate.py`). The service passes `group.pk` to the search backend; the external REST API continues to use business area and program code.
 
 ## Conventions
 
@@ -47,5 +48,5 @@ src/hope_dedup_engine/apps/biographic/
 - **The protocol and schemas are stable.** `protocols.py` and `schemas.py` are shared between the service and search work; changing them needs the agreement of everyone working on biographic deduplication.
 - **`PAYLOAD_FIELDS` is the only list of payload fields.** The serializer, the mapping and the query are tested against it.
 - **Scoring is HOPE's.** Don't change the similarity script, analyzers, mapping types or query without re-running the parity tests and agreeing that the threshold must be recalibrated.
-- **Program scoping**: every API queryset goes through `BiographicProgramMixin.program_sets()`.
+- **Program scoping**: dataset and findings API querysets go through `BiographicProgramMixin.program_sets()`, which excludes deleted groups. Each group has its own Elasticsearch index, so recreating a program never searches the deleted group's population.
 - **Migrations**: `./manage.py makemigrations biographic`.

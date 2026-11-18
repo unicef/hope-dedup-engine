@@ -57,9 +57,9 @@ def test_losing_the_create_race_still_leaves_the_index_in_place(mocker, es_setti
     es_client.cat.plugins.return_value = mocker.Mock(body=[{"component": index.PHONETIC_PLUGIN}])
     es_client.indices.create.side_effect = api_error(BadRequestError, "resource_already_exists_exception", mocker)
 
-    name = ElasticsearchBiographicSearch(es_client=es_client).ensure_index("afghanistan", "1")
+    name = ElasticsearchBiographicSearch(es_client=es_client).ensure_index(15)
 
-    assert name == index.index_name("afghanistan", "1")
+    assert name == index.index_name(15)
 
 
 def test_any_other_creation_failure_is_raised(mocker, es_settings):
@@ -69,4 +69,4 @@ def test_any_other_creation_failure_is_raised(mocker, es_settings):
     es_client.indices.create.side_effect = api_error(BadRequestError, "mapper_parsing_exception", mocker)
 
     with pytest.raises(BadRequestError):
-        ElasticsearchBiographicSearch(es_client=es_client).ensure_index("afghanistan", "1")
+        ElasticsearchBiographicSearch(es_client=es_client).ensure_index(15)

@@ -102,14 +102,15 @@ def search(es_client, es_settings):
 
 @pytest.fixture
 def make_group(es_client, search):
-    """Create empty indexes for one business area and program, removed afterwards."""
+    """Create an index for one group, removed afterwards."""
     created = []
 
-    def _make_group(program_code: str = "ab12") -> tuple[str, str]:
-        business_area = f"ba{uuid4().hex[:8]}"
-        search.ensure_index(business_area, program_code)
-        created.append(index.index_name(business_area, program_code))
-        return business_area, program_code
+    def _make_group(program_code: str = "ab12", business_area: str | None = None) -> tuple[int, str, str]:
+        group_id = uuid4().int
+        business_area = business_area or f"ba{uuid4().hex[:8]}"
+        search.ensure_index(group_id)
+        created.append(index.index_name(group_id))
+        return group_id, business_area, program_code
 
     yield _make_group
 

@@ -34,24 +34,24 @@ An `indexed` set holds the program's slot like any active set. The API cannot mo
 
 ## Rebuilding the index
 
-A program's index lives only in Elasticsearch. If it is lost, restore the sets Postgres knows from their stored records:
+Each `BiographicGroup` has its own Elasticsearch index, named `{ELASTICSEARCH_PREFIX}biographic_{group_id}`. The group ID is internal to DedupEngine; API clients continue to identify the program by business area and program code. If an index is lost, restore the sets Postgres knows from their stored records:
 
 - **Rebuild index** on a *group* restores every set that was indexed and is still alive.
 - **Rebuild index** on a *set* (visible in `indexed`, `deduplicating`, `deduplicated`, `approved`) restores that set only.
 
-Approved sets come back as `approved`, sets awaiting a decision as `pending`. Rejected, canceled, pending and failed sets have nothing to restore. The rebuild runs as a task and the program stays locked until it finishes; each restored set gets a `rebuild_index` entry in its log. Needs *Can rebuild index*.
+Approved sets come back as `approved`, and indexed, deduplicating and deduplicated sets as `pending`. Rejected, canceled, pending, indexing and failed sets are not restored. The rebuild runs as a task and the group stays locked until it finishes; each restored set gets a `rebuild_index` entry in its log. Needs *Can rebuild index*. A deleted group cannot start a rebuild.
 
-A rebuild only adds documents. It never deletes or recreates the index, because HOPE puts documents of its own in program indexes (`dataset_id` 0) that Postgres does not hold. Document ids are `{set id}:{reference_pk}`, so running it again overwrites instead of duplicating. If an index was lost, documents HOPE had placed in it are lost too, and only HOPE can restore those.
+A rebuild is additive: it creates the group's index if missing, but never deletes or empties an existing one. It restores only datasets belonging to that `BiographicGroup` from their records in Postgres. Document ids are `{dataset_id}:{reference_pk}`, so running it again overwrites documents rather than duplicating them. Soft-deleting a group leaves its index in place; creating a dataset for the same program registers a new group with a different PK and a separate, initially empty index. Physical cleanup of deleted groups and their indices is not implemented yet.
 
 Until an index with approved sets is rebuilt, `process` fails with "the index ... is missing" instead of searching an empty population.
 
-An index whose mapping no longer fits fails every run up front with "Index ... maps `dataset_id` as long, not keyword", rather than with a parsing error halfway through. It was created before set ids became UUIDs, and Elasticsearch cannot change a field's type in place. A rebuild cannot fix it, because a rebuild never recreates the index. Delete the index in Elasticsearch, then use **Rebuild index** on its group. HOPE's documents go with the deleted index, and HOPE has to send them again.
+An index whose mapping no longer fits fails every run up front with "Index ... maps `dataset_id` as long, not keyword", rather than with a parsing error halfway through. A `long` mapping cannot hold UUID dataset IDs, and Elasticsearch cannot change a field's type in place. A rebuild cannot fix it, because it never replaces an existing index. Delete the affected group's index in Elasticsearch, then use **Rebuild index** on that group to recreate it and restore the eligible datasets from Postgres.
 
 ## Stopping a run
 
 On the job, the **Cancel** button asks the run to stop. The worker checks before every chunk, then fails the set with "Cancellation requested", logs it, notifies the client and releases the lock. The client can retry or cancel the set.
 
-**Terminate** and **Revoke** kill the task without that cleanup: the set stays in `indexing`, `indexed` or `deduplicating` and the program stays locked. Recover with *Mark as failed* below.
+**Terminate** forcibly stops a running task (or removes one from the queue) without the worker's cleanup. **Revoke** prevents a queued task from starting; it does not stop a task that is already running. Either may leave the set in `indexing`, `indexed` or `deduplicating` and the program locked. Confirm the worker is no longer running the task, then recover with *Mark as failed* below.
 
 ## Recovering a stuck set
 

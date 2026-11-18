@@ -19,18 +19,14 @@ def search() -> FakeBiographicSearch:
 
 def indexed(search, dataset, *reference_pks):
     group = dataset.group
-    search.ensure_index(group.business_area, group.program_code)
+    search.ensure_index(group.pk)
     search.index_records(
-        group.business_area, group.program_code, str(dataset.pk), [make_payload(pk) for pk in reference_pks]
+        group.pk, group.business_area, group.program_code, str(dataset.pk), [make_payload(pk) for pk in reference_pks]
     )
 
 
 def statuses(search, dataset):
-    return {doc.payload.reference_pk: doc.status for doc in search.documents(**group_key(dataset)).values()}
-
-
-def group_key(dataset):
-    return {"business_area": dataset.group.business_area, "program_code": dataset.group.program_code}
+    return {doc.payload.reference_pk: doc.status for doc in search.documents(dataset.group_id).values()}
 
 
 @pytest.mark.parametrize(

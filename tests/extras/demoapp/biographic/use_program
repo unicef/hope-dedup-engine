@@ -7,7 +7,7 @@ if [[ $# -ne 2 ]]; then
   exit 1
 fi
 
-# The API lowercases both: they become part of an Elasticsearch index name.
+# The API lowercases both values to identify the active biographic group.
 set_variable BUSINESS_AREA "${1,,}"
 set_variable PROGRAM_CODE "${2,,}"
 set_variable DATASET_ID ""

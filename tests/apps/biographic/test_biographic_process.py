@@ -6,6 +6,7 @@ import pytest
 from testutils.biographic import FakeBiographicSearch, make_payload
 from testutils.factories.biographic import (
     BiographicFindingFactory,
+    BiographicGroupFactory,
     BiographicJobFactory,
     BiographicRecordFactory,
     BiographicSetFactory,
@@ -52,11 +53,15 @@ def approved_population(group, search, *names, dataset_id=None):
     population = BiographicSetFactory(group=group, state=State.APPROVED)
     records = [person(population, f"pop-{i}", name) for i, name in enumerate(names)]
     business_area, program_code = group.business_area, group.program_code
-    search.ensure_index(business_area, program_code)
+    search.ensure_index(group.pk)
     search.index_records(
-        business_area, program_code, dataset_id or str(population.pk), [process.to_payload(r) for r in records]
+        group.pk,
+        business_area,
+        program_code,
+        dataset_id or str(population.pk),
+        [process.to_payload(r) for r in records],
     )
-    search.set_status(business_area, program_code, dataset_id or str(population.pk), "approved")
+    search.set_status(group.pk, dataset_id or str(population.pk), "approved")
     return population
 
 
@@ -88,7 +93,7 @@ def test_prepare_creates_the_index_and_reconciles_pending_decisions(dataset, sea
 
     process.prepare(dataset, search)
 
-    assert ("ensure_index", group.business_area, group.program_code) in search.calls
+    assert ("ensure_index", group.pk) in search.calls
     assert ("set_status", str(rejected.pk), "rejected") in search.calls
     rejected.refresh_from_db()
     other_program.refresh_from_db()
@@ -120,7 +125,7 @@ def test_prepare_creates_the_index_when_no_set_of_the_program_is_approved(datase
 
     process.prepare(dataset, search)
 
-    assert ("ensure_index", dataset.group.business_area, dataset.group.program_code) in search.calls
+    assert ("ensure_index", dataset.group.pk) in search.calls
 
 
 # --- prepare_search -----------------------------------------------------------
@@ -128,7 +133,7 @@ def test_prepare_creates_the_index_when_no_set_of_the_program_is_approved(datase
 
 def test_prepare_search_keeps_the_index_and_drops_the_sets_findings(dataset, search):
     group = dataset.group
-    search.ensure_index(group.business_area, group.program_code)
+    search.ensure_index(group.pk)
     BiographicFindingFactory(record__dataset=dataset)
 
     process.prepare_search(dataset, search)
@@ -139,7 +144,7 @@ def test_prepare_search_keeps_the_index_and_drops_the_sets_findings(dataset, sea
 
 def test_prepare_search_reconciles_pending_decisions(dataset, search):
     group = dataset.group
-    search.ensure_index(group.business_area, group.program_code)
+    search.ensure_index(group.pk)
     rejected = BiographicSetFactory(group=group, state=State.REJECTED, search_sync_pending=True)
 
     process.prepare_search(dataset, search)
@@ -162,7 +167,7 @@ def test_prepare_search_refuses_when_the_index_is_gone(dataset, search):
 
 
 def statuses(search, group):
-    docs = search.documents(group.business_area, group.program_code)
+    docs = search.documents(group.pk)
     return {key: doc.status for key, doc in docs.items()}
 
 
@@ -190,11 +195,11 @@ def test_rebuild_leaves_sets_with_nothing_to_restore(search, state):
 
 def test_rebuild_creates_a_missing_index(search):
     group = BiographicSetFactory().group
-    assert not search.index_exists(group.business_area, group.program_code)
+    assert not search.index_exists(group.pk)
 
     process.rebuild(group, search)
 
-    assert search.index_exists(group.business_area, group.program_code)
+    assert search.index_exists(group.pk)
 
 
 def test_rebuild_never_touches_documents_that_are_not_ours(search):
@@ -202,9 +207,9 @@ def test_rebuild_never_touches_documents_that_are_not_ours(search):
     group = BiographicSetFactory().group
     approved = BiographicSetFactory(group=group, state=State.APPROVED)
     person(approved, "a", "Ana Silva")
-    search.ensure_index(group.business_area, group.program_code)
-    search.index_records(group.business_area, group.program_code, 0, [make_payload("h", full_name="Hope")])
-    search.set_status(group.business_area, group.program_code, 0, "approved")
+    search.ensure_index(group.pk)
+    search.index_records(group.pk, group.business_area, group.program_code, 0, [make_payload("h", full_name="Hope")])
+    search.set_status(group.pk, 0, "approved")
 
     process.rebuild(group, search)
 
@@ -239,8 +244,8 @@ def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
     awaiting = BiographicSetFactory(group=group, state=State.DEDUPLICATED)
     rejected = BiographicSetFactory(group=group, state=State.REJECTED, search_sync_pending=True)
     person(awaiting, "a", "Ana Silva")
-    search.ensure_index(group.business_area, group.program_code)
-    search.index_records(group.business_area, group.program_code, str(rejected.pk), [make_payload("r")])
+    search.ensure_index(group.pk)
+    search.index_records(group.pk, group.business_area, group.program_code, str(rejected.pk), [make_payload("r")])
 
     process.rebuild(group, search)
 
@@ -255,12 +260,12 @@ def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
 def test_index_sends_every_record_as_a_payload_and_refreshes(dataset, search, job):
     person(dataset, "a", "Ana Silva", birth_date="1990-01-01")
     person(dataset, "b", "Bo Chen")
-    search.ensure_index(dataset.group.business_area, dataset.group.program_code)
+    search.ensure_index(dataset.group.pk)
 
     indexed = process.index(dataset, search, job)
 
     assert indexed == 2
-    documents = search.documents(dataset.group.business_area, dataset.group.program_code)
+    documents = search.documents(dataset.group.pk)
     assert set(documents) == {f"{dataset.pk}:a", f"{dataset.pk}:b"}
     assert documents[f"{dataset.pk}:a"].payload.birth_date == "1990-01-01"
     assert documents[f"{dataset.pk}:a"].status == "pending"
@@ -339,12 +344,13 @@ def test_deduplicate_keeps_the_best_hit_per_matched_person_and_scope(job, datase
     first = BiographicSet.objects.filter(group=group, state=State.APPROVED).get()
     resent = str(uuid4())
     search.index_records(
+        group.pk,
         group.business_area,
         group.program_code,
         resent,
         [process.to_payload(r) for r in first.records.all()],
     )
-    search.set_status(group.business_area, group.program_code, resent, "approved")
+    search.set_status(group.pk, resent, "approved")
     person(dataset, "a", "Ana Silva")
 
     _, stats = run(job, search)
@@ -362,6 +368,23 @@ def test_documents_migrated_from_hope_count_as_population(job, dataset, search):
 
     finding = BiographicFinding.objects.get(dataset=dataset)
     assert (finding.scope, finding.matched_reference_pk) == (Scope.POPULATION, "pop-0")
+
+
+def test_recreated_program_cannot_search_the_deleted_groups_population(search, no_tracking):
+    old_group = BiographicGroupFactory(business_area="afg", program_code="ab12")
+    approved_population(old_group, search, "Ana Silva")
+    old_group.soft_delete()
+
+    new_group = BiographicGroupFactory(business_area="afg", program_code="ab12")
+    job = BiographicJobFactory(dataset__group=new_group)
+    person(job.dataset, "new", "Ana Silva")
+
+    _, stats = run(job, search)
+
+    assert stats.findings_created == 0
+    assert not BiographicFinding.objects.filter(dataset=job.dataset).exists()
+    assert len(search.documents(old_group.pk)) == 1
+    assert len(search.documents(new_group.pk)) == 1
 
 
 def test_deduplicate_counts_records_that_hit_the_hits_limit(search, no_tracking):
@@ -428,9 +451,13 @@ def test_other_pending_sets_are_not_candidates(job, dataset, search):
     """Two batches in flight must not see each other."""
     other = BiographicSetFactory(group=dataset.group, state=State.FAILED)
     other_record = person(other, "x", "Ana Silva")
-    search.ensure_index(dataset.group.business_area, dataset.group.program_code)
+    search.ensure_index(dataset.group.pk)
     search.index_records(
-        dataset.group.business_area, dataset.group.program_code, str(other.pk), [process.to_payload(other_record)]
+        dataset.group.pk,
+        dataset.group.business_area,
+        dataset.group.program_code,
+        str(other.pk),
+        [process.to_payload(other_record)],
     )
     person(dataset, "a", "Ana Silva")
 

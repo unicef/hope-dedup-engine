@@ -64,7 +64,7 @@ def _check_population_index(group: BiographicGroup, search: BiographicSearch) ->
     an incomplete population and find nothing. A program with no approved set has
     nothing to lose, so its first run creates the index as usual.
     """
-    if search.index_exists(group.business_area, group.program_code):
+    if search.index_exists(group.pk):
         return
     if group.sets.filter(state=BiographicSet.State.APPROVED).exists():
         raise IndexMissingError(
@@ -83,7 +83,7 @@ def prepare(dataset: BiographicSet, search: BiographicSearch) -> None:
     group = dataset.group
     _check_population_index(group, search)
     BiographicFinding.objects.filter(dataset=dataset).delete()
-    search.ensure_index(group.business_area, group.program_code)
+    search.ensure_index(group.pk)
     status.reconcile(group, search)
 
 
@@ -95,7 +95,7 @@ def prepare_search(dataset: BiographicSet, search: BiographicSearch) -> None:
     would find nothing, and a rebuild has to put them back first.
     """
     group = dataset.group
-    if not search.index_exists(group.business_area, group.program_code):
+    if not search.index_exists(group.pk):
         raise IndexMissingError(
             f"The index of {group.business_area}/{group.program_code} is missing, so set {dataset.pk} "
             "is no longer indexed. Rebuild the index before searching."
@@ -111,9 +111,9 @@ def index(dataset: BiographicSet, search: BiographicSearch, job: BiographicJob) 
     for chunk in _chunks(dataset, INDEX_CHUNK_SIZE):
         job.ensure_not_cancelled()
         indexed += search.index_records(
-            group.business_area, group.program_code, str(dataset.pk), [to_payload(record) for record in chunk]
+            group.pk, group.business_area, group.program_code, str(dataset.pk), [to_payload(record) for record in chunk]
         )
-    search.refresh(group.business_area, group.program_code)
+    search.refresh(group.pk)
     return indexed
 
 
@@ -131,8 +131,7 @@ def deduplicate(
     for chunk in _chunks(dataset, SEARCH_CHUNK_SIZE):
         job.ensure_not_cancelled()
         hits_per_record = search.search_many(
-            group.business_area,
-            group.program_code,
+            group.pk,
             [to_payload(record) for record in chunk],
             min_score=config.duplicate_score,
             dataset_id=str(dataset.pk),
@@ -191,21 +190,21 @@ def _findings_for(
 
 
 def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: BiographicSet | None = None) -> dict[str, int]:
-    """Put sets back in the program's index from the records kept in Postgres.
+    """Restore the group's indexed sets from the records kept in Postgres.
 
-    Additive on purpose: the index is created if it is missing, never deleted or
-    emptied. HOPE fills program indexes with documents of its own (`dataset_id` 0)
-    that exist nowhere in Postgres, so only the documents of this group's sets are
-    written. Each id is `{dataset_id}:{reference_pk}`, so a document that is already
-    there is overwritten, not duplicated.
+    Additive on purpose: the group's index is created if missing, never deleted
+    or emptied. Only this group's sets are restored; a newly registered group
+    has its own index and cannot inherit a deleted group's population.
+    Document ids are `{dataset_id}:{reference_pk}`, so existing documents are
+    overwritten rather than duplicated.
 
-    Every set that was indexed and is still alive is restored with the status
-    Postgres gives it: approved sets as `approved`, the ones awaiting a decision as
-    `pending`. Rejected, canceled, pending and failed sets have nothing to restore.
-    Pass `dataset` to restore only that one. Returns the documents written per set.
+    Each set is restored with the status Postgres gives it: approved sets as
+    `approved`, indexed and deduplicating/deduplicated sets as `pending`.
+    Rejected, canceled, pending, indexing and failed sets are not restored.
+    Pass `dataset` to restore only that one. Returns documents written per set.
     """
     business_area, program_code = group.business_area, group.program_code
-    search.ensure_index(business_area, program_code)
+    search.ensure_index(group.pk)
 
     sets = group.sets.filter(state__in=list(status.REBUILD_STATUS))
     if dataset is not None:
@@ -216,11 +215,16 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
         document_status = status.REBUILD_STATUS[target.state]
         written[str(target.pk)] = sum(
             search.index_records(
-                business_area, program_code, str(target.pk), [to_payload(record) for record in chunk], document_status
+                group.pk,
+                business_area,
+                program_code,
+                str(target.pk),
+                [to_payload(record) for record in chunk],
+                document_status,
             )
             for chunk in _chunks(target, INDEX_CHUNK_SIZE)
         )
-    search.refresh(business_area, program_code)
+    search.refresh(group.pk)
     # A decision that never reached the index is applied on top of what was restored.
     status.reconcile(group, search)
     return written
