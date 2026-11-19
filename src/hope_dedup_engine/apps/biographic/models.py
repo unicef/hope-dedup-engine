@@ -47,6 +47,11 @@ class BiographicGroup(models.Model):
     processing_locked = models.BooleanField(
         default=False, help_text="Whether any biographic task is currently running for this program."
     )
+    index_rebuild_required = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text="Whether the index needs a complete rebuild before processing can resume.",
+    )
 
     class Meta:
         constraints = [
@@ -55,6 +60,7 @@ class BiographicGroup(models.Model):
                 fields=["business_area", "program_code"],
                 condition=Q(deleted=False),
                 name="unique_biographic_group",
+                violation_error_message="An active biographic group already exists for this business area and program.",
             ),
         ]
         permissions = [

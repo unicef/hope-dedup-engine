@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from hope_dedup_engine.apps.biographic.config import BiographicConfig
-from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
+from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError, IndexRebuildRequiredError
 from hope_dedup_engine.apps.biographic.models import (
     BULK_CREATE_BATCH_SIZE,
     FULL_NAME_LENGTH,
@@ -57,13 +57,25 @@ def _chunks(dataset: BiographicSet, size: int) -> Iterator[list[BiographicRecord
         last_pk = chunk[-1].pk
 
 
+def _check_rebuild_complete(group: BiographicGroup) -> None:
+    """Refuse to use an index whose full rebuild has not finished."""
+    if BiographicGroup.objects.filter(pk=group.pk, index_rebuild_required=True).exists():
+        raise IndexRebuildRequiredError(
+            f"The index of {group.business_area}/{group.program_code} requires a full rebuild. "
+            "Use Rebuild index on the biographic group."
+        )
+
+
 def _check_population_index(group: BiographicGroup, search: BiographicSearch) -> None:
-    """Refuse to run when approved sets exist but the program's index is gone.
+    """Refuse to run with an unfinished full rebuild or a missing approved population index.
 
     `ensure_index` would quietly create an empty one, and the run would then search
-    an incomplete population and find nothing. A program with no approved set has
-    nothing to lose, so its first run creates the index as usual.
+    an incomplete population and find nothing. A program with no approved set and
+    no unfinished rebuild can create the index on its first run as usual.
+
+    An unfinished full rebuild blocks processing even when the index exists.
     """
+    _check_rebuild_complete(group)
     if search.index_exists(group.pk):
         return
     if group.sets.filter(state=BiographicSet.State.APPROVED).exists():
@@ -93,8 +105,10 @@ def prepare_search(dataset: BiographicSet, search: BiographicSearch) -> None:
     Unlike `prepare` it never creates the index. The set's own documents were
     indexed by an earlier run, so an index that is gone has lost them: searching
     would find nothing, and a rebuild has to put them back first.
+    An unfinished full rebuild also blocks the search before any findings are removed.
     """
     group = dataset.group
+    _check_rebuild_complete(group)
     if not search.index_exists(group.pk):
         raise IndexMissingError(
             f"The index of {group.business_area}/{group.program_code} is missing, so set {dataset.pk} "
@@ -192,19 +206,35 @@ def _findings_for(
 def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: BiographicSet | None = None) -> dict[str, int]:
     """Restore the group's indexed sets from the records kept in Postgres.
 
-    Additive on purpose: the group's index is created if missing, never deleted
-    or emptied. Only this group's sets are restored; a newly registered group
-    has its own index and cannot inherit a deleted group's population.
-    Document ids are `{dataset_id}:{reference_pk}`, so existing documents are
-    overwritten rather than duplicated.
+    Additive on purpose: a full rebuild creates the group's index if missing,
+    but an existing index is never deleted or emptied. Only this group's sets
+    are restored; a newly registered group has its own index and cannot inherit
+    a deleted group's population. Document ids are `{dataset_id}:{reference_pk}`,
+    so existing documents are overwritten rather than duplicated.
 
     Each set is restored with the status Postgres gives it: approved sets as
     `approved`, indexed and deduplicating/deduplicated sets as `pending`.
     Rejected, canceled, pending, indexing and failed sets are not restored.
-    Pass `dataset` to restore only that one. Returns documents written per set.
+    Pass `dataset` to restore only that one; this requires an existing index
+    with no unfinished full rebuild. Returns documents written per set.
+
+    A full rebuild marks the index as requiring recovery before any index work.
+    The marker is cleared only after all sets are written, the index is refreshed
+    and pending status changes are reconciled. A failure leaves processing blocked
+    until a full rebuild succeeds.
     """
     business_area, program_code = group.business_area, group.program_code
-    search.ensure_index(group.pk)
+    if dataset is None:
+        group.index_rebuild_required = True
+        group.save(update_fields=["index_rebuild_required"])
+        search.ensure_index(group.pk)
+    else:
+        _check_rebuild_complete(group)
+        if not search.index_exists(group.pk):
+            raise IndexMissingError(
+                f"The index of {business_area}/{program_code} is missing. "
+                "Use Rebuild index on the biographic group before rebuilding individual sets."
+            )
 
     sets = group.sets.filter(state__in=list(status.REBUILD_STATUS))
     if dataset is not None:
@@ -227,4 +257,7 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
     search.refresh(group.pk)
     # A decision that never reached the index is applied on top of what was restored.
     status.reconcile(group, search)
+    if dataset is None:
+        group.index_rebuild_required = False
+        group.save(update_fields=["index_rebuild_required"])
     return written

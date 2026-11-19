@@ -1,5 +1,7 @@
 import pytest
+from django.contrib.admin.sites import AdminSite
 from django.contrib.messages import ERROR, SUCCESS, WARNING, get_messages
+from django.test import RequestFactory
 from django.urls import reverse
 from testutils.factories.biographic import (
     BiographicFindingFactory,
@@ -11,10 +13,10 @@ from testutils.factories.biographic import (
 from testutils.factories.user import SuperUserFactory
 
 from hope_dedup_engine.apps.api.utils.notification import FAILED_TO_NOTIFY
-from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR
+from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR, BiographicGroupAdmin
 from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK
 from hope_dedup_engine.apps.biographic.exceptions import GroupDeletedError
-from hope_dedup_engine.apps.biographic.models import BiographicJob, BiographicSet
+from hope_dedup_engine.apps.biographic.models import BiographicGroup, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.services import lifecycle
 from hope_dedup_engine.apps.biographic.services.lifecycle import LOCK_HELD, NO_RECORDS
 from hope_dedup_engine.apps.biographic.services.status import REBUILD_STATUS
@@ -200,6 +202,24 @@ def test_group_admin_edits_the_programs_thresholds(app):
 
     group.refresh_from_db()
     assert group.settings == {"duplicate_score": 8.5, "max_hits": 40}
+
+
+def test_group_admin_settings_save_preserves_concurrent_rebuild_state(rf: RequestFactory) -> None:
+    group: BiographicGroup = BiographicGroupFactory(settings={"duplicate_score": 6.0, "max_hits": 100})
+    model_admin = BiographicGroupAdmin(BiographicGroup, AdminSite())
+    request = rf.post("/")
+    form_class = model_admin.get_form(request, group, change=True)
+    form = form_class(data={"duplicate_score": 8.5, "max_hits": 40}, instance=group)
+    assert form.is_valid()
+    stale_group = model_admin.save_form(request, form, change=True)
+    BiographicGroup.objects.filter(pk=group.pk).update(index_rebuild_required=True, processing_locked=True)
+
+    model_admin.save_model(request, stale_group, form, change=True)
+
+    group.refresh_from_db()
+    assert group.settings == {"duplicate_score": 8.5, "max_hits": 40}
+    assert group.index_rebuild_required
+    assert group.processing_locked
 
 
 def test_set_admin_renders_the_run_log(app):

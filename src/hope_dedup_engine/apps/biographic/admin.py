@@ -99,14 +99,27 @@ class BiographicGroupAdmin(BaseModelAdmin):
     """A program's thresholds are edited here; the rest is read-only, as biometric does."""
 
     form = BiographicGroupSettingsForm
-    list_display = ("business_area", "program_code", "processing_locked", "deleted")
+    list_display = ("business_area", "program_code", "processing_locked", "index_rebuild_required", "deleted")
     search_fields = ("business_area", "program_code")
-    list_filter = ("processing_locked", "deleted", DjangoLookupFilter)
-    readonly_fields = ("business_area", "program_code", "biographic_sets", "processing_locked", "deleted")
+    list_filter = ("processing_locked", "index_rebuild_required", "deleted", DjangoLookupFilter)
+    readonly_fields = (
+        "business_area",
+        "program_code",
+        "biographic_sets",
+        "processing_locked",
+        "index_rebuild_required",
+        "deleted",
+    )
     fieldsets = (
         (None, {"fields": readonly_fields}),
         ("Deduplication settings", {"fields": tuple(f.name for f in BiographicConfig.setting_fields())}),
     )
+
+    def save_model(
+        self, request: HttpRequest, obj: BiographicGroup, form: "forms.ModelForm[BiographicGroup]", change: bool
+    ) -> None:
+        """Save only settings so concurrent lifecycle updates are preserved."""
+        obj.save(update_fields=["settings"])
 
     @display(description="Sets")
     def biographic_sets(self, obj: BiographicGroup) -> str:

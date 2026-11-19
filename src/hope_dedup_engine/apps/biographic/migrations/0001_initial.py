@@ -56,6 +56,14 @@ class Migration(migrations.Migration):
                         help_text="Whether any biographic task is currently running for this program.",
                     ),
                 ),
+                (
+                    "index_rebuild_required",
+                    models.BooleanField(
+                        default=False,
+                        editable=False,
+                        help_text="Whether the index needs a complete rebuild before processing can resume.",
+                    ),
+                ),
             ],
             options={
                 "permissions": [("release_processing_lock", "Can release processing lock")],
@@ -64,6 +72,9 @@ class Migration(migrations.Migration):
                         condition=models.Q(("deleted", False)),
                         fields=("business_area", "program_code"),
                         name="unique_biographic_group",
+                        violation_error_message=(
+                            "An active biographic group already exists for this business area and program."
+                        ),
                     )
                 ],
             },

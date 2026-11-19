@@ -16,6 +16,8 @@ sequenceDiagram
     end
     C->>A: POST /datasets/{dataset_id}/process/
     A->>W: queue job
+    A-->>C: 200 {dataset_id, status}
+    W->>W: check index readiness
     W->>ES: index, score against set + approved population
     W-->>C: GET notification_url (on each state change)
     C->>A: GET /datasets/{dataset_id}/ (status: deduplicated)
@@ -84,7 +86,7 @@ $ http POST $P/datasets/$DATASET/records/ <<< '{
 $ http POST $P/datasets/$DATASET/process/
 ```
 
-The response is the set, now `indexing`. The body may override the program's settings for this run only:
+The API returns **200** with the set's current state. The set moves to `indexing` before the job is queued, but the worker may already have advanced it by the time the response is returned. The body may override the program's settings for this run only:
 
 ```console
 $ http POST $P/datasets/$DATASET/process/ duplicate_score:=8.0 max_hits:=50
@@ -92,16 +94,13 @@ $ http POST $P/datasets/$DATASET/process/ duplicate_score:=8.0 max_hits:=50
 
 An unknown key is a **400**, so a misspelt threshold cannot silently run with the default. See [Configuration](configuration.md).
 
-Returns **409** when:
+Returns **409** if the set is not `pending` or `failed`, has no records, another set in the program is being processed or awaiting approval, or the [program's processing lock](../concepts/lifecycle.md#programs-one-active-set-at-a-time) is held, including by a queued or running rebuild.
 
-- the set is not `pending` or `failed`,
-- the set has no records,
-- another set in the program is being processed or awaiting approval, or
-- a run is already in progress for the program.
+`process` on a `failed` set is the **retry**. Once [index readiness checks](../concepts/pipeline.md#stage-1-prepare) pass, the new run removes the previous findings and overwrites the set's indexed documents. If those checks fail, the previous findings remain stored.
 
-`process` on a `failed` set is the **retry**: the new run discards the partial results of the failed one.
+An unfinished full rebuild, or a missing index when the program has approved sets, fails the set in the worker even if the API accepted the request. An administrator must [rebuild the group](../admin/operations.md#incomplete-rebuilds), then the client must retry; rebuilding does not rerun failed jobs.
 
-Processing is asynchronous. Track it by [polling or notifications](notifications.md):
+Processing is asynchronous. Follow the set's `status` and `error` by [polling or notifications](notifications.md):
 
 ```console
 $ http GET $P/datasets/$DATASET/
@@ -160,6 +159,6 @@ $ http DELETE $P/
 Soft-deletes biographic deduplication for the program: its sets are no longer found, so every set route answers **404**, and its settings and data are kept in the database.
 
 - Returns **204** with no body. Deleting a program that does not exist, or one that is already deleted, also returns **204**.
-- Returns **409** while a task (indexing, searching or rebuilding) is running for the program. Try again once it has finished.
+- Returns **409** while the program's processing lock is held, including by queued or running indexing, search or rebuild work. Retry after the task finishes; see [Recovering a stuck set](../admin/operations.md#recovering-a-stuck-set) if a killed worker left the lock behind.
 - The program can be used again: creating a set registers a new, empty program under the same business area and program code, with the default settings.
-- Nothing is removed from Elasticsearch. The index is named after the business area and program code, so documents of the deleted program's approved sets stay in it, and a program registered again is searched against them as its approved population.
+- Nothing is removed from Elasticsearch. Each [group has its own index](../concepts/data-model.md#biographicgroup), identified by its internal database PK. The new group has a separate index name and an empty population; it does not search the deleted group's approved documents.

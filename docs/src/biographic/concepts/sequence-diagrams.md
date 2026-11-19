@@ -27,6 +27,8 @@ sequenceDiagram
 
 ## Start processing
 
+The API queues the run; index readiness is checked later by the worker. See [Start processing](../integration/workflow.md#3-start-processing) for the request and response contract.
+
 ```mermaid
 sequenceDiagram
     participant C as Client
@@ -39,20 +41,24 @@ sequenceDiagram
     API->>L: start_processing
     L->>DB: pending or failed? has records? no other active set?
     L->>DB: acquire_processing_lock (FOR UPDATE on group)
-    alt lock held
+    break lock held
         L-->>API: LifecycleConflictError
         API-->>C: 409
     end
     L->>DB: one transaction: set -> indexing, create BiographicJob
     Note over DB: lost race: unique_active_biographic_set_per_group fires,<br>rollback, release lock, 409
     L->>Q: job.queue() -> process_biographic_dataset(job_id, version)
-    alt publish fails
+    break publish fails
         L->>DB: set -> failed (could not queue), release lock
+        L-->>API: re-raise publish error
     end
-    API-->>C: 200 {status: indexing}
+    API->>DB: read current set state
+    API-->>C: 200 {dataset_id, status}
 ```
 
 ## Worker run, happy path
+
+The full run follows [Prepare](pipeline.md#stage-1-prepare). For index-only and search-only runs, see [admin indexing and searching](../admin/operations.md#indexing-and-searching-from-the-admin).
 
 ```mermaid
 sequenceDiagram
@@ -65,6 +71,11 @@ sequenceDiagram
     W->>DB: load job, set, group
     W->>H: GET (indexing)
     W->>P: prepare
+    P->>DB: require index_rebuild_required = false
+    P->>ES: index_exists; check existing dataset_id and status mappings
+    opt index is missing
+        P->>DB: require no approved sets
+    end
     P->>DB: delete this set's findings
     P->>ES: ensure_index
     P->>ES: reconcile pending decisions
@@ -107,22 +118,26 @@ sequenceDiagram
 
 ## Failure and retry
 
+Readiness failures leave previous findings stored. For a missing population index or an unfinished full rebuild, [rebuild the group](../admin/operations.md#incomplete-rebuilds) before retrying the failed set.
+
 ```mermaid
 sequenceDiagram
     participant W as Task
     participant DB as Postgres
     participant H as notification_url
     participant C as Client
+    participant API as DatasetViewSet
 
-    W->>W: exception while indexing or scoring
+    W->>W: exception during preparation, indexing or scoring
     W->>DB: re-read set; if still running -> failed (error)
     W->>H: GET (failed)
     W->>DB: log entry with traceback
     W->>W: report to Sentry, re-raise (Celery FAILURE)
     W->>DB: release_processing_lock (finally)
 
-    C->>DB: POST /process/ again (set is failed)
-    Note over C,DB: new job; prepare deletes partial findings;<br>same document ids overwrite the pending documents
+    C->>API: POST /process/ again (set is failed)
+    Note over C,API: new job; clear findings only after readiness checks pass
+    Note over C,API: indexing overwrites the same document IDs
 ```
 
 ## Graceful cancellation from the admin
@@ -151,20 +166,23 @@ sequenceDiagram
     participant C as Client
     participant L as lifecycle
     participant DB as Postgres
-    participant Q as Celery
-    participant S as update_biographic_status
+    participant Q as Celery status task
     participant ES as Elasticsearch
 
     C->>L: POST /approve/ (or /reject/)
     L->>DB: one transaction: FOR UPDATE, require deduplicated,<br>search_sync_pending = true, state -> approved / rejected
     L->>Q: send_task(update_biographic_status) (a failure is only logged)
     L-->>C: 200
-    Q->>S: run (5 retries with backoff on connection errors)
-    S->>ES: update_by_query dataset_id -> approved / rejected
-    S->>DB: search_sync_pending = false
+    Q->>Q: run update_biographic_status (5 retries with backoff on connection errors)
+    Q->>ES: update_by_query dataset_id -> approved / rejected
+    opt status update succeeds
+        Q->>DB: search_sync_pending = false
+    end
 ```
 
 ## Reconcile at the start of the next run
+
+During processing, reconciliation follows the readiness checks. It synchronizes [pending decisions](../admin/operations.md#decisions-that-have-not-reached-elasticsearch); it does not restore missing documents or clear the group's recovery flag.
 
 ```mermaid
 sequenceDiagram
@@ -175,9 +193,11 @@ sequenceDiagram
     W->>DB: sets in the program with search_sync_pending
     loop each flagged set
         W->>ES: set_status (canceled counts as rejected)
-        W->>DB: search_sync_pending = false
+        opt status update succeeds
+            W->>DB: search_sync_pending = false
+        end
     end
-    Note over W,ES: only now is anything searched,<br>so a lost status task never leaves a rejected set in the population
+    Note over W,ES: search follows status reconciliation
 ```
 
 ## Cancel a pending or failed set

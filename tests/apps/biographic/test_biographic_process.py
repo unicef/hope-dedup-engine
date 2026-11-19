@@ -1,8 +1,10 @@
 """The processing service, step by step, against the in-memory search."""
 
+from collections.abc import Callable
 from uuid import uuid4
 
 import pytest
+from pytest_mock import MockerFixture
 from testutils.biographic import FakeBiographicSearch, make_payload
 from testutils.factories.biographic import (
     BiographicFindingFactory,
@@ -14,8 +16,8 @@ from testutils.factories.biographic import (
 
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.biographic.config import resolve_config
-from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
-from hope_dedup_engine.apps.biographic.models import FULL_NAME_LENGTH, BiographicFinding, BiographicSet
+from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError, IndexRebuildRequiredError
+from hope_dedup_engine.apps.biographic.models import FULL_NAME_LENGTH, BiographicFinding, BiographicGroup, BiographicSet
 from hope_dedup_engine.apps.biographic.services import process
 
 pytestmark = pytest.mark.django_db
@@ -111,6 +113,25 @@ def test_prepare_refuses_to_recreate_the_index_of_a_program_with_approved_sets(d
 
     assert not any(call[0] == "ensure_index" for call in search.calls)
     assert BiographicFinding.objects.filter(dataset=dataset).exists()
+
+
+@pytest.mark.parametrize("prepare", [process.prepare, process.prepare_search], ids=["full", "search"])
+def test_prepare_refuses_an_unfinished_rebuild(
+    prepare: Callable[[BiographicSet, FakeBiographicSearch], None],
+    dataset: BiographicSet,
+    search: FakeBiographicSearch,
+) -> None:
+    group = dataset.group
+    search.ensure_index(group.pk)
+    finding = BiographicFindingFactory(record__dataset=dataset)
+    BiographicGroup.objects.filter(pk=group.pk).update(index_rebuild_required=True)
+    search.calls.clear()
+
+    with pytest.raises(IndexRebuildRequiredError):
+        prepare(dataset, search)
+
+    assert BiographicFinding.objects.filter(pk=finding.pk).exists()
+    assert not search.calls
 
 
 def test_prepare_runs_when_the_index_of_a_program_with_approved_sets_exists(dataset, search):
@@ -228,15 +249,44 @@ def test_rebuild_twice_does_not_duplicate_documents(search):
     assert statuses(search, group) == {f"{approved.pk}:a": "approved"}
 
 
-def test_rebuild_of_one_set_leaves_the_others_alone(search):
+def test_rebuild_of_one_set_leaves_the_others_alone(search: FakeBiographicSearch) -> None:
     group = BiographicSetFactory().group
     first = BiographicSetFactory(group=group, state=State.APPROVED)
     second = BiographicSetFactory(group=group, state=State.APPROVED)
     person(first, "a", "Ana Silva")
     person(second, "b", "Bo Berg")
+    search.ensure_index(group.pk)
 
     assert process.rebuild(group, search, second) == {str(second.pk): 1}
     assert statuses(search, group) == {f"{second.pk}:b": "approved"}
+
+
+def test_rebuild_of_one_set_refuses_a_missing_index(search: FakeBiographicSearch) -> None:
+    dataset = BiographicSetFactory(state=State.APPROVED)
+    BiographicRecordFactory(dataset=dataset)
+    group = dataset.group
+
+    with pytest.raises(IndexMissingError):
+        process.rebuild(group, search, dataset)
+
+    assert not search.index_exists(group.pk)
+    assert not search.calls
+
+
+def test_rebuild_of_one_set_refuses_an_unfinished_full_rebuild(search: FakeBiographicSearch) -> None:
+    dataset = BiographicSetFactory(state=State.APPROVED)
+    BiographicRecordFactory(dataset=dataset)
+    group = dataset.group
+    search.ensure_index(group.pk)
+    BiographicGroup.objects.filter(pk=group.pk).update(index_rebuild_required=True)
+    search.calls.clear()
+
+    with pytest.raises(IndexRebuildRequiredError):
+        process.rebuild(group, search, dataset)
+
+    group.refresh_from_db()
+    assert group.index_rebuild_required
+    assert not search.calls
 
 
 def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
@@ -252,6 +302,24 @@ def test_rebuild_applies_a_decision_that_never_reached_the_index(search):
     assert statuses(search, group) == {f"{awaiting.pk}:a": "pending", f"{rejected.pk}:r": "rejected"}
     rejected.refresh_from_db()
     assert not rejected.search_sync_pending
+
+
+@pytest.mark.parametrize("method", ["refresh", "set_status"], ids=["refresh", "reconcile"])
+def test_rebuild_keeps_recovery_required_when_finalization_fails(
+    search: FakeBiographicSearch, mocker: MockerFixture, method: str
+) -> None:
+    dataset = BiographicSetFactory(state=State.APPROVED, search_sync_pending=True)
+    record = BiographicRecordFactory(dataset=dataset)
+    group = dataset.group
+    failing = mocker.patch.object(search, method, side_effect=RuntimeError)
+
+    with pytest.raises(RuntimeError):
+        process.rebuild(group, search)
+
+    group.refresh_from_db()
+    assert group.index_rebuild_required
+    assert f"{dataset.pk}:{record.reference_pk}" in search.documents(group.pk)
+    failing.assert_called_once()
 
 
 # --- index --------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Domain errors raised below the HTTP layer. The views map them to 409."""
+"""Domain errors raised below the HTTP layer; views map lifecycle conflicts to 409."""
 
 
 class LifecycleConflictError(Exception):
@@ -6,12 +6,19 @@ class LifecycleConflictError(Exception):
 
 
 class IndexMissingError(Exception):
-    """The program's Elasticsearch index is gone, and a run needs what was in it.
+    """The program's Elasticsearch index is gone, and the operation needs it restored.
 
     Either the program has approved sets, or the set to search was indexed earlier.
     Searching would find nothing, so the run stops until the index is rebuilt from
     the records kept in Postgres.
+
+    A single-set rebuild also refuses a missing index, because the whole group
+    must be rebuilt first.
     """
+
+
+class IndexRebuildRequiredError(Exception):
+    """The group's index requires a complete rebuild before it can be used."""
 
 
 class InvalidTransitionError(LifecycleConflictError):

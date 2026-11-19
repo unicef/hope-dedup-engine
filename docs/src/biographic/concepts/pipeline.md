@@ -4,9 +4,15 @@ When a set is processed, the worker indexes its people into the program's Elasti
 
 ## Stage 1 — Prepare
 
-- Delete any findings left in Postgres by a previous, failed run of the same set.
-- Create the program's index if it does not exist, after checking that the cluster has the `analysis-phonetic` plugin (without it, the run fails with an error saying so).
-- **Reconcile**: push every decision in the program that has not reached Elasticsearch yet (`search_sync_pending`). Only then is anything searched, so the population is exactly what Postgres says it is.
+First check [index readiness](../admin/operations.md#incomplete-rebuilds): the group's `index_rebuild_required` flag must be false, and an index must exist if the group has approved sets. An existing index must also have compatible [`dataset_id` and `status` mappings](../admin/operations.md#incompatible-index-mappings). If these checks fail, the worker fails the set before deleting previous findings or writing documents.
+
+Once the checks pass:
+
+1. Delete findings left in Postgres by a previous run of the same set.
+2. Create the group's index if it is missing. This is allowed only when there are no approved sets and no unfinished rebuild; the cluster must have the `analysis-phonetic` plugin, checked before creation.
+3. **Reconcile** [pending decisions](../admin/operations.md#decisions-that-have-not-reached-elasticsearch): push each set's status to Elasticsearch before searching. This updates statuses; it does not restore missing documents.
+
+For [admin runs](../admin/operations.md#indexing-and-searching-from-the-admin), **Index records** stops after Stage 2. **Find duplicates** requires an existing index even without approved sets, applies the same recovery and mapping checks before replacing findings, reconciles decisions and skips Stage 2.
 
 ## Stage 2 — Index
 
@@ -108,15 +114,15 @@ A record whose hit count reaches `max_hits` is counted as *truncated* in the run
 
 ## Overview diagram
 
+The full processing path, including a failure during the initial readiness checks:
+
 ```mermaid
 flowchart TB
-    prepare["1. Prepare<br>drop old findings, ensure index,<br>reconcile pending decisions"] --> index
-    index["2. Index<br>bulk 2,000 per request as pending,<br>refresh"] --> score
-    subgraph score["3. Score, 200 records per msearch"]
-        query["HOPE query per person:<br>names (fuzzy or phonetic) + boosted fields"]
-        filter["candidates: this set (pending)<br>+ approved population,<br>minus own reference_pk"]
-        query --> filter
-    end
-    score -- "hits >= duplicate_score,<br>at most max_hits" --> store
-    store["4. Store findings<br>scope batch / population,<br>best hit per person and scope"]
+    ready{"1. Prepare: index readiness checks pass?"}
+    ready -- "No" --> failed["Fail set; keep previous findings"]
+    ready -- "Yes" --> prepare["Clear findings, ensure index, reconcile decisions"]
+    prepare --> index["2. Index pending documents and refresh"]
+    index --> score["3. Search this set and approved population"]
+    score -- "score >= duplicate_score; at most max_hits" --> store
+    store["4. Store best hit per person and scope"]
 ```

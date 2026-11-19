@@ -3,7 +3,8 @@
 import pytest
 from celery.exceptions import Ignore
 from django_celery_beat.models import PeriodicTask
-from testutils.biographic import make_payload
+from pytest_mock import MockerFixture
+from testutils.biographic import FakeBiographicSearch, make_payload
 from testutils.factories.biographic import BiographicJobFactory, BiographicRecordFactory, BiographicSetFactory
 
 from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
@@ -24,7 +25,7 @@ from hope_dedup_engine.apps.biographic.const import (
 from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError
 from hope_dedup_engine.apps.biographic.models import BiographicFinding, BiographicJob, BiographicSet
 from hope_dedup_engine.apps.biographic.search.backend import ElasticsearchBiographicSearch
-from hope_dedup_engine.apps.biographic.services import process
+from hope_dedup_engine.apps.biographic.services import lifecycle, process
 
 pytestmark = pytest.mark.django_db
 
@@ -302,25 +303,66 @@ def test_rebuild_restores_the_sets_logs_it_and_releases_the_lock(fake_search):
     assert not locked(approved)
 
 
-def test_rebuild_of_one_set_only_restores_that_set(fake_search):
+def test_rebuild_of_one_set_only_restores_that_set(fake_search: FakeBiographicSearch) -> None:
     group = BiographicSetFactory(group__processing_locked=True).group
     first = BiographicSetFactory(group=group, state=State.APPROVED)
     second = BiographicSetFactory(group=group, state=State.APPROVED)
     BiographicRecordFactory(dataset=first, reference_pk="a")
     BiographicRecordFactory(dataset=second, reference_pk="b")
+    fake_search.ensure_index(group.pk)
 
     assert celery_tasks.rebuild_biographic_index(group.pk, str(second.pk)) == {str(second.pk): 1}
 
 
-def test_a_failed_rebuild_still_releases_the_lock(fake_search):
+def test_a_failed_rebuild_still_releases_the_lock(fake_search: FakeBiographicSearch) -> None:
     group = BiographicSetFactory(group__processing_locked=True).group
     fake_search.fail_on = "ensure_index"
 
-    with pytest.raises(RuntimeError, match="ensure_index failed"):
+    with pytest.raises(RuntimeError):
         celery_tasks.rebuild_biographic_index(group.pk)
 
     group.refresh_from_db()
+    assert group.index_rebuild_required
     assert not group.processing_locked
+
+
+@pytest.mark.usefixtures("queued_tasks")
+def test_a_partial_rebuild_keeps_recovery_required_until_a_full_retry(
+    fake_search: FakeBiographicSearch, mocker: MockerFixture
+) -> None:
+    first: BiographicSet = BiographicSetFactory(state=State.APPROVED)
+    group = first.group
+    second: BiographicSet = BiographicSetFactory(group=group, state=State.APPROVED)
+    BiographicRecordFactory(dataset=first, reference_pk="a")
+    BiographicRecordFactory(dataset=second, reference_pk="b")
+    index_records = mocker.patch.object(
+        fake_search,
+        "index_records",
+        wraps=fake_search.index_records,
+        side_effect=[mocker.DEFAULT, RuntimeError],
+    )
+
+    lifecycle.start_rebuild(group)
+    with pytest.raises(RuntimeError):
+        celery_tasks.rebuild_biographic_index(group.pk)
+
+    group.refresh_from_db()
+    assert group.index_rebuild_required
+    assert not group.processing_locked
+    assert set(fake_search.documents(group.pk)) == {f"{first.pk}:a"}
+
+    index_records.side_effect = None
+    lifecycle.start_rebuild(group)
+    written = celery_tasks.rebuild_biographic_index(group.pk)
+
+    group.refresh_from_db()
+    assert written == {str(first.pk): 1, str(second.pk): 1}
+    assert not group.index_rebuild_required
+    assert not group.processing_locked
+    assert {key: document.status for key, document in fake_search.documents(group.pk).items()} == {
+        f"{first.pk}:a": "approved",
+        f"{second.pk}:b": "approved",
+    }
 
 
 # --- update_biographic_status -------------------------------------------------

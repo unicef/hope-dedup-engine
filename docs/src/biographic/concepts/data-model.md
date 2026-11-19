@@ -1,6 +1,6 @@
 # Data Model
 
-Five models in the `biographic` app hold the lifecycle and the results. Elasticsearch holds a searchable copy of the people, never the decisions.
+Five models in the `biographic` app hold the lifecycle and the results. Postgres owns the decisions; Elasticsearch holds a searchable copy of the people and their status.
 
 ```mermaid
 erDiagram
@@ -11,10 +11,12 @@ erDiagram
     BiographicRecord ||--o{ BiographicFinding : "scored record"
 
     BiographicGroup {
+        bigint id PK "internal group ID"
         string business_area "lowercased slug"
         string program_code "lowercased"
         json settings "thresholds snapshot"
         bool processing_locked
+        bool index_rebuild_required "unfinished full rebuild"
         bool deleted
     }
 
@@ -53,17 +55,24 @@ erDiagram
 
 ## BiographicGroup
 
-One business area and one program: the isolation unit. Created the first time a set is created for that pair. Its Elasticsearch index is named after the pair, so a program registered again after a delete shares the index with the deleted group.
+One business area and one program: the isolation unit. Created the first time a set is created for that pair; only one non-deleted group can exist per pair. Each group has its own Elasticsearch index, named `{ELASTICSEARCH_PREFIX}biographic_{group_id}` using its internal database PK. API clients continue to identify the program by business area and program code.
 
-- `settings` — the program's thresholds, snapshotted from the [Constance defaults](../admin/settings.md) at creation and editable in the admin.
-- `processing_locked` — set while a run is in progress for the program.
-- `deleted` — set by `DELETE /api/biographic/{business_area}/{program_code}/`. The program's sets disappear from the API, nothing can be processed or rebuilt for it, and the next set created for the pair registers a new group. Only one live group exists per pair.
+| Field | Meaning |
+|-------|---------|
+| `settings` | The program's thresholds, snapshotted from the [Constance defaults](../admin/settings.md) at creation and editable in the admin. |
+| `processing_locked` | Serializes processing and rebuilds. Taken before queueing and released by task cleanup; a killed worker may leave it set. |
+| `index_rebuild_required` | Records an unfinished full rebuild. Set before index work and cleared only after restoration, refresh and status reconciliation finish. While set, processing, search and single-set rebuild jobs refuse to use the index. |
+| `deleted` | Hides the group's sets from the API and prevents new processing or rebuilds for the group. |
+
+Releasing the processing lock does not clear the recovery flag. See [Incomplete rebuilds](../admin/operations.md#incomplete-rebuilds) and [Recovering a stuck set](../admin/operations.md#recovering-a-stuck-set). The recovery flag records a rebuild attempt; it does not detect arbitrary missing documents.
+
+[Deleting a program](../integration/workflow.md#deleting-a-program) keeps its database records and index. Creating a set for the same pair registers a new group with default settings and a separate index name. Its index is created when needed, and its population starts empty.
 
 ## BiographicSet
 
 One submitted batch of people. Holds the [lifecycle state](lifecycle.md), the last `error`, the optional `notification_url`/`notify`, and an append-only `log` with one entry per run: timestamp, final state, config, records indexed, findings created, records whose hits were capped by `max_hits`, the outcome of every notification, and the traceback on failure.
 
-`search_sync_pending` is set by approve, reject and cancel-from-failed in the same transaction as the state change, and cleared once Elasticsearch carries the matching status.
+`search_sync_pending` is set by approve, reject and cancel-from-failed in the same transaction as the state change, and cleared after successful status synchronization with Elasticsearch. It tracks this set's decision; full-index recovery is recorded separately on the group. See [Decisions that have not reached Elasticsearch](../admin/operations.md#decisions-that-have-not-reached-elasticsearch).
 
 ## BiographicRecord
 
