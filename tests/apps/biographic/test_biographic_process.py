@@ -1,6 +1,7 @@
 """The processing service, step by step, against the in-memory search."""
 
 from collections.abc import Callable
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -18,7 +19,7 @@ from hope_dedup_engine.apps.api.models.jobs import GracefulJobCancellationError
 from hope_dedup_engine.apps.biographic.config import resolve_config
 from hope_dedup_engine.apps.biographic.exceptions import IndexMissingError, IndexRebuildRequiredError
 from hope_dedup_engine.apps.biographic.models import FULL_NAME_LENGTH, BiographicFinding, BiographicGroup, BiographicSet
-from hope_dedup_engine.apps.biographic.services import process
+from hope_dedup_engine.apps.biographic.services import lifecycle, process, status
 
 pytestmark = pytest.mark.django_db
 
@@ -320,6 +321,47 @@ def test_rebuild_keeps_recovery_required_when_finalization_fails(
     assert group.index_rebuild_required
     assert f"{dataset.pk}:{record.reference_pk}" in search.documents(group.pk)
     failing.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("decision", "expected_status"),
+    [(State.APPROVED, "approved"), (State.REJECTED, "rejected")],
+)
+@pytest.mark.parametrize("single_set", [False, True], ids=["group", "set"])
+def test_rebuild_rechecks_a_decision_synced_before_indexing_finishes(
+    search: FakeBiographicSearch,
+    mocker: MockerFixture,
+    queued_tasks,
+    decision: State,
+    expected_status: str,
+    single_set: bool,
+) -> None:
+    dataset = BiographicSetFactory(state=State.DEDUPLICATED)
+    record = person(dataset, "a", "Ana Silva")
+    group = dataset.group
+    search.ensure_index(group.pk)
+    search.index_records(
+        group.pk, group.business_area, group.program_code, str(dataset.pk), [process.to_payload(record)]
+    )
+    original_index_records = search.index_records
+
+    def approve_or_reject_before_write(*args: Any, **kwargs: Any) -> int:
+        lifecycle.decide(dataset, decision)
+        status.sync(dataset, search)
+        return original_index_records(*args, **kwargs)
+
+    mocker.patch.object(search, "index_records", side_effect=approve_or_reject_before_write)
+
+    process.rebuild(group, search, dataset if single_set else None)
+
+    dataset.refresh_from_db()
+    assert not dataset.search_sync_pending
+    assert statuses(search, group) == {f"{dataset.pk}:a": expected_status}
+    assert [call for call in search.calls if call[0] == "set_status"] == [
+        ("set_status", str(dataset.pk), expected_status),
+        ("set_status", str(dataset.pk), expected_status),
+    ]
+    queued_tasks.assert_called_once()
 
 
 # --- index --------------------------------------------------------------------

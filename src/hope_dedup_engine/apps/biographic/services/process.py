@@ -220,8 +220,9 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
 
     A full rebuild marks the index as requiring recovery before any index work.
     The marker is cleared only after all sets are written, the index is refreshed
-    and pending status changes are reconciled. A failure leaves processing blocked
-    until a full rebuild succeeds.
+    and pending status changes are reconciled. Decisions made during the rebuild
+    are rechecked after indexing. A failure leaves processing blocked until a
+    full rebuild succeeds.
     """
     business_area, program_code = group.business_area, group.program_code
     if dataset is None:
@@ -241,8 +242,11 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
         sets = sets.filter(pk=dataset.pk)
 
     written: dict[str, int] = {}
+    pending_sets: list[BiographicSet] = []
     for target in sets.order_by("created_at", "pk"):
         document_status = status.REBUILD_STATUS[target.state]
+        if document_status == status.STATUS_PENDING:
+            pending_sets.append(target)
         written[str(target.pk)] = sum(
             search.index_records(
                 group.pk,
@@ -255,6 +259,10 @@ def rebuild(group: BiographicGroup, search: BiographicSearch, dataset: Biographi
             for chunk in _chunks(target, INDEX_CHUNK_SIZE)
         )
     search.refresh(group.pk)
+    for target in pending_sets:
+        target.refresh_from_db(fields=["state"])
+        if target.state in status.DOCUMENT_STATUS:
+            status.sync(target, search)
     # A decision that never reached the index is applied on top of what was restored.
     status.reconcile(group, search)
     if dataset is None:
