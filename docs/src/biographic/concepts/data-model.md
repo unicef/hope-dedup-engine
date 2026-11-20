@@ -59,7 +59,7 @@ One business area and one program: the isolation unit. Created the first time a 
 
 | Field | Meaning |
 |-------|---------|
-| `settings` | The program's thresholds, snapshotted from the [Constance defaults](../admin/settings.md) at creation and editable in the admin. |
+| `settings` | The program's thresholds, snapshotted from the [Constance defaults](../admin/settings.md) at creation. Editable in the admin for active groups; read-only after soft deletion. |
 | `processing_locked` | Serializes processing and rebuilds. Taken before queueing and released by task cleanup; a killed worker may leave it set. |
 | `index_rebuild_required` | Records an unfinished full rebuild. Set before index work and cleared only after restoration, refresh and status reconciliation finish. While set, processing, search and single-set rebuild jobs refuse to use the index. |
 | `deleted` | Hides the group's sets from the API and prevents new processing or rebuilds for the group. |

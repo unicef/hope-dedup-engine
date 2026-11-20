@@ -10,6 +10,10 @@ The change form shows the [state](../concepts/lifecycle.md#states), the `error` 
 
 The list can be filtered by state and by `search_sync_pending`, and shows whether the program is locked. Related pages: **Biographic records** (search by name or `reference_pk`), **Biographic findings**, **Biographic groups** ([settings](settings.md#per-program-settings), lock and recovery status), **Biographic jobs** (runs and progress). The group list also filters by the read-only `index_rebuild_required` flag; see [Rebuilding the index](#rebuilding-the-index).
 
+## Soft-deleting a program
+
+Use **Soft delete** on a Biographic Group (requires [Can delete biographic group](settings.md#permissions)). It is blocked while `processing_locked` is set. The group, its sets, records and findings remain viewable; group settings become read-only. Standard hard deletion is disabled for groups, sets, records and findings in the admin.
+
 ## Following a run
 
     Home › Biographic › Biographic jobs

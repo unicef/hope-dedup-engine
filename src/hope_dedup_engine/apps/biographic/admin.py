@@ -9,6 +9,8 @@ from adminfilters.filters import ChoicesFieldComboFilter, DjangoLookupFilter, Nu
 from adminfilters.mixin import AdminFiltersMixin
 from django.contrib import messages
 from django.contrib.admin import display, register
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -19,8 +21,8 @@ from django_celery_boost.admin import CeleryTaskModelAdmin
 from hope_dedup_engine.apps.api.admin.base import BaseModelAdmin
 from hope_dedup_engine.apps.api.admin.json_display import format_log, pretty_json
 from hope_dedup_engine.apps.api.utils.notification import ErrorMessage, WarningMessage, send_notification
-from hope_dedup_engine.apps.biographic.config import BiographicConfig
-from hope_dedup_engine.apps.biographic.exceptions import LifecycleConflictError
+from hope_dedup_engine.apps.biographic.config import BiographicConfig, get_default_group_settings
+from hope_dedup_engine.apps.biographic.exceptions import GroupDeleteError, LifecycleConflictError
 from hope_dedup_engine.apps.biographic.forms import BiographicGroupSettingsForm
 from hope_dedup_engine.apps.biographic.models import (
     BiographicFinding,
@@ -42,6 +44,9 @@ CONFIRM_RELEASE_LOCK = _(
     "Release the lock only if you are sure that no task is currently running for it."
 )
 LOCK_RELEASED = _("Processing lock released.")
+CONFIRM_SOFT_DELETE = _("Do you confirm to soft-delete this Biographic Group?")
+GROUP_SOFT_DELETED = _("Biographic Group soft-deleted.")
+
 CONFIRM_MARK_FAILED = _(
     "Do you confirm to mark this set as failed? Do it only if its task is no longer running. "
     "The program's lock is released, and the client can process or cancel the set again."
@@ -93,6 +98,9 @@ class ReadOnlyAdmin(BaseModelAdmin):
     def has_change_permission(self, request: HttpRequest, obj: object = None) -> bool:
         return False
 
+    def has_delete_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
+        return False
+
 
 @register(BiographicGroup)
 class BiographicGroupAdmin(BaseModelAdmin):
@@ -115,11 +123,38 @@ class BiographicGroupAdmin(BaseModelAdmin):
         ("Deduplication settings", {"fields": tuple(f.name for f in BiographicConfig.setting_fields())}),
     )
 
+    def get_form(
+        self, request: HttpRequest, obj: BiographicGroup | None = None, change: bool = False, **kwargs: Any
+    ) -> "type[forms.ModelForm[BiographicGroup]]":
+        # The threshold fields are not model fields, so the default factory would
+        # reject them; the form builds them itself.
+        return BiographicGroupSettingsForm
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: BiographicGroup | None = None) -> bool:
+        return (obj is None or not obj.deleted) and super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request: HttpRequest, obj: BiographicGroup | None = None) -> bool:
+        return False
+
     def save_model(
         self, request: HttpRequest, obj: BiographicGroup, form: "forms.ModelForm[BiographicGroup]", change: bool
     ) -> None:
         """Save only settings so concurrent lifecycle updates are preserved."""
-        obj.save(update_fields=["settings"])
+        with transaction.atomic():
+            if BiographicGroup.objects.select_for_update().get(pk=obj.pk).deleted:
+                raise PermissionDenied
+            obj.save(update_fields=["settings"])
+
+    @display(description="Duplicate score")
+    def duplicate_score(self, obj: BiographicGroup) -> float:
+        return cast("float", {**get_default_group_settings(), **(obj.settings or {})}["duplicate_score"])
+
+    @display(description="Max hits")
+    def max_hits(self, obj: BiographicGroup) -> int:
+        return cast("int", {**get_default_group_settings(), **(obj.settings or {})}["max_hits"])
 
     @display(description="Sets")
     def biographic_sets(self, obj: BiographicGroup) -> str:
@@ -164,15 +199,33 @@ class BiographicGroupAdmin(BaseModelAdmin):
             modeladmin=self, request=request, action=action, message=CONFIRM_REBUILD, description=str(group), pk=pk
         )
 
-    def get_form(
-        self, request: HttpRequest, obj: BiographicGroup | None = None, change: bool = False, **kwargs: Any
-    ) -> "type[forms.ModelForm[BiographicGroup]]":
-        # The threshold fields are not model fields, so the default factory would
-        # reject them; the form builds them itself.
-        return BiographicGroupSettingsForm
+    @button(
+        label="Soft delete",
+        change_form=True,
+        change_list=False,
+        permission=can.biographic.delete_biographicgroup,
+        visible=lambda button: not button.original.deleted,
+    )
+    def soft_delete(self, request: HttpRequest, pk: str) -> HttpResponse:
+        group = cast("BiographicGroup", self.get_required_object(request, pk))
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
-        return False
+        def action(_: HttpRequest) -> None:
+            group.soft_delete()
+
+        try:
+            return confirm_action(
+                modeladmin=self,
+                request=request,
+                action=action,
+                message=CONFIRM_SOFT_DELETE,
+                success_message=GROUP_SOFT_DELETED,
+                description=str(group),
+                pk=pk,
+                raise_exception=True,
+            )
+        except GroupDeleteError:
+            self.message_user(request, GroupDeleteError.message, messages.ERROR)
+            return redirect("admin:biographic_biographicgroup_change", group.pk)
 
 
 @register(BiographicSet)

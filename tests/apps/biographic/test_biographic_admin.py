@@ -1,6 +1,8 @@
 import pytest
+from constance.test import override_config
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages import ERROR, SUCCESS, WARNING, get_messages
+from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory
 from django.urls import reverse
 from testutils.factories.biographic import (
@@ -13,10 +15,22 @@ from testutils.factories.biographic import (
 from testutils.factories.user import SuperUserFactory
 
 from hope_dedup_engine.apps.api.utils.notification import FAILED_TO_NOTIFY
-from hope_dedup_engine.apps.biographic.admin import MARKED_FAILED_ERROR, BiographicGroupAdmin
+from hope_dedup_engine.apps.biographic.admin import (
+    MARKED_FAILED_ERROR,
+    BiographicFindingAdmin,
+    BiographicGroupAdmin,
+    BiographicRecordAdmin,
+    BiographicSetAdmin,
+)
 from hope_dedup_engine.apps.biographic.const import REBUILD_INDEX_TASK
 from hope_dedup_engine.apps.biographic.exceptions import GroupDeletedError
-from hope_dedup_engine.apps.biographic.models import BiographicGroup, BiographicJob, BiographicSet
+from hope_dedup_engine.apps.biographic.models import (
+    BiographicFinding,
+    BiographicGroup,
+    BiographicJob,
+    BiographicRecord,
+    BiographicSet,
+)
 from hope_dedup_engine.apps.biographic.services import lifecycle
 from hope_dedup_engine.apps.biographic.services.lifecycle import LOCK_HELD, NO_RECORDS
 from hope_dedup_engine.apps.biographic.services.status import REBUILD_STATUS
@@ -189,6 +203,27 @@ def test_a_locked_group_cannot_start_a_rebuild(admin_client, queued_tasks):
     queued_tasks.assert_not_called()
 
 
+def test_group_soft_delete_preserves_its_sets(app):
+    group = BiographicGroupFactory()
+    dataset = BiographicSetFactory(group=group)
+
+    confirm(app, group_button_url("soft_delete", group))
+
+    group.refresh_from_db()
+    assert group.deleted
+    assert BiographicSet.objects.filter(pk=dataset.pk).exists()
+    page = app.get(reverse("admin:biographic_biographicgroup_change", args=[group.pk]))
+    assert "/soft_delete/" not in page.text
+
+
+def test_group_soft_delete_refuses_a_processing_lock(admin_client):
+    group = BiographicGroupFactory(processing_locked=True)
+
+    assert [level for _, level in confirm_messages(admin_client, group_button_url("soft_delete", group))] == [ERROR]
+    group.refresh_from_db()
+    assert not group.deleted
+
+
 def test_group_admin_edits_the_programs_thresholds(app):
     group = BiographicGroupFactory(settings={"duplicate_score": 6.0, "max_hits": 100})
     page = app.get(reverse("admin:biographic_biographicgroup_change", args=[group.pk]))
@@ -220,6 +255,62 @@ def test_group_admin_settings_save_preserves_concurrent_rebuild_state(rf: Reques
     assert group.settings == {"duplicate_score": 8.5, "max_hits": 40}
     assert group.index_rebuild_required
     assert group.processing_locked
+
+
+def test_deleted_group_settings_are_visible_but_not_editable(app, admin_client):
+    group = BiographicGroupFactory(deleted=True, settings={"duplicate_score": 6.0, "max_hits": 40})
+    url = reverse("admin:biographic_biographicgroup_change", args=[group.pk])
+
+    page = app.get(url)
+    assert "Duplicate score" in page.text
+    assert "6.0" in page.text
+    assert "Max hits" in page.text
+    assert "40" in page.text
+    assert 'name="duplicate_score"' not in page.text
+    assert 'name="max_hits"' not in page.text
+
+    assert admin_client.post(url, {"duplicate_score": 8.5, "max_hits": 50, "_save": "Save"}).status_code == 403
+    group.refresh_from_db()
+    assert group.settings == {"duplicate_score": 6.0, "max_hits": 40}
+
+
+@override_config(DEFAULT_BIOGRAPHIC_MAX_HITS=25)
+def test_deleted_group_settings_show_fallback_defaults(app):
+    group = BiographicGroupFactory(deleted=True, settings={"duplicate_score": 6.0})
+    page = app.get(reverse("admin:biographic_biographicgroup_change", args=[group.pk]))
+    assert "Max hits" in page.text
+    assert "25" in page.text
+
+
+def test_admin_save_rejects_a_group_deleted_after_the_form_was_loaded(rf: RequestFactory):
+    group = BiographicGroupFactory(settings={"duplicate_score": 6.0, "max_hits": 100})
+    model_admin = BiographicGroupAdmin(BiographicGroup, AdminSite())
+    request = rf.post("/")
+    form = model_admin.get_form(request, group, change=True)(
+        data={"duplicate_score": 8.5, "max_hits": 40}, instance=group
+    )
+    assert form.is_valid()
+    stale_group = model_admin.save_form(request, form, change=True)
+    BiographicGroup.objects.filter(pk=group.pk).update(deleted=True)
+
+    with pytest.raises(PermissionDenied):
+        model_admin.save_model(request, stale_group, form, change=True)
+
+    group.refresh_from_db()
+    assert group.settings == {"duplicate_score": 6.0, "max_hits": 100}
+
+
+@pytest.mark.parametrize(
+    ("admin_class", "model"),
+    [
+        (BiographicGroupAdmin, BiographicGroup),
+        (BiographicSetAdmin, BiographicSet),
+        (BiographicRecordAdmin, BiographicRecord),
+        (BiographicFindingAdmin, BiographicFinding),
+    ],
+)
+def test_biographic_admin_disables_hard_delete(rf: RequestFactory, admin_class, model):
+    assert not admin_class(model, AdminSite()).has_delete_permission(rf.get("/"))
 
 
 def test_set_admin_renders_the_run_log(app):
