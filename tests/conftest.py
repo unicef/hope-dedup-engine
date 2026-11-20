@@ -59,6 +59,8 @@ def pytest_configure(config):
     settings.MEDIA_ROOT = "/tmp/media"
     settings.STATIC_ROOT = "/tmp/static"
     settings.SECURE_SSL_REDIRECT = False
+    # PBKDF2 is deliberately slow; every UserFactory and test login would pay for it.
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
     os.makedirs(settings.STATIC_ROOT, exist_ok=True)
 
