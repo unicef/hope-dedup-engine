@@ -5,6 +5,7 @@ hope-dedup-engine/
 ├── src/hope_dedup_engine/
 │   ├── apps/
 │   │   ├── api/            # the REST API and core domain models
+│   │   ├── biographic/     # biographic deduplication (Elasticsearch), see its own section
 │   │   ├── faces/          # face pipeline: DeepFace/OFIQ services
 │   │   ├── security/       # User, System, UserRole (multi-tenancy)
 │   │   ├── core/           # base utilities, `demo` and `upgrade` commands

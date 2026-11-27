@@ -1,11 +1,9 @@
-from typing import Final
+from typing import Final, Protocol
 
 import requests
 import sentry_sdk
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
-from hope_dedup_engine.apps.api.models import DeduplicationSet
 
 REQUEST_TIMEOUT: Final[int] = 5
 REQUEST_RETRIES: Final[int] = 3
@@ -23,6 +21,13 @@ class ErrorMessage(str):
 
 class WarningMessage(str):
     pass
+
+
+class Notifiable(Protocol):
+    """Anything with a callback url and a switch: a biometric or a biographic set."""
+
+    notification_url: str | None
+    notify: bool
 
 
 def notification_session() -> requests.Session:
@@ -43,18 +48,19 @@ def notification_session() -> requests.Session:
     return session
 
 
-def send_notification(deduplication_set: DeduplicationSet, force: bool = False) -> None | ErrorMessage | WarningMessage:
-    if not deduplication_set.notification_url:
+def send_notification(target: Notifiable, force: bool = False) -> None | ErrorMessage | WarningMessage:
+    if not target.notification_url:
         return WarningMessage(NO_NOTIFICATION_URL)
 
-    if not (deduplication_set.notify or force):
+    if not (target.notify or force):
         return WarningMessage(NOTIFICATION_DISABLED)
 
     # No credentials are attached: the notification url is self-signed by HOPE, and
     # it is caller-supplied, so sending our token there would leak it to any host.
     try:
         with notification_session() as session:
-            session.get(deduplication_set.notification_url, timeout=REQUEST_TIMEOUT).raise_for_status()
+            session.get(target.notification_url, timeout=REQUEST_TIMEOUT).raise_for_status()
     except requests.RequestException as e:
         sentry_sdk.capture_exception(e)
         return ErrorMessage(FAILED_TO_NOTIFY.format(error=e))
+    return None

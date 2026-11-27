@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/.common"
+require_program
+
+banner "Soft-delete program $BUSINESS_AREA / $PROGRAM_CODE"
+call_api DELETE "$(program_path)"
+set_variable DATASET_ID ""
+info "Program soft-deleted"

@@ -12,6 +12,7 @@ The application is distributed as a Docker image on [Docker Hub](https://hub.doc
     - `run` — web server (API + admin panel)
     - `worker` — Celery worker(s); CPU-intensive, scale these for throughput
     - `beat` — Celery scheduler (exactly one)
+- **Elasticsearch 9 with `analysis-phonetic`** — only if biographic deduplication is used. See [Biographic deployment](../biographic/admin/deployment.md).
 
 ## First deployment
 
